@@ -1,12 +1,12 @@
 # xviv
 
-FPGA project controller for Vivado. Drives Xilinx Vivado in non-project mode from a single `project.toml` configuration file — no GUI clicks, no `.xpr` files, no state drift.
+FPGA project controller for Vivado. Drives Xilinx Vivado in non-project mode from a single `project.toml` configuration file - no GUI clicks, no `.xpr` files, no state drift.
 
 Manages the full development lifecycle:
 
 - IP packaging with automatic AXI interface inference
 - Block Design creation and wrapper generation
-- Synthesis → placement → routing → bitstream in one command
+- Synthesis -> placement -> routing -> bitstream in one command
 - Standalone simulation via `xvlog` / `xelab` / `xsim` with live waveform reloading
 - SystemVerilog interface flattening for Vivado BD compatibility
 
@@ -16,7 +16,7 @@ Manages the full development lifecycle:
 
 - Python 3.11+
 - Xilinx Vivado 2024.1 (other versions likely work, set path in `project.toml`)
-- `pyslang` — only required for `xviv_wrap_top`
+- `pyslang` - only required for `xviv_wrap_top`
 
 ---
 
@@ -135,7 +135,7 @@ xviv generate-bd --bd my_bd
 # Generate a hook file with lifecycle and report-flag procs
 xviv synth-config --top my_top
 
-# Full flow: synth → place → route → bitstream → XSA
+# Full flow: synth -> place -> route -> bitstream -> XSA
 xviv synthesis --top my_top
 
 # Open any intermediate checkpoint in the GUI
@@ -158,7 +158,7 @@ netlists/
 The synthesis hook file lets you skip report groups (useful during early development) and inject TCL at each stage:
 
 ```tcl
-proc report_synth  {} { return 0 }  # skip — speeds up iteration
+proc report_synth  {} { return 0 }  # skip - speeds up iteration
 proc report_place  {} { return 1 }
 proc report_route  {} { return 1 }
 proc report_netlists {} { return 0 }
