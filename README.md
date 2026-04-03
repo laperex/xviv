@@ -12,32 +12,40 @@ Manages the full development lifecycle:
 
 ---
 
-## Requirements
+## Table of Contents
+
+1. [Requirements](#1-requirements)
+2. [Installation](#2-installation)
+   - [Using a Virtual Environment](#using-a-virtual-environment)
+   - [Updating xviv](#updating-xviv)
+3. [Project Structure](#3-project-structure)
+4. [Quick Start](#4-quick-start)
+5. [project.toml Reference](#5-projecttoml-reference)
+6. [Workflows](#6-workflows)
+   - [IP Packaging](#ip-packaging)
+   - [Block Design](#block-design)
+   - [Synthesis & Implementation](#synthesis--implementation)
+   - [Simulation](#simulation)
+   - [Snapshots](#snapshots)
+7. [xviv_wrap_top](#7-xviv_wrap_top)
+8. [Command Reference](#8-command-reference)
+9. [License](#9-license)
+
+---
+
+## 1. Requirements
 
 - Python 3.11+
-- Xilinx Vivado 2024.1 (other versions likely work, set path in `project.toml`)
+- Xilinx Vivado 2024.1 (other versions likely work - set the path in `project.toml`)
 - `pyslang` - only required for `xviv_wrap_top`
 
 ---
 
-## Installation
-
-```bash
-pip install git+https://github.com/laperex/xviv
-```
-
-This installs two commands: `xviv` and `xviv_wrap_top`.
-
-For local development:
-
-```bash
-git clone https://github.com/laperex/xviv
-pip install -e ./xviv
-```
+## 2. Installation
 
 ### Using a Virtual Environment
 
-It's recommended to install xviv inside a .venv local to your project. This keeps the tool version pinned per-project and avoids polluting your system Python.
+It is recommended to install `xviv` inside a `.venv` local to your project. This keeps the tool version pinned per-project and avoids polluting your system Python.
 
 ```bash
 # Create and activate the venv
@@ -51,19 +59,61 @@ pip install git+https://github.com/you/xviv
 # Verify
 xviv --help
 ```
-Add .venv/ to your .gitignore (it should already be there if you used the template).
-From this point on, always activate the venv before running xviv:
+
+`.venv/` is already listed in the template `.gitignore` - do not commit it.
+
+From this point on, always activate the venv before running `xviv`:
+
 ```bash
 source .venv/bin/activate
 ```
 
 ### Updating xviv
+
 ```bash
 pip install --upgrade git+https://github.com/you/xviv
 ```
+
+pip re-fetches the latest commit from the repo and reinstalls.
+
+To pin to a specific commit for reproducibility:
+
+```bash
+pip install git+https://github.com/you/xviv@abc1234
+```
+
+Where `abc1234` is the commit hash. Useful once the tool is stable and you don't want surprises from upstream changes mid-project.
+
 ---
 
-## Quick Start
+## 3. Project Structure
+
+All paths are configurable in `project.toml`. The default layout:
+
+```
+my_project/
+├── project.toml              # Single source of truth for xviv
+├── .venv/                    # Local Python environment (not committed)
+├── srcs/
+│   ├── rtl/                  # RTL sources (.sv, .v)
+│   ├── sim/                  # Simulation-only sources
+│   └── constrs/              # XDC constraint files
+├── scripts/
+│   ├── ip/
+│   │   └── my_ip_1.0.tcl     # Generated IP hook (xviv ip-config)
+│   ├── bd/
+│   │   └── my_bd_1.0.tcl     # Generated BD hook (xviv bd-config)
+│   └── synth/
+│       └── my_top.tcl        # Generated synthesis hook (xviv synth-config)
+└── build/                    # All outputs land here (not committed)
+    ├── ip/                   # Packaged IP cores
+    ├── bd/                   # Block Design files
+    └── xviv/                 # Simulation build artifacts
+```
+
+---
+
+## 4. Quick Start
 
 Create a `project.toml` in your project root:
 
@@ -108,7 +158,69 @@ hooks = "scripts/bd/my_bd_1.0.tcl"
 
 ---
 
-## Workflows
+## 5. project.toml Reference
+
+### `[vivado]`
+
+| Key | Default | Description |
+|---|---|---|
+| `path` | `/opt/Xilinx/Vivado/2024.1` | Vivado installation root |
+| `max_threads` | `8` | `general.maxThreads` Vivado parameter |
+| `mode` | `batch` | `batch` for scripted runs, `tcl` for interactive |
+
+### `[fpga]`
+
+| Key | Required | Description |
+|---|---|---|
+| `part` | yes | FPGA part string e.g. `xc7z020clg400-1` |
+| `board_part` | no | Board part string for board presets |
+| `board_repo` | no | Path to custom board files directory |
+
+### `[build]`
+
+| Key | Default | Description |
+|---|---|---|
+| `dir` | `build` | Root build output directory |
+| `ip_repo` | `build/ip` | Where packaged IPs are stored |
+| `bd_dir` | `build/bd` | Where Block Design outputs land |
+| `wrapper_dir` | `srcs/rtl` | Where `generate-bd` copies the BD wrapper |
+
+### `[sources]`
+
+| Key | Description |
+|---|---|
+| `rtl` | Glob list of RTL sources added to synthesis and IP edit projects |
+| `sim` | Glob list of sources compiled by `xvlog` for simulation |
+
+### `[[ip]]`
+
+| Key | Default | Description |
+|---|---|---|
+| `name` | required | IP name |
+| `vendor` | `user.org` | IP vendor string |
+| `library` | `user` | IP library string |
+| `version` | `1.0` | IP version string |
+| `top` | same as `name` | Top-level HDL module name |
+| `hooks` | `scripts/ip/<n>_<version>.tcl` | Path to the hook TCL file |
+
+### `[[bd]]`
+
+| Key | Default | Description |
+|---|---|---|
+| `name` | required | Block Design name |
+| `hooks` | `scripts/bd/<n>_<version>.tcl` | Path to the hook TCL file |
+
+### `[[synthesis]]`
+
+| Key | Description |
+|---|---|
+| `top` | Top module name |
+| `hooks` | Path to the synthesis hook TCL file |
+| `constrs` | Glob list of XDC constraint files for this target |
+
+---
+
+## 6. Workflows
 
 ### IP Packaging
 
@@ -123,7 +235,7 @@ xviv create-ip --ip my_ip
 xviv edit-ip --ip my_ip
 ```
 
-The generated hook file exposes five procs you fill in:
+The generated hook file exposes five procs:
 
 | Proc | Purpose |
 |---|---|
@@ -181,19 +293,19 @@ reports/
 netlists/
 ```
 
-The synthesis hook file lets you skip report groups (useful during early development) and inject TCL at each stage:
+The synthesis hook lets you skip report groups (useful during early development) and inject TCL at each stage:
 
 ```tcl
-proc report_synth  {} { return 0 }  # skip - speeds up iteration
-proc report_place  {} { return 1 }
-proc report_route  {} { return 1 }
+proc report_synth    {} { return 0 }  # skip - speeds up iteration
+proc report_place    {} { return 1 }
+proc report_route    {} { return 1 }
 proc report_netlists {} { return 0 }
 
-proc synth_pre   {} { }  # before synth_design
-proc synth_post  {} { }  # after synthesis, before placement
-proc place_post  {} { }  # after placement, before routing
-proc route_post  {} { }  # after routing, before bitstream
-proc bitstream_post {} { }
+proc synth_pre      {} { }  # before synth_design
+proc synth_post     {} { }  # after synthesis,  before placement
+proc place_post     {} { }  # after placement,  before routing
+proc route_post     {} { }  # after routing,    before bitstream
+proc bitstream_post {} { }  # after write_bitstream and write_hw_platform
 ```
 
 ---
@@ -232,7 +344,7 @@ xviv reload-snapshot --top my_tb
 
 ---
 
-## xviv_wrap_top
+## 7. xviv_wrap_top
 
 Vivado Block Design does not accept SystemVerilog interface ports. `xviv_wrap_top` parses your SV module with `pyslang` and generates a flat wrapper that expands every interface port into individual signals, suitable for IP packaging and BD instantiation.
 
@@ -258,69 +370,7 @@ It generates `my_ip_wrapper.sv` with all interface signals flattened to plain po
 
 ---
 
-## project.toml Reference
-
-### `[vivado]`
-
-| Key | Default | Description |
-|---|---|---|
-| `path` | `/opt/Xilinx/Vivado/2024.1` | Vivado installation root |
-| `max_threads` | `8` | `general.maxThreads` Vivado parameter |
-| `mode` | `batch` | `batch` for scripted, `tcl` for interactive |
-
-### `[fpga]`
-
-| Key | Required | Description |
-|---|---|---|
-| `part` | yes | FPGA part string e.g. `xc7z020clg400-1` |
-| `board_part` | no | Board part string for board presets |
-| `board_repo` | no | Path to custom board files directory |
-
-### `[build]`
-
-| Key | Default | Description |
-|---|---|---|
-| `dir` | `build` | Root build output directory |
-| `ip_repo` | `build/ip` | Where packaged IPs are stored |
-| `bd_dir` | `build/bd` | Where Block Design outputs land |
-| `wrapper_dir` | `srcs/rtl` | Where `generate-bd` copies the BD wrapper |
-
-### `[sources]`
-
-| Key | Description |
-|---|---|
-| `rtl` | Glob list of RTL sources added to synthesis and IP edit projects |
-| `sim` | Glob list of sources added to simulation (compiled by `xvlog`) |
-
-### `[[ip]]`
-
-| Key | Default | Description |
-|---|---|---|
-| `name` | required | IP name |
-| `vendor` | `user.org` | IP vendor string |
-| `library` | `user` | IP library string |
-| `version` | `1.0` | IP version string |
-| `top` | same as `name` | Top-level HDL module name |
-| `hooks` | `scripts/ip/<name>_<version>.tcl` | Path to the hook TCL file |
-
-### `[[bd]]`
-
-| Key | Default | Description |
-|---|---|---|
-| `name` | required | Block Design name |
-| `hooks` | `scripts/bd/<name>_<version>.tcl` | Path to the hook TCL file |
-
-### `[[synthesis]]`
-
-| Key | Description |
-|---|---|
-| `top` | Top module name |
-| `hooks` | Path to the synthesis hook TCL file |
-| `constrs` | Glob list of XDC constraint files for this target |
-
----
-
-## Command Reference
+## 8. Command Reference
 
 ### IP
 
@@ -365,3 +415,7 @@ It generates `my_ip_wrapper.sv` with all interface signals flattened to plain po
 | `--log-file` | `build/xviv/xviv.log` | Append debug log to file |
 
 ---
+
+## 9. License
+
+MIT
