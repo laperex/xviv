@@ -23,7 +23,7 @@ Manages the full development lifecycle:
 ## Installation
 
 ```bash
-pip install git+https://github.com/you/xviv
+pip install git+https://github.com/laperex/xviv
 ```
 
 This installs two commands: `xviv` and `xviv_wrap_top`.
@@ -31,7 +31,7 @@ This installs two commands: `xviv` and `xviv_wrap_top`.
 For local development:
 
 ```bash
-git clone https://github.com/you/xviv
+git clone https://github.com/laperex/xviv
 pip install -e ./xviv
 ```
 
