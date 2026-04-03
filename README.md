@@ -415,7 +415,3 @@ It generates `my_ip_wrapper.sv` with all interface signals flattened to plain po
 | `--log-file` | `build/xviv/xviv.log` | Append debug log to file |
 
 ---
-
-## 9. License
-
-MIT

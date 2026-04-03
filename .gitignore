@@ -19,3 +19,6 @@ pip-delete-this-directory.txt
 # Hatchling / build artifacts
 *.whl
 *.tar.gz
+
+.pypirc
+/.mypy_cache
