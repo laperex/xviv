@@ -1,0 +1,18 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "xviv"
+version = "0.1.0"
+description = "FPGA project controller for Vivado"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = ["pyslang"]
+
+[project.scripts]
+xviv          = "xviv.cli:main"
+xviv_wrap_top = "xviv.wrap_top:main"
+
+[tool.hatchling.build.targets.wheel]
+packages = ["src/xviv"]
