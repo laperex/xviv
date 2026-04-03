@@ -35,6 +35,32 @@ git clone https://github.com/laperex/xviv
 pip install -e ./xviv
 ```
 
+### Using a Virtual Environment
+
+It's recommended to install xviv inside a .venv local to your project. This keeps the tool version pinned per-project and avoids polluting your system Python.
+
+```bash
+# Create and activate the venv
+python -m venv .venv
+source .venv/bin/activate        # Linux / macOS
+# .venv\Scripts\activate         # Windows
+
+# Install xviv
+pip install git+https://github.com/you/xviv
+
+# Verify
+xviv --help
+```
+Add .venv/ to your .gitignore (it should already be there if you used the template).
+From this point on, always activate the venv before running xviv:
+```bash
+source .venv/bin/activate
+```
+
+### Updating xviv
+```bash
+pip install --upgrade git+https://github.com/you/xviv
+```
 ---
 
 ## Quick Start
