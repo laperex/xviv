@@ -1,5 +1,9 @@
 # xviv
 
+[![PyPI](https://img.shields.io/pypi/v/xviv)](https://pypi.org/project/xviv/)
+[![Python](https://img.shields.io/pypi/pyversions/xviv)](https://pypi.org/project/xviv/)
+[![License](https://img.shields.io/pypi/l/xviv)](https://pypi.org/project/xviv/)
+
 FPGA project controller for Vivado. Drives Xilinx Vivado in non-project mode from a single `project.toml` configuration file - no GUI clicks, no `.xpr` files, no state drift.
 
 Manages the full development lifecycle:
