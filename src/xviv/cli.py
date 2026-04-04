@@ -31,6 +31,7 @@ import argparse
 import glob as _glob
 import logging
 import os
+from pathlib import Path
 import subprocess
 import sys
 import tempfile
@@ -502,27 +503,8 @@ def generate_bd_hooks(
 # =============================================================================
 # {os.path.basename(hooks_path)}
 # Hook procs called by xviv create-bd / edit-bd for {bd_name}
-#
-# Workflow
-# --------
-#   1.  xviv create-bd --bd {bd_name}
-#         First run: no exported TCL -> GUI opens for interactive design.
-#         Subsequent runs: sources the exported TCL and exits cleanly.
-#
-#   2.  Design the BD interactively in the GUI (first run only).
-#
-#   3.  From another terminal, once the design is ready:
-#         xviv export-bd --bd {bd_name}
-#       This writes scripts/bd/{bd_name}_<sha>.tcl and updates the symlink
-#         scripts/bd/{bd_name}.tcl -> {bd_name}_<sha>.tcl
-#
-#   4.  Commit both files.  Any machine can now run "xviv create-bd" and
-#       reproduce the BD exactly without the binary .bd file.
 # =============================================================================
-
-# Path to the symlink that always points at the latest exported design TCL.
-# Resolved relative to this hooks file so the path works on any machine.
-set _bd_design_tcl [file join [file dirname [info script]] "{export_tcl_rel}"]
+set ::_bd_design_tcl [file join [file dirname [info script]] "{export_tcl_rel}"]
 
 # ---------------------------------------------------------------------------
 # bd_design_config  -  called by xviv immediately after create_bd_design
@@ -551,12 +533,6 @@ proc bd_design_config {{ parentCell }} {{
 		puts "INFO: Opening GUI for interactive design."
 		puts "INFO: When done, run:  xviv export-bd --bd {bd_name}"
 		start_gui
-		# After designing interactively, call from the Vivado Tcl console:
-		#   xviv_refresh_bd_addresses
-		#   validate_bd_design
-		#   save_bd_design
-		# Then from a terminal:
-		#   xviv export-bd --bd {bd_name}
 	}}
 }}
 """)
@@ -787,6 +763,19 @@ def _find_tcl_script() -> str:
 	with importlib.resources.as_file(ref) as path:
 		return str(path)
 
+def _strip_bd_tcl(path: str) -> None:
+    with open(path, "r") as f:
+        data = f.read()
+    start = data.find("set bCheckIPsPassed")
+    end   = data.find("close_bd_design")
+    if start == -1 or end == -1:
+        raise RuntimeError(
+            f"Could not find expected markers in exported BD TCL: {path}\n"
+            f"  'set bCheckIPsPassed' found: {start != -1}\n"
+            f"  'close_bd_design'     found: {end != -1}"
+        )
+    with open(path, "w") as f:
+        f.write(data[start:end])
 
 def build_parser() -> argparse.ArgumentParser:
 	p = argparse.ArgumentParser(
@@ -946,6 +935,8 @@ def main() -> None:
 
 		# 4. Vivado writes the versioned TCL file and exits.
 		run_vivado(cfg, tcl_script, "export_bd", [], config_tcl)
+		
+		_strip_bd_tcl(versioned)
 
 		# 5. Atomically update the symlink: my_bd.tcl -> my_bd_abc1234.tcl
 		_atomic_symlink(versioned, symlink)

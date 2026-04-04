@@ -587,8 +587,9 @@ proc cmd_export_bd {} {
     # -no_ip_version intentionally omitted: full VLNV version pins are
     # required for bit-identical BD recreation on another machine.
     write_bd_tcl -force \
-        -hier_blks [get_bd_cells -hierarchical -filter {TYPE == hier}] \
+		-no_project_wrapper \
         $xviv_bd_export_tcl
+        # -hier_blks [get_bd_cells -hierarchical -filter {TYPE == hier}] \
 
     puts "INFO: Export complete - $xviv_bd_export_tcl"
     puts "INFO: Total elapsed: [xviv_elapsed]"
