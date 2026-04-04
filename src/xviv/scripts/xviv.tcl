@@ -374,7 +374,7 @@ proc _xviv_ip_finalise {ip_vid} {
 # =============================================================================
 proc cmd_create_ip {} {
     global xviv_ip_name xviv_ip_vendor xviv_ip_library xviv_ip_version
-    global xviv_ip_top  xviv_ip_hooks  xviv_ip_repo
+    global xviv_ip_top xviv_ip_rtl xviv_ip_hooks  xviv_ip_repo
 
     xviv_require_vars xviv_ip_name xviv_ip_vendor xviv_ip_library \
                       xviv_ip_version xviv_ip_repo
@@ -405,6 +405,10 @@ proc cmd_create_ip {} {
     _xviv_ip_strip_scaffold
 
     xviv_stage "Adding RTL sources"
+
+	add_files -norecurse -scan_for_includes $xviv_ip_rtl
+	set_property TOP $xviv_ip_top [current_fileset]
+	
     ipx_add_files
     update_compile_order -fileset sources_1
     ipx::merge_project_changes ports [ipx::current_core]

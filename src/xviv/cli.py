@@ -211,12 +211,17 @@ def generate_config_tcl(
 		hooks = ip_cfg.get("hooks", "")
 		if hooks:
 			hooks = os.path.abspath(os.path.join(base_dir, hooks))
+
+		ip_rtl_files = _resolve_globs(ip_cfg.get("rtl", []), base_dir)
+
 		lines += [
 			f'set xviv_ip_name    "{ip_cfg["name"]}"',
 			f'set xviv_ip_vendor  "{ip_cfg.get("vendor",  "user.org")}"',
 			f'set xviv_ip_library "{ip_cfg.get("library", "user")}"',
 			f'set xviv_ip_version "{ip_cfg.get("version", "1.0")}"',
-			f'set xviv_ip_top     "{ip_cfg.get("top", ip_cfg["name"])}"',
+			# f'set xviv_ip_module  "{ip_cfg.get("module", ip_cfg["name"])}"',
+			f'set xviv_ip_top     "{ip_cfg.get("top", f"{ip_cfg["name"]}_wrapper")}"',
+			f'set xviv_ip_rtl     "{_tcl_list(ip_rtl_files) if ip_rtl_files else _tcl_list(rtl_files)}"',
 			f'set xviv_ip_hooks   "{hooks}"',
 		]
 
@@ -873,7 +878,7 @@ def main() -> None:
 	# -- IP ------------------------------------------------------------------
 	if cmd == "create-ip":
 		# Auto-create hooks if absent; skip silently if already present.
-		generate_ip_hooks(cfg, project_dir, args.ip, exist_ok=True)
+		# generate_ip_hooks(cfg, project_dir, args.ip, exist_ok=True)
 		config_tcl = generate_config_tcl(cfg, project_dir, ip_name=args.ip)
 		run_vivado(cfg, tcl_script, "create_ip", [], config_tcl)
 
@@ -1002,7 +1007,6 @@ def main() -> None:
 	else:
 		parser.print_help()
 		sys.exit(1)
-
 
 if __name__ == "__main__":
 	main()
