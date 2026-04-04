@@ -8,7 +8,7 @@ version = "0.1.2"
 description = "FPGA project controller for Vivado"
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = ["pyslang"]
+dependencies = ["pyslang", "argcomplete"]
 classifiers = [
 	"Development Status :: 3 - Alpha",
 	"Intended Audience :: Developers",
@@ -26,7 +26,7 @@ Repository = "https://github.com/laperex/xviv"
 Issues     = "https://github.com/laperex/xviv/issues"
 
 [project.scripts]
-xviv = "xviv.cli:main"
+xviv = "xviv.xviv:main"
 xviv_wrap_top = "xviv.wrap_top:main"
 
 [tool.hatchling.build.targets.wheel]
