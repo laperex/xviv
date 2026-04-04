@@ -22,3 +22,6 @@ pip-delete-this-directory.txt
 
 .pypirc
 /.mypy_cache
+
+
+FEATURES
