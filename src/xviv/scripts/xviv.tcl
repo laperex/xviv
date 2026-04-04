@@ -350,6 +350,22 @@ proc cmd_synthesis {top_module} {
     set report_dir  "$out_dir/reports"
     set netlist_dir "$out_dir/netlists"
 
+	# short SHA (7 hex digits = 28 bits)
+	set sha_short [exec git rev-parse --short=7 HEAD]
+
+	# uncommitted changes (dirty flag)
+	set dirty 0
+	catch {
+		set status [exec git status --porcelain]
+		if {[string length $status] > 0} {
+			set dirty 1
+		}
+	}
+
+	# Pack into 32 bits: bit 31 = dirty, bits 27:0 = SHA (7 hex digits)
+	set usr_access_val [format "%s%07s" $dirty $sha_short]
+
+
     file mkdir $out_dir
     file mkdir $report_dir
     file mkdir $netlist_dir
@@ -444,13 +460,17 @@ proc cmd_synthesis {top_module} {
 
     route_post
 
+	set_property BITSTREAM.CONFIG.USR_ACCESS 0x${usr_access_val} [current_design]
+
+	puts "USR_ACCESS set to: 0x${usr_access_val} (dirty=${dirty}, sha=${sha_short})"
+
     # ------------------------------------------------------------------
     # Bitstream + XSA
     # ------------------------------------------------------------------
     puts "INFO: Generating bitstream"
-    write_bitstream -force "$out_dir/$top_module.bit"
+    write_bitstream -force "$out_dir/${top_module}_${dirty}_${sha_short}.bit"
     puts "INFO: Generating XSA platform"
-    write_hw_platform -fixed -include_bit -force -file "$out_dir/$top_module.xsa"
+    write_hw_platform -fixed -include_bit -force -file "$out_dir/${top_module}_${dirty}_${sha_short}.xsa"
 
     bitstream_post
 
