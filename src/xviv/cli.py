@@ -31,11 +31,11 @@ import argparse
 import glob as _glob
 import logging
 import os
-from pathlib import Path
 import subprocess
 import sys
 import tempfile
 import tomllib
+import argcomplete
 from typing import Optional
 import stat
 import importlib.resources
@@ -769,18 +769,57 @@ def _find_tcl_script() -> str:
 		return str(path)
 
 def _strip_bd_tcl(path: str) -> None:
-    with open(path, "r") as f:
-        data = f.read()
-    start = data.find("set bCheckIPsPassed")
-    end   = data.find("save_bd_design")
-    if start == -1 or end == -1:
-        raise RuntimeError(
-            f"Could not find expected markers in exported BD TCL: {path}\n"
-            f"  'set bCheckIPsPassed' found: {start != -1}\n"
-            f"  'save_bd_design'     found: {end != -1}"
-        )
-    with open(path, "w") as f:
-        f.write(data[start:end])
+	with open(path, "r") as f:
+		data = f.read()
+	start = data.find("set bCheckIPsPassed")
+	end   = data.find("save_bd_design")
+	if start == -1 or end == -1:
+		raise RuntimeError(
+			f"Could not find expected markers in exported BD TCL: {path}\n"
+			f"  'set bCheckIPsPassed' found: {start != -1}\n"
+			f"  'save_bd_design'     found: {end != -1}"
+		)
+	with open(path, "w") as f:
+		f.write(data[start:end])
+
+def _find_config(prefix, parsed_args, **kwargs) -> str:
+	return getattr(parsed_args, "config", None) or "project.toml"
+
+def _ip_names_completer(prefix, parsed_args, **kwargs):
+	try:
+		cfg = load_config(os.path.abspath(_find_config(prefix, parsed_args)))
+		return [ip["name"] for ip in cfg.get("ip", [])]
+	except Exception:
+		return []
+
+def _bd_names_completer(prefix, parsed_args, **kwargs):
+	try:
+		cfg = load_config(os.path.abspath(_find_config(prefix, parsed_args)))
+		return [bd["name"] for bd in cfg.get("bd", [])]
+	except Exception:
+		return []
+
+def _top_names_completer(prefix, parsed_args, **kwargs):
+	try:
+		cfg = load_config(os.path.abspath(_find_config(prefix, parsed_args)))
+		return [s["top"] for s in cfg.get("synthesis", [])]
+	except Exception:
+		return []
+
+def _dcp_stems_completer(prefix, parsed_args, **kwargs):
+	try:
+		cfg      = load_config(os.path.abspath(_find_config(prefix, parsed_args)))
+		top      = getattr(parsed_args, "top", None)
+		build_dir = cfg.get("build", {}).get("dir", "build")
+		if not top:
+			return ["post_synth", "post_place", "post_route"]
+		stems = [
+			os.path.splitext(os.path.basename(f))[0]
+			for f in _glob.glob(os.path.join(build_dir, top, "*.dcp"))
+		]
+		return stems or ["post_synth", "post_place", "post_route"]
+	except Exception:
+		return ["post_synth", "post_place", "post_route"]
 
 def build_parser() -> argparse.ArgumentParser:
 	p = argparse.ArgumentParser(
@@ -808,58 +847,73 @@ def build_parser() -> argparse.ArgumentParser:
 	# -- IP ------------------------------------------------------------------
 	for name in ("create-ip", "edit-ip"):
 		c = _cmd(name, f"{name} for the specified IP")
-		c.add_argument("--ip", required=True, help="IP name as defined in [[ip]] TOML entry")
+		c.add_argument(
+			"--ip", required=True, help="IP name as defined in [[ip]] TOML entry"
+		).completer = _ip_names_completer
 
 	c = _cmd("ip-config", "Generate a starter hooks file for an IP")
-	c.add_argument("--ip", required=True, help="IP name as defined in [[ip]] TOML entry")
+	c.add_argument(
+		"--ip", required=True, help="IP name as defined in [[ip]] TOML entry"
+	).completer = _ip_names_completer
 
 	# -- Block Design --------------------------------------------------------
 	for name in ("create-bd", "edit-bd", "generate-bd"):
 		c = _cmd(name, f"{name} for the specified Block Design")
-		c.add_argument("--bd", required=True, help="BD name as defined in [[bd]] TOML entry")
+		c.add_argument(
+			"--bd", required=True, help="BD name as defined in [[bd]] TOML entry"
+		).completer = _bd_names_completer
 
 	c = _cmd("export-bd", "Export the current BD as a versioned re-runnable TCL script")
-	c.add_argument("--bd", required=True, help="BD name as defined in [[bd]] TOML entry")
+	c.add_argument("--bd", required=True, help="BD name as defined in [[bd]] TOML entry"
+		).completer = _bd_names_completer
 
 	c = _cmd("bd-config", "Generate a starter hooks file for a BD")
-	c.add_argument("--bd", required=True, help="BD name as defined in [[bd]] TOML entry")
+	c.add_argument("--bd", required=True, help="BD name as defined in [[bd]] TOML entry"
+		).completer = _bd_names_completer
 
 	# -- Implementation ------------------------------------------------------
 	c = _cmd("synthesis", "Synthesise, place, route, and write bitstream")
-	c.add_argument("--top", required=True, help="Top module name")
+	c.add_argument("--top", required=True, help="Top module name"
+		).completer = _top_names_completer
 
 	c = _cmd("synth-config", "Generate a starter hooks file for synthesis")
-	c.add_argument("--top", required=True, help="Top module name")
+	c.add_argument("--top", required=True, help="Top module name"
+		).completer = _top_names_completer
 
 	# -- Simulation ----------------------------------------------------------
 	c = _cmd("elaborate", "Compile and optionally run simulation")
-	c.add_argument("--top",     required=True, help="Simulation top module")
-	c.add_argument("--so",      default="",    help="DPI shared library name (no path/extension)")
-	c.add_argument("--dpi-lib", default="",    help="Directory containing the DPI .so")
-	c.add_argument("--run",     default="",    help="Simulation run time, e.g. 1000ns")
+	c.add_argument("--top", required=True, help="Simulation top module"
+		).completer = _top_names_completer
+	c.add_argument("--so",      default="", help="DPI shared library name (no path/extension)")
+	c.add_argument("--dpi-lib", default="", help="Directory containing the DPI .so")
+	c.add_argument("--run",     default="", help="Simulation run time, e.g. 1000ns")
 
 	# -- Checkpoint ----------------------------------------------------------
 	c = _cmd("open-dcp", "Open a checkpoint in Vivado GUI")
-	c.add_argument("--top", required=True, help="Top module name (locates build/<top>/)")
-	c.add_argument("--dcp", default="post_synth", help="Checkpoint stem (default: post_synth)")
+	c.add_argument("--top", required=True, help="Top module name (locates build/<top>/)"
+		).completer = _top_names_completer
+	c.add_argument("--dcp", default="post_synth", help="Checkpoint stem (default: post_synth)"
+		).completer = _dcp_stems_completer
 
 	c = _cmd("open-snapshot", "Open the simulation snapshot in xsim GUI")
-	c.add_argument("--top", required=True, help="Simulation top module")
+	c.add_argument("--top", required=True, help="Simulation top module").completer = _top_names_completer
 
 	c = _cmd("reload-snapshot", "Restart simulation snapshot")
-	c.add_argument("--top", required=True, help="Simulation top module")
+	c.add_argument("--top", required=True, help="Simulation top module").completer = _top_names_completer
 
 	c = _cmd("open-wdb", "Open the waveform database in xsim GUI")
-	c.add_argument("--top", required=True, help="Simulation top module")
+	c.add_argument("--top", required=True, help="Simulation top module").completer = _top_names_completer
 
 	c = _cmd("reload-wdb", "Reload waveform window")
-	c.add_argument("--top", required=True, help="Simulation top module")
+	c.add_argument("--top", required=True, help="Simulation top module").completer = _top_names_completer
 
 	return p
 
 
 def main() -> None:
 	parser = build_parser()
+	# echo 'eval "$(register-python-argcomplete xviv)"' >> ~/.zshrc
+	argcomplete.autocomplete(parser)
 	args   = parser.parse_args()
 
 	cfg_path    = os.path.abspath(args.config)
