@@ -465,6 +465,12 @@ proc cmd_create_bd {} {
     xviv_stub bd_design_config
     xviv_source_hooks xviv_bd_hooks
 
+	set bd_subdir [file join $xviv_bd_dir $xviv_bd_name]
+    if {[file exists $bd_subdir]} {
+        puts "WARNING: Removing existing BD directory - $bd_subdir"
+        file delete -force $bd_subdir
+    }
+
     file mkdir $xviv_bd_dir
 
     puts "INFO: Creating Block Design - $xviv_bd_name"
