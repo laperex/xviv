@@ -472,8 +472,8 @@ proc cmd_synthesis {top_module} {
     puts "INFO: Generating XSA platform"
     write_hw_platform -fixed -include_bit -force -file "$out_dir/${top_module}_${dirty}_${sha_short}.xsa"
 
-	exec ln -s "$out_dir/${top_module}_${dirty}_${sha_short}.xsa" "$out_dir/${top_module}.xsa"
-	exec ln -s "$out_dir/${top_module}_${dirty}_${sha_short}.bit" "$out_dir/${top_module}.bit"
+	exec ln -sf "$out_dir/${top_module}_${dirty}_${sha_short}.xsa" "$out_dir/${top_module}.xsa"
+	exec ln -sf "$out_dir/${top_module}_${dirty}_${sha_short}.bit" "$out_dir/${top_module}.bit"
 
     bitstream_post
 
