@@ -772,12 +772,12 @@ def _strip_bd_tcl(path: str) -> None:
     with open(path, "r") as f:
         data = f.read()
     start = data.find("set bCheckIPsPassed")
-    end   = data.find("close_bd_design")
+    end   = data.find("save_bd_design")
     if start == -1 or end == -1:
         raise RuntimeError(
             f"Could not find expected markers in exported BD TCL: {path}\n"
             f"  'set bCheckIPsPassed' found: {start != -1}\n"
-            f"  'close_bd_design'     found: {end != -1}"
+            f"  'save_bd_design'     found: {end != -1}"
         )
     with open(path, "w") as f:
         f.write(data[start:end])
