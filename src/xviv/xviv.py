@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-xviv  -  FPGA project controller for Vivado
-Reads project.toml and drives Vivado (or standalone Xilinx tools).
+xviv  -  FPGA project controller for Vivado / Vitis
+Reads project.toml and drives Vivado, xsct, or standalone Xilinx tools.
 
 Usage:
 xviv [--config project.toml] <command> [options]
@@ -20,6 +20,15 @@ synth-config --top  <module>
 simulate     --top  <sim_top>  [--so libdpi]  [--dpi-lib ./build/libs]
 open-dcp     --top  <module>   [--dcp post_synth]
 
+xsct-backed commands (MicroBlaze / Vitis):
+create-platform  --platform <n>
+platform-build   --platform <n>
+create-app       --app <n>  [--platform <n>]  [--template <t>]
+app-build        --app <n>  [--info]
+program          (--bitstream <path> | --platform <n>)  [--elf <path> | --app <n>]
+processor        (--reset | --status)
+jtag-monitor     --uart
+
 Standalone commands:
 open-wdb        --top <sim_top>
 reload-wdb      --top <sim_top>
@@ -31,6 +40,7 @@ import argparse
 import glob as _glob
 import logging
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -109,9 +119,64 @@ def load_config(path: str) -> dict:
 		sys.exit(f"ERROR: Config file not found - {path}")
 	with open(path, "rb") as fh:
 		cfg = tomllib.load(fh)
-	if "fpga" not in cfg or "part" not in cfg["fpga"]:
-		sys.exit("ERROR: project.toml must define [fpga] part = '...'")
+	fpga = cfg.get("fpga", {})
+	has_default = isinstance(fpga.get("part"), str) and bool(fpga["part"])
+	has_named   = any(isinstance(v, dict) and v.get("part") for v in fpga.values())
+	if not has_default and not has_named:
+		sys.exit(
+			"ERROR: project.toml must define at least one FPGA target:\n"
+			"  [fpga] part = '...'              (default, used when no fpga = key present)\n"
+			"  [fpga.<name>] part = '...'       (named target, referenced via fpga = '<name>')"
+		)
 	return cfg
+
+
+def _resolve_fpga(cfg: dict, name: Optional[str]) -> dict:
+	"""Return the fpga config dict for the given named target (or the default).
+
+	The [fpga] section supports two layouts that can coexist:
+
+	# Flat default (backward-compatible)
+	[fpga]
+	part       = "xc7z020clg400-1"
+	board_part = "..."          # optional
+	board_repo = "..."          # optional
+
+	# Named targets
+	[fpga.pynq_z2]
+	part       = "xc7z020clg400-1"
+	board_part = "tul.com.tw:pynq-z2:part0:1.0"
+
+	[fpga.custom_fpga]
+	part = "xc7k325tffg900-2"
+
+	When name is None (no fpga = key in the [[bd]] / [[synthesis]] / [[ip]]
+	entry) the flat default is used.  Sub-table dicts are excluded from the
+	default so they don't pollute the returned dict with nested tables.
+	"""
+	fpga_section = cfg.get("fpga", {})
+
+	if not name:
+		# Default: scalar fields only (strip any [fpga.<name>] sub-tables)
+		result = {k: v for k, v in fpga_section.items() if not isinstance(v, dict)}
+		if not result.get("part"):
+			sys.exit(
+				"ERROR: No fpga = '<name>' specified and no default [fpga] part found.\n"
+				"  Either add  [fpga] part = '...'  or set  fpga = '<name>'  in the entry."
+			)
+		return result
+
+	named = fpga_section.get(name)
+	if not isinstance(named, dict):
+		available = [k for k, v in fpga_section.items() if isinstance(v, dict)]
+		sys.exit(
+			f"ERROR: FPGA target '{name}' not found in project.toml.\n"
+			f"  Available named targets : {available}\n"
+			f"  Define it as            : [fpga.{name}]  part = '...'"
+		)
+	if not named.get("part"):
+		sys.exit(f"ERROR: [fpga.{name}] must define  part = '...'")
+	return named
 
 
 def _resolve_globs(patterns: list[str], base: str) -> list[str]:
@@ -170,10 +235,25 @@ def generate_config_tcl(
 	lines.append(f"set_param general.maxThreads {max_threads}")
 
 	# FPGA / board
-	fpga       = cfg.get("fpga", {})
+	# Determine which named FPGA target (if any) the active entry requests,
+	# then resolve it to a concrete {part, board_part, board_repo} dict.
+	fpga_ref: Optional[str] = None
+	if ip_name:
+		_e       = next((i for i in cfg.get("ip",        []) if i["name"] == ip_name),  {})
+		fpga_ref = _e.get("fpga")
+	elif bd_name:
+		_e       = next((b for b in cfg.get("bd",        []) if b["name"] == bd_name),  {})
+		fpga_ref = _e.get("fpga")
+	elif top_name:
+		_e       = next((s for s in cfg.get("synthesis", []) if s["top"]  == top_name), {})
+		fpga_ref = _e.get("fpga")
+
+	fpga       = _resolve_fpga(cfg, fpga_ref)
 	part       = fpga["part"]
 	board_part = fpga.get("board_part", "")
 	board_repo = fpga.get("board_repo", "")
+
+	logger.debug("FPGA target: %s  part=%s", fpga_ref or "<default>", part)
 
 	if board_repo:
 		lines.append(f'set_param board.repoPaths [list "{board_repo}"]')
@@ -219,7 +299,6 @@ def generate_config_tcl(
 			f'set xviv_ip_vendor  "{ip_cfg.get("vendor",  "user.org")}"',
 			f'set xviv_ip_library "{ip_cfg.get("library", "user")}"',
 			f'set xviv_ip_version "{ip_cfg.get("version", "1.0")}"',
-			# f'set xviv_ip_module  "{ip_cfg.get("module", ip_cfg["name"])}"',
 			f'set xviv_ip_top     "{ip_cfg.get("top", f"{ip_cfg["name"]}_wrapper")}"',
 			f'set xviv_ip_rtl     "{_tcl_list(ip_rtl_files) if ip_rtl_files else _tcl_list(rtl_files)}"',
 			f'set xviv_ip_hooks   "{hooks}"',
@@ -236,10 +315,6 @@ def generate_config_tcl(
 		if hooks:
 			hooks = os.path.abspath(os.path.join(base_dir, hooks))
 
-		# Resolve export TCL path:
-		#   bd_export_path kwarg takes priority (SHA-versioned path from export-bd)
-		#   then TOML export_tcl key
-		#   then the conventional default matching the hooks template
 		if bd_export_path:
 			export_tcl = bd_export_path
 		else:
@@ -380,6 +455,151 @@ def run_vivado_xsim(
 
 
 # ===========================================================================
+# xsct helpers  (MicroBlaze / Vitis workflow)
+# ===========================================================================
+
+def _xsct_bin(cfg: dict) -> str:
+	"""Resolve the xsct binary.  xsct ships alongside Vivado in the same
+	installation tree, so we derive its path from [vivado] path in the TOML."""
+	vitis_path = cfg.get("vitis", {}).get("path", "/opt/Xilinx/Vitis/2024.1")
+	return os.path.join(vitis_path, "bin", "xsct")
+
+
+def _find_xsct_script() -> str:
+	"""Locate the packaged xviv_xsct.tcl dispatcher."""
+	ref = importlib.resources.files("xviv") / "scripts" / "xviv_xsct.tcl"
+	with importlib.resources.as_file(ref) as path:
+		return str(path)
+
+
+def run_xsct(cfg: dict, tcl_script: str, args: list[str]) -> None:
+	"""Run xsct <tcl_script> [args...] and block until it exits."""
+	xsct_bin = _xsct_bin(cfg)
+	cmd = [xsct_bin, tcl_script, *args]
+	logger.info("Running: %s", " ".join(cmd))
+	subprocess.run(cmd, check=True)
+
+
+def run_xsct_live(cfg: dict, tcl_script: str, args: list[str]) -> None:
+	"""Run xsct without capturing output - used for interactive/streaming
+	commands like jtag-monitor where stdout must flow directly to the terminal
+	in real time.  Ctrl-C cleanly terminates xsct."""
+	xsct_bin = _xsct_bin(cfg)
+	cmd = [xsct_bin, tcl_script, *args]
+	logger.info("Running: %s", " ".join(cmd))
+	try:
+		subprocess.run(cmd, check=True)
+	except KeyboardInterrupt:
+		logger.info("jtag-monitor stopped by user")
+
+
+# ---------------------------------------------------------------------------
+# Platform / app TOML resolution helpers
+# ---------------------------------------------------------------------------
+
+def _resolve_platform_cfg(cfg: dict, plat_name: str) -> dict:
+	"""Return the [[platform]] entry matching plat_name or exit with an error."""
+	plat_list = cfg.get("platform", [])
+	plat_cfg  = next((p for p in plat_list if p["name"] == plat_name), None)
+	if plat_cfg is None:
+		sys.exit(
+			f"ERROR: Platform '{plat_name}' not found in [[platform]] entries.\n"
+			f"  Available: {[p['name'] for p in plat_list]}"
+		)
+	return plat_cfg
+
+
+def _resolve_app_cfg(cfg: dict, app_name: str) -> dict:
+	"""Return the [[app]] entry matching app_name or exit with an error."""
+	app_list = cfg.get("app", [])
+	app_cfg  = next((a for a in app_list if a["name"] == app_name), None)
+	if app_cfg is None:
+		sys.exit(
+			f"ERROR: App '{app_name}' not found in [[app]] entries.\n"
+			f"  Available: {[a['name'] for a in app_list]}"
+		)
+	return app_cfg
+
+
+def _platform_paths(
+	cfg: dict,
+	project_dir: str,
+	build_dir: str,
+	plat_cfg: dict,
+) -> tuple[str, str]:
+	"""Return (xsa_path, bitstream_path) for the given platform config dict.
+
+	Priority:
+	1. Explicit  xsa  key  -> xsa is that path; bitstream = same stem + .bit
+		(falls back to any *.bit in the same directory when the stem match
+		does not exist, e.g. when the bitstream carries a SHA tag).
+	2. synth_top key       -> both paths are the symlinks written by 'synthesis'.
+	"""
+	name = plat_cfg["name"]
+
+	if "xsa" in plat_cfg:
+		xsa = os.path.abspath(os.path.join(project_dir, plat_cfg["xsa"]))
+		stem = os.path.splitext(xsa)[0]
+		bit  = stem + ".bit"
+		if not os.path.exists(bit):
+			candidates = sorted(_glob.glob(os.path.join(os.path.dirname(xsa), "*.bit")))
+			if candidates:
+				bit = candidates[0]
+				logger.debug("Bitstream resolved via glob: %s", bit)
+		return xsa, bit
+
+	if "synth_top" in plat_cfg:
+		top      = plat_cfg["synth_top"]
+		synth_dir = os.path.join(build_dir, "synth", top)
+		xsa = os.path.join(synth_dir, f"{top}.xsa")
+		bit = os.path.join(synth_dir, f"{top}.bit")
+		return xsa, bit
+
+	sys.exit(
+		f"ERROR: Platform '{name}' must specify either 'xsa' or 'synth_top' in project.toml"
+	)
+
+
+def _bsp_dir(build_dir: str, plat_name: str) -> str:
+	return os.path.join(build_dir, "bsp", plat_name)
+
+
+def _app_dir(build_dir: str, app_name: str) -> str:
+	return os.path.join(build_dir, "app", app_name)
+
+
+def _find_elf(app_out_dir: str, app_name: str) -> Optional[str]:
+	"""Locate the compiled ELF within the app build directory.
+
+	Checks the conventional Debug/ subdirectory first, then falls back to a
+	recursive glob.  Returns None when no ELF is found.
+	"""
+	candidates = [
+		os.path.join(app_out_dir, "Debug", f"{app_name}.elf"),
+		os.path.join(app_out_dir, f"{app_name}.elf"),
+	]
+	for c in candidates:
+		if os.path.exists(c):
+			return c
+	hits = sorted(_glob.glob(os.path.join(app_out_dir, "**", "*.elf"), recursive=True))
+	return hits[0] if hits else None
+
+
+def _mb_tool(cfg: dict, tool: str) -> str:
+	"""Resolve a MicroBlaze GNU toolchain binary shipped with Vivado."""
+	vivado_path = cfg.get("vivado", {}).get("path", "/opt/Xilinx/Vivado/2024.1")
+	return os.path.join(
+		vivado_path, "gnu", "microblaze", "lin", "bin",
+		f"microblaze-xilinx-elf-{tool}",
+	)
+
+
+def _hw_server(cfg: dict) -> str:
+	"""Return the hw_server URL from config, defaulting to localhost."""
+	return cfg.get("vivado", {}).get("hw_server", "localhost:3121")
+
+
+# ===========================================================================
 # Hooks file generators
 # ===========================================================================
 
@@ -390,12 +610,7 @@ def generate_ip_hooks(
 	*,
 	exist_ok: bool = False,
 ) -> Optional[str]:
-	"""Generate a starter hooks file for the named IP.
-
-	Returns the hooks path on creation, or None if the file already existed
-	and exist_ok=True.  Exits with an error if the file exists and
-	exist_ok=False (the default, used by the explicit ip-config command).
-	"""
+	"""Generate a starter hooks file for the named IP."""
 	ip_list = cfg.get("ip", [])
 	ip_cfg  = next((i for i in ip_list if i["name"] == ip_name), None)
 	if ip_cfg is None:
@@ -471,12 +686,7 @@ def generate_bd_hooks(
 	*,
 	exist_ok: bool = False,
 ) -> Optional[str]:
-	"""Generate a starter hooks file for the named Block Design.
-
-	Returns the hooks path on creation, or None if the file already existed
-	and exist_ok=True.  Exits with an error if the file exists and
-	exist_ok=False (the default, used by the explicit bd-config command).
-	"""
+	"""Generate a starter hooks file for the named Block Design."""
 	bd_list = cfg.get("bd", [])
 	bd_cfg  = next((b for b in bd_list if b["name"] == bd_name), None)
 	if bd_cfg is None:
@@ -494,9 +704,6 @@ def generate_bd_hooks(
 			"Delete it first if you want to regenerate."
 		)
 
-	# The exported design TCL that export-bd produces.
-	# Stored relative to the hooks file so [file dirname [info script]] in
-	# TCL resolves correctly regardless of working directory.
 	export_tcl_abs = os.path.abspath(
 		os.path.join(project_dir, bd_cfg.get("export_tcl", f"scripts/bd/{bd_name}.tcl"))
 	)
@@ -511,16 +718,6 @@ def generate_bd_hooks(
 # =============================================================================
 set ::_bd_design_tcl [file join [file dirname [info script]] "{export_tcl_rel}"]
 
-# ---------------------------------------------------------------------------
-# bd_design_config  -  called by xviv immediately after create_bd_design
-#
-# Sources the exported BD TCL (via the symlink) when it exists, which
-# reconstructs the full BD: IPs, connections, parameters, address map.
-# IP version strings are preserved so the result is identical across machines.
-#
-# On the very first run (before any export) the file is absent and Vivado
-# opens the GUI for interactive design.
-# ---------------------------------------------------------------------------
 proc bd_design_config {{ parentCell }} {{
 	global _bd_design_tcl
 
@@ -567,40 +764,16 @@ def generate_synth_hooks(cfg: dict, project_dir: str, top: str) -> None:
 # Leave a proc body empty if you don't need it.
 # =============================================================================
 
-# -----------------------------------------------------------------------------
-# Report flags - return 0 to skip that report group, 1 to run it (default).
-# Skipping reports significantly speeds up the flow during early development.
-# -----------------------------------------------------------------------------
-proc report_synth    {{}} {{ return 1 }}  ;# timing summary + utilization after synth
-proc report_place    {{}} {{ return 1 }}  ;# IO, clock util, hierarchical util after place
-proc report_route    {{}} {{ return 1 }}  ;# DRC, methodology, power, route status, timing
-proc report_netlists {{}} {{ return 1 }}  ;# write_verilog funcsim/timesim netlists
+proc report_synth    {{}} {{ return 1 }}
+proc report_place    {{}} {{ return 1 }}
+proc report_route    {{}} {{ return 1 }}
+proc report_netlists {{}} {{ return 1 }}
 
-# Called after add_files, before synth_design.
-proc synth_pre {{}} {{
-	# example: mark a constraint as implementation-only
-	# set_property USED_IN_SYNTHESIS false [get_files constrs/timing.xdc]
-}}
-
-# Called after synth_design + reports, before place_design.
-proc synth_post {{}} {{
-
-}}
-
-# Called after place_design + reports, before route_design.
-proc place_post {{}} {{
-
-}}
-
-# Called after route_design + reports, before write_bitstream.
-proc route_post {{}} {{
-
-}}
-
-# Called after write_bitstream and write_hw_platform.
-proc bitstream_post {{}} {{
-
-}}
+proc synth_pre {{}} {{}}
+proc synth_post {{}} {{}}
+proc place_post {{}} {{}}
+proc route_post {{}} {{}}
+proc bitstream_post {{}} {{}}
 """)
 	logger.info("Synthesis hooks file created -> %s", hooks_path)
 	print(f"Edit: {hooks_path}")
@@ -821,10 +994,25 @@ def _dcp_stems_completer(prefix, parsed_args, **kwargs):
 	except Exception:
 		return ["post_synth", "post_place", "post_route"]
 
+def _platform_names_completer(prefix, parsed_args, **kwargs):
+	try:
+		cfg = load_config(os.path.abspath(_find_config(prefix, parsed_args)))
+		return [p["name"] for p in cfg.get("platform", [])]
+	except Exception:
+		return []
+
+def _app_names_completer(prefix, parsed_args, **kwargs):
+	try:
+		cfg = load_config(os.path.abspath(_find_config(prefix, parsed_args)))
+		return [a["name"] for a in cfg.get("app", [])]
+	except Exception:
+		return []
+
+
 def build_parser() -> argparse.ArgumentParser:
 	p = argparse.ArgumentParser(
 		prog="xviv",
-		description="FPGA project controller for Vivado",
+		description="FPGA project controller for Vivado / Vitis",
 	)
 	p.add_argument(
 		"--config", "-c",
@@ -907,6 +1095,117 @@ def build_parser() -> argparse.ArgumentParser:
 	c = _cmd("reload-wdb", "Reload waveform window")
 	c.add_argument("--top", required=True, help="Simulation top module").completer = _top_names_completer
 
+	# -----------------------------------------------------------------------
+	# Vitis / MicroBlaze commands
+	# -----------------------------------------------------------------------
+
+	# -- Platform (BSP) ------------------------------------------------------
+	c = _cmd(
+		"create-platform",
+		"Generate BSP from XSA using hsi (xsct). "
+		"BSP is placed in build/bsp/<platform>.",
+	)
+	c.add_argument(
+		"--platform", required=True,
+		help="Platform name as defined in [[platform]] TOML entry",
+	).completer = _platform_names_completer
+
+	c = _cmd(
+		"platform-build",
+		"Compile the BSP with make -j<ncpu>.",
+	)
+	c.add_argument(
+		"--platform", required=True,
+		help="Platform name as defined in [[platform]] TOML entry",
+	).completer = _platform_names_completer
+
+	# -- Application ---------------------------------------------------------
+	c = _cmd(
+		"create-app",
+		"Scaffold an application from a Vitis template using hsi (xsct). "
+		"App is placed in build/app/<app>. "
+		"If the BSP does not yet exist it is created automatically.",
+	)
+	c.add_argument(
+		"--app", required=True,
+		help="App name as defined in [[app]] TOML entry",
+	).completer = _app_names_completer
+	c.add_argument(
+		"--platform", default="",
+		help="Override the platform name specified in the [[app]] TOML entry",
+	).completer = _platform_names_completer
+	c.add_argument(
+		"--template", default="",
+		help="Override the app template (e.g. 'empty_application', 'hello_world')",
+	)
+
+	c = _cmd(
+		"app-build",
+		"Compile the application with make -j<ncpu>.",
+	)
+	c.add_argument(
+		"--app", required=True,
+		help="App name as defined in [[app]] TOML entry",
+	).completer = _app_names_completer
+	c.add_argument(
+		"--info", action="store_true",
+		help="Print ELF section sizes and headers after a successful build "
+			"(uses microblaze-xilinx-elf-size and microblaze-xilinx-elf-objdump)",
+	)
+
+	# -- Program -------------------------------------------------------------
+	c = _cmd(
+		"program",
+		"Download bitstream to FPGA, and optionally load an ELF. "
+		"Requires hw_server running (Vivado Hardware Manager or standalone).",
+	)
+	bit_src = c.add_mutually_exclusive_group(required=True)
+	bit_src.add_argument(
+		"--bitstream", metavar="PATH",
+		help="Explicit path to the .bit file to program",
+	)
+	bit_src.add_argument(
+		"--platform", metavar="NAME",
+		help="Derive bitstream path from [[platform]] TOML entry",
+	).completer = _platform_names_completer
+
+	elf_src = c.add_mutually_exclusive_group()
+	elf_src.add_argument(
+		"--elf", metavar="PATH",
+		help="Explicit path to the .elf file to load",
+	)
+	elf_src.add_argument(
+		"--app", metavar="NAME",
+		help="Derive ELF path from [[app]] build directory",
+	).completer = _app_names_completer
+
+	# -- Processor -----------------------------------------------------------
+	c = _cmd(
+		"processor",
+		"Control the embedded MicroBlaze processor via JTAG.",
+	)
+	proc_action = c.add_mutually_exclusive_group(required=True)
+	proc_action.add_argument(
+		"--reset", action="store_true",
+		help="Soft-reset the processor (rst -processor then continue)",
+	)
+	proc_action.add_argument(
+		"--status", action="store_true",
+		help="Print target list, processor state, and key registers",
+	)
+
+	# -- JTAG monitor --------------------------------------------------------
+	c = _cmd(
+		"jtag-monitor",
+		"Stream debug output from the embedded processor over JTAG. "
+		"Requires the MDM IP in the Vivado design with JTAG UART enabled. "
+		"Press Ctrl-C to stop.",
+	)
+	c.add_argument(
+		"--uart", action="store_true", default=True,
+		help="Stream JTAG UART output to stdout (default mode)",
+	)
+
 	return p
 
 
@@ -927,12 +1226,11 @@ def main() -> None:
 	_setup_logging(args.log_file or default_log)
 
 	tcl_script = _find_tcl_script()
+	xsct_script = _find_xsct_script()
 	cmd        = args.command
 
 	# -- IP ------------------------------------------------------------------
 	if cmd == "create-ip":
-		# Auto-create hooks if absent; skip silently if already present.
-		# generate_ip_hooks(cfg, project_dir, args.ip, exist_ok=True)
 		config_tcl = generate_config_tcl(cfg, project_dir, ip_name=args.ip)
 		run_vivado(cfg, tcl_script, "create_ip", [], config_tcl)
 
@@ -941,12 +1239,10 @@ def main() -> None:
 		run_vivado(cfg, tcl_script, "edit_ip", [], config_tcl)
 
 	elif cmd == "ip-config":
-		# Explicit invocation: guard against overwriting an existing file.
 		generate_ip_hooks(cfg, project_dir, args.ip)
 
 	# -- Block Design --------------------------------------------------------
 	elif cmd == "create-bd":
-		# Auto-create hooks if absent; skip silently if already present.
 		generate_bd_hooks(cfg, project_dir, args.bd, exist_ok=True)
 		config_tcl = generate_config_tcl(cfg, project_dir, bd_name=args.bd)
 		run_vivado(cfg, tcl_script, "create_bd", [], config_tcl)
@@ -960,10 +1256,8 @@ def main() -> None:
 		run_vivado(cfg, tcl_script, "generate_bd", [], config_tcl)
 
 	elif cmd == "export-bd":
-		# 1. Python computes git state - TCL does no git work.
 		sha, dirty, tag = _git_sha_tag()
 
-		# 2. Build the SHA-versioned output path for write_bd_tcl.
 		bd_list = cfg.get("bd", [])
 		bd_cfg  = next((b for b in bd_list if b["name"] == args.bd), None)
 		if bd_cfg is None:
@@ -971,9 +1265,9 @@ def main() -> None:
 
 		export_base = bd_cfg.get("export_tcl", f"scripts/bd/{args.bd}.tcl")
 		export_base = os.path.abspath(os.path.join(project_dir, export_base))
-		stem        = os.path.splitext(export_base)[0]    # drop .tcl extension
-		versioned   = f"{stem}_{tag}.tcl"                  # e.g. my_bd_abc1234.tcl
-		symlink     = export_base                           # e.g. my_bd.tcl  (no tag)
+		stem        = os.path.splitext(export_base)[0]
+		versioned   = f"{stem}_{tag}.tcl"
+		symlink     = export_base
 
 		logger.info("BD export: sha=%s dirty=%s", sha, dirty)
 		logger.info("BD export versioned: %s", versioned)
@@ -985,19 +1279,15 @@ def main() -> None:
 				"Commit changes before a production export."
 			)
 
-		# 3. Pass the versioned path into Vivado via the config TCL.
 		config_tcl = generate_config_tcl(
 			cfg, project_dir,
 			bd_name=args.bd,
 			bd_export_path=versioned,
 		)
 
-		# 4. Vivado writes the versioned TCL file and exits.
 		run_vivado(cfg, tcl_script, "export_bd", [], config_tcl)
-		
 		_strip_bd_tcl(versioned)
 
-		# 5. Atomically update the symlink: my_bd.tcl -> my_bd_abc1234.tcl
 		_atomic_symlink(versioned, symlink)
 		logger.info(
 			"Symlink updated: %s -> %s",
@@ -1008,15 +1298,12 @@ def main() -> None:
 		print(f"Symlink  : {symlink} -> {os.path.basename(versioned)}")
 
 	elif cmd == "bd-config":
-		# Explicit invocation: guard against overwriting an existing file.
 		generate_bd_hooks(cfg, project_dir, args.bd)
 
 	# -- Implementation ------------------------------------------------------
 	elif cmd == "synthesis":
-		# Compute git SHA in Python so TCL never calls exec git.
 		_, _, tag  = _git_sha_tag()
 		config_tcl = generate_config_tcl(cfg, project_dir, top_name=args.top)
-		# sha_tag passed as argv[3] in TCL; see cmd_synthesis in xviv.tcl.
 		run_vivado(cfg, tcl_script, "synthesis", [args.top, tag], config_tcl)
 
 	elif cmd == "synth-config":
@@ -1058,9 +1345,189 @@ def main() -> None:
 	elif cmd == "reload-wdb":
 		reload_wdb(build_dir, args.top)
 
+	# -----------------------------------------------------------------------
+	# Vitis / MicroBlaze commands
+	# -----------------------------------------------------------------------
+
+	elif cmd == "create-platform":
+		plat_cfg = _resolve_platform_cfg(cfg, args.platform)
+		xsa, _   = _platform_paths(cfg, project_dir, build_dir, plat_cfg)
+		bsp      = _bsp_dir(build_dir, args.platform)
+		cpu      = plat_cfg["cpu"]
+		os_name  = plat_cfg.get("os", "standalone")
+
+		if not os.path.exists(xsa):
+			sys.exit(
+				f"ERROR: XSA not found: {xsa}\n"
+				f"  Run 'xviv synthesis --top {plat_cfg.get('synth_top', '<top>')}' first."
+			)
+
+		logger.info("Creating BSP platform '%s'", args.platform)
+		logger.info("  XSA    : %s", xsa)
+		logger.info("  CPU    : %s", cpu)
+		logger.info("  OS     : %s", os_name)
+		logger.info("  BSP dir: %s", bsp)
+
+		run_xsct(cfg, xsct_script, ["create_platform", xsa, cpu, os_name, bsp])
+
+	elif cmd == "platform-build":
+		plat_cfg = _resolve_platform_cfg(cfg, args.platform)
+		bsp      = _bsp_dir(build_dir, args.platform)
+
+		if not os.path.isdir(bsp):
+			sys.exit(
+				f"ERROR: BSP directory not found: {bsp}\n"
+				f"  Run: xviv create-platform --platform {args.platform}"
+			)
+
+		logger.info("Building BSP: %s", bsp)
+		subprocess.run(
+			["make", f"-j{os.cpu_count() or 4}"],
+			check=True,
+			cwd=bsp,
+		)
+		logger.info("BSP build complete")
+
+	elif cmd == "create-app":
+		app_cfg      = _resolve_app_cfg(cfg, args.app)
+		plat_name    = args.platform or app_cfg["platform"]
+		plat_cfg     = _resolve_platform_cfg(cfg, plat_name)
+		xsa, _       = _platform_paths(cfg, project_dir, build_dir, plat_cfg)
+		bsp          = _bsp_dir(build_dir, plat_name)
+		app_out_dir  = _app_dir(build_dir, args.app)
+		cpu          = plat_cfg["cpu"]
+		os_name      = plat_cfg.get("os", "standalone")
+		template     = args.template or app_cfg.get("template", "empty_application")
+		src_dir      = app_cfg.get("src_dir", "")
+
+		if not os.path.exists(xsa):
+			sys.exit(
+				f"ERROR: XSA not found: {xsa}\n"
+				f"  Run synthesis for platform '{plat_name}' first."
+			)
+
+		# Auto-create BSP if absent
+		if not os.path.isdir(bsp):
+			logger.info("BSP not found - creating platform '%s' first", plat_name)
+			run_xsct(cfg, xsct_script, ["create_platform", xsa, cpu, os_name, bsp])
+
+		logger.info("Creating app '%s' from template '%s'", args.app, template)
+		logger.info("  App dir : %s", app_out_dir)
+
+		run_xsct(cfg, xsct_script, ["create_app", xsa, cpu, os_name, template, app_out_dir])
+
+		# Overlay user source files into the generated app's src/ directory.
+		if src_dir:
+			abs_src = os.path.abspath(os.path.join(project_dir, src_dir))
+			dst_src = os.path.join(app_out_dir, "src")
+			if os.path.isdir(abs_src):
+				os.makedirs(dst_src, exist_ok=True)
+				for f in _glob.glob(os.path.join(abs_src, "**", "*"), recursive=True):
+					if os.path.isfile(f):
+						rel    = os.path.relpath(f, abs_src)
+						dst    = os.path.join(dst_src, rel)
+						os.makedirs(os.path.dirname(dst), exist_ok=True)
+						shutil.copy2(f, dst)
+						logger.info("  Copied: %s", rel)
+			else:
+				logger.warning("src_dir not found, skipping source overlay: %s", abs_src)
+
+	elif cmd == "app-build":
+		app_cfg     = _resolve_app_cfg(cfg, args.app)
+		plat_name   = app_cfg["platform"]
+		plat_cfg    = _resolve_platform_cfg(cfg, plat_name)
+		bsp         = _bsp_dir(build_dir, plat_name)
+		cpu         = plat_cfg["cpu"]
+		app_out_dir = _app_dir(build_dir, args.app)
+
+		if not os.path.isdir(app_out_dir):
+			sys.exit(
+				f"ERROR: App directory not found: {app_out_dir}\n"
+				f"  Run: xviv create-app --app {args.app}"
+			)
+
+		bsp_include = os.path.join(bsp, cpu, "include")
+		bsp_lib     = os.path.join(bsp, cpu, "lib")
+
+		logger.info("Building app '%s'", args.app)
+		subprocess.run(
+			[
+				"make", f"-j{os.cpu_count() or 4}",
+				f"INCLUDEPATH=-I{bsp_include}",
+				f"LIBPATH=-L{bsp_lib}",
+			],
+			check=True,
+			cwd=app_out_dir,
+		)
+		logger.info("App build complete")
+
+		if args.info:
+			elf = _find_elf(app_out_dir, args.app)
+			if elf:
+				logger.info("ELF: %s", elf)
+				print(f"\n=== ELF size: {os.path.basename(elf)} ===")
+				subprocess.run([_mb_tool(cfg, "size"), elf])
+				print(f"\n=== ELF sections: {os.path.basename(elf)} ===")
+				subprocess.run([_mb_tool(cfg, "objdump"), "-h", elf])
+			else:
+				logger.warning("No ELF found in %s", app_out_dir)
+
+	elif cmd == "program":
+		server = _hw_server(cfg)
+
+		# ---- Resolve bitstream ----
+		if args.bitstream:
+			bit = os.path.abspath(args.bitstream)
+		else:
+			plat_cfg = _resolve_platform_cfg(cfg, args.platform)
+			_, bit   = _platform_paths(cfg, project_dir, build_dir, plat_cfg)
+
+		if not os.path.exists(bit):
+			sys.exit(f"ERROR: Bitstream not found: {bit}")
+
+		# ---- Resolve ELF (optional) ----
+		elf = ""
+		if args.elf:
+			elf = os.path.abspath(args.elf)
+			if not os.path.exists(elf):
+				sys.exit(f"ERROR: ELF not found: {elf}")
+		elif args.app:
+			app_cfg     = _resolve_app_cfg(cfg, args.app)
+			app_out_dir = _app_dir(build_dir, args.app)
+			elf         = _find_elf(app_out_dir, args.app) or ""
+			if not elf:
+				sys.exit(
+					f"ERROR: No ELF found in {app_out_dir}\n"
+					f"  Run: xviv app-build --app {args.app}"
+				)
+
+		logger.info("Programming FPGA")
+		logger.info("  Bitstream : %s", bit)
+		if elf:
+			logger.info("  ELF       : %s", elf)
+		logger.info("  hw_server : %s", server)
+
+		run_xsct(cfg, xsct_script, ["program", bit, elf, server])
+
+	elif cmd == "processor":
+		server = _hw_server(cfg)
+		if args.reset:
+			logger.info("Resetting embedded processor via JTAG (%s)", server)
+			run_xsct(cfg, xsct_script, ["processor_reset", server])
+		elif args.status:
+			run_xsct(cfg, xsct_script, ["processor_status", server])
+
+	elif cmd == "jtag-monitor":
+		server = _hw_server(cfg)
+		logger.info("Starting JTAG UART monitor (Ctrl-C to stop)")
+		logger.info("  hw_server : %s", server)
+		# run_xsct_live keeps stdout unbuffered and forwards Ctrl-C cleanly
+		run_xsct_live(cfg, xsct_script, ["jtag_uart", server])
+
 	else:
 		parser.print_help()
 		sys.exit(1)
+
 
 if __name__ == "__main__":
 	main()
