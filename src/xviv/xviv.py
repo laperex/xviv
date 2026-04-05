@@ -37,6 +37,7 @@ reload-snapshot --top <sim_top>
 """
 
 import argparse
+import re
 import glob as _glob
 import logging
 import os
@@ -627,6 +628,28 @@ def _hw_server(cfg: dict) -> str:
 	"""Return the hw_server URL from config, defaulting to localhost."""
 	return cfg.get("vivado", {}).get("hw_server", "localhost:3121")
 
+def _transform_app_makefile(path: str):
+	content = open(path, "rt").read()
+
+	content = re.sub(
+		r'(patsubst\s+%\.\w+,\s*)(?!build/)%.o',
+		r'\1build/%.o',
+		content
+	)
+
+	content = re.sub(
+		r'(?<!build/)%.o(:%\.[cSs])',
+		r'build/%.o\1',
+		content
+	)
+
+	content = re.sub(
+		r'(build/%.o:%\.[cSs]\n)(?!\t@mkdir)',
+		r'\1\t@mkdir -p $(dir $@)\n',
+		content
+	)
+
+	open(path, 'wt').write(content)
 
 # ===========================================================================
 # Hooks file generators
@@ -1322,6 +1345,7 @@ def main() -> None:
 			os.path.basename(symlink),
 			os.path.basename(versioned),
 		)
+
 		print(f"Exported : {versioned}")
 		print(f"Symlink  : {symlink} -> {os.path.basename(versioned)}")
 
@@ -1429,7 +1453,7 @@ def main() -> None:
 		cpu          = plat_cfg["cpu"]
 		os_name      = plat_cfg.get("os", "standalone")
 		template     = args.template or app_cfg.get("template", "empty_application")
-		src_dir      = app_cfg.get("src_dir", "")
+		src_dir      = app_cfg.get("src_dir", f"srcs/sw/{args.app}")
 
 		if not os.path.exists(xsa):
 			sys.exit(
@@ -1447,21 +1471,10 @@ def main() -> None:
 
 		run_xsct(cfg, xsct_script, ["create_app", xsa, cpu, os_name, template, app_out_dir])
 
-		# Overlay user source files into the generated app's src/ directory.
-		if src_dir:
-			abs_src = os.path.abspath(os.path.join(project_dir, src_dir))
-			dst_src = os.path.join(app_out_dir, "src")
-			if os.path.isdir(abs_src):
-				os.makedirs(dst_src, exist_ok=True)
-				for f in _glob.glob(os.path.join(abs_src, "**", "*"), recursive=True):
-					if os.path.isfile(f):
-						rel    = os.path.relpath(f, abs_src)
-						dst    = os.path.join(dst_src, rel)
-						os.makedirs(os.path.dirname(dst), exist_ok=True)
-						shutil.copy2(f, dst)
-						logger.info("  Copied: %s", rel)
-			else:
-				logger.warning("src_dir not found, skipping source overlay: %s", abs_src)
+		if not os.path.isdir(src_dir):
+			logger.warning(f"src_dir not found, creating {src_dir}")
+
+		os.makedirs(src_dir, exist_ok=True)
 
 	elif cmd == "app-build":
 		app_cfg     = _resolve_app_cfg(cfg, args.app)
@@ -1470,6 +1483,10 @@ def main() -> None:
 		bsp         = _bsp_dir(build_dir, plat_name)
 		cpu         = plat_cfg["cpu"]
 		app_out_dir = _app_dir(build_dir, args.app)
+		src_dir     = os.path.abspath(app_cfg.get("src_dir", f"srcs/sw/{args.app}"))
+		env         = _get_vitis_env(cfg)
+
+		_transform_app_makefile(os.path.join(app_out_dir, "Makefile"))
 
 		if not os.path.isdir(app_out_dir):
 			sys.exit(
@@ -1480,15 +1497,19 @@ def main() -> None:
 		bsp_include = os.path.join(bsp, cpu, "include")
 		bsp_lib     = os.path.join(bsp, cpu, "lib")
 
+		c_sources = " ".join(_resolve_globs(["**/*.c"], src_dir))
+
 		logger.info("Building app '%s'", args.app)
 		subprocess.run(
 			[
 				"make", f"-j{os.cpu_count() or 4}",
-				f"INCLUDEPATH=-I{bsp_include}",
+				f"INCLUDEPATH=-I{src_dir} -I{bsp_include} -I{bsp}",
+				f"c_SOURCES={c_sources}",
 				f"LIBPATH=-L{bsp_lib}",
 			],
 			check=True,
 			cwd=app_out_dir,
+			env=env
 		)
 		logger.info("App build complete")
 
