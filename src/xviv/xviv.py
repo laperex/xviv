@@ -1210,7 +1210,7 @@ def build_parser() -> argparse.ArgumentParser:
 		"Download bitstream to FPGA, and optionally load an ELF. "
 		"Requires hw_server running (Vivado Hardware Manager or standalone).",
 	)
-	bit_src = c.add_mutually_exclusive_group(required=True)
+	bit_src = c.add_mutually_exclusive_group()
 	bit_src.add_argument(
 		"--bitstream", metavar="PATH",
 		help="Explicit path to the .bit file to program",
@@ -1525,13 +1525,20 @@ def main() -> None:
 				logger.warning("No ELF found in %s", app_out_dir)
 
 	elif cmd == "program":
+		# if args.elf and not (args.bitstream or args.platform):
+		# 	parser.error("--elf requires --bitstream or --platform")
+
 		server = _hw_server(cfg)
 
 		# ---- Resolve bitstream ----
 		if args.bitstream:
 			bit = os.path.abspath(args.bitstream)
-		else:
+		elif args.platform:
 			plat_cfg = _resolve_platform_cfg(cfg, args.platform)
+			_, bit   = _platform_paths(cfg, project_dir, build_dir, plat_cfg)
+		elif args.app:
+			app_cfg  = _resolve_app_cfg(cfg, args.app)
+			plat_cfg = _resolve_platform_cfg(cfg, app_cfg.get("platform", None))
 			_, bit   = _platform_paths(cfg, project_dir, build_dir, plat_cfg)
 
 		if not os.path.exists(bit):
@@ -1540,7 +1547,7 @@ def main() -> None:
 		# ---- Resolve ELF (optional) ----
 		elf = ""
 		if args.elf:
-			elf = os.path.abspath(args.elf)
+			elf = os.path.abspath(args.elf) or ""
 			if not os.path.exists(elf):
 				sys.exit(f"ERROR: ELF not found: {elf}")
 		elif args.app:
@@ -1559,7 +1566,7 @@ def main() -> None:
 			logger.info("  ELF       : %s", elf)
 		logger.info("  hw_server : %s", server)
 
-		run_xsct(cfg, xsct_script, ["program", bit, elf, server])
+		run_xsct(cfg, xsct_script, ["program", bit, elf or "", server])
 
 	elif cmd == "processor":
 		server = _hw_server(cfg)
