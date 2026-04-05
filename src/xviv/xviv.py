@@ -458,12 +458,41 @@ def run_vivado_xsim(
 # xsct helpers  (MicroBlaze / Vitis workflow)
 # ===========================================================================
 
+def _vitis_env(settings_sh: str) -> dict[str, str]:
+    if not os.path.isfile(settings_sh):
+        sys.exit(f"ERROR: Vitis settings not found: {settings_sh}")
+
+    result = subprocess.run(
+        ["bash", "-c", f'source "{settings_sh}" && env -0'],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+    env = {}
+    for entry in result.stdout.split("\0"):
+        if "=" in entry:
+            k, _, v = entry.partition("=")
+            env[k] = v
+    return env
+
+_vitis_env_cache: Optional[dict[str, str]] = None
+
+def _get_vitis_env(cfg: dict) -> dict[str, str]:
+	global _vitis_env_cache
+	if _vitis_env_cache is None:
+		vitis_path  = cfg.get("vitis", {}).get("path", "/opt/Xilinx/Vitis/2024.1")
+		settings_sh  = os.path.join(vitis_path, "settings64.sh")
+		_vitis_env_cache = _vitis_env(settings_sh)
+		_vitis_env_cache['PATH'] += f":{vitis_path}/gnu/microblaze/lin/bin"
+		logger.debug("Vivado environment sourced from %s", settings_sh)
+	return _vitis_env_cache
+
 def _xsct_bin(cfg: dict) -> str:
 	"""Resolve the xsct binary.  xsct ships alongside Vivado in the same
 	installation tree, so we derive its path from [vivado] path in the TOML."""
 	vitis_path = cfg.get("vitis", {}).get("path", "/opt/Xilinx/Vitis/2024.1")
 	return os.path.join(vitis_path, "bin", "xsct")
-
 
 def _find_xsct_script() -> str:
 	"""Locate the packaged xviv_xsct.tcl dispatcher."""
@@ -686,7 +715,6 @@ def generate_bd_hooks(
 	*,
 	exist_ok: bool = False,
 ) -> Optional[str]:
-	"""Generate a starter hooks file for the named Block Design."""
 	bd_list = cfg.get("bd", [])
 	bd_cfg  = next((b for b in bd_list if b["name"] == bd_name), None)
 	if bd_cfg is None:
@@ -1372,7 +1400,9 @@ def main() -> None:
 
 	elif cmd == "platform-build":
 		plat_cfg = _resolve_platform_cfg(cfg, args.platform)
-		bsp      = _bsp_dir(build_dir, args.platform)
+		bsp = _bsp_dir(build_dir, args.platform)
+
+		env = _get_vitis_env(cfg)
 
 		if not os.path.isdir(bsp):
 			sys.exit(
@@ -1385,6 +1415,7 @@ def main() -> None:
 			["make", f"-j{os.cpu_count() or 4}"],
 			check=True,
 			cwd=bsp,
+			env=env
 		)
 		logger.info("BSP build complete")
 
