@@ -322,12 +322,18 @@ proc _xviv_ip_infer_interfaces {} {
 # Stage 4: expose every HDL parameter in the IP customisation GUI on Page 0,
 # then call the user hook for reordering or grouping.
 proc _xviv_ip_expose_params {} {
-    foreach param [ipx::get_hdl_parameters -of_objects [ipx::current_core]] {
-        set pname [get_property NAME $param]
-        ipgui::add_param -name $pname -component [ipx::current_core] \
-            -parent [ipgui::get_pagespec \
-                -name "Page 0" -component [ipx::current_core]]
-    }
+    foreach param [ipx::get_user_parameters -of_objects [ipx::current_core]] {
+		set pname [get_property NAME $param]
+		set display_name $pname
+
+		set widget [ipgui::add_param \
+			-name $pname \
+			-display_name $display_name \
+			-component [ipx::current_core] \
+			-parent [ipgui::get_pagespec -name "Page 0" -component [ipx::current_core]]]
+
+		set_property TOOLTIP "Parameter: $display_name" $widget
+	}
     ipx_add_params
 }
 
@@ -451,8 +457,7 @@ proc cmd_edit_ip {} {
     file mkdir $proj_root
     xviv_create_project "in_memory_project"
     start_gui
-    ipx::edit_ip_in_project -upgrade true -name "edit_$ip_vid" \
-        -directory "$proj_root/$ip_vid" "$ip_dir/component.xml"
+    ipx::edit_ip_in_project -upgrade true -name "edit_$ip_vid" -directory "$proj_root/$ip_vid" "$ip_dir/component.xml"
     current_project "in_memory_project"
     close_project
     current_project "edit_$ip_vid"
@@ -596,12 +601,7 @@ proc cmd_export_bd {} {
 
     # -no_ip_version intentionally omitted: full VLNV version pins are
     # required for bit-identical BD recreation on another machine.
-    write_bd_tcl -force \
-		-no_project_wrapper \
-        $xviv_bd_export_tcl
-        # -hier_blks [get_bd_cells -hierarchical -filter {TYPE == hier}] \
-
-    puts "INFO: Export complete - $xviv_bd_export_tcl"
+    write_bd_tcl -force -no_project_wrapper $xviv_bd_export_tcl
     puts "INFO: Total elapsed: [xviv_elapsed]"
     exit 0
 }
@@ -618,7 +618,7 @@ proc cmd_synthesis {top_module sha_tag} {
 
     xviv_require_vars xviv_build_dir
 
-    set out_dir     "$xviv_build_dir/$top_module"
+    set out_dir     "$xviv_build_dir/synth/$top_module"
     set report_dir  "$out_dir/reports"
     set netlist_dir "$out_dir/netlists"
 
@@ -711,8 +711,7 @@ proc cmd_synthesis {top_module sha_tag} {
         report_methodology    -file "$report_dir/post_route_methodology.rpt"
         report_power          -file "$report_dir/post_route_power.rpt"
         report_route_status   -file "$report_dir/post_route_status.rpt"
-        report_timing_summary -max_paths 10 -report_unconstrained \
-            -warn_on_violation -file "$report_dir/post_route_timing_summary.rpt"
+        report_timing_summary -max_paths 10 -report_unconstrained -warn_on_violation -file "$report_dir/post_route_timing_summary.rpt"
     }
     if {[report_netlists]} {
         write_verilog -force -mode funcsim                "$netlist_dir/post_impl_functional.v"
@@ -734,8 +733,7 @@ proc cmd_synthesis {top_module sha_tag} {
     set export_filename "${top_module}_${sha_tag}"
 
     write_bitstream   -force "$out_dir/${export_filename}.bit"
-    write_hw_platform -fixed -include_bit -force \
-        -file "$out_dir/${export_filename}.xsa"
+    write_hw_platform -fixed -include_bit -force -file "$out_dir/${export_filename}.xsa"
 
     # Symlinks always point at the latest build output.
     # Targets are relative (filename only) so symlinks are portable within
@@ -760,8 +758,7 @@ proc cmd_synthesis {top_module sha_tag} {
         bitstream       "${export_filename}.bit"            \
         xsa             "${export_filename}.xsa"            \
         elapsed         [xviv_elapsed]                      \
-        timestamp       [clock format [clock seconds] \
-                            -format "%Y-%m-%dT%H:%M:%SZ"]
+        timestamp       [clock format [clock seconds] -format "%Y-%m-%dT%H:%M:%SZ"]
 
     puts "INFO: Build complete - [xviv_elapsed]"
     exit 0
@@ -801,9 +798,7 @@ proc cmd_simulate {sim_top so_file dpi_lib_dir} {
     set_property xsim.simulate.runtime 7000ns [current_fileset -simset]
 
     if {$so_file ne "" && $dpi_lib_dir ne ""} {
-        set_property -name {xsim.elaborate.xelab.more_options} \
-            -value "-sv_lib $so_file --sv_root $dpi_lib_dir" \
-            -objects [get_filesets sim_1]
+        set_property -name {xsim.elaborate.xelab.more_options} -value "-sv_lib $so_file --sv_root $dpi_lib_dir" -objects [get_filesets sim_1]
     }
 
     launch_simulation
