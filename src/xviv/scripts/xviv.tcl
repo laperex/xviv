@@ -83,8 +83,7 @@ proc xviv_die {msg} {
 proc xviv_require_vars {args} {
     foreach v $args {
         if {![info exists ::$v] || [set ::$v] eq ""} {
-            xviv_die "Required config variable \$$v is missing or empty.\
- Check that generate_config_tcl emits it for this command."
+            xviv_die "Required config variable \$$v is missing or empty. Check that generate_config_tcl emits it for this command."
         }
     }
 }
@@ -123,11 +122,10 @@ proc xviv_create_project {name} {
     # get_parts returns an empty list for unknown part strings.
     # This is the earliest point we can catch a wrong part number.
     if {[llength [get_parts $xviv_fpga_part]] == 0} {
-        xviv_die "FPGA part '$xviv_fpga_part' is not in the installed Vivado part catalog.\
- Check [fpga] part in project.toml."
+        xviv_die "FPGA part '$xviv_fpga_part' is not in the installed Vivado part catalog. Check [fpga] part in project.toml."
     }
 
-    create_project -in_memory $name
+    create_project -part $xviv_fpga_part -in_memory $name
 
     if {[info exists xviv_board_part] && $xviv_board_part ne ""} {
         if {[info exists xviv_board_repo] && $xviv_board_repo ne ""} {
@@ -136,7 +134,6 @@ proc xviv_create_project {name} {
         set_property board_part $xviv_board_part [current_project]
     }
 
-    set_part $xviv_fpga_part
     set_property ip_repo_paths [list $xviv_ip_repo] [current_project]
     update_ip_catalog -rebuild
 }
@@ -324,6 +321,10 @@ proc _xviv_ip_infer_interfaces {} {
 proc _xviv_ip_expose_params {} {
     foreach param [ipx::get_user_parameters -of_objects [ipx::current_core]] {
 		set pname [get_property NAME $param]
+		
+		# Fetch the current value of the parameter
+		set pvalue [get_property VALUE $param]
+		
 		set display_name $pname
 
 		set widget [ipgui::add_param \
@@ -333,6 +334,9 @@ proc _xviv_ip_expose_params {} {
 			-parent [ipgui::get_pagespec -name "Page 0" -component [ipx::current_core]]]
 
 		set_property TOOLTIP "Parameter: $display_name" $widget
+		
+		# Print the name and value to the console
+		puts "Name: $pname | Value: $pvalue"
 	}
     ipx_add_params
 }
@@ -534,15 +538,16 @@ proc cmd_generate_bd {} {
     # Upgrade stale IPs with a catch so a single failed upgrade does not abort
     # the entire generation run.  The user is warned to verify manually.
     set stale_cells [get_bd_cells -hierarchical -filter {TYPE == ip}]
-    if {[llength $stale_cells] > 0} {
-        if {[catch {upgrade_ip $stale_cells} err]} {
-            puts "WARN: One or more IPs failed to upgrade: $err"
-            puts "WARN: Continuing with generation - verify IP status manually"
-        }
-    }
+	if {[llength $stale_cells] > 0} {
+		if {[catch {upgrade_ip $stale_cells} err]} {
+			xviv_die "IP upgrade failed during generate_bd: $err";
+		}
+	}
 
     reset_target  {synthesis simulation implementation} [get_files $bd_file]
     generate_target all                                 [get_files $bd_file]
+	
+	validate_bd_design
 
     set wrapper_src [make_wrapper -files [get_files $bd_file] -top]
 
