@@ -115,7 +115,7 @@ def get_port_header_info(node):
 
 			info = {
 				'kind': 'NetPortHeaderSyntax',
-				't-ype': get_datatype_info(_dataType),
+				'type': get_datatype_info(_dataType),
 				'direction': str(_direction).strip(),
 				'netType': str(_netType).strip()
 			}
