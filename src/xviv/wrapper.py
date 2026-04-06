@@ -16,6 +16,8 @@ from types import NoneType
 import pyslang
 import json
 
+logger = logging.getLogger(__name__)
+
 def _get_all_tokens(node):
 	for child in node:
 		if isinstance(child, pyslang.Token):
@@ -508,10 +510,6 @@ def resolve_files(fileset):
 
 	return resolve_tree(tree.root), fileset
 
-
-# Initialize logger placeholder; configured in main
-logger = logging.getLogger('xviv_wrap_top')
-
 class xviv_wrap_top:
 	def __init__(self, top, work_dir, input_fileset):
 		logger.info(f"Initializing xviv_wrap_top. Top: {top}, WorkDir: {work_dir}")
@@ -654,28 +652,6 @@ class xviv_wrap_top:
 		)
 		logger.info(f"Wrapper created: {self.wrapper_file}")
 
-
-def setup_logging(log_file):
-	# Configure root logger
-	logger = logging.getLogger('xviv_wrap_top')
-	logger.setLevel(logging.DEBUG) # Capture all levels, handlers will filter
-
-	formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-
-	# Console Handler: INFO level
-	console_handler = logging.StreamHandler(sys.stdout)
-	console_handler.setLevel(logging.INFO)
-	console_handler.setFormatter(formatter)
-	logger.addHandler(console_handler)
-
-	# File Handler (if provided): DEBUG level
-	# print(log_file)
-	os.makedirs(os.path.dirname(log_file), exist_ok=True)
-	file_handler = logging.FileHandler(log_file, mode='a')
-	file_handler.setLevel(logging.DEBUG)
-	file_handler.setFormatter(formatter)
-	logger.addHandler(file_handler)
-
 def parse_arguments():
 	parser = argparse.ArgumentParser(description="XVIV_WRAP_TOP: Create Top Wrapper")
 
@@ -714,7 +690,7 @@ def parse_arguments():
 def main():
 	config = parse_arguments()
 
-	setup_logging(config.xviv_log_file or './build/xviv/xviv_wrap_top.log')
+	_setup_logging(config.xviv_log_file or './build/xviv/xviv_wrap_top.log')
 
 	xviv_wrap_top(config.xviv_top, config.xviv_work_dir, config.xviv_fileset)
 
