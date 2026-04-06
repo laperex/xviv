@@ -714,7 +714,7 @@ def parse_arguments():
 def main():
 	config = parse_arguments()
 
-	setup_logging('./xviv_wrap_top.log')
+	setup_logging(config.xviv_log_file or './build/xviv/xviv_wrap_top.log')
 
 	xviv_wrap_top(config.xviv_top, config.xviv_work_dir, config.xviv_fileset)
 

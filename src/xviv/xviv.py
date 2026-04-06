@@ -522,7 +522,6 @@ def _mb_tool(cfg: dict, tool: str) -> str:
 
 
 def _hw_server(cfg: dict) -> str:
-	"""Return the hw_server URL from config, defaulting to localhost."""
 	return cfg.get("vivado", {}).get("hw_server", "localhost:3121")
 
 def _transform_app_makefile(path: str):
@@ -556,7 +555,6 @@ def generate_ip_hooks(
 	*,
 	exist_ok: bool = False,
 ) -> Optional[str]:
-	"""Generate a starter hooks file for the named IP."""
 	ip_list = cfg.get("ip", [])
 	ip_cfg  = next((i for i in ip_list if i["name"] == ip_name), None)
 	if ip_cfg is None:
