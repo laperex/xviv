@@ -3,7 +3,7 @@ import os
 import subprocess
 import sys
 
-from .xviv import logger
+logger = logging.getLogger(__name__)
 
 def _setup_logging(log_file: str = "", level_console=logging.INFO) -> None:
 	root = logging.getLogger("xviv")

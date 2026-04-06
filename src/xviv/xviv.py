@@ -37,19 +37,20 @@ reload-snapshot --top <sim_top>
 """
 
 import argparse
-import re
 import glob as _glob
 import logging
 import os
-import shutil
 import subprocess
 import sys
-import tempfile
-import tomllib
 import argcomplete
-from typing import Optional
-import stat
-import importlib.resources
+
+from xviv.config import _resolve_globs, generate_config_tcl, load_config
+from xviv.hooks import generate_bd_hooks, generate_ip_hooks, generate_synth_hooks
+from xviv.platform import _app_dir, _bsp_dir, _find_elf, _hw_server, _mb_tool, _platform_paths, _resolve_app_cfg, _resolve_platform_cfg, _transform_app_makefile
+from xviv.utils import _atomic_symlink, _git_sha_tag, _setup_logging
+from xviv.vitis import _find_xsct_script, _get_vitis_env, run_xsct, run_xsct_live
+from xviv.vivado import _find_tcl_script, _strip_bd_tcl, run_vivado, run_vivado_xelab, run_vivado_xsim, run_vivado_xvlog
+from xviv.waveform import open_snapshot, open_wdb, reload_snapshot, reload_wdb
 
 logger = logging.getLogger(__name__)
 
@@ -306,7 +307,6 @@ def main() -> None:
 	cfg = load_config(cfg_path)
 
 	build_dir   = os.path.join(project_dir, cfg.get("build", {}).get("dir", "build"))
-	default_log = os.path.join(build_dir, "xviv", "xviv.log")
 	_setup_logging(args.log_file or os.path.join(build_dir, "xviv", "xviv.log"))
 
 	tcl_script = _find_tcl_script()
@@ -389,7 +389,7 @@ def main() -> None:
 		run_vivado(cfg, tcl_script, "synthesis", [args.top, tag], config_tcl)
 
 	elif cmd == "synth-config":
-		generate_synth_hooks(cfg, project_dir, args.top)
+		generate_synth_hooks(cfg, project_dir, args.top)  # noqa: F821
 
 	elif cmd == "open-dcp":
 		dcp_path = os.path.abspath(

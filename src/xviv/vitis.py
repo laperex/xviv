@@ -1,9 +1,11 @@
 
-import importlib
+import importlib.resources
 import logging
 import os
 import subprocess
 import typing
+
+from xviv.utils import _shell_env
 
 logger = logging.getLogger(__name__)
 

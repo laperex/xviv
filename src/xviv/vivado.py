@@ -1,5 +1,5 @@
 
-import importlib
+import importlib.resources
 import logging
 import os
 import subprocess

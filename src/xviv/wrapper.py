@@ -1,20 +1,14 @@
 #!/usr/bin/env python3
 
-import tomllib
-import importlib.resources
 import argparse
-import json
 import os
-import socket
 import re
-import subprocess
 import sys
 import logging
-
-import os
 from types import NoneType
 import pyslang
-import json
+
+from xviv.utils import _setup_logging
 
 logger = logging.getLogger(__name__)
 
