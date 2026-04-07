@@ -7,6 +7,9 @@ import glob
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_VIVADO_PATH = "/opt/Xilinx/Vivado/2024.1"
+DEFAULT_VITIS_PATH = "/opt/Xilinx/Vitis/2024.1"
+
 def load_config(path: str) -> dict:
 	path = os.path.abspath(path)
 	if not os.path.isfile(path):

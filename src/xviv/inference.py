@@ -61,7 +61,7 @@ License: MIT
 from __future__ import annotations
 
 import sys
-import re as _re
+import re
 import argparse
 import datetime
 from collections import defaultdict
@@ -590,7 +590,7 @@ _PREFIX_HINTS: List[Tuple[str, str]] = [
 	(r"^diff_clk",         "diff_clock"),
 ]
 
-_PREFIX_PATS = [(_re.compile(p, _re.I), k) for p, k in _PREFIX_HINTS]
+_PREFIX_PATS = [(re.compile(p, re.I), k) for p, k in _PREFIX_HINTS]
 
 _CLK_SUFF = {"aclk", "clk", "clock"}
 _RST_SUFF = {"aresetn", "rst_n", "rst", "reset_n", "reset", "areset_n"}

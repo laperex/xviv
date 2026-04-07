@@ -5,6 +5,8 @@ import os
 import stat
 import subprocess
 
+from xviv import config
+
 logger = logging.getLogger(__name__)
 
 _XSIM_WDB_TCL = """
@@ -110,7 +112,7 @@ def reload_snapshot(build_dir: str, top: str) -> None:
 
 
 def open_wdb(cfg: dict, top: str, build_dir: str) -> None:
-	vivado_path = cfg.get("vivado", {}).get("path", "/opt/Xilinx/Vivado/2024.1")
+	vivado_path = cfg.get("vivado", {}).get("path", config.DEFAULT_VIVADO_PATH)
 	xsim_bin    = os.path.join(vivado_path, "bin", "xsim")
 	work_dir    = os.path.join(build_dir, "xviv", top)
 	wdb_file    = "waveform.wdb"
@@ -134,7 +136,7 @@ def open_wdb(cfg: dict, top: str, build_dir: str) -> None:
 
 
 def open_snapshot(cfg: dict, top: str, build_dir: str) -> None:
-	vivado_path = cfg.get("vivado", {}).get("path", "/opt/Xilinx/Vivado/2024.1")
+	vivado_path = cfg.get("vivado", {}).get("path", config.DEFAULT_VIVADO_PATH)
 	xsim_bin    = os.path.join(vivado_path, "bin", "xsim")
 	work_dir    = os.path.join(build_dir, "xviv", top)
 	wdb_file    = os.path.join(work_dir, "waveform.wdb")

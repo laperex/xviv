@@ -5,7 +5,8 @@ import os
 import subprocess
 import typing
 
-from xviv.utils import _shell_env
+from xviv import config
+from xviv import utils
 
 logger = logging.getLogger(__name__)
 
@@ -14,15 +15,15 @@ _vitis_env_cache: typing.Optional[dict[str, str]] = None
 def _get_vitis_env(cfg: dict) -> dict[str, str]:
 	global _vitis_env_cache
 	if _vitis_env_cache is None:
-		vitis_path  = cfg.get("vitis", {}).get("path", "/opt/Xilinx/Vitis/2024.1")
+		vitis_path  = cfg.get("vitis", {}).get("path", config.DEFAULT_VITIS_PATH)
 		settings_sh  = os.path.join(vitis_path, "settings64.sh")
-		_vitis_env_cache = _shell_env(settings_sh)
+		_vitis_env_cache = utils._shell_env(settings_sh)
 		_vitis_env_cache['PATH'] += f":{vitis_path}/gnu/microblaze/lin/bin"
 		logger.debug("Vivado environment sourced from %s", settings_sh)
 	return _vitis_env_cache
 
 def _xsct_bin(cfg: dict) -> str:
-	vitis_path = cfg.get("vitis", {}).get("path", "/opt/Xilinx/Vitis/2024.1")
+	vitis_path = cfg.get("vitis", {}).get("path", config.DEFAULT_VITIS_PATH)
 	return os.path.join(vitis_path, "bin", "xsct")
 
 def _find_xsct_script() -> str:

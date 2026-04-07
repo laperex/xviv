@@ -5,6 +5,8 @@ import os
 import subprocess
 import tempfile
 
+from xviv import config
+
 logger = logging.getLogger(__name__)
 
 def run_vivado_xvlog(
@@ -13,7 +15,7 @@ def run_vivado_xvlog(
 	fileset: list[str],
 	xsim_lib: str = "xv_work",
 ) -> None:
-	vivado_path = cfg.get("vivado", {}).get("path", "/opt/Xilinx/Vivado/2024.1")
+	vivado_path = cfg.get("vivado", {}).get("path", config.DEFAULT_VIVADO_PATH)
 	xvlog_bin   = os.path.join(vivado_path, "bin", "xvlog")
 
 	fileset.append(os.path.join(vivado_path, "data/verilog/src/glbl.v"))
@@ -31,7 +33,7 @@ def run_vivado_xelab(
 	timescale: str = "1ns/1ps",
 	xsim_lib: str = "xv_work",
 ) -> None:
-	vivado_path = cfg.get("vivado", {}).get("path", "/opt/Xilinx/Vivado/2024.1")
+	vivado_path = cfg.get("vivado", {}).get("path", config.DEFAULT_VIVADO_PATH)
 	xelab_bin   = os.path.join(vivado_path, "bin", "xelab")
 
 	cmd = [
@@ -58,7 +60,7 @@ def run_vivado_xsim(
 	top: str,
 	config_tcl_content: str,
 ) -> None:
-	vivado_path = cfg.get("vivado", {}).get("path", "/opt/Xilinx/Vivado/2024.1")
+	vivado_path = cfg.get("vivado", {}).get("path", config.DEFAULT_VIVADO_PATH)
 	xsim_bin    = os.path.join(vivado_path, "bin", "xsim")
 
 	try:
@@ -89,7 +91,7 @@ def run_vivado(
 	extra_args: list[str],
 	config_tcl_content: str,
 ) -> None:
-	vivado_path = cfg.get("vivado", {}).get("path", "/opt/Xilinx/Vivado/2024.1")
+	vivado_path = cfg.get("vivado", {}).get("path", config.DEFAULT_VIVADO_PATH)
 	vivado_bin  = os.path.join(vivado_path, "bin", "vivado")
 	mode        = cfg.get("vivado", {}).get("mode", "batch")
 
