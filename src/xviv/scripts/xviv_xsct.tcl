@@ -101,20 +101,22 @@ proc xsct_select_fpga {} {
 
     # Xilinx FPGA devices appear as "xc7*", "xcvu*", "xczu*", etc.
     # The -filter selects AND switches to that target in one call.
-    if {[catch {targets -filter {name =~ "xc*"}} err]} {
+    if {[catch {targets -set -filter {name =~ "xc*"}} err]} {
         xsct_die "No FPGA target found on JTAG.\n  $err\n  Is the FPGA powered and connected?"
     }
     puts "INFO: FPGA target selected"
+	puts [targets]
 }
 
 # ---------------------------------------------------------------------------
 # xsct_select_mb  -  select the first MicroBlaze processor target.
 # ---------------------------------------------------------------------------
 proc xsct_select_mb {} {
-    if {[catch {targets -filter {name =~ "MicroBlaze*"}} err]} {
+    if {[catch {targets -set -filter {name =~ "MicroBlaze #0*"}} err]} {
         xsct_die "No MicroBlaze target found.\n  $err\n  Is the FPGA programmed?"
     }
     puts "INFO: MicroBlaze target selected"
+	puts [targets]
 }
 
 # =============================================================================
@@ -139,6 +141,10 @@ proc cmd_create_platform {xsa cpu os_name bsp_dir} {
 
     set hw [hsi::open_hw_design $xsa]
     hsi::create_sw_design bsp_design -proc $cpu -os $os_name
+
+    hsi::set_property CONFIG.stdout mdm_1 [hsi::get_os]
+    hsi::set_property CONFIG.stdin  mdm_1 [hsi::get_os]
+	
     hsi::generate_bsp -dir $bsp_dir
 
     hsi::close_hw_design $hw
@@ -318,30 +324,48 @@ proc cmd_jtag_uart {hw_server} {
     puts "--- JTAG UART output ---"
 
     xsct_connect $hw_server
-    xsct_select_mb
 
-    # Callback: invoked asynchronously whenever the MDM FIFO has data.
-    # puts -nonewline preserves embedded newlines emitted by the firmware.
-    proc _xviv_jtag_uart_cb {data} {
-        puts -nonewline stdout $data
-        flush stdout
+    if {[catch {targets -set -filter {name =~ "MicroBlaze Debug Module*"}} err]} {
+        xsct_die "No MDM target found.\n  $err"
     }
+    puts "INFO: MDM target selected"
+    puts [targets]
 
-    readjtaguart -start -handle _xviv_jtag_uart_cb
-    puts "INFO: JTAG UART capture active\n"
+    # Check if readjtaguart is even available
+    puts "INFO: readjtaguart available: [info commands readjtaguart]"
 
-    # Spin the event loop.  Any exception (including Ctrl-C SIGINT) falls
-    # through to the catch below for a clean disconnect.
+    # Try capturing to a temp file instead of stdout to rule out buffering
+    set fh [open /tmp/jtag_uart.log w]
+    puts "INFO: Opened log file handle: $fh"
+
+    if {[catch {readjtaguart -start -handle $fh} err]} {
+        puts "ERROR: readjtaguart failed: $err"
+        exit 1
+    }
+    puts "INFO: JTAG UART capture active"
+    puts "INFO: Tailing /tmp/jtag_uart.log in parallel..."
+
     if {[catch {
+        set i 0
         while {1} {
             after 100
+            # Every second, check if anything landed in the file
+            incr i
+            if {$i >= 10} {
+                set i 0
+                flush $fh
+                puts "INFO: heartbeat - checking log..."
+                set rh [open /tmp/jtag_uart.log r]
+                puts "FILE CONTENTS: [read $rh]"
+                close $rh
+            }
         }
     } err]} {
         puts "\nINFO: Monitor interrupted: $err"
     }
 
-    # Best-effort teardown.
     catch { readjtaguart -stop }
+    catch { close $fh }
     catch { disconnect }
     exit 0
 }
