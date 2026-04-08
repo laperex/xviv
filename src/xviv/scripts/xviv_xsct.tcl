@@ -146,6 +146,7 @@ proc cmd_create_platform {xsa cpu os_name bsp_dir} {
     hsi::set_property CONFIG.stdin  mdm_1 [hsi::get_os]
 	
     hsi::generate_bsp -dir $bsp_dir
+	
 
     hsi::close_hw_design $hw
 

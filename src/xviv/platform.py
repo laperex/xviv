@@ -6,6 +6,7 @@ import sys
 import typing
 
 from xviv import config
+from xviv.vivado import _get_vivado_path
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +84,7 @@ def _find_elf(app_out_dir: str, app_name: str) -> typing.Optional[str]:
 
 
 def _mb_tool(cfg: dict, tool: str) -> str:
-	vivado_path = cfg.get("vivado", {}).get("path", config.DEFAULT_VIVADO_PATH)
+	vivado_path = _get_vivado_path(cfg)
 	return os.path.join(
 		vivado_path, "gnu", "microblaze", "lin", "bin",
 		f"microblaze-xilinx-elf-{tool}",

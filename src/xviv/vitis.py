@@ -12,10 +12,13 @@ logger = logging.getLogger(__name__)
 
 _vitis_env_cache: typing.Optional[dict[str, str]] = None
 
+def _get_vitis_path(cfg: dict) -> str:
+	return cfg.get("vitis", {}).get("path", config.DEFAULT_VITIS_PATH)
+
 def _get_vitis_env(cfg: dict) -> dict[str, str]:
 	global _vitis_env_cache
 	if _vitis_env_cache is None:
-		vitis_path  = cfg.get("vitis", {}).get("path", config.DEFAULT_VITIS_PATH)
+		vitis_path  = _get_vitis_path(cfg)
 		settings_sh  = os.path.join(vitis_path, "settings64.sh")
 		_vitis_env_cache = utils._shell_env(settings_sh)
 		_vitis_env_cache['PATH'] += f":{vitis_path}/gnu/microblaze/lin/bin"
@@ -23,7 +26,7 @@ def _get_vitis_env(cfg: dict) -> dict[str, str]:
 	return _vitis_env_cache
 
 def _xsct_bin(cfg: dict) -> str:
-	vitis_path = cfg.get("vitis", {}).get("path", config.DEFAULT_VITIS_PATH)
+	vitis_path = _get_vitis_path(cfg)
 	return os.path.join(vitis_path, "bin", "xsct")
 
 def _find_xsct_script() -> str:

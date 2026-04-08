@@ -400,7 +400,7 @@ _reg(InterfaceDef(
 
 
 # -----------------------------------------------------------------------------
-# 2.  Reverse lookup  suffix_lower -> [(logical, iface_key), …]
+# 2.  Reverse lookup  suffix_lower -> [(logical, iface_key), ...]
 # -----------------------------------------------------------------------------
 
 _SUFFIX_MAP: Dict[str, List[Tuple[str, str]]] = defaultdict(list)
