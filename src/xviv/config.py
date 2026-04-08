@@ -171,7 +171,7 @@ def generate_config_tcl(
 	if top_name:
 		synth_list  = cfg.get("synthesis", {})
 		synth_cfg   = next((b for b in synth_list if b["top"] == top_name), None)
-		
+
 		if synth_cfg is None:
 			sys.exit(f"ERROR: Synthesis Top '{top_name}' not found in project.toml [[bd]] entries")
 

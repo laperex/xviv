@@ -137,10 +137,10 @@ proc bd_design_config {{ parentCell }} {{
 def generate_synth_hooks(cfg: dict, project_dir: str, top: str) -> None:
 	synth_list = cfg.get("synthesis", {})
 	synth_cfg  = next((b for b in synth_list if b["top"] == top), None)
-	
+
 	if synth_cfg is None:
 		sys.exit(f"ERROR: Synthesis Top '{top}' not found in project.toml [[bd]] entries")
-	
+
 	hooks_path = synth_cfg.get("hooks", f"scripts/synth/{top}.tcl")
 	hooks_path = os.path.join(project_dir, hooks_path)
 

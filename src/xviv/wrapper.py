@@ -515,7 +515,7 @@ class xviv_wrap_top:
 
 		self.wrapper_top = f"{self.top}_wrapper"
 		self.wrapper_file = os.path.join(self.work_dir, f'{self.wrapper_top}.sv')
-		
+
 		self.initialize_fileset(input_fileset)
 		self.create_wrapper()
 
@@ -671,7 +671,7 @@ def parse_arguments():
 			sys.exit(1)
 		cleaned_fileset.append(os.path.abspath(f))
 	args.xviv_fileset = cleaned_fileset
-	
+
 	if args.xviv_work_dir:
 		args.xviv_work_dir = os.path.abspath(args.xviv_work_dir)
 

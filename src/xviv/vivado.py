@@ -117,8 +117,8 @@ def run_vivado(
 		subprocess.run(cmd, check=True)
 	finally:
 		os.unlink(config_tcl_path)
-		
-		
+
+
 def _find_tcl_script() -> str:
 	ref = importlib.resources.files("xviv") / "scripts" / "xviv.tcl"
 	with importlib.resources.as_file(ref) as path:

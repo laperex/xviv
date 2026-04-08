@@ -321,10 +321,10 @@ proc _xviv_ip_infer_interfaces {} {
 proc _xviv_ip_expose_params {} {
     foreach param [ipx::get_user_parameters -of_objects [ipx::current_core]] {
 		set pname [get_property NAME $param]
-		
+
 		# Fetch the current value of the parameter
 		set pvalue [get_property VALUE $param]
-		
+
 		set display_name $pname
 
 		set widget [ipgui::add_param \
@@ -334,7 +334,7 @@ proc _xviv_ip_expose_params {} {
 			-parent [ipgui::get_pagespec -name "Page 0" -component [ipx::current_core]]]
 
 		set_property TOOLTIP "Parameter: $display_name" $widget
-		
+
 		# Print the name and value to the console
 		puts "Name: $pname | Value: $pvalue"
 	}
@@ -418,7 +418,7 @@ proc cmd_create_ip {} {
 
 	add_files -norecurse -scan_for_includes $xviv_ip_rtl
 	set_property TOP $xviv_ip_top [current_fileset]
-	
+
     ipx_add_files
     update_compile_order -fileset sources_1
     ipx::merge_project_changes ports [ipx::current_core]
@@ -546,7 +546,7 @@ proc cmd_generate_bd {} {
 
     reset_target  {synthesis simulation implementation} [get_files $bd_file]
     generate_target all                                 [get_files $bd_file]
-	
+
 	validate_bd_design
 
     set wrapper_src [make_wrapper -files [get_files $bd_file] -top]
