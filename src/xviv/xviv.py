@@ -150,33 +150,61 @@ def build_parser() -> argparse.ArgumentParser:
 		).completer = _bd_names_completer
 
 	c = _cmd("export-bd", "Export the current BD as a versioned re-runnable TCL script")
-	c.add_argument("--bd", required=True, help="BD name as defined in [[bd]] TOML entry"
-		).completer = _bd_names_completer
+	c.add_argument(
+		"--bd",
+		required=True,
+		help="BD name as defined in [[bd]] TOML entry"
+	).completer = _bd_names_completer
 
 	c = _cmd("bd-config", "Generate a starter hooks file for a BD")
-	c.add_argument("--bd", required=True, help="BD name as defined in [[bd]] TOML entry"
-		).completer = _bd_names_completer
+	c.add_argument(
+		"--bd",
+		required=True,
+		help="BD name as defined in [[bd]] TOML entry"
+	).completer = _bd_names_completer
 
 	c = _cmd("synthesis", "Synthesise, place, route, and write bitstream")
-	c.add_argument("--top", required=True, help="Top module name"
-		).completer = _top_names_completer
+	c.add_argument(
+		"--top",
+		required=True,
+		help="Top module name"
+	).completer = _top_names_completer
+
+	c.add_argument("--out-of-context", required=True, help="Enable Out of Context Synthesis")
+	c.add_argument("--report-all", required=True, help="Enable All Reports")
+	c.add_argument("--report-synth", required=True, help="Synthesis Reports")
+	c.add_argument("--report-place", required=True, help="Placement Reports")
+	c.add_argument("--report-route", required=True, help="Routing Reports")
+	c.add_argument(
+		"--generate-netlist",
+		required=True,
+		help="Generate Functional and Timing Netlists for Post Synthesis and Implementation simulation runs"
+	)
 
 	c = _cmd("synth-config", "Generate a starter hooks file for synthesis")
-	c.add_argument("--top", required=True, help="Top module name"
-		).completer = _top_names_completer
+	c.add_argument(
+		"--top",
+		required=True, help="Top module name"
+	).completer = _top_names_completer
 
 	c = _cmd("elaborate", "Compile and optionally run simulation")
-	c.add_argument("--top", required=True, help="Simulation top module"
-		).completer = _top_names_completer
+	c.add_argument(
+		"--top",
+		required=True, help="Simulation top module"
+	).completer = _top_names_completer
 	c.add_argument("--so",      default="", help="DPI shared library name (no path/extension)")
 	c.add_argument("--dpi-lib", default="", help="Directory containing the DPI .so")
 	c.add_argument("--run",     default="", help="Simulation run time, e.g. 1000ns")
 
 	c = _cmd("open-dcp", "Open a checkpoint in Vivado GUI")
-	c.add_argument("--top", required=True, help="Top module name (locates build/<top>/)"
-		).completer = _top_names_completer
-	c.add_argument("--dcp", default="post_synth", help="Checkpoint stem (default: post_synth)"
-		).completer = _dcp_stems_completer
+	c.add_argument(
+		"--top",
+		required=True, help="Top module name (locates build/<top>/)"
+	).completer = _top_names_completer
+	c.add_argument(
+		"--dcp",
+		default="post_synth", help="Checkpoint stem (default: post_synth)"
+	).completer = _dcp_stems_completer
 
 	c = _cmd("open-snapshot", "Open the simulation snapshot in xsim GUI")
 	c.add_argument("--top", required=True, help="Simulation top module").completer = _top_names_completer
