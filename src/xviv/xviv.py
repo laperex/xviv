@@ -224,7 +224,8 @@ def build_parser() -> argparse.ArgumentParser:
 		"BSP is placed in build/bsp/<platform>.",
 	)
 	c.add_argument(
-		"--platform", required=True,
+		"--platform",
+		required=True,
 		help="Platform name as defined in [[platform]] TOML entry",
 	).completer = _platform_names_completer
 
@@ -233,7 +234,8 @@ def build_parser() -> argparse.ArgumentParser:
 		"Compile the BSP with make -j<ncpu>.",
 	)
 	c.add_argument(
-		"--platform", required=True,
+		"--platform",
+		required=True,
 		help="Platform name as defined in [[platform]] TOML entry",
 	).completer = _platform_names_completer
 
@@ -244,7 +246,8 @@ def build_parser() -> argparse.ArgumentParser:
 		"If the BSP does not yet exist it is created automatically.",
 	)
 	c.add_argument(
-		"--app", required=True,
+		"--app",
+		required=True,
 		help="App name as defined in [[app]] TOML entry",
 	).completer = _app_names_completer
 	c.add_argument(
@@ -261,7 +264,8 @@ def build_parser() -> argparse.ArgumentParser:
 		"Compile the application with make -j<ncpu>.",
 	)
 	c.add_argument(
-		"--app", required=True,
+		"--app",
+		required=True,
 		help="App name as defined in [[app]] TOML entry",
 	).completer = _app_names_completer
 	c.add_argument(
