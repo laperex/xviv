@@ -505,22 +505,22 @@ def resolve_files(fileset):
 	return resolve_tree(tree.root), fileset
 
 class xviv_wrap_top:
-	def __init__(self, top, work_dir, input_fileset):
-		logger.info(f"Initializing xviv_wrap_top. Top: {top}, WorkDir: {work_dir}")
+	def __init__(self, top, out_dir, input_fileset):
+		logger.info(f"Initializing xviv_wrap_top. Top: {top}, WorkDir: {out_dir}")
 
 		self.top = top
-		self.work_dir = work_dir
+		self.out_dir = out_dir
 
-		os.makedirs(self.work_dir, exist_ok=True)
+		os.makedirs(self.out_dir, exist_ok=True)
 
 		self.wrapper_top = f"{self.top}_wrapper"
-		self.wrapper_file = os.path.join(self.work_dir, f'{self.wrapper_top}.sv')
+		self.wrapper_file = os.path.join(self.out_dir, f'{self.wrapper_top}.sv')
 
 		self.initialize_fileset(input_fileset)
 		self.create_wrapper()
 
 	def get_work_dir(self):
-		return self.work_dir
+		return self.out_dir
 
 	def initialize_fileset(self, fileset):
 		logger.info("Initializing and parsing fileset...")
@@ -652,9 +652,9 @@ def parse_arguments():
 	# cmd_group = parser.add_mutually_exclusive_group()
 
 	parser.add_argument('-t', '--top', default='', dest='xviv_top', help='Specify Top Module')
-	parser.add_argument('-o', default='', dest='xviv_work_dir', help='Specify Wrapper Output Directory')
+	parser.add_argument('-o', default='', dest='out_dir', help='Specify Wrapper Output Directory')
 
-	parser.add_argument('--wrapper-dir', default='', dest='xviv_work_dir', help='Destination to Store the Generated Synthesis Wrapper')
+	parser.add_argument('--wrapper-dir', default='', dest='out_dir', help='Destination to Store the Generated Synthesis Wrapper')
 
 	parser.add_argument('--dry-run', action='store_true', dest='xviv_dry_run', help='Prevent invoking vivado tools')
 	parser.add_argument('--log-file', default='', dest='xviv_log_file', help="Path to log file")
@@ -672,8 +672,8 @@ def parse_arguments():
 		cleaned_fileset.append(os.path.abspath(f))
 	args.xviv_fileset = cleaned_fileset
 
-	if args.xviv_work_dir:
-		args.xviv_work_dir = os.path.abspath(args.xviv_work_dir)
+	if args.out_dir:
+		args.out_dir = os.path.abspath(args.out_dir)
 
 	for i in args.xviv_include_dirs:
 		if not os.path.exists(i):
@@ -686,7 +686,7 @@ def main():
 
 	_setup_logging(config.xviv_log_file or './build/xviv/xviv_wrap_top.log')
 
-	xviv_wrap_top(config.xviv_top, config.xviv_work_dir, config.xviv_fileset)
+	xviv_wrap_top(config.xviv_top, config.out_dir, config.xviv_fileset)
 
 if __name__ == '__main__':
 	main()

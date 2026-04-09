@@ -44,6 +44,7 @@ import subprocess
 import sys
 import argcomplete
 
+from xviv import config, wrapper
 from xviv.config import _resolve_globs, generate_config_tcl, load_config
 from xviv.hooks import generate_bd_hooks, generate_ip_hooks, generate_synth_hooks
 from xviv.platform import _app_dir, _bsp_dir, _find_elf, _hw_server, _mb_tool, _platform_paths, _resolve_app_cfg, _resolve_platform_cfg, _transform_app_makefile
@@ -82,7 +83,7 @@ def _dcp_stems_completer(prefix, parsed_args, **kwargs):
 	try:
 		cfg      = load_config(os.path.abspath(_find_config(prefix, parsed_args)))
 		top      = getattr(parsed_args, "top", None)
-		build_dir = cfg.get("build", {}).get("dir", "build")
+		build_dir = cfg.get("build", {}).get("dir", config.DEFAULT_BUILD_DIR)
 		if not top:
 			return ["post_synth", "post_place", "post_route"]
 		stems = [
@@ -306,7 +307,7 @@ def main() -> None:
 
 	cfg = load_config(cfg_path)
 
-	build_dir   = os.path.join(project_dir, cfg.get("build", {}).get("dir", "build"))
+	build_dir   = os.path.join(project_dir, cfg.get("build", {}).get("dir", config.DEFAULT_BUILD_DIR))
 	_setup_logging(args.log_file or os.path.join(build_dir, "xviv", "xviv.log"))
 
 	tcl_script = _find_tcl_script()
@@ -314,6 +315,25 @@ def main() -> None:
 	cmd        = args.command
 
 	if cmd == "create-ip":
+		if args.ip:
+			build_cfg   = cfg.get("build", {})
+			ip_wrapper_dir = os.path.abspath(os.path.join(project_dir, build_cfg.get("wrapper_dir", config.DEFAULT_BUILD_WRAPPER_DIR)))
+
+			ip_list = cfg.get("ip", [])
+			ip_cfg  = next((i for i in ip_list if i["name"] == args.ip), None)
+			if ip_cfg is None:
+				sys.exit(f"ERROR: IP '{args.ip}' not found in project.toml [[ip]] entries")
+
+			if ip_cfg.get('create-wrapper', False):
+				ip_rtl_files = _resolve_globs(ip_cfg.get("rtl", []), project_dir)
+				ip_top = ip_cfg.get("top", ip_cfg["name"])
+
+				wrapper.xviv_wrap_top(ip_top, ip_wrapper_dir, ip_rtl_files)
+
+				ip_wrapper_file = os.path.join(ip_wrapper_dir, f"{ip_top}.sv")
+				if ip_wrapper_file not in ip_rtl_files:
+					ip_rtl_files.append(ip_wrapper_file)
+
 		config_tcl = generate_config_tcl(cfg, project_dir, ip_name=args.ip)
 		run_vivado(cfg, tcl_script, "create_ip", [], config_tcl)
 

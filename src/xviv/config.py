@@ -10,6 +10,11 @@ logger = logging.getLogger(__name__)
 DEFAULT_VIVADO_PATH = "/opt/Xilinx/Vivado/2024.1"
 DEFAULT_VITIS_PATH = "/opt/Xilinx/Vitis/2024.1"
 
+DEFAULT_BUILD_DIR = "build"
+DEFAULT_BUILD_IP_REPO = "build/ip"
+DEFAULT_BUILD_BD_DIR = "build/bd"
+DEFAULT_BUILD_WRAPPER_DIR = "build/wrapper"
+
 def load_config(path: str) -> dict:
 	path = os.path.abspath(path)
 	if not os.path.isfile(path):
@@ -108,10 +113,10 @@ def generate_config_tcl(
 	lines.append(f'set xviv_board_repo "{board_repo}"')
 
 	build_cfg   = cfg.get("build", {})
-	build_dir   = os.path.abspath(os.path.join(base_dir, build_cfg.get("dir",         "build")))
-	ip_repo     = os.path.abspath(os.path.join(base_dir, build_cfg.get("ip_repo",     "build/ip")))
-	bd_dir      = os.path.abspath(os.path.join(base_dir, build_cfg.get("bd_dir",      "build/bd")))
-	wrapper_dir = os.path.abspath(os.path.join(base_dir, build_cfg.get("wrapper_dir", "srcs/rtl")))
+	build_dir   = os.path.abspath(os.path.join(base_dir, build_cfg.get("dir",         DEFAULT_BUILD_DIR)))
+	ip_repo     = os.path.abspath(os.path.join(base_dir, build_cfg.get("ip_repo",     DEFAULT_BUILD_IP_REPO)))
+	bd_dir      = os.path.abspath(os.path.join(base_dir, build_cfg.get("bd_dir",      DEFAULT_BUILD_BD_DIR)))
+	wrapper_dir = os.path.abspath(os.path.join(base_dir, build_cfg.get("wrapper_dir", DEFAULT_BUILD_WRAPPER_DIR)))
 
 	lines.append(f'set xviv_build_dir   "{build_dir}"')
 	lines.append(f'set xviv_ip_repo     "{ip_repo}"')
