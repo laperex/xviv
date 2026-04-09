@@ -102,6 +102,7 @@ class InterfaceDef:
 
 IFACE_DB: Dict[str, InterfaceDef] = {}
 
+
 def _reg(iface: InterfaceDef) -> InterfaceDef:
 	IFACE_DB[iface.key] = iface
 	return iface
@@ -446,8 +447,8 @@ def _bit_width(typ) -> int:
 
 
 def parse_module(source_path: str,
-				top: Optional[str] = None,
-				verbose: bool = False) -> Tuple[str, List[Port]]:
+				 top: Optional[str] = None,
+				 verbose: bool = False) -> Tuple[str, List[Port]]:
 	"""
 	Parse a SV/V file with pyslang and return (module_name, [Port, ...]).
 
@@ -510,8 +511,8 @@ def parse_module(source_path: str,
 		if len(instances) > 1 and verbose:
 			names = [i.name for i in instances]
 			print(f"[INFO] Multiple modules found: {names}. "
-				f"Using '{instances[0].name}'. "
-				f"Use --top to override.", file=sys.stderr)
+				  f"Using '{instances[0].name}'. "
+				  f"Use --top to override.", file=sys.stderr)
 		inst = instances[0]
 
 	module_name: str = inst.name
@@ -523,8 +524,8 @@ def parse_module(source_path: str,
 		if sym.kind.name not in ("Port", "MultiPort"):
 			continue
 		direction = _DIR_MAP.get(sym.direction, "input")
-														#    ArgumentDirection enu
-		bw    = _bit_width(sym.type)
+		#    ArgumentDirection enu
+		bw = _bit_width(sym.type)
 		width = f"[{bw - 1}:0]" if bw > 1 else "1"
 		ports.append(Port(name=sym.name, direction=direction, width=width))
 
@@ -536,7 +537,7 @@ def parse_module(source_path: str,
 			if sym.kind.name not in ("Port", "MultiPort"):
 				continue
 			direction = _DIR_MAP.get(getattr(sym, "direction", None), "input")
-			bw    = _bit_width(sym.type)
+			bw = _bit_width(sym.type)
 			width = f"[{bw - 1}:0]" if bw > 1 else "1"
 			ports.append(Port(name=sym.name, direction=direction, width=width))
 
@@ -560,9 +561,9 @@ class PortGroup:
 	mode:       str
 	iface_name: str
 	port_map:   Dict[str, Port] = field(default_factory=dict)
-	clock_port: Optional[str]   = None
-	reset_port: Optional[str]   = None
-	unmatched:  List[Port]      = field(default_factory=list)
+	clock_port: Optional[str] = None
+	reset_port: Optional[str] = None
+	unmatched:  List[Port] = field(default_factory=list)
 	score:      int = 0
 
 
@@ -598,16 +599,18 @@ _RST_SUFF = {"aresetn", "rst_n", "rst", "reset_n", "reset", "areset_n"}
 
 def _infer_mode(prefix: str) -> str:
 	p = prefix.lower()
-	if p.startswith("s_"):  return "slave"
-	if p.startswith("m_"):  return "master"
+	if p.startswith("s_"):
+		return "slave"
+	if p.startswith("m_"):
+		return "master"
 	return "slave"
 
 
 def _score_group(ports: List[Port], iface_key: str) -> Tuple[int, Dict[str, Port]]:
-	idef    = IFACE_DB[iface_key]
+	idef = IFACE_DB[iface_key]
 	sig_lut = {s.lower(): log
-			for log, suf_list in idef.signals.items()
-			for s in suf_list}
+			   for log, suf_list in idef.signals.items()
+			   for s in suf_list}
 
 	matched: Dict[str, Port] = {}
 	for p in ports:
@@ -619,13 +622,13 @@ def _score_group(ports: List[Port], iface_key: str) -> Tuple[int, Dict[str, Port
 					matched[log] = p
 				break
 
-	score  = sum(2 if r in matched else -3 for r in idef.required)
+	score = sum(2 if r in matched else -3 for r in idef.required)
 	score += len(matched) - len(idef.required)
 	return score, matched
 
 
 def _find_prefix(port_name: str) -> str:
-	lo      = port_name.lower()
+	lo = port_name.lower()
 	all_suf = sorted(_SUFFIX_MAP.keys(), key=len, reverse=True)
 	for suf in all_suf:
 		if lo.endswith(f"_{suf}"):
@@ -653,7 +656,7 @@ def classify_ports(ports: List[Port], verbose: bool = False) -> Tuple[List[PortG
 
 	# -- Score each prefix group ----------------------------------------------
 	groups:     List[PortGroup] = []
-	unassigned: List[Port]      = []
+	unassigned: List[Port] = []
 
 	for prefix, grp_ports in prefix_groups.items():
 		hint_key: Optional[str] = None
@@ -684,7 +687,7 @@ def classify_ports(ports: List[Port], verbose: bool = False) -> Tuple[List[PortG
 		clk_p = rst_p = None
 		pfx_lo = prefix.lower()
 		for p in clk_rst_ports:
-			lo  = p.name.lower()
+			lo = p.name.lower()
 			suf = lo[len(pfx_lo):].lstrip("_") if lo.startswith(pfx_lo) else ""
 			if suf in _CLK_SUFF:
 				clk_p = p.name
@@ -693,15 +696,15 @@ def classify_ports(ports: List[Port], verbose: bool = False) -> Tuple[List[PortG
 
 		iface_name = prefix.upper().replace("-", "_").replace(".", "_")
 		groups.append(PortGroup(
-			prefix     = prefix,
-			iface_key  = best_key,
-			mode       = _infer_mode(prefix),
-			iface_name = iface_name,
-			port_map   = best_map,
-			clock_port = clk_p,
-			reset_port = rst_p,
-			unmatched  = [p for p in grp_ports if p not in best_map.values()],
-			score      = best_score,
+			prefix=prefix,
+			iface_key=best_key,
+			mode=_infer_mode(prefix),
+			iface_name=iface_name,
+			port_map=best_map,
+			clock_port=clk_p,
+			reset_port=rst_p,
+			unmatched=[p for p in grp_ports if p not in best_map.values()],
+			score=best_score,
 		))
 
 	# -- Standalone clk / rst / intr signals ---------------------------------
@@ -775,13 +778,13 @@ set_property abstraction_type_vlnv {vlnv}      $iface
 set_property bus_type_vlnv         {bus_vlnv}  $iface
 """
 
-_TCL_MODE     = "set_property interface_mode {mode}  $iface\n"
-_TCL_PROTO    = ("set pp [ipx::add_bus_parameter PROTOCOL $iface]\n"
-				"set_property value {protocol} $pp\n")
+_TCL_MODE = "set_property interface_mode {mode}  $iface\n"
+_TCL_PROTO = ("set pp [ipx::add_bus_parameter PROTOCOL $iface]\n"
+			  "set_property value {protocol} $pp\n")
 _TCL_POLARITY = ("set pol [ipx::add_bus_parameter POLARITY $iface]\n"
-				"set_property value {polarity} $pol\n")
+				 "set_property value {polarity} $pol\n")
 _TCL_PORT_MAP = ("set pm [ipx::add_port_map {logical} $iface]\n"
-				"set_property physical_name {physical} $pm\n")
+				 "set_property physical_name {physical} $pm\n")
 _TCL_CLK_ASSOC = (
 	"# Associate clock  {clk_iface} -> {iface_name}\n"
 	"set _ci [ipx::get_bus_interfaces {clk_iface} -of_objects $core]\n"
@@ -901,7 +904,7 @@ def main() -> None:
 	print(f"[INFO] Interfaces detected: {len(groups)}")
 	for g in groups:
 		print(f"       {g.iface_name:<30s}  type={g.iface_key:<12s}  "
-			f"mode={g.mode:<7s}  signals={len(g.port_map)}  score={g.score}")
+			  f"mode={g.mode:<7s}  signals={len(g.port_map)}  score={g.score}")
 
 	if unassigned:
 		print(f"[WARN] {len(unassigned)} port(s) unassigned:")
