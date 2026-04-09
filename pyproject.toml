@@ -8,7 +8,7 @@ version = "0.1.2"
 description = "FPGA project controller for Vivado"
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = ["pyslang", "argcomplete"]
+dependencies = ["pyslang", "argcomplete", "toml", "argparse"]
 classifiers = [
 	"Development Status :: 3 - Alpha",
 	"Intended Audience :: Developers",
