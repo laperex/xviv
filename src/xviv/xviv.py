@@ -330,9 +330,12 @@ def main() -> None:
 
 				wrapper.xviv_wrap_top(ip_top, ip_wrapper_dir, ip_rtl_files)
 
-				ip_wrapper_file = os.path.join(ip_wrapper_dir, f"{ip_top}.sv")
+				ip_wrapper_file = os.path.join(ip_wrapper_dir, f"{ip_top}_wrapper.sv")
 				if ip_wrapper_file not in ip_rtl_files:
 					ip_rtl_files.append(ip_wrapper_file)
+
+				ip_cfg["top"] = f"{ip_top}_wrapper"
+				ip_cfg["rtl"] = ip_rtl_files
 
 		config_tcl = generate_config_tcl(cfg, project_dir, ip_name=args.ip)
 		run_vivado(cfg, tcl_script, "create_ip", [], config_tcl)
