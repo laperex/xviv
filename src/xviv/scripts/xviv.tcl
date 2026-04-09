@@ -620,7 +620,9 @@ proc cmd_export_bd {} {
 # =============================================================================
 proc cmd_synthesis {top_module sha_tag} {
     global xviv_bd_dir xviv_build_dir xviv_synth_hooks xviv_fpga_part
-
+    xviv_synth_out_of_context xviv_synth_report_synth
+    xviv_synth_report_post xviv_synth_report_place
+    xviv_synth_report_route xviv_synth_generate_netlist
     xviv_require_vars xviv_build_dir
 
     set out_dir     "$xviv_build_dir/synth/$top_module"
@@ -650,14 +652,6 @@ proc cmd_synthesis {top_module sha_tag} {
         synth_pre synth_post place_post route_post bitstream_post
     } { xviv_stub $stub }
 
-    # Report-flag stubs - all default to enabled (return 1)
-    foreach flag {report_synth report_place report_route report_netlists} {
-        if {[info procs $flag] eq ""} {
-            puts "DEBUG: No-op stub installed for optional report flag: $flag"
-            proc $flag {} { return 1 }
-        }
-    }
-
     xviv_source_hooks xviv_synth_hooks
     xviv_create_project "in_memory_project"
 
@@ -672,20 +666,51 @@ proc cmd_synthesis {top_module sha_tag} {
     synth_pre
 
     xviv_stage "Synthesis - $top_module  (sha: $sha_tag)"
-    synth_design -name synth_${top_module} -top $top_module
+    if {[xviv_synth_out_of_context]} {
+        synth_design -name synth_${top_module} -top $top_module -mode out_of_context
+    } else {
+        synth_design -name synth_${top_module} -top $top_module
+    }
     write_checkpoint -force "$out_dir/post_synth.dcp"
 
-    if {[report_synth]} {
+    if {[xviv_synth_report_synth]} {
         xviv_stage "Post-synthesis reports"
         report_timing_summary -file "$report_dir/post_synth_timing_summary.rpt"
         report_utilization    -file "$report_dir/post_synth_util.rpt"
     }
-    if {[report_netlists]} {
+    if {[xviv_synth_generate_netlist]} {
         write_verilog -force -mode funcsim                "$netlist_dir/post_synth_functional.v"
         write_verilog -force -mode timesim -sdf_anno true "$netlist_dir/post_synth_timing.v"
     }
 
     synth_post
+
+    # ------------------------------------------------------------------
+    # OOC Early Exit
+    # ------------------------------------------------------------------
+    # If running out-of-context, we stop here. We cannot place, route, 
+    # or generate a bitstream without I/O buffers and a top-level wrapper.
+    if {[xviv_synth_out_of_context]} {
+        xviv_stage "Generating OOC artifacts"
+        
+        # Write a stub file for black-box instantiation in other designs/simulations
+        write_verilog -force -mode synth_stub "$netlist_dir/${top_module}_stub.v"
+        
+        # xviv_write_manifest "$out_dir/build.json"               \
+        #     vivado_version  [version -short]                    \
+        #     part            $xviv_fpga_part                     \
+        #     top             $top_module                         \
+        #     sha_tag         $sha_tag                            \
+        #     sha_short       $sha_short                          \
+        #     dirty           [expr {$dirty ? "true" : "false"}]  \
+        #     mode            "out_of_context"                    \
+        #     checkpoint      "post_synth.dcp"                    \
+        #     elapsed         [xviv_elapsed]                      \
+        #     timestamp       [clock format [clock seconds] -format "%Y-%m-%dT%H:%M:%SZ"]
+
+        puts "INFO: OOC Synthesis complete - [xviv_elapsed]"
+        exit 0
+    }
 
     # ------------------------------------------------------------------
     # Placement
@@ -694,7 +719,7 @@ proc cmd_synthesis {top_module sha_tag} {
     place_design
     write_checkpoint -force "$out_dir/post_place.dcp"
 
-    if {[report_place]} {
+    if {[xviv_synth_report_place]} {
         xviv_stage "Post-placement reports"
         report_io                        -file "$report_dir/post_place_io.rpt"
         report_clock_utilization         -file "$report_dir/post_place_clock_util.rpt"
@@ -710,7 +735,7 @@ proc cmd_synthesis {top_module sha_tag} {
     route_design
     write_checkpoint -force "$out_dir/post_route.dcp"
 
-    if {[report_route]} {
+    if {[xviv_synth_report_route]} {
         xviv_stage "Post-routing reports"
         report_drc            -file "$report_dir/post_route_drc.rpt"
         report_methodology    -file "$report_dir/post_route_methodology.rpt"
@@ -718,7 +743,7 @@ proc cmd_synthesis {top_module sha_tag} {
         report_route_status   -file "$report_dir/post_route_status.rpt"
         report_timing_summary -max_paths 10 -report_unconstrained -warn_on_violation -file "$report_dir/post_route_timing_summary.rpt"
     }
-    if {[report_netlists]} {
+    if {[xviv_synth_generate_netlist]} {
         write_verilog -force -mode funcsim                "$netlist_dir/post_impl_functional.v"
         write_verilog -force -mode timesim -sdf_anno true "$netlist_dir/post_impl_timing.v"
     }
@@ -760,6 +785,7 @@ proc cmd_synthesis {top_module sha_tag} {
         sha_tag         $sha_tag                            \
         sha_short       $sha_short                          \
         dirty           [expr {$dirty ? "true" : "false"}]  \
+        mode            "global"                            \
         bitstream       "${export_filename}.bit"            \
         xsa             "${export_filename}.xsa"            \
         elapsed         [xviv_elapsed]                      \

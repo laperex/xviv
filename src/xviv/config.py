@@ -80,10 +80,20 @@ def generate_config_tcl(
 		cfg: dict,
 		base_dir: str,
 		*,
+
 		ip_name: typing.Optional[str] = None,
 		bd_name: typing.Optional[str] = None,
 		top_name: typing.Optional[str] = None,
+
 		bd_export_path: typing.Optional[str] = None,
+
+		synth_out_of_context: typing.Optional[bool] = None,
+		synth_report_all: typing.Optional[bool] = None,
+		synth_report_synth: typing.Optional[bool] = None,
+		synth_report_post: typing.Optional[bool] = None,
+		synth_report_place: typing.Optional[bool] = None,
+		synth_report_rout: typing.Optional[bool] = None,
+		synth_generate_netlist: typing.Optional[bool] = None
 ) -> str:
 	lines = []
 
@@ -192,5 +202,24 @@ def generate_config_tcl(
 
 		constr_files = _resolve_globs(synth_cfg.get("constrs", []), base_dir)
 		lines.append(f"set xviv_constr_files  {_tcl_list(constr_files)}")
+
+		if synth_report_all:
+			synth_report_synth = True
+			synth_report_post = True
+			synth_report_place = True
+			synth_report_rout = True
+
+		if synth_out_of_context:
+			lines.append(f"set xviv_synth_out_of_context {int(synth_out_of_context)}")
+		if synth_report_synth:
+			lines.append(f"set xviv_synth_report_synth {int(synth_report_synth)}")
+		if synth_report_post:
+			lines.append(f"set xviv_synth_report_post {int(synth_report_post)}")
+		if synth_report_place:
+			lines.append(f"set xviv_synth_report_place {int(synth_report_place)}")
+		if synth_report_rout:
+			lines.append(f"set xviv_synth_report_route {int(synth_report_rout)}")
+		if synth_generate_netlist:
+			lines.append(f"set xviv_synth_generate_netlist {int(synth_generate_netlist)}")
 
 	return "\n".join(lines) + "\n"

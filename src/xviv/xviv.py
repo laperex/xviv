@@ -177,14 +177,30 @@ def build_parser() -> argparse.ArgumentParser:
 		help="Top module name"
 	).completer = _top_names_completer
 
-	c.add_argument("--out-of-context", required=True, help="Enable Out of Context Synthesis")
-	c.add_argument("--report-all", required=True, help="Enable All Reports")
-	c.add_argument("--report-synth", required=True, help="Synthesis Reports")
-	c.add_argument("--report-place", required=True, help="Placement Reports")
-	c.add_argument("--report-route", required=True, help="Routing Reports")
+	c.add_argument(
+		"--out-of-context", action="store_true",
+		required=False, help="Enable Out of Context Synthesis"
+	)
+	c.add_argument(
+		"--report-all", action="store_true",
+		required=False, help="Enable All Reports"
+	)
+	c.add_argument(
+		"--report-synth", action="store_true",
+		required=False, help="Synthesis Reports"
+	)
+	c.add_argument(
+		"--report-place", action="store_true",
+		required=False, help="Placement Reports"
+	)
+	c.add_argument(
+		"--report-route", action="store_true",
+		required=False, help="Routing Reports"
+	)
 	c.add_argument(
 		"--generate-netlist",
-		required=True,
+		action="store_true",
+		required=False,
 		help="Generate Functional and Timing Netlists for Post Synthesis and Implementation simulation runs"
 	)
 
@@ -448,6 +464,7 @@ def main() -> None:
 	elif cmd == "synthesis":
 		_, _, tag = _git_sha_tag()
 		config_tcl = generate_config_tcl(cfg, project_dir, top_name=args.top)
+		print(args.out_of_context, args.report_all)
 		run_vivado(cfg, tcl_script, "synthesis", [args.top, tag], config_tcl)
 
 	elif cmd == "synth-config":

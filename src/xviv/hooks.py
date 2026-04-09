@@ -156,11 +156,6 @@ def generate_synth_hooks(cfg: dict, project_dir: str, top: str) -> None:
 		fh.write(f"""\
 # Hook procs - xviv synthesis - {top}
 
-proc report_synth    {{}} {{ return 1 }}
-proc report_place    {{}} {{ return 1 }}
-proc report_route    {{}} {{ return 1 }}
-proc report_netlists {{}} {{ return 1 }}
-
 proc synth_pre {{}} {{}}
 proc synth_post {{}} {{}}
 proc place_post {{}} {{}}
