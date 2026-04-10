@@ -547,6 +547,7 @@ proc cmd_generate_bd {} {
 		}
 	}
 
+	# replace with a different techinque
     reset_target  {synthesis simulation implementation} [get_files $bd_file]
     generate_target all                                 [get_files $bd_file]
 
@@ -811,12 +812,12 @@ proc cmd_synthesis {top_module sha_tag} {
 # =============================================================================
 # Command: cmd_synth_bd  <bd_name> <bd_wrapper_top> <sha_tag>
 #
-# Per-IP args (argv[5+]) — note: no inst_name field, cell is found by REF_NAME:
+# Per-IP args (argv[5+]) - note: no inst_name field, cell is found by REF_NAME:
 #   xci_name  top_module  dcp_dir  component_xml
 #   n_rtl  [rtl...]  n_inc  [inc...]  n_xdc  [xdc...]
 #
 # Flow
-# ────
+# ----
 #  Phase 1 – OOC synthesis (all leaf IPs: custom + stock)
 #    For each IP, synthesise out-of-context and write post_synth.dcp.
 #    Skip if the DCP is newer than the IP's component.xml (nothing changed).
@@ -847,7 +848,7 @@ proc cmd_synth_bd {bd_name bd_wrapper_top sha_tag} {
     # =========================================================================
     while {$idx < [llength $ip_args]} {
 
-        # ── Fixed fields ──────────────────────────────────────────────────────
+        # -- Fixed fields ------------------------------------------------------
         set xci_name  [lindex $ip_args $idx]; incr idx
         set ip_top    [lindex $ip_args $idx]; incr idx
         set dcp_dir   [lindex $ip_args $idx]; incr idx
@@ -855,7 +856,7 @@ proc cmd_synth_bd {bd_name bd_wrapper_top sha_tag} {
         set xci_file  [lindex $ip_args $idx]; incr idx
         set is_xilinx [lindex $ip_args $idx]; incr idx
 
-        # ── Variable-length lists ─────────────────────────────────────────────
+        # -- Variable-length lists ---------------------------------------------
         set n_rtl [lindex $ip_args $idx]; incr idx
         set rtl_files {}
         if {$n_rtl > 0} {
@@ -890,7 +891,7 @@ proc cmd_synth_bd {bd_name bd_wrapper_top sha_tag} {
                 # DCP is current but stub.v is missing (first run after the
                 # stub-generation feature was added).  Reopen the checkpoint
                 # and emit the stub without re-synthesising.
-                puts "INFO: DCP cached but stub.v absent — regenerating stub for $xci_name"
+                puts "INFO: DCP cached but stub.v absent - regenerating stub for $xci_name"
                 catch {close_project}
                 create_project -part $xviv_fpga_part -in_memory "stub_$xci_name"
                 open_checkpoint $dcp_file
@@ -902,7 +903,7 @@ proc cmd_synth_bd {bd_name bd_wrapper_top sha_tag} {
             }
         }
 
-        # ── OOC synthesis ─────────────────────────────────────────────────────
+        # -- OOC synthesis -----------------------------------------------------
         xviv_stage "OOC synthesis: $xci_name  (top: $ip_top  xilinx: $is_xilinx)"
 
         catch {close_project}
@@ -956,12 +957,12 @@ proc cmd_synth_bd {bd_name bd_wrapper_top sha_tag} {
     #   2. Add the synth_stub .v for each such IP so synth_design sees a
     #      (* black_box *) shell rather than the full implementation.
     #   3. After synthesis, load each OOC DCP directly into its black-box cell
-    #      with read_checkpoint -cell — no update_design -black_box needed.
+    #      with read_checkpoint -cell - no update_design -black_box needed.
     # =========================================================================
     xviv_stage "BD wrapper synthesis: $bd_wrapper_top"
     catch {close_project}
 
-    # ── Resolve output paths ──────────────────────────────────────────────────
+    # -- Resolve output paths --------------------------------------------------
     set out_dir     "$xviv_build_dir/synth/$bd_wrapper_top/ooc"
     set report_dir  "$out_dir/reports"
     set netlist_dir "$out_dir/netlists"
@@ -978,15 +979,15 @@ proc cmd_synth_bd {bd_name bd_wrapper_top sha_tag} {
     xviv_source_hooks xviv_synth_hooks
     xviv_create_project "in_memory_project"
 
-    # ── Load BD ───────────────────────────────────────────────────────────────
+    # -- Load BD ---------------------------------------------------------------
     set bd_file "$xviv_bd_dir/$bd_name/$bd_name.bd"
     if {![file exists $bd_file]} {
-        xviv_die "BD file not found: $bd_file — run generate-bd first"
+        xviv_die "BD file not found: $bd_file - run generate-bd first"
     }
     read_bd        $bd_file
     open_bd_design $bd_file
 
-    # ── Add BD wrapper ────────────────────────────────────────────────────────
+    # -- Add BD wrapper --------------------------------------------------------
     if {[info exists xviv_wrapper_files] && [llength $xviv_wrapper_files] > 0} {
         foreach f $xviv_wrapper_files {
             if {[string match "*${bd_wrapper_top}*" $f]} {
@@ -997,7 +998,7 @@ proc cmd_synth_bd {bd_name bd_wrapper_top sha_tag} {
         }
     }
 
-    # ── Add XDC ───────────────────────────────────────────────────────────────
+    # -- Add XDC ---------------------------------------------------------------
     if {[info exists xviv_xdc_files] && [llength $xviv_xdc_files] > 0} {
         add_files -fileset constrs_1 $xviv_xdc_files
         if {$xviv_synth_out_of_context} {
@@ -1007,14 +1008,14 @@ proc cmd_synth_bd {bd_name bd_wrapper_top sha_tag} {
 
     update_compile_order -fileset sources_1
 
-    # ── Substitute OOC IP RTL with black-box Verilog stubs ───────────────────
+    # -- Substitute OOC IP RTL with black-box Verilog stubs -------------------
     #
     # For each IP that has an OOC DCP:
     #   - Mark every RTL file belonging to that IP as USED_IN_SYNTHESIS false
     #     so Vivado does not attempt to compile it inline.
     #   - Add the synth_stub .v so synth_design finds a (* black_box *)
     #     module declaration and leaves the cell empty.
-    # ─────────────────────────────────────────────────────────────────────────
+    # -------------------------------------------------------------------------
     foreach entry $ooc_dcps {
         set xci_name [lindex $entry 0]
         set stub_v   [lindex $entry 2]
@@ -1042,7 +1043,7 @@ proc cmd_synth_bd {bd_name bd_wrapper_top sha_tag} {
 
     update_compile_order -fileset sources_1
 
-    # ── Synthesis ─────────────────────────────────────────────────────────────
+    # -- Synthesis -------------------------------------------------------------
     xviv_stage "Synthesis - $bd_wrapper_top  (sha: $sha_tag)"
     synth_design -name "synth_$bd_wrapper_top" -top $bd_wrapper_top
     write_checkpoint -force "$out_dir/post_synth.dcp"
@@ -1054,11 +1055,11 @@ proc cmd_synth_bd {bd_name bd_wrapper_top sha_tag} {
         report_utilization    -file "$report_dir/post_synth_util.rpt"
     }
 
-    # ── Load OOC DCPs into black-box cells ───────────────────────────────────
+    # -- Load OOC DCPs into black-box cells -----------------------------------
     #
     # Cells are already black boxes from synthesis (the stub.v carries the
     # (* black_box *) pragma), so read_checkpoint -cell is all that is needed.
-    # ─────────────────────────────────────────────────────────────────────────
+    # -------------------------------------------------------------------------
     foreach entry $ooc_dcps {
         set xci_name [lindex $entry 0]
         set dcp_file [lindex $entry 1]
@@ -1069,7 +1070,7 @@ proc cmd_synth_bd {bd_name bd_wrapper_top sha_tag} {
 
         set cells [get_cells -hierarchical -filter "REF_NAME == $xci_name" -quiet]
         if {[llength $cells] == 0} {
-            puts "INFO: No cells with REF_NAME=$xci_name — skipping (optimised away)"
+            puts "INFO: No cells with REF_NAME=$xci_name - skipping (optimised away)"
             continue
         }
 
@@ -1080,6 +1081,9 @@ proc cmd_synth_bd {bd_name bd_wrapper_top sha_tag} {
         puts "INFO: OOC DCP locked for $xci_name  \[+[xviv_elapsed]\]"
     }
 	
+	# xviv_stage "Logic Optimization"
+    # opt_design
+	
 	set reference_dcp "$out_dir/post_route_reference.dcp"
 
     if {[file exists $reference_dcp]} {
@@ -1089,11 +1093,8 @@ proc cmd_synth_bd {bd_name bd_wrapper_top sha_tag} {
         puts "INFO: No reference DCP found at $reference_dcp. Running standard Implementation."
     }
 
-    # ── Placement ─────────────────────────────────────────────────────────────
+    # -- Placement -------------------------------------------------------------
     xviv_stage "Placement"
-    # Note: Highly recommend running opt_design here if you aren't already!
-    opt_design 
-
     place_design
     write_checkpoint -force "$out_dir/post_place.dcp"
 
@@ -1114,12 +1115,12 @@ proc cmd_synth_bd {bd_name bd_wrapper_top sha_tag} {
         puts "INFO: Timing met after placement. Skipping phys_opt_design to save time."
     }
 
-    # ── Routing ───────────────────────────────────────────────────────────────
+    # -- Routing ---------------------------------------------------------------
     xviv_stage "Routing"
     route_design
     write_checkpoint -force "$out_dir/post_route.dcp"
 
-    # ── Save the new reference for the next build ─────────────────────────────
+    # -- Save the new reference for the next build -----------------------------
     # Overwrite the reference DCP so the next build uses this one as its baseline
     file copy -force "$out_dir/post_route.dcp" $reference_dcp
 
@@ -1143,11 +1144,11 @@ proc cmd_synth_bd {bd_name bd_wrapper_top sha_tag} {
             "$netlist_dir/post_impl_timing.v"
     }
 
-    # ── USR_ACCESS ────────────────────────────────────────────────────────────
+    # -- USR_ACCESS ------------------------------------------------------------
     set_property BITSTREAM.CONFIG.USR_ACCESS 0x${usr_access_val} [current_design]
     puts "INFO: USR_ACCESS = 0x${usr_access_val}  (sha=${sha_short}  dirty=${dirty})"
 
-    # ── Bitstream + XSA ───────────────────────────────────────────────────────
+    # -- Bitstream + XSA -------------------------------------------------------
     xviv_stage "Generating bitstream"
     set export_filename "${bd_wrapper_top}_${sha_tag}"
 
@@ -1157,7 +1158,7 @@ proc cmd_synth_bd {bd_name bd_wrapper_top sha_tag} {
     xviv_update_symlink "$out_dir/${bd_wrapper_top}.bit" "${export_filename}.bit"
     xviv_update_symlink "$out_dir/${bd_wrapper_top}.xsa" "${export_filename}.xsa"
 
-    # ── Build manifest ────────────────────────────────────────────────────────
+    # -- Build manifest --------------------------------------------------------
     xviv_write_manifest "$out_dir/build.json"             \
         vivado_version [version -short]                   \
         part           $xviv_fpga_part                    \

@@ -47,117 +47,97 @@ class IpOocInfo:
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _parse_ip_xml(
-	xml_path: str,
+    xml_path: str,
 ) -> tuple[str, list[str], list[str], list[str]]:
-	"""
-	Parse a Vivado IP-XACT <xci_name>.xml.
+    """
+    Parse a Vivado IP-XACT <xci_name>.xml.
+    Fixes Hard IP (PS7) vs Custom IP (Soft) fileset disparity.
+    """
+    xml_dir = os.path.dirname(xml_path)
+    root    = ET.parse(xml_path).getroot()
 
-	Returns
-	-------
-	top_module    : modelName of the xilinx_verilogsynthesis view
-	rtl_files     : absolute paths of non-include synthesis sources
-	include_dirs  : unique dirs of isIncludeFile=true sources
-	ooc_xdc_files : absolute paths from xilinx_synthesisconstraints fileset
-	"""
-	xml_dir = os.path.dirname(xml_path)
-	root    = ET.parse(xml_path).getroot()
+    # ── 1. Map fileset names to their file entries ────────────────────────────
+    fileset_map: dict[str, list[dict]] = {}
+    for fs in root.findall(".//spirit:fileSet", _NS):
+        name_el = fs.find("spirit:name", _NS)
+        if name_el is None: continue
+        fs_name = (name_el.text or "").strip()
+        entries = []
+        for f_el in fs.findall("spirit:file", _NS):
+            path_el  = f_el.find("spirit:name",          _NS)
+            if path_el is None: continue
+            
+            abs_path = os.path.normpath(os.path.join(xml_dir, (path_el.text or "").strip()))
+            is_inc   = f_el.find("spirit:isIncludeFile", _NS)
+            is_include = (is_inc is not None and (is_inc.text or "").strip().lower() == "true")
+            
+            entries.append({"abs_path": abs_path, "is_include": is_include})
+        fileset_map[fs_name] = entries
 
-	# ── 1. Collect all fileSets into a map: name -> list of file entries ──────
-	fileset_map: dict[str, list[dict]] = {}
+    # ── 2. Scan all views ─────────────────────────────────────────────────────
+    top_module = ""
+    synth_filesets = set()
+    constr_fileset_name = ""
 
-	for fs in root.findall(".//spirit:fileSet", _NS):
-		name_el = fs.find("spirit:name", _NS)
-		if name_el is None:
-			continue
-		fs_name  = (name_el.text or "").strip()
-		entries: list[dict] = []
+    # Priority for choosing the TOP MODULE name
+    SYNTH_VIEWS = [
+        "xilinx_verilogsynthesiswrapper",
+        "xilinx_vhdlsynthesiswrapper",
+        "xilinx_verilogsynthesis",
+        "xilinx_vhdlsynthesis"
+    ]
+    best_view_rank = 999
 
-		for f_el in fs.findall("spirit:file", _NS):
-			path_el  = f_el.find("spirit:name",          _NS)
-			inc_el   = f_el.find("spirit:isIncludeFile", _NS)
-			type_el  = f_el.find("spirit:fileType",      _NS)
-			utype_el = f_el.find("spirit:userFileType",  _NS)
+    for view in root.findall(".//spirit:view", _NS):
+        name_el = view.find("spirit:name", _NS)
+        if name_el is None: continue
+        view_name = (name_el.text or "").strip()
 
-			if path_el is None:
-				continue
+        # If it's any kind of synthesis view, we want its files
+        if view_name in SYNTH_VIEWS:
+            ref = view.find(".//spirit:localName", _NS)
+            if ref is not None:
+                synth_filesets.add(ref.text.strip())
+            
+            # But only use the "best" view to decide the top module name
+            rank = SYNTH_VIEWS.index(view_name)
+            if rank < best_view_rank:
+                best_view_rank = rank
+                mn = view.find("spirit:modelName", _NS)
+                if mn is not None:
+                    top_module = mn.text.strip()
 
-			abs_path   = os.path.normpath(
-				os.path.join(xml_dir, (path_el.text or "").strip())
-			)
-			is_include = (
-				inc_el is not None
-				and (inc_el.text or "").strip().lower() == "true"
-			)
-			file_type  = (
-				(type_el.text or "").strip()  if type_el  is not None else
-				(utype_el.text or "").strip() if utype_el is not None else ""
-			)
-			entries.append({
-				"abs_path":   abs_path,
-				"is_include": is_include,
-				"file_type":  file_type,
-			})
+        elif view_name == "xilinx_synthesisconstraints":
+            ref = view.find(".//spirit:localName", _NS)
+            if ref is not None:
+                constr_fileset_name = ref.text.strip()
 
-		fileset_map[fs_name] = entries
+    if not top_module:
+        raise ValueError(f"No valid synthesis view found in {xml_path}")
 
-	# ── 2. Scan views for synthesis top name and fileset references ───────────
-	top_module          = ""
-	synth_fileset_name  = ""
-	constr_fileset_name = ""
+    # ── 3. Resolve RTL and Includes from ALL identified filesets ──────────────
+    rtl_files = []
+    include_dirs = []
+    seen_files = set()
+    seen_dirs = set()
 
-	for view in root.findall(".//spirit:view", _NS):
-		name_el = view.find("spirit:name", _NS)
-		if name_el is None:
-			continue
-		view_name = (name_el.text or "").strip()
+    for fs_name in synth_filesets:
+        for entry in fileset_map.get(fs_name, []):
+            path = entry["abs_path"]
+            if path in seen_files: continue
+            seen_files.add(path)
 
-		if view_name == "xilinx_verilogsynthesis":
-			mn = view.find("spirit:modelName", _NS)
-			if mn is not None:
-				top_module = (mn.text or "").strip()
-			ref = view.find(".//spirit:localName", _NS)
-			if ref is not None:
-				synth_fileset_name = (ref.text or "").strip()
+            if entry["is_include"]:
+                d = os.path.dirname(path)
+                if d not in seen_dirs:
+                    include_dirs.append(d)
+                    seen_dirs.add(d)
+            else:
+                rtl_files.append(path)
 
-		elif view_name == "xilinx_synthesisconstraints":
-			ref = view.find(".//spirit:localName", _NS)
-			if ref is not None:
-				constr_fileset_name = (ref.text or "").strip()
+    ooc_xdc_files = [e["abs_path"] for e in fileset_map.get(constr_fileset_name, []) if e["abs_path"].endswith(".xdc")]
 
-	if not top_module:
-		raise ValueError(
-			f"No xilinx_verilogsynthesis view / modelName found in {xml_path}"
-		)
-
-	# ── 3. Resolve RTL files and include dirs ─────────────────────────────────
-	rtl_files:    list[str] = []
-	include_dirs: list[str] = []
-	seen_dirs:    set[str]  = set()
-
-	for entry in fileset_map.get(synth_fileset_name, []):
-		if entry["is_include"]:
-			d = os.path.dirname(entry["abs_path"])
-			if d not in seen_dirs:
-				include_dirs.append(d)
-				seen_dirs.add(d)
-				logger.debug("Include dir: %s", d)
-		else:
-			rtl_files.append(entry["abs_path"])
-			logger.debug("RTL file:    %s", entry["abs_path"])
-
-	# ── 4. OOC XDC from synthesisconstraints fileset ──────────────────────────
-	ooc_xdc_files: list[str] = [
-		e["abs_path"]
-		for e in fileset_map.get(constr_fileset_name, [])
-		if e["abs_path"].endswith(".xdc")
-	]
-
-	logger.debug(
-		"%s: top=%s  rtl=%d  inc_dirs=%d  xdc=%d",
-		os.path.basename(xml_path),
-		top_module, len(rtl_files), len(include_dirs), len(ooc_xdc_files),
-	)
-	return top_module, rtl_files, include_dirs, ooc_xdc_files
+    return top_module, rtl_files, include_dirs, ooc_xdc_files
 
 
 # ─────────────────────────────────────────────────────────────────────────────
