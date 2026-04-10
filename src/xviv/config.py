@@ -138,10 +138,23 @@ def generate_config_tcl(
 
 	sources_cfg = cfg.get("sources", {})
 	rtl_files = _resolve_globs(sources_cfg.get("rtl",     []), base_dir)
-	wrapper_files = _resolve_globs(sources_cfg.get("wrapper", []), base_dir)
+	wrapper_files = _resolve_globs([f"{wrapper_dir}/**/*"], base_dir)
 
 	lines.append(f"set xviv_rtl_files     {_tcl_list(rtl_files)}")
 	lines.append(f"set xviv_wrapper_files {_tcl_list(wrapper_files)}")
+
+	if synth_report_all:
+		synth_report_synth = True
+		synth_report_post = True
+		synth_report_place = True
+		synth_report_rout = True
+
+	lines.append(f"set xviv_synth_out_of_context {int(synth_out_of_context or False)}")
+	lines.append(f"set xviv_synth_report_synth {int(synth_report_synth or False)}")
+	lines.append(f"set xviv_synth_report_post {int(synth_report_post or False)}")
+	lines.append(f"set xviv_synth_report_place {int(synth_report_place or False)}")
+	lines.append(f"set xviv_synth_report_route {int(synth_report_rout or False)}")
+	lines.append(f"set xviv_synth_generate_netlist {int(synth_generate_netlist or False)}")
 
 	if ip_name:
 		ip_list = cfg.get("ip", [])
@@ -164,13 +177,17 @@ def generate_config_tcl(
 			f'set xviv_ip_hooks   "{hooks}"',
 		]
 
+		xdc_files = _resolve_globs(ip_cfg.get("xdc", []), base_dir)
+		xdc_ooc_files = _resolve_globs(ip_cfg.get("xdc_ooc", []), base_dir)
+		lines.append(f"set xviv_xdc_files  {_tcl_list(xdc_ooc_files if synth_out_of_context else xdc_files)}")
+
 	if bd_name:
 		bd_list = cfg.get("bd", [])
 		bd_cfg = next((b for b in bd_list if b["name"] == bd_name), None)
 		if bd_cfg is None:
 			sys.exit(f"ERROR: BD '{bd_name}' not found in project.toml [[bd]] entries")
 
-		hooks = bd_cfg.get("hooks", "")
+		hooks = bd_cfg.get("hooks", f"scripts/bd/{bd_name}_hooks.tcl")
 		if hooks:
 			hooks = os.path.abspath(os.path.join(base_dir, hooks))
 
@@ -185,6 +202,10 @@ def generate_config_tcl(
 			f'set xviv_bd_hooks      "{hooks}"',
 			f'set xviv_bd_export_tcl "{export_tcl}"',
 		]
+		
+		xdc_files = _resolve_globs(bd_cfg.get("xdc", []), base_dir)
+		xdc_ooc_files = _resolve_globs(bd_cfg.get("xdc_ooc", []), base_dir)
+		lines.append(f"set xviv_xdc_files  {_tcl_list(xdc_ooc_files if synth_out_of_context else xdc_files)}")
 
 	if top_name:
 		synth_list = cfg.get("synthesis", {})
@@ -200,26 +221,8 @@ def generate_config_tcl(
 
 		lines.append(f'set xviv_synth_hooks "{synth_hooks}"')
 
-		constr_files = _resolve_globs(synth_cfg.get("constrs", []), base_dir)
-		lines.append(f"set xviv_constr_files  {_tcl_list(constr_files)}")
-
-		if synth_report_all:
-			synth_report_synth = True
-			synth_report_post = True
-			synth_report_place = True
-			synth_report_rout = True
-
-		if synth_out_of_context:
-			lines.append(f"set xviv_synth_out_of_context {int(synth_out_of_context)}")
-		if synth_report_synth:
-			lines.append(f"set xviv_synth_report_synth {int(synth_report_synth)}")
-		if synth_report_post:
-			lines.append(f"set xviv_synth_report_post {int(synth_report_post)}")
-		if synth_report_place:
-			lines.append(f"set xviv_synth_report_place {int(synth_report_place)}")
-		if synth_report_rout:
-			lines.append(f"set xviv_synth_report_route {int(synth_report_rout)}")
-		if synth_generate_netlist:
-			lines.append(f"set xviv_synth_generate_netlist {int(synth_generate_netlist)}")
+		xdc_files = _resolve_globs(synth_cfg.get("xdc", []), base_dir)
+		xdc_ooc_files = _resolve_globs(synth_cfg.get("xdc_ooc", []), base_dir)
+		lines.append(f"set xviv_xdc_files  {_tcl_list(xdc_ooc_files if synth_out_of_context else xdc_files)}")
 
 	return "\n".join(lines) + "\n"

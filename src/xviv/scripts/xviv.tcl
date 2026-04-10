@@ -147,7 +147,7 @@ proc xviv_create_project {name} {
 # a confusing "top module not found" error later without this guard.
 # ---------------------------------------------------------------------------
 proc xviv_add_rtl_sources {} {
-    global xviv_rtl_files xviv_wrapper_files xviv_constr_files
+    global xviv_rtl_files xviv_wrapper_files xviv_xdc_files xviv_synth_out_of_context
 
     set design_added 0
 
@@ -159,8 +159,12 @@ proc xviv_add_rtl_sources {} {
         add_files $xviv_wrapper_files
         set design_added 1
     }
-    if {[info exists xviv_constr_files] && [llength $xviv_constr_files] > 0} {
-        add_files -fileset constrs_1 $xviv_constr_files
+    if {[info exists xviv_xdc_files] && [llength $xviv_xdc_files] > 0} {
+        add_files -fileset constrs_1 $xviv_xdc_files
+
+		if {$xviv_synth_out_of_context} {
+			set_property USED_IN {out_of_context} [get_files $xviv_xdc_files]
+		}
     }
 
     if {!$design_added} {
@@ -386,8 +390,7 @@ proc cmd_create_ip {} {
     global xviv_ip_name xviv_ip_vendor xviv_ip_library xviv_ip_version
     global xviv_ip_top xviv_ip_rtl xviv_ip_hooks  xviv_ip_repo
 
-    xviv_require_vars xviv_ip_name xviv_ip_vendor xviv_ip_library \
-                      xviv_ip_version xviv_ip_repo
+    xviv_require_vars xviv_ip_name xviv_ip_vendor xviv_ip_library xviv_ip_version xviv_ip_repo
 
     set ip_id     "$xviv_ip_vendor:$xviv_ip_library:$xviv_ip_name:$xviv_ip_version"
     set ip_vid    "${xviv_ip_name}_[string map {. _} $xviv_ip_version]"
@@ -620,12 +623,12 @@ proc cmd_export_bd {} {
 # =============================================================================
 proc cmd_synthesis {top_module sha_tag} {
     global xviv_bd_dir xviv_build_dir xviv_synth_hooks xviv_fpga_part
-    xviv_synth_out_of_context xviv_synth_report_synth
-    xviv_synth_report_post xviv_synth_report_place
-    xviv_synth_report_route xviv_synth_generate_netlist
-    xviv_require_vars xviv_build_dir
+    global xviv_synth_out_of_context xviv_synth_report_synth
+    global xviv_synth_report_post xviv_synth_report_place
+    global xviv_synth_report_route xviv_synth_generate_netlist
+    global xviv_require_vars xviv_build_dir
 
-    set out_dir     "$xviv_build_dir/synth/$top_module"
+    set out_dir     "$xviv_build_dir/synth/$top_module/ooc"
     set report_dir  "$out_dir/reports"
     set netlist_dir "$out_dir/netlists"
 
@@ -644,8 +647,6 @@ proc cmd_synthesis {top_module sha_tag} {
     set usr_access_val [format "%s%07s" $dirty $sha_short]
 
     file mkdir $out_dir
-    file mkdir $report_dir
-    file mkdir $netlist_dir
 
     # Lifecycle stubs - all default to no-ops
     foreach stub {
@@ -655,8 +656,8 @@ proc cmd_synthesis {top_module sha_tag} {
     xviv_source_hooks xviv_synth_hooks
     xviv_create_project "in_memory_project"
 
-    set bd_files [glob -nocomplain "$xviv_bd_dir/*/*.bd"]
-    if {[llength $bd_files] > 0} { read_bd $bd_files }
+    # set bd_files [glob -nocomplain "$xviv_bd_dir/*/*.bd"]
+    # if {[llength $bd_files] > 0} { read_bd $bd_files }
 
     xviv_add_rtl_sources
 
@@ -666,20 +667,24 @@ proc cmd_synthesis {top_module sha_tag} {
     synth_pre
 
     xviv_stage "Synthesis - $top_module  (sha: $sha_tag)"
-    if {[xviv_synth_out_of_context]} {
+    if {$xviv_synth_out_of_context} {
         synth_design -name synth_${top_module} -top $top_module -mode out_of_context
     } else {
         synth_design -name synth_${top_module} -top $top_module
     }
     write_checkpoint -force "$out_dir/post_synth.dcp"
 
-    if {[xviv_synth_report_synth]} {
+    if {$xviv_synth_report_synth} {
+		file mkdir $report_dir
+
         xviv_stage "Post-synthesis reports"
         report_timing_summary -file "$report_dir/post_synth_timing_summary.rpt"
         report_utilization    -file "$report_dir/post_synth_util.rpt"
     }
-    if {[xviv_synth_generate_netlist]} {
-        write_verilog -force -mode funcsim                "$netlist_dir/post_synth_functional.v"
+    if {$xviv_synth_generate_netlist} {
+        file mkdir $netlist_dir
+		
+		write_verilog -force -mode funcsim                "$netlist_dir/post_synth_functional.v"
         write_verilog -force -mode timesim -sdf_anno true "$netlist_dir/post_synth_timing.v"
     }
 
@@ -690,9 +695,11 @@ proc cmd_synthesis {top_module sha_tag} {
     # ------------------------------------------------------------------
     # If running out-of-context, we stop here. We cannot place, route, 
     # or generate a bitstream without I/O buffers and a top-level wrapper.
-    if {[xviv_synth_out_of_context]} {
+    if {$xviv_synth_out_of_context} {
         xviv_stage "Generating OOC artifacts"
-        
+
+		file mkdir $netlist_dir
+
         # Write a stub file for black-box instantiation in other designs/simulations
         write_verilog -force -mode synth_stub "$netlist_dir/${top_module}_stub.v"
         
@@ -719,7 +726,9 @@ proc cmd_synthesis {top_module sha_tag} {
     place_design
     write_checkpoint -force "$out_dir/post_place.dcp"
 
-    if {[xviv_synth_report_place]} {
+    if {$xviv_synth_report_place} {
+		file mkdir $report_dir
+		
         xviv_stage "Post-placement reports"
         report_io                        -file "$report_dir/post_place_io.rpt"
         report_clock_utilization         -file "$report_dir/post_place_clock_util.rpt"
@@ -735,7 +744,9 @@ proc cmd_synthesis {top_module sha_tag} {
     route_design
     write_checkpoint -force "$out_dir/post_route.dcp"
 
-    if {[xviv_synth_report_route]} {
+    if {$xviv_synth_report_route} {
+		file mkdir $report_dir
+		
         xviv_stage "Post-routing reports"
         report_drc            -file "$report_dir/post_route_drc.rpt"
         report_methodology    -file "$report_dir/post_route_methodology.rpt"
@@ -743,7 +754,9 @@ proc cmd_synthesis {top_module sha_tag} {
         report_route_status   -file "$report_dir/post_route_status.rpt"
         report_timing_summary -max_paths 10 -report_unconstrained -warn_on_violation -file "$report_dir/post_route_timing_summary.rpt"
     }
-    if {[xviv_synth_generate_netlist]} {
+    if {$xviv_synth_generate_netlist} {
+		file mkdir $netlist_dir
+
         write_verilog -force -mode funcsim                "$netlist_dir/post_impl_functional.v"
         write_verilog -force -mode timesim -sdf_anno true "$netlist_dir/post_impl_timing.v"
     }

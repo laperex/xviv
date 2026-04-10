@@ -463,8 +463,8 @@ def main() -> None:
 
 	elif cmd == "synthesis":
 		_, _, tag = _git_sha_tag()
-		config_tcl = generate_config_tcl(cfg, project_dir, top_name=args.top)
-		print(args.out_of_context, args.report_all)
+		config_tcl = generate_config_tcl(cfg, project_dir, top_name=args.top, synth_out_of_context=args.out_of_context)
+		# print(args.out_of_context, args.report_all)
 		run_vivado(cfg, tcl_script, "synthesis", [args.top, tag], config_tcl)
 
 	elif cmd == "synth-config":
