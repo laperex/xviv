@@ -45,7 +45,7 @@ import sys
 import argcomplete
 
 from xviv import config, wrapper
-from xviv.bd_deps import find_ip_ooc_info
+from xviv.bd_deps import find_all_ip_ooc_info
 from xviv.config import _resolve_globs, generate_config_tcl, load_config
 from xviv.hooks import generate_bd_hooks, generate_ip_hooks, generate_synth_hooks
 from xviv.platform import _app_dir, _bsp_dir, _find_elf, _hw_server, _mb_tool, _platform_paths, _resolve_app_cfg, _resolve_platform_cfg, _transform_app_makefile
@@ -453,10 +453,6 @@ def main() -> None:
 		_, _, tag = _git_sha_tag()
 
 		if args.bd:
-			# ── BD-aware synthesis ────────────────────────────────────────────
-			# from xviv.bd_deps import find_ip_ooc_info
-
-			# Validate the BD entry exists in project.toml
 			bd_list = cfg.get("bd", [])
 			bd_cfg  = next((b for b in bd_list if b["name"] == args.bd), None)
 			if bd_cfg is None:
@@ -466,28 +462,24 @@ def main() -> None:
 
 			bd_wrapper_top = f"{args.bd}_wrapper"
 
-			# Parse BD JSON + component.xml files to get OOC info
-			# (requires generate-bd to have been run)
-			ip_infos = find_ip_ooc_info(cfg, project_dir, args.bd)
+			ip_infos = find_all_ip_ooc_info(cfg, project_dir, args.bd)
 
 			if ip_infos:
 				logger.info(
-					"Custom IPs requiring OOC synthesis (%d):", len(ip_infos)
+					"IPs requiring OOC synthesis (%d):", len(ip_infos)
 				)
 				for info in ip_infos:
 					logger.info(
-						"  %-45s  top=%-35s  rtl=%d files",
+						"  %-55s  top=%-35s  rtl=%d files",
 						info.xci_name, info.top_module, len(info.rtl_files),
 					)
 			else:
 				logger.info(
-					"No custom IPs found in BD '%s' — "
+					"No leaf IPs found in BD '%s' — "
 					"proceeding directly to wrapper synthesis",
 					args.bd,
 				)
 
-			# Build config TCL for the BD wrapper synthesis
-			# (sets xviv_rtl_files, xviv_wrapper_files, xviv_xdc_files, etc.)
 			config_tcl = generate_config_tcl(
 				cfg, project_dir,
 				bd_name=args.bd,
@@ -500,8 +492,7 @@ def main() -> None:
 				synth_generate_netlist=args.generate_netlist,
 			)
 
-			# Build the flat arg list passed to cmd_synth_bd in TCL.
-			# Format per IP (all as strings):
+			# Per-IP args — protocol (no inst_name field):
 			#   xci_name  top_module  dcp_dir  component_xml
 			#   n_rtl  [rtl_file ...]
 			#   n_inc  [inc_dir ...]
@@ -514,9 +505,10 @@ def main() -> None:
 				ip_args += [
 					info.xci_name,
 					info.top_module,
-					info.instance_name,
 					dcp_dir,
 					info.xml_path,
+					info.xci_file,                   # NEW
+					"1" if info.is_xilinx else "0",  # NEW
 					str(len(info.rtl_files)),
 					*info.rtl_files,
 					str(len(info.include_dirs)),
@@ -532,7 +524,7 @@ def main() -> None:
 			)
 
 		else:
-			# ── Flat module synthesis (unchanged) ─────────────────────────────
+			# ── Flat module synthesis ─────────────────────────────────────────
 			config_tcl = generate_config_tcl(
 				cfg, project_dir,
 				top_name=args.top,
