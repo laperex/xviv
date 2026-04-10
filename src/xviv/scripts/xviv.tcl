@@ -656,8 +656,8 @@ proc cmd_synthesis {top_module sha_tag} {
     xviv_source_hooks xviv_synth_hooks
     xviv_create_project "in_memory_project"
 
-    # set bd_files [glob -nocomplain "$xviv_bd_dir/*/*.bd"]
-    # if {[llength $bd_files] > 0} { read_bd $bd_files }
+    set bd_files [glob -nocomplain "$xviv_bd_dir/*/*.bd"]
+    if {[llength $bd_files] > 0} { read_bd $bd_files }
 
     xviv_add_rtl_sources
 
@@ -809,6 +809,231 @@ proc cmd_synthesis {top_module sha_tag} {
 }
 
 # =============================================================================
+# Command: cmd_synth_bd  <bd_name> <bd_wrapper_top> <sha_tag>
+#
+# Per-IP args (argv[5+]):
+#   xci_name  top_module  instance_name  dcp_dir  component_xml
+#   n_rtl  [rtl...]  n_inc  [inc...]  n_xdc  [xdc...]
+#
+# Changes vs original:
+#   - instance_name field added (3rd per-IP field)
+#   - OOC DCPs locked into BD wrapper synthesis via read_checkpoint -cell
+#   - Raw RTL sources (xviv_rtl_files) NOT added for BD wrapper synthesis
+#     to prevent duplicate module definitions with ipshared copies
+# =============================================================================
+proc cmd_synth_bd {bd_name bd_wrapper_top sha_tag} {
+    global xviv_fpga_part xviv_board_part xviv_board_repo xviv_ip_repo
+    global xviv_build_dir xviv_bd_dir xviv_wrapper_files xviv_xdc_files
+    global xviv_synth_out_of_context
+
+    set ip_args [lrange $::argv 5 end]
+    set idx 0
+
+    # Collect instance_name -> dcp_file mapping for the BD wrapper step
+    set ooc_cells [list]   ;# list of {instance_name dcp_file} pairs
+
+    while {$idx < [llength $ip_args]} {
+
+        # -- Fixed fields ---------------------------------------------------
+        set xci_name     [lindex $ip_args $idx]; incr idx
+        set ip_top       [lindex $ip_args $idx]; incr idx
+        set inst_name    [lindex $ip_args $idx]; incr idx   ;# NEW field
+        set dcp_dir      [lindex $ip_args $idx]; incr idx
+        set cxml         [lindex $ip_args $idx]; incr idx
+
+        # -- Variable-length RTL list ---------------------------------------
+        set n_rtl    [lindex $ip_args $idx]; incr idx
+        set rtl_files {}
+        if {$n_rtl > 0} {
+            set rtl_files [lrange $ip_args $idx [expr {$idx + $n_rtl - 1}]]
+            incr idx $n_rtl
+        }
+
+        # -- Variable-length include-dirs list ------------------------------
+        set n_inc    [lindex $ip_args $idx]; incr idx
+        set inc_dirs {}
+        if {$n_inc > 0} {
+            set inc_dirs [lrange $ip_args $idx [expr {$idx + $n_inc - 1}]]
+            incr idx $n_inc
+        }
+
+        # -- Variable-length OOC XDC list -----------------------------------
+        set n_xdc    [lindex $ip_args $idx]; incr idx
+        set xdc_files {}
+        if {$n_xdc > 0} {
+            set xdc_files [lrange $ip_args $idx [expr {$idx + $n_xdc - 1}]]
+            incr idx $n_xdc
+        }
+
+        # -- Staleness check ------------------------------------------------
+        set dcp_file "$dcp_dir/post_synth.dcp"
+        if {[file exists $dcp_file] && [file exists $cxml]} {
+            if {[file mtime $dcp_file] >= [file mtime $cxml]} {
+                puts "INFO: OOC DCP up to date, skipping - $xci_name"
+                lappend ooc_cells [list $inst_name $dcp_file]
+                continue
+            }
+        }
+
+        # -- OOC synthesis --------------------------------------------------
+        xviv_stage "OOC synthesis: $xci_name  (top: $ip_top)"
+
+        catch {close_project}
+        create_project -part $xviv_fpga_part -in_memory "ooc_$xci_name"
+
+        if {[info exists xviv_board_part] && $xviv_board_part ne ""} {
+            if {[info exists xviv_board_repo] && $xviv_board_repo ne ""} {
+                set_param board.repoPaths [list $xviv_board_repo]
+            }
+            set_property board_part $xviv_board_part [current_project]
+        }
+
+        if {[llength $rtl_files] > 0} {
+            add_files -norecurse -scan_for_includes $rtl_files
+        }
+        if {[llength $inc_dirs] > 0} {
+            set_property include_dirs $inc_dirs [current_fileset]
+        }
+        if {[llength $xdc_files] > 0} {
+            add_files -fileset constrs_1 $xdc_files
+            set_property USED_IN {out_of_context} [get_files $xdc_files]
+        }
+
+        set_property TOP $ip_top [current_fileset]
+        update_compile_order -fileset sources_1
+
+        file mkdir $dcp_dir
+        synth_design -mode out_of_context -top $ip_top -name "ooc_$xci_name"
+        write_checkpoint -force $dcp_file
+
+        puts "INFO: OOC checkpoint written - $dcp_file  \[+[xviv_elapsed]\]"
+
+        lappend ooc_cells [list $inst_name $dcp_file]
+    }
+
+    # =========================================================================
+    # BD wrapper synthesis
+    # Uses OOC DCPs for custom IPs — raw RTL sources are deliberately NOT added
+    # to prevent duplicate module definitions with the BD ipshared copies.
+    # =========================================================================
+    xviv_stage "BD wrapper synthesis: $bd_wrapper_top"
+    catch {close_project}
+
+    # Resolve output paths (mirrors cmd_synthesis)
+    set out_dir    "$xviv_build_dir/synth/$bd_wrapper_top/ooc"
+    set dirty      0
+    set sha_short  $sha_tag
+    if {[string match "*_dirty" $sha_tag]} {
+        set dirty 1
+        set sha_short [string range $sha_tag 0 end-6]
+    }
+    set usr_access_val [format "%s%07s" $dirty $sha_short]
+    file mkdir $out_dir
+
+    # Lifecycle stubs
+    foreach stub {synth_pre synth_post place_post route_post bitstream_post} {
+        xviv_stub $stub
+    }
+
+    # Source any BD-level synthesis hooks (reuses xviv_synth_hooks if set)
+    xviv_source_hooks xviv_synth_hooks
+
+    # Create project with IP repo so Vivado resolves stock IP XCIs
+    xviv_create_project "in_memory_project"
+
+    # Read the BD file — provides bd_image_processing module to the wrapper
+    set bd_files [glob -nocomplain "$xviv_bd_dir/$bd_name/$bd_name.bd"]
+    if {[llength $bd_files] == 0} {
+        xviv_die "BD file not found under $xviv_bd_dir/$bd_name/ — run generate-bd first"
+    }
+    read_bd [lindex $bd_files 0]
+    open_bd_design [lindex $bd_files 0]
+
+    # Lock each custom IP cell to its OOC DCP.
+    # The BD instance inside the wrapper is always named <bd_name>_i.
+    set bd_inst "${bd_name}_i"
+    foreach pair $ooc_cells {
+        set inst_name [lindex $pair 0]
+        set dcp_file  [lindex $pair 1]
+        set cell_path "${bd_inst}/${inst_name}"
+        if {[file exists $dcp_file]} {
+            puts "INFO: Locking OOC DCP for cell $cell_path"
+            read_checkpoint -cell $cell_path $dcp_file
+        } else {
+            puts "WARN: OOC DCP missing for $cell_path — cell will be re-synthesized"
+        }
+    }
+
+    # Add ONLY the BD wrapper file and XDC — no raw RTL
+    # (raw RTL would duplicate modules already present in ipshared)
+    set bd_wrapper_file ""
+	foreach f $xviv_wrapper_files {
+		if {[string match "*${bd_wrapper_top}*" $f]} {
+			set bd_wrapper_file $f
+			break
+		}
+	}
+	if {$bd_wrapper_file ne ""} {
+		puts "INFO: Adding BD wrapper: $bd_wrapper_file"
+		add_files $bd_wrapper_file
+	} else {
+		xviv_die "BD wrapper file not found for $bd_wrapper_top in xviv_wrapper_files"
+	}
+    if {[info exists xviv_xdc_files] && [llength $xviv_xdc_files] > 0} {
+        add_files -fileset constrs_1 $xviv_xdc_files
+        if {$xviv_synth_out_of_context} {
+            set_property USED_IN {out_of_context} [get_files $xviv_xdc_files]
+        }
+    }
+    update_compile_order -fileset sources_1
+
+    synth_pre
+    xviv_stage "Synthesis - $bd_wrapper_top  (sha: $sha_tag)"
+    synth_design -name "synth_$bd_wrapper_top" -top $bd_wrapper_top
+    write_checkpoint -force "$out_dir/post_synth.dcp"
+    synth_post
+
+    xviv_stage "Placement"
+    place_design
+    write_checkpoint -force "$out_dir/post_place.dcp"
+    place_post
+
+    xviv_stage "Routing"
+    route_design
+    write_checkpoint -force "$out_dir/post_route.dcp"
+    route_post
+
+    set_property BITSTREAM.CONFIG.USR_ACCESS 0x${usr_access_val} [current_design]
+    puts "INFO: USR_ACCESS = 0x${usr_access_val}  (sha=${sha_short}  dirty=${dirty})"
+
+    xviv_stage "Generating bitstream"
+    set export_filename "${bd_wrapper_top}_${sha_tag}"
+    write_bitstream   -force "$out_dir/${export_filename}.bit"
+    write_hw_platform -fixed -include_bit -force -file "$out_dir/${export_filename}.xsa"
+
+    xviv_update_symlink "$out_dir/${bd_wrapper_top}.bit" "${export_filename}.bit"
+    xviv_update_symlink "$out_dir/${bd_wrapper_top}.xsa" "${export_filename}.xsa"
+
+    bitstream_post
+
+    xviv_write_manifest "$out_dir/build.json"          \
+        vivado_version [version -short]                \
+        part           $xviv_fpga_part                 \
+        top            $bd_wrapper_top                 \
+        sha_tag        $sha_tag                        \
+        sha_short      $sha_short                      \
+        dirty          [expr {$dirty ? "true" : "false"}] \
+        mode           "bd"                            \
+        bitstream      "${export_filename}.bit"        \
+        xsa            "${export_filename}.xsa"        \
+        elapsed        [xviv_elapsed]                  \
+        timestamp      [clock format [clock seconds] -format "%Y-%m-%dT%H:%M:%SZ"]
+
+    puts "INFO: Build complete - [xviv_elapsed]"
+    exit 0
+}
+
+# =============================================================================
 # Command: simulate <sim_top> [so_file] [dpi_lib_dir]
 # =============================================================================
 proc cmd_simulate {sim_top so_file dpi_lib_dir} {
@@ -879,6 +1104,15 @@ switch -- $_cmd {
         # backward compatibility with any direct Vivado invocations.
         set _sha_tag [expr {$::argc > 3 ? [lindex $::argv 3] : "unknown"}]
         cmd_synthesis [lindex $::argv 2] $_sha_tag
+    }
+	synth_bd {
+        if {$::argc < 5} {
+            xviv_die "synth_bd requires <bd_name> <bd_wrapper_top> <sha_tag>"
+        }
+        cmd_synth_bd \
+            [lindex $::argv 2] \
+            [lindex $::argv 3] \
+            [lindex $::argv 4]
     }
     simulate    {
         if {$::argc < 3} {

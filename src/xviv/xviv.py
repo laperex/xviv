@@ -45,6 +45,7 @@ import sys
 import argcomplete
 
 from xviv import config, wrapper
+from xviv.bd_deps import find_ip_ooc_info
 from xviv.config import _resolve_globs, generate_config_tcl, load_config
 from xviv.hooks import generate_bd_hooks, generate_ip_hooks, generate_synth_hooks
 from xviv.platform import _app_dir, _bsp_dir, _find_elf, _hw_server, _mb_tool, _platform_paths, _resolve_app_cfg, _resolve_platform_cfg, _transform_app_makefile
@@ -171,38 +172,25 @@ def build_parser() -> argparse.ArgumentParser:
 	).completer = _bd_names_completer
 
 	c = _cmd("synthesis", "Synthesise, place, route, and write bitstream")
-	c.add_argument(
+	# --top and --bd are mutually exclusive
+	top_bd = c.add_mutually_exclusive_group(required=True)
+	top_bd.add_argument(
 		"--top",
-		required=True,
-		help="Top module name"
+		default="",
+		help="Top module name (flat RTL synthesis)",
 	).completer = _top_names_completer
+	top_bd.add_argument(
+		"--bd",
+		default="",
+		help="BD name: OOC-synthesise all custom IPs then synthesise the BD wrapper",
+	).completer = _bd_names_completer
 
-	c.add_argument(
-		"--out-of-context", action="store_true",
-		required=False, help="Enable Out of Context Synthesis"
-	)
-	c.add_argument(
-		"--report-all", action="store_true",
-		required=False, help="Enable All Reports"
-	)
-	c.add_argument(
-		"--report-synth", action="store_true",
-		required=False, help="Synthesis Reports"
-	)
-	c.add_argument(
-		"--report-place", action="store_true",
-		required=False, help="Placement Reports"
-	)
-	c.add_argument(
-		"--report-route", action="store_true",
-		required=False, help="Routing Reports"
-	)
-	c.add_argument(
-		"--generate-netlist",
-		action="store_true",
-		required=False,
-		help="Generate Functional and Timing Netlists for Post Synthesis and Implementation simulation runs"
-	)
+	c.add_argument("--out-of-context", action="store_true", dest="out_of_context")
+	c.add_argument("--report-all",     action="store_true", dest="report_all")
+	c.add_argument("--report-synth",   action="store_true", dest="report_synth")
+	c.add_argument("--report-place",   action="store_true", dest="report_place")
+	c.add_argument("--report-route",   action="store_true", dest="report_route")
+	c.add_argument("--generate-netlist", action="store_true", dest="generate_netlist")
 
 	c = _cmd("synth-config", "Generate a starter hooks file for synthesis")
 	c.add_argument(
@@ -463,9 +451,103 @@ def main() -> None:
 
 	elif cmd == "synthesis":
 		_, _, tag = _git_sha_tag()
-		config_tcl = generate_config_tcl(cfg, project_dir, top_name=args.top, synth_out_of_context=args.out_of_context)
-		# print(args.out_of_context, args.report_all)
-		run_vivado(cfg, tcl_script, "synthesis", [args.top, tag], config_tcl)
+
+		if args.bd:
+			# ── BD-aware synthesis ────────────────────────────────────────────
+			# from xviv.bd_deps import find_ip_ooc_info
+
+			# Validate the BD entry exists in project.toml
+			bd_list = cfg.get("bd", [])
+			bd_cfg  = next((b for b in bd_list if b["name"] == args.bd), None)
+			if bd_cfg is None:
+				sys.exit(
+					f"ERROR: BD '{args.bd}' not found in project.toml [[bd]] entries"
+				)
+
+			bd_wrapper_top = f"{args.bd}_wrapper"
+
+			# Parse BD JSON + component.xml files to get OOC info
+			# (requires generate-bd to have been run)
+			ip_infos = find_ip_ooc_info(cfg, project_dir, args.bd)
+
+			if ip_infos:
+				logger.info(
+					"Custom IPs requiring OOC synthesis (%d):", len(ip_infos)
+				)
+				for info in ip_infos:
+					logger.info(
+						"  %-45s  top=%-35s  rtl=%d files",
+						info.xci_name, info.top_module, len(info.rtl_files),
+					)
+			else:
+				logger.info(
+					"No custom IPs found in BD '%s' — "
+					"proceeding directly to wrapper synthesis",
+					args.bd,
+				)
+
+			# Build config TCL for the BD wrapper synthesis
+			# (sets xviv_rtl_files, xviv_wrapper_files, xviv_xdc_files, etc.)
+			config_tcl = generate_config_tcl(
+				cfg, project_dir,
+				bd_name=args.bd,
+				top_name=bd_wrapper_top,
+				synth_out_of_context=args.out_of_context,
+				synth_report_all=args.report_all,
+				synth_report_synth=args.report_synth,
+				synth_report_place=args.report_place,
+				synth_report_rout=args.report_route,
+				synth_generate_netlist=args.generate_netlist,
+			)
+
+			# Build the flat arg list passed to cmd_synth_bd in TCL.
+			# Format per IP (all as strings):
+			#   xci_name  top_module  dcp_dir  component_xml
+			#   n_rtl  [rtl_file ...]
+			#   n_inc  [inc_dir ...]
+			#   n_xdc  [xdc_file ...]
+			ip_args: list[str] = []
+			for info in ip_infos:
+				dcp_dir = os.path.join(
+					build_dir, "synth", info.top_module, "ooc"
+				)
+				ip_args += [
+					info.xci_name,
+					info.top_module,
+					info.instance_name,
+					dcp_dir,
+					info.xml_path,
+					str(len(info.rtl_files)),
+					*info.rtl_files,
+					str(len(info.include_dirs)),
+					*info.include_dirs,
+					str(len(info.ooc_xdc_files)),
+					*info.ooc_xdc_files,
+				]
+
+			run_vivado(
+				cfg, tcl_script, "synth_bd",
+				[args.bd, bd_wrapper_top, tag] + ip_args,
+				config_tcl,
+			)
+
+		else:
+			# ── Flat module synthesis (unchanged) ─────────────────────────────
+			config_tcl = generate_config_tcl(
+				cfg, project_dir,
+				top_name=args.top,
+				synth_out_of_context=args.out_of_context,
+				synth_report_all=args.report_all,
+				synth_report_synth=args.report_synth,
+				synth_report_place=args.report_place,
+				synth_report_rout=args.report_route,
+				synth_generate_netlist=args.generate_netlist,
+			)
+			run_vivado(
+				cfg, tcl_script, "synthesis",
+				[args.top, tag],
+				config_tcl,
+			)
 
 	elif cmd == "synth-config":
 		generate_synth_hooks(cfg, project_dir, args.top)  # noqa: F821
