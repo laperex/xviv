@@ -9,7 +9,7 @@ Leaf IPs are identified by the presence of:
 - ip/<xci_name>/synth/           (generated synthesis output product)
 
 Hierarchical BD sub-modules (e.g. axi_mem_intercon_0) have no synth/
-directory and are defined inline in synth/bd_image_processing.v — they
+directory and are defined inline in synth/bd_image_processing.v - they
 are skipped.
 """
 from __future__ import annotations
@@ -39,12 +39,12 @@ class IpOocInfo:
 	ooc_xdc_files:list[str]
 	xml_path:     str
 	xci_file:     str        # absolute path to <xci_name>.xci
-	is_xilinx:    bool       # True  → read_ip flow; False → manual RTL flow
+	is_xilinx:    bool       # True  -> read_ip flow; False -> manual RTL flow
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 # IP-XACT XML parsing  (unchanged from original)
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 
 def _parse_ip_xml(
     xml_path: str,
@@ -56,7 +56,7 @@ def _parse_ip_xml(
     xml_dir = os.path.dirname(xml_path)
     root    = ET.parse(xml_path).getroot()
 
-    # ── 1. Map fileset names to their file entries ────────────────────────────
+    # -- 1. Map fileset names to their file entries ----------------------------
     fileset_map: dict[str, list[dict]] = {}
     for fs in root.findall(".//spirit:fileSet", _NS):
         name_el = fs.find("spirit:name", _NS)
@@ -74,7 +74,7 @@ def _parse_ip_xml(
             entries.append({"abs_path": abs_path, "is_include": is_include})
         fileset_map[fs_name] = entries
 
-    # ── 2. Scan all views ─────────────────────────────────────────────────────
+    # -- 2. Scan all views -----------------------------------------------------
     top_module = ""
     synth_filesets = set()
     constr_fileset_name = ""
@@ -97,7 +97,7 @@ def _parse_ip_xml(
         if view_name in SYNTH_VIEWS:
             ref = view.find(".//spirit:localName", _NS)
             if ref is not None:
-                synth_filesets.add(ref.text.strip())
+                synth_filesets.add((ref.text or "").strip())
             
             # But only use the "best" view to decide the top module name
             rank = SYNTH_VIEWS.index(view_name)
@@ -105,17 +105,17 @@ def _parse_ip_xml(
                 best_view_rank = rank
                 mn = view.find("spirit:modelName", _NS)
                 if mn is not None:
-                    top_module = mn.text.strip()
+                    top_module = (mn.text or "").strip()
 
         elif view_name == "xilinx_synthesisconstraints":
             ref = view.find(".//spirit:localName", _NS)
             if ref is not None:
-                constr_fileset_name = ref.text.strip()
+                constr_fileset_name = (ref.text or "").strip()
 
     if not top_module:
         raise ValueError(f"No valid synthesis view found in {xml_path}")
 
-    # ── 3. Resolve RTL and Includes from ALL identified filesets ──────────────
+    # -- 3. Resolve RTL and Includes from ALL identified filesets --------------
     rtl_files = []
     include_dirs = []
     seen_files = set()
@@ -140,9 +140,9 @@ def _parse_ip_xml(
     return top_module, rtl_files, include_dirs, ooc_xdc_files
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 # VLNV helper
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 
 def _read_vlnv(xml_path: str) -> str:
 	"""Extract the VLNV string from a component XML, or return '' on failure."""
@@ -163,9 +163,9 @@ def _read_vlnv(xml_path: str) -> str:
 		return ""
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 # Public API
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 
 def _bd_dir(cfg: dict, base_dir: str, bd_name: str) -> str:
 	from xviv.config import DEFAULT_BUILD_BD_DIR
@@ -182,7 +182,7 @@ def find_all_ip_ooc_info(cfg: dict, base_dir: str, bd_name: str) -> list[IpOocIn
 	that has both a <xci_name>.xml and a synth/ output directory.
 
 	Hierarchical BD sub-modules (e.g. axi_mem_intercon_0, ps7_0_axi_periph_0)
-	have no synth/ directory and are skipped — they are defined inline in the
+	have no synth/ directory and are skipped - they are defined inline in the
 	BD's top-level synth netlist.
 
 	Requires generate-bd to have been run so that ip/<xci_name>/<xci_name>.xml
@@ -211,24 +211,24 @@ def find_all_ip_ooc_info(cfg: dict, base_dir: str, bd_name: str) -> list[IpOocIn
 		# Must have an IP-XACT XML
 		xml_path = os.path.join(xci_subdir, f"{xci_name}.xml")
 		if not os.path.exists(xml_path):
-			logger.debug("No XML — skipping hierarchical container: %s", xci_name)
+			logger.debug("No XML - skipping hierarchical container: %s", xci_name)
 			continue
 
 		# Must have a synth/ output product directory
 		synth_dir = os.path.join(xci_subdir, "synth")
 		if not os.path.isdir(synth_dir):
-			logger.debug("No synth/ — skipping hierarchical container: %s", xci_name)
+			logger.debug("No synth/ - skipping hierarchical container: %s", xci_name)
 			continue
 
 		if xci_name in seen_xci:
-			logger.debug("Duplicate xci_name — skipping: %s", xci_name)
+			logger.debug("Duplicate xci_name - skipping: %s", xci_name)
 			continue
 		seen_xci.add(xci_name)
 
 		try:
 			top_module, rtl_files, include_dirs, ooc_xdc = _parse_ip_xml(xml_path)
 		except Exception as exc:
-			logger.warning("Skipping %s — XML parse error: %s", xci_name, exc)
+			logger.warning("Skipping %s - XML parse error: %s", xci_name, exc)
 			continue
 
 		vlnv = _read_vlnv(xml_path)

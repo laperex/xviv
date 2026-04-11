@@ -185,7 +185,9 @@ def build_parser() -> argparse.ArgumentParser:
 		help="BD name: OOC-synthesise all custom IPs then synthesise the BD wrapper",
 	).completer = _bd_names_completer
 
-	c.add_argument("--out-of-context", action="store_true", dest="out_of_context")
+	c.add_argument("--out-of-context-synth", action="store_true", dest="out_of_context_synth")
+	c.add_argument("--out-of-context-run", action="store_true", dest="out_of_context_run", default=False)
+
 	c.add_argument("--report-all",     action="store_true", dest="report_all")
 	c.add_argument("--report-synth",   action="store_true", dest="report_synth")
 	c.add_argument("--report-place",   action="store_true", dest="report_place")
@@ -456,35 +458,15 @@ def main() -> None:
 			bd_list = cfg.get("bd", [])
 			bd_cfg  = next((b for b in bd_list if b["name"] == args.bd), None)
 			if bd_cfg is None:
-				sys.exit(
-					f"ERROR: BD '{args.bd}' not found in project.toml [[bd]] entries"
-				)
+				sys.exit(f"ERROR: BD '{args.bd}' not found in project.toml [[bd]] entries")
 
 			bd_wrapper_top = f"{args.bd}_wrapper"
-
-			ip_infos = find_all_ip_ooc_info(cfg, project_dir, args.bd)
-
-			if ip_infos:
-				logger.info(
-					"IPs requiring OOC synthesis (%d):", len(ip_infos)
-				)
-				for info in ip_infos:
-					logger.info(
-						"  %-55s  top=%-35s  rtl=%d files",
-						info.xci_name, info.top_module, len(info.rtl_files),
-					)
-			else:
-				logger.info(
-					"No leaf IPs found in BD '%s' — "
-					"proceeding directly to wrapper synthesis",
-					args.bd,
-				)
 
 			config_tcl = generate_config_tcl(
 				cfg, project_dir,
 				bd_name=args.bd,
-				top_name=bd_wrapper_top,
-				synth_out_of_context=args.out_of_context,
+				# top_name=bd_wrapper_top,
+				# synth_out_of_context_synth=args.out_of_context_synth,
 				synth_report_all=args.report_all,
 				synth_report_synth=args.report_synth,
 				synth_report_place=args.report_place,
@@ -492,43 +474,55 @@ def main() -> None:
 				synth_generate_netlist=args.generate_netlist,
 			)
 
-			# Per-IP args — protocol (no inst_name field):
-			#   xci_name  top_module  dcp_dir  component_xml
-			#   n_rtl  [rtl_file ...]
-			#   n_inc  [inc_dir ...]
-			#   n_xdc  [xdc_file ...]
 			ip_args: list[str] = []
-			for info in ip_infos:
-				dcp_dir = os.path.join(
-					build_dir, "synth", info.top_module, "ooc"
-				)
-				ip_args += [
-					info.xci_name,
-					info.top_module,
-					dcp_dir,
-					info.xml_path,
-					info.xci_file,                   # NEW
-					"1" if info.is_xilinx else "0",  # NEW
-					str(len(info.rtl_files)),
-					*info.rtl_files,
-					str(len(info.include_dirs)),
-					*info.include_dirs,
-					str(len(info.ooc_xdc_files)),
-					*info.ooc_xdc_files,
-				]
+
+			if args.out_of_context_run:
+				ip_infos = find_all_ip_ooc_info(cfg, project_dir, args.bd)
+
+				if ip_infos:
+					logger.info("IPs requiring OOC synthesis (%d):", len(ip_infos))
+					for info in ip_infos:
+						logger.info("  %-55s  top=%-35s  rtl=%d files", info.xci_name, info.top_module, len(info.rtl_files))
+				else:
+					logger.info(
+						"No leaf IPs found in BD '%s' - "
+						"proceeding directly to wrapper synthesis",
+						args.bd,
+					)
+				# Per-IP args - protocol (no inst_name field):
+				#   xci_name  top_module  dcp_dir  component_xml
+				#   n_rtl  [rtl_file ...]
+				#   n_inc  [inc_dir ...]
+				#   n_xdc  [xdc_file ...]
+				for info in ip_infos:
+					dcp_dir = os.path.join(build_dir, "synth", info.top_module, "ooc")
+					ip_args += [
+						info.xci_name,
+						info.top_module,
+						dcp_dir,
+						info.xml_path,
+						info.xci_file,                   # NEW
+						"1" if info.is_xilinx else "0",  # NEW
+						str(len(info.rtl_files)),
+						*info.rtl_files,
+						str(len(info.include_dirs)),
+						*info.include_dirs,
+						str(len(info.ooc_xdc_files)),
+						*info.ooc_xdc_files,
+					]
 
 			run_vivado(
-				cfg, tcl_script, "synth_bd",
-				[args.bd, bd_wrapper_top, tag] + ip_args,
+				cfg, tcl_script, "synthesis",
+				[bd_wrapper_top, tag] + ip_args,
 				config_tcl,
 			)
 
 		else:
-			# ── Flat module synthesis ─────────────────────────────────────────
+			# -- Flat module synthesis -----------------------------------------
 			config_tcl = generate_config_tcl(
 				cfg, project_dir,
 				top_name=args.top,
-				synth_out_of_context=args.out_of_context,
+				# synth_out_of_context_synth=args.out_of_context,
 				synth_report_all=args.report_all,
 				synth_report_synth=args.report_synth,
 				synth_report_place=args.report_place,

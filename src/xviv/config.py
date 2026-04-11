@@ -87,7 +87,7 @@ def generate_config_tcl(
 
 		bd_export_path: typing.Optional[str] = None,
 
-		synth_out_of_context: typing.Optional[bool] = None,
+		# synth_out_of_context_synth: typing.Optional[bool] = None,
 		synth_report_all: typing.Optional[bool] = None,
 		synth_report_synth: typing.Optional[bool] = None,
 		synth_report_post: typing.Optional[bool] = None,
@@ -149,7 +149,7 @@ def generate_config_tcl(
 		synth_report_place = True
 		synth_report_rout = True
 
-	lines.append(f"set xviv_synth_out_of_context {int(synth_out_of_context or False)}")
+	# lines.append(f"set xviv_synth_out_of_context {int(synth_out_of_context_synth or False)}")
 	lines.append(f"set xviv_synth_report_synth {int(synth_report_synth or False)}")
 	lines.append(f"set xviv_synth_report_post {int(synth_report_post or False)}")
 	lines.append(f"set xviv_synth_report_place {int(synth_report_place or False)}")
@@ -179,7 +179,8 @@ def generate_config_tcl(
 
 		xdc_files = _resolve_globs(ip_cfg.get("xdc", []), base_dir)
 		xdc_ooc_files = _resolve_globs(ip_cfg.get("xdc_ooc", []), base_dir)
-		lines.append(f"set xviv_xdc_files  {_tcl_list(xdc_ooc_files if synth_out_of_context else xdc_files)}")
+		# lines.append(f"set xviv_xdc_files  {_tcl_list(xdc_ooc_files if synth_out_of_context_synth else xdc_files)}")
+		lines.append(f"set xviv_xdc_files  {_tcl_list(xdc_files)}")
 
 	if bd_name:
 		bd_list = cfg.get("bd", [])
@@ -202,10 +203,15 @@ def generate_config_tcl(
 			f'set xviv_bd_hooks      "{hooks}"',
 			f'set xviv_bd_export_tcl "{export_tcl}"',
 		]
-		
+
 		xdc_files = _resolve_globs(bd_cfg.get("xdc", []), base_dir)
 		xdc_ooc_files = _resolve_globs(bd_cfg.get("xdc_ooc", []), base_dir)
-		lines.append(f"set xviv_xdc_files  {_tcl_list(xdc_ooc_files if synth_out_of_context else xdc_files)}")
+
+		# lines.append(f"set xviv_xdc_files  {_tcl_list(xdc_ooc_files if synth_out_of_context_synth else xdc_files)}")
+		lines.append(f"set xviv_xdc_files  {_tcl_list(xdc_files)}")
+
+		lines.append(f"set xviv_rtl_files     {_tcl_list([os.path.join(build_dir, "bd", bd_name, f"{bd_name}.bd")])}")
+		lines.append(f"set xviv_wrapper_files {_tcl_list([os.path.join(build_dir, "wrapper", f"{bd_name}_wrapper.v")])}")
 
 	if top_name:
 		synth_list = cfg.get("synthesis", {})
@@ -223,6 +229,7 @@ def generate_config_tcl(
 
 		xdc_files = _resolve_globs(synth_cfg.get("xdc", []), base_dir)
 		xdc_ooc_files = _resolve_globs(synth_cfg.get("xdc_ooc", []), base_dir)
-		lines.append(f"set xviv_xdc_files  {_tcl_list(xdc_ooc_files if synth_out_of_context else xdc_files)}")
+		# lines.append(f"set xviv_xdc_files  {_tcl_list(xdc_ooc_files if synth_out_of_context_synth else xdc_files)}")
+		lines.append(f"set xviv_xdc_files  {_tcl_list(xdc_files)}")
 
 	return "\n".join(lines) + "\n"
