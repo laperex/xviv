@@ -44,7 +44,8 @@ import subprocess
 import sys
 import argcomplete
 
-from xviv import config, wrapper
+from xviv import command, config, wrapper
+from xviv import waveform
 from xviv.bd_deps import find_all_ip_ooc_info
 from xviv.config import _resolve_globs, generate_config_tcl, load_config
 from xviv.hooks import generate_bd_hooks, generate_ip_hooks, generate_synth_hooks
@@ -342,6 +343,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main() -> None:
 	parser = build_parser()
+
 	# echo 'eval "$(register-python-argcomplete xviv)"' >> ~/.zshrc
 	argcomplete.autocomplete(parser)
 	args = parser.parse_args()
@@ -352,406 +354,102 @@ def main() -> None:
 
 	cfg = load_config(cfg_path)
 
-	build_dir = os.path.join(project_dir, cfg.get("build", {}).get("dir", config.DEFAULT_BUILD_DIR))
-	_setup_logging(args.log_file or os.path.join(build_dir, "xviv", "xviv.log"))
-
-	tcl_script = _find_tcl_script()
-	xsct_script = _find_xsct_script()
-	cmd = args.command
-
-	if cmd == "create-ip":
-		if args.ip:
-			build_cfg = cfg.get("build", {})
-			ip_wrapper_dir = os.path.abspath(os.path.join(project_dir, build_cfg.get("wrapper_dir", config.DEFAULT_BUILD_WRAPPER_DIR)))
-
-			ip_list = cfg.get("ip", [])
-			ip_cfg = next((i for i in ip_list if i["name"] == args.ip), None)
-			if ip_cfg is None:
-				sys.exit(f"ERROR: IP '{args.ip}' not found in project.toml [[ip]] entries")
-
-			if ip_cfg.get('create-wrapper', False):
-				ip_rtl_files = _resolve_globs(ip_cfg.get("rtl", []), project_dir)
-				ip_top = ip_cfg.get("top", ip_cfg["name"])
-
-				wrapper.xviv_wrap_top(ip_top, ip_wrapper_dir, ip_rtl_files)
-
-				ip_wrapper_file = os.path.join(ip_wrapper_dir, f"{ip_top}_wrapper.sv")
-				if ip_wrapper_file not in ip_rtl_files:
-					ip_rtl_files.append(ip_wrapper_file)
-
-				ip_cfg["top"] = f"{ip_top}_wrapper"
-				ip_cfg["rtl"] = ip_rtl_files
-
-		config_tcl = generate_config_tcl(cfg, project_dir, ip_name=args.ip)
-		run_vivado(cfg, tcl_script, "create_ip", [], config_tcl)
-
-	elif cmd == "edit-ip":
-		config_tcl = generate_config_tcl(cfg, project_dir, ip_name=args.ip)
-		run_vivado(cfg, tcl_script, "edit_ip", [], config_tcl)
-
-	elif cmd == "ip-config":
-		generate_ip_hooks(cfg, project_dir, args.ip)
-
-	elif cmd == "create-bd":
-		generate_bd_hooks(cfg, project_dir, args.bd, exist_ok=True)
-		config_tcl = generate_config_tcl(cfg, project_dir, bd_name=args.bd)
-		run_vivado(cfg, tcl_script, "create_bd", [], config_tcl)
-
-	elif cmd == "edit-bd":
-		config_tcl = generate_config_tcl(cfg, project_dir, bd_name=args.bd)
-		run_vivado(cfg, tcl_script, "edit_bd", [], config_tcl)
-
-	elif cmd == "generate-bd":
-		config_tcl = generate_config_tcl(cfg, project_dir, bd_name=args.bd)
-		run_vivado(cfg, tcl_script, "generate_bd", [], config_tcl)
-
-	elif cmd == "export-bd":
-		sha, dirty, tag = _git_sha_tag()
-
-		bd_list = cfg.get("bd", [])
-		bd_cfg = next((b for b in bd_list if b["name"] == args.bd), None)
-		if bd_cfg is None:
-			sys.exit(f"ERROR: BD '{args.bd}' not found in project.toml [[bd]] entries")
-
-		export_base = bd_cfg.get("export_tcl", f"scripts/bd/{args.bd}.tcl")
-		export_base = os.path.abspath(os.path.join(project_dir, export_base))
-		stem = os.path.splitext(export_base)[0]
-		versioned = f"{stem}_{tag}.tcl"
-		symlink = export_base
-
-		logger.info("BD export: sha=%s dirty=%s", sha, dirty)
-		logger.info("BD export versioned: %s", versioned)
-		logger.info("BD export symlink  : %s", symlink)
-
-		if dirty:
-			logger.warning(
-				"Working tree is dirty - export tagged _dirty. "
-				"Commit changes before a production export."
-			)
-
-		config_tcl = generate_config_tcl(
-			cfg, project_dir,
-			bd_name=args.bd,
-			bd_export_path=versioned,
+	_setup_logging(
+		args.log_file or os.path.join(
+			os.path.join(project_dir, cfg.get("build", {}).get("dir", config.DEFAULT_BUILD_DIR)),
+			"xviv",
+			"xviv.log"
 		)
+	)
 
-		run_vivado(cfg, tcl_script, "export_bd", [], config_tcl)
-		_strip_bd_tcl(versioned)
+	match args.command:
+		case "ip-create":
+			command.cmd_ip_create(cfg, project_dir, args.ip)
 
-		_atomic_symlink(versioned, symlink)
-		logger.info(
-			"Symlink updated: %s -> %s",
-			os.path.basename(symlink),
-			os.path.basename(versioned),
-		)
+		case "bd-create":
+			command.cmd_bd_create(cfg, project_dir, args.bd)
 
-		print(f"Exported : {versioned}")
-		print(f"Symlink  : {symlink} -> {os.path.basename(versioned)}")
+		case "platform-create":
+			command.cmd_platform_create(cfg, project_dir, args.platform)
 
-	elif cmd == "bd-config":
-		generate_bd_hooks(cfg, project_dir, args.bd)
+		case "app-create":
+			command.cmd_app_create(cfg, project_dir, args.app, args.platform, args.template)
 
-	elif cmd == "synthesis":
-		_, _, tag = _git_sha_tag()
 
-		if args.bd:
-			bd_list = cfg.get("bd", [])
-			bd_cfg  = next((b for b in bd_list if b["name"] == args.bd), None)
-			if bd_cfg is None:
-				sys.exit(f"ERROR: BD '{args.bd}' not found in project.toml [[bd]] entries")
+		case "ip-edit":
+			command.cmd_ip_edit(cfg, project_dir, args.ip)
 
-			bd_wrapper_top = f"{args.bd}_wrapper"
+		case "bd-edit":
+			command.cmd_bd_edit(cfg, project_dir, args.bd)
 
-			config_tcl = generate_config_tcl(
-				cfg, project_dir,
-				bd_name=args.bd,
-				# top_name=bd_wrapper_top,
-				# synth_out_of_context_synth=args.out_of_context_synth,
-				synth_report_all=args.report_all,
-				synth_report_synth=args.report_synth,
-				synth_report_place=args.report_place,
-				synth_report_rout=args.report_route,
-				synth_generate_netlist=args.generate_netlist,
-			)
 
-			ip_args: list[str] = []
+		case "ip-config":
+			command.cmd_ip_config(cfg, project_dir, args.ip)
 
-			if args.out_of_context_run:
-				ip_infos = find_all_ip_ooc_info(cfg, project_dir, args.bd)
+		case "bd-config":
+			command.cmd_bd_config(cfg, project_dir, args.bd)
 
-				if ip_infos:
-					logger.info("IPs requiring OOC synthesis (%d):", len(ip_infos))
-					for info in ip_infos:
-						logger.info("  %-55s  top=%-35s  rtl=%d files", info.xci_name, info.top_module, len(info.rtl_files))
-				else:
-					logger.info(
-						"No leaf IPs found in BD '%s' - "
-						"proceeding directly to wrapper synthesis",
-						args.bd,
-					)
-				# Per-IP args - protocol (no inst_name field):
-				#   xci_name  top_module  dcp_dir  component_xml
-				#   n_rtl  [rtl_file ...]
-				#   n_inc  [inc_dir ...]
-				#   n_xdc  [xdc_file ...]
-				for info in ip_infos:
-					dcp_dir = os.path.join(build_dir, "synth", info.top_module, "ooc")
-					ip_args += [
-						info.xci_name,
-						info.top_module,
-						dcp_dir,
-						info.xml_path,
-						info.xci_file,                   # NEW
-						"1" if info.is_xilinx else "0",  # NEW
-						str(len(info.rtl_files)),
-						*info.rtl_files,
-						str(len(info.include_dirs)),
-						*info.include_dirs,
-						str(len(info.ooc_xdc_files)),
-						*info.ooc_xdc_files,
-					]
+		case "top-config":
+			command.cmd_top_config(cfg, project_dir, args.top)
 
-			run_vivado(
-				cfg, tcl_script, "synthesis",
-				[bd_wrapper_top, tag] + ip_args,
-				config_tcl,
-			)
 
-		else:
-			# -- Flat module synthesis -----------------------------------------
-			config_tcl = generate_config_tcl(
-				cfg, project_dir,
-				top_name=args.top,
-				# synth_out_of_context_synth=args.out_of_context,
-				synth_report_all=args.report_all,
-				synth_report_synth=args.report_synth,
-				synth_report_place=args.report_place,
-				synth_report_rout=args.report_route,
-				synth_generate_netlist=args.generate_netlist,
-			)
-			run_vivado(
-				cfg, tcl_script, "synthesis",
-				[args.top, tag],
-				config_tcl,
-			)
+		case "bd-generate":
+			command.cmd_bd_generate(cfg, project_dir, args.bd)
 
-	elif cmd == "synth-config":
-		generate_synth_hooks(cfg, project_dir, args.top)  # noqa: F821
 
-	elif cmd == "open-dcp":
-		dcp_path = os.path.abspath(
-			os.path.join(build_dir, args.top, f"{args.dcp}.dcp")
-		)
-		config_tcl = generate_config_tcl(cfg, project_dir)
-		run_vivado(cfg, tcl_script, "open_dcp", [dcp_path], config_tcl)
+		case "bd-save":
+			command.cmd_bd_save(cfg, project_dir, args.bd)
 
-	elif cmd == "elaborate":
-		sim_build_dir = os.path.join(build_dir, "xviv", args.top)
-		sources_cfg = cfg.get("sources", {})
-		sim_files = _resolve_globs(sources_cfg.get("sim", []), project_dir)
 
-		run_vivado_xvlog(cfg, sim_build_dir, sim_files)
-		run_vivado_xelab(cfg, sim_build_dir, args.top)
+		case "ip-synth":
+			command.cmd_ip_synth(cfg, project_dir, args.ip)
 
-		if args.run:
-			x_simulate_tcl = f"""
-				log_wave -recursive *
-				run {args.run}
-				exit
-			"""
-			run_vivado_xsim(cfg, sim_build_dir, args.top, x_simulate_tcl)
+		case "bd-synth":
+			command.cmd_bd_synth(cfg, project_dir, args.bd, args.ooc_run)
 
-	elif cmd == "open-snapshot":
-		open_snapshot(cfg, args.top, build_dir)
+		case "top-synth":
+			command.cmd_top_synth(cfg, project_dir, args.top)
 
-	elif cmd == "reload-snapshot":
-		reload_snapshot(build_dir, args.top)
 
-	elif cmd == "open-wdb":
-		open_wdb(cfg, args.top, build_dir)
+		case "dcp-open":
+			command.cmd_dcp_open(cfg, project_dir, args.top, args.dcp)
 
-	elif cmd == "reload-wdb":
-		reload_wdb(build_dir, args.top)
+		case "snapshot-open":
+			command.cmd_snapshot_open(cfg, project_dir, args.top)
 
-	elif cmd == "create-platform":
-		plat_cfg = _resolve_platform_cfg(cfg, args.platform)
-		xsa, _ = _platform_paths(cfg, project_dir, build_dir, plat_cfg)
-		bsp = _bsp_dir(build_dir, args.platform)
-		cpu = plat_cfg["cpu"]
-		os_name = plat_cfg.get("os", "standalone")
+		case "wdb-open":
+			command.cmd_snapshot_open(cfg, project_dir, args.top)
 
-		if not os.path.exists(xsa):
-			sys.exit(
-				f"ERROR: XSA not found: {xsa}\n"
-				f"  Run 'xviv synthesis --top {plat_cfg.get('synth_top', '<top>')}' first."
-			)
 
-		logger.info("Creating BSP platform '%s'", args.platform)
-		logger.info("  XSA    : %s", xsa)
-		logger.info("  CPU    : %s", cpu)
-		logger.info("  OS     : %s", os_name)
-		logger.info("  BSP dir: %s", bsp)
+		case "top-elaborate":
+			command.cmd_top_elab(cfg, project_dir, args.top, args.run)
 
-		run_xsct(cfg, xsct_script, ["create_platform", xsa, cpu, os_name, bsp])
 
-	elif cmd == "platform-build":
-		plat_cfg = _resolve_platform_cfg(cfg, args.platform)
-		bsp = _bsp_dir(build_dir, args.platform)
+		case "snapshot-reload":
+			command.cmd_snapshot_reload(cfg, project_dir, args.top)
 
-		env = _get_vitis_env(cfg)
+		case "wdb-reload":
+			command.cmd_snapshot_reload(cfg, project_dir, args.top)
 
-		if not os.path.isdir(bsp):
-			sys.exit(
-				f"ERROR: BSP directory not found: {bsp}\n"
-				f"  Run: xviv create-platform --platform {args.platform}"
-			)
 
-		logger.info("Building BSP: %s", bsp)
-		subprocess.run(
-			["make", f"-j{os.cpu_count() or 4}"],
-			check=True,
-			cwd=bsp,
-			env=env
-		)
-		logger.info("BSP build complete")
+		case "platform-build":
+			command.cmd_platform_build(cfg, project_dir, args.platform)
 
-	elif cmd == "create-app":
-		app_cfg = _resolve_app_cfg(cfg, args.app)
-		plat_name = args.platform or app_cfg["platform"]
-		plat_cfg = _resolve_platform_cfg(cfg, plat_name)
-		xsa, _ = _platform_paths(cfg, project_dir, build_dir, plat_cfg)
-		bsp = _bsp_dir(build_dir, plat_name)
-		app_out_dir = _app_dir(build_dir, args.app)
-		cpu = plat_cfg["cpu"]
-		os_name = plat_cfg.get("os", "standalone")
-		template = args.template or app_cfg.get("template", "empty_application")
-		src_dir = app_cfg.get("src_dir", f"srcs/sw/{args.app}")
+		case "app-build":
+			command.cmd_app_build(cfg, project_dir, args.app, args.info)
 
-		if not os.path.exists(xsa):
-			sys.exit(
-				f"ERROR: XSA not found: {xsa}\n"
-				f"  Run synthesis for platform '{plat_name}' first."
-			)
 
-		# Auto-create BSP if absent
-		if not os.path.isdir(bsp):
-			logger.info("BSP not found - creating platform '%s' first", plat_name)
-			run_xsct(cfg, xsct_script, ["create_platform", xsa, cpu, os_name, bsp])
+		case "program":
+			command.cmd_program(cfg, project_dir, args.app, args.platform, args.elf, args.bitstream)
 
-		logger.info("Creating app '%s' from template '%s'", args.app, template)
-		logger.info("  App dir : %s", app_out_dir)
 
-		run_xsct(cfg, xsct_script, ["create_app", xsa, cpu, os_name, template, app_out_dir])
+		case "processor":
+			command.cmd_processor(cfg, args.reset, args.status)
 
-		if not os.path.isdir(src_dir):
-			logger.warning(f"src_dir not found, creating {src_dir}")
 
-		os.makedirs(src_dir, exist_ok=True)
-
-	elif cmd == "app-build":
-		app_cfg = _resolve_app_cfg(cfg, args.app)
-		plat_name = app_cfg["platform"]
-		plat_cfg = _resolve_platform_cfg(cfg, plat_name)
-		bsp = _bsp_dir(build_dir, plat_name)
-		cpu = plat_cfg["cpu"]
-		app_out_dir = _app_dir(build_dir, args.app)
-		src_dir = os.path.abspath(app_cfg.get("src_dir", f"srcs/sw/{args.app}"))
-		env = _get_vitis_env(cfg)
-
-		_transform_app_makefile(os.path.join(app_out_dir, "Makefile"))
-
-		if not os.path.isdir(app_out_dir):
-			sys.exit(
-				f"ERROR: App directory not found: {app_out_dir}\n"
-				f"  Run: xviv create-app --app {args.app}"
-			)
-
-		bsp_include = os.path.join(bsp, cpu, "include")
-		bsp_lib = os.path.join(bsp, cpu, "lib")
-
-		c_sources = " ".join(_resolve_globs(["**/*.c"], src_dir))
-
-		logger.info("Building app '%s'", args.app)
-		subprocess.run(
-			[
-				"make", f"-j{os.cpu_count() or 4}",
-				f"INCLUDEPATH=-I{src_dir} -I{bsp_include} -I{bsp}",
-				f"c_SOURCES={c_sources}",
-				f"LIBPATH=-L{bsp_lib}",
-			],
-			check=True,
-			cwd=app_out_dir,
-			env=env
-		)
-		logger.info("App build complete")
-
-		if args.info:
-			elf = _find_elf(app_out_dir, args.app)
-			if elf:
-				logger.info("ELF: %s", elf)
-				print(f"\n=== ELF size: {os.path.basename(elf)} ===")
-				subprocess.run([_mb_tool(cfg, "size"), elf])
-				print(f"\n=== ELF sections: {os.path.basename(elf)} ===")
-				subprocess.run([_mb_tool(cfg, "objdump"), "-h", elf])
-			else:
-				logger.warning("No ELF found in %s", app_out_dir)
-
-	elif cmd == "program":
-		server = _hw_server(cfg)
-
-		if args.bitstream:
-			bit = os.path.abspath(args.bitstream)
-		elif args.platform:
-			plat_cfg = _resolve_platform_cfg(cfg, args.platform)
-			_, bit = _platform_paths(cfg, project_dir, build_dir, plat_cfg)
-		elif args.app:
-			app_cfg = _resolve_app_cfg(cfg, args.app)
-			plat_cfg = _resolve_platform_cfg(cfg, app_cfg.get("platform", None))
-			_, bit = _platform_paths(cfg, project_dir, build_dir, plat_cfg)
-
-		if not os.path.exists(bit):
-			sys.exit(f"ERROR: Bitstream not found: {bit}")
-
-		elf = ""
-		if args.elf:
-			elf = os.path.abspath(args.elf) or ""
-			if not os.path.exists(elf):
-				sys.exit(f"ERROR: ELF not found: {elf}")
-		elif args.app:
-			app_cfg = _resolve_app_cfg(cfg, args.app)
-			app_out_dir = _app_dir(build_dir, args.app)
-			elf = _find_elf(app_out_dir, args.app) or ""
-			if not elf:
-				sys.exit(
-					f"ERROR: No ELF found in {app_out_dir}\n"
-					f"  Run: xviv app-build --app {args.app}"
-				)
-
-		logger.info("Programming FPGA")
-		logger.info("  Bitstream : %s", bit)
-		if elf:
-			logger.info("  ELF       : %s", elf)
-		logger.info("  hw_server : %s", server)
-
-		run_xsct(cfg, xsct_script, ["program", bit, elf or "", server])
-
-	elif cmd == "processor":
-		server = _hw_server(cfg)
-		if args.reset:
-			logger.info("Resetting embedded processor via JTAG (%s)", server)
-			run_xsct(cfg, xsct_script, ["processor_reset", server])
-		elif args.status:
-			run_xsct(cfg, xsct_script, ["processor_status", server])
-
-	elif cmd == "jtag-monitor":
-		server = _hw_server(cfg)
-		logger.info("Starting JTAG UART monitor (Ctrl-C to stop)")
-		logger.info("  hw_server : %s", server)
-		run_xsct_live(cfg, xsct_script, ["jtag_uart", server])
-
-	else:
-		parser.print_help()
-		sys.exit(1)
+		case _:
+			parser.print_help()
+			sys.exit(1)
 
 
 if __name__ == "__main__":

@@ -59,8 +59,8 @@ puts "xviv: FIFO ready at $xviv_fifo_path"
 """
 
 
-def _fifo_path(build_dir: str, top: str) -> str:
-	return os.path.join(build_dir, "xviv", top, "control.fifo")
+def _fifo_path(build_dir: str, top_name: str) -> str:
+	return os.path.join(build_dir, "xviv", top_name, "control.fifo")
 
 
 def _ensure_fifo(path: str) -> None:
@@ -82,8 +82,8 @@ def _fifo_send(path: str, command: str) -> None:
 		logger.warning("FIFO send failed (%s) - is xsim running?", e)
 
 
-def reload_wdb(build_dir: str, top: str) -> None:
-	path = _fifo_path(build_dir, top)
+def reload_wdb(build_dir: str, top_name: str) -> None:
+	path = _fifo_path(build_dir, top_name)
 	cmd = (
 		"after 300 {"
 		"set _wcfg [get_property FILE_PATH [current_wave_config]]; "
@@ -97,12 +97,12 @@ def reload_wdb(build_dir: str, top: str) -> None:
 	_fifo_send(path, cmd)
 
 
-def reload_snapshot(build_dir: str, top: str) -> None:
-	path = _fifo_path(build_dir, top)
+def reload_snapshot(build_dir: str, top_name: str) -> None:
+	path = _fifo_path(build_dir, top_name)
 	cmd = (
 		"set _wcfg [get_property FILE_PATH [current_wave_config]]; "
 		"save_wave_config $_wcfg; "
-		f"xsim {top};"
+		f"xsim {top_name};"
 		"log_wave -recursive *; "
 		"run all; "
 		"open_wave_config $_wcfg"
@@ -111,21 +111,21 @@ def reload_snapshot(build_dir: str, top: str) -> None:
 	_fifo_send(path, cmd)
 
 
-def open_wdb(cfg: dict, top: str, build_dir: str) -> None:
+def open_wdb(cfg: dict, top_name: str, build_dir: str) -> None:
 	vivado_path = _get_vivado_path(cfg)
 	xsim_bin = os.path.join(vivado_path, "bin", "xsim")
-	work_dir = os.path.join(build_dir, "xviv", top)
+	work_dir = os.path.join(build_dir, "elab", top_name)
 	wdb_file = "waveform.wdb"
 	wcfg_file = "waveform.wcfg"
 	tcl_file = os.path.join(work_dir, "waveform_config.tcl")
 
 	os.makedirs(work_dir, exist_ok=True)
-	fifo = _fifo_path(build_dir, top)
+	fifo = _fifo_path(build_dir, top_name)
 	_ensure_fifo(fifo)
 
 	with open(tcl_file, "w") as fh:
 		fh.write(_XSIM_WDB_TCL.format(
-			wdb=wdb_file, wcfg=wcfg_file, top=top, fifo_path=fifo
+			wdb=wdb_file, wcfg=wcfg_file, top=top_name, fifo_path=fifo
 		))
 
 	proc = subprocess.Popen(
@@ -135,25 +135,25 @@ def open_wdb(cfg: dict, top: str, build_dir: str) -> None:
 	logger.info("xsim waveform PID: %d", proc.pid)
 
 
-def open_snapshot(cfg: dict, top: str, build_dir: str) -> None:
+def open_snapshot(cfg: dict, top_name: str, build_dir: str) -> None:
 	vivado_path = _get_vivado_path(cfg)
 	xsim_bin = os.path.join(vivado_path, "bin", "xsim")
-	work_dir = os.path.join(build_dir, "xviv", top)
+	work_dir = os.path.join(build_dir, "elab", top_name)
 	wdb_file = os.path.join(work_dir, "waveform.wdb")
 	wcfg_file = os.path.join(work_dir, "waveform.wcfg")
 	tcl_file = os.path.join(work_dir, "waveform_config.tcl")
 
 	os.makedirs(work_dir, exist_ok=True)
-	fifo = _fifo_path(build_dir, top)
+	fifo = _fifo_path(build_dir, top_name)
 	_ensure_fifo(fifo)
 
 	with open(tcl_file, "w") as fh:
 		fh.write(_XSIM_WDB_TCL.format(
-			wdb=wdb_file, wcfg=wcfg_file, top=top, fifo_path=fifo
+			wdb=wdb_file, wcfg=wcfg_file, top=top_name, fifo_path=fifo
 		))
 
 	proc = subprocess.Popen(
-		[xsim_bin, top, "-t", tcl_file, "-g"],
+		[xsim_bin, top_name, "-t", tcl_file, "-g"],
 		cwd=work_dir,
 	)
 	logger.info("xsim waveform PID: %d", proc.pid)
