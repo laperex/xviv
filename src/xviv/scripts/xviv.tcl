@@ -287,7 +287,7 @@ switch -- $_cmd {
     create_bd   { cmd_create_bd }
     edit_bd     { cmd_edit_bd   }
     generate_bd { cmd_generate_bd }
-    export_bd   { cmd_export_bd   }
+    export_bd   { cmd_export_bd [lindex $::argv 2] }
 
 	synthesis   {
         if {$::argc < 3} {

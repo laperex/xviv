@@ -6,7 +6,6 @@ import stat
 import subprocess
 
 from xviv import config
-from xviv.vivado import _get_vivado_path
 
 logger = logging.getLogger(__name__)
 
@@ -58,11 +57,6 @@ fileevent $xviv_fifo_fh readable _fifo_handle
 puts "xviv: FIFO ready at $xviv_fifo_path"
 """
 
-
-def _fifo_path(build_dir: str, top_name: str) -> str:
-	return os.path.join(build_dir, "xviv", top_name, "control.fifo")
-
-
 def _ensure_fifo(path: str) -> None:
 	if os.path.exists(path):
 		if not stat.S_ISFIFO(os.stat(path).st_mode):
@@ -82,8 +76,8 @@ def _fifo_send(path: str, command: str) -> None:
 		logger.warning("FIFO send failed (%s) - is xsim running?", e)
 
 
-def reload_wdb(build_dir: str, top_name: str) -> None:
-	path = _fifo_path(build_dir, top_name)
+def reload_wdb(cfg: dict, project_dir: str, top_name: str) -> None:
+	path = config._get_control_fifo_path(cfg, project_dir, top_name)
 	cmd = (
 		"after 300 {"
 		"set _wcfg [get_property FILE_PATH [current_wave_config]]; "
@@ -97,8 +91,8 @@ def reload_wdb(build_dir: str, top_name: str) -> None:
 	_fifo_send(path, cmd)
 
 
-def reload_snapshot(build_dir: str, top_name: str) -> None:
-	path = _fifo_path(build_dir, top_name)
+def reload_snapshot(cfg: dict, project_dir: str, top_name: str) -> None:
+	path = config._get_control_fifo_path(cfg, project_dir, top_name)
 	cmd = (
 		"set _wcfg [get_property FILE_PATH [current_wave_config]]; "
 		"save_wave_config $_wcfg; "
@@ -111,49 +105,47 @@ def reload_snapshot(build_dir: str, top_name: str) -> None:
 	_fifo_send(path, cmd)
 
 
-def open_wdb(cfg: dict, top_name: str, build_dir: str) -> None:
-	vivado_path = _get_vivado_path(cfg)
+def open_wdb(cfg: dict, project_dir: str, top_name: str) -> None:
+	vivado_path = config._get_vivado_path(cfg)
 	xsim_bin = os.path.join(vivado_path, "bin", "xsim")
-	work_dir = os.path.join(build_dir, "elab", top_name)
+
+	xlib_work_dir = config._get_xlib_work_dir(cfg, project_dir, top_name)
+
 	wdb_file = "waveform.wdb"
 	wcfg_file = "waveform.wcfg"
-	tcl_file = os.path.join(work_dir, "waveform_config.tcl")
+	tcl_file = os.path.join(xlib_work_dir, "waveform_config.tcl")
 
-	os.makedirs(work_dir, exist_ok=True)
-	fifo = _fifo_path(build_dir, top_name)
+	os.makedirs(xlib_work_dir, exist_ok=True)
+	fifo = config._get_control_fifo_path(cfg, project_dir, top_name)
 	_ensure_fifo(fifo)
 
-	with open(tcl_file, "w") as fh:
-		fh.write(_XSIM_WDB_TCL.format(
-			wdb=wdb_file, wcfg=wcfg_file, top=top_name, fifo_path=fifo
-		))
+	open(tcl_file, "w").write(_XSIM_WDB_TCL.format(wdb=wdb_file, wcfg=wcfg_file, top=top_name, fifo_path=fifo))
 
 	proc = subprocess.Popen(
 		[xsim_bin, wdb_file, "-t", tcl_file, "-g"],
-		cwd=work_dir,
+		cwd=xlib_work_dir,
 	)
 	logger.info("xsim waveform PID: %d", proc.pid)
 
 
-def open_snapshot(cfg: dict, top_name: str, build_dir: str) -> None:
-	vivado_path = _get_vivado_path(cfg)
+def open_snapshot(cfg: dict, project_dir: str, top_name: str) -> None:
+	vivado_path = config._get_vivado_path(cfg)
 	xsim_bin = os.path.join(vivado_path, "bin", "xsim")
-	work_dir = os.path.join(build_dir, "elab", top_name)
-	wdb_file = os.path.join(work_dir, "waveform.wdb")
-	wcfg_file = os.path.join(work_dir, "waveform.wcfg")
-	tcl_file = os.path.join(work_dir, "waveform_config.tcl")
 
-	os.makedirs(work_dir, exist_ok=True)
-	fifo = _fifo_path(build_dir, top_name)
-	_ensure_fifo(fifo)
+	xlib_work_dir = config._get_xlib_work_dir(cfg, project_dir, top_name)
 
-	with open(tcl_file, "w") as fh:
-		fh.write(_XSIM_WDB_TCL.format(
-			wdb=wdb_file, wcfg=wcfg_file, top=top_name, fifo_path=fifo
-		))
+	wdb_file = os.path.join(xlib_work_dir, "waveform.wdb")
+	wcfg_file = os.path.join(xlib_work_dir, "waveform.wcfg")
+	tcl_file = os.path.join(xlib_work_dir, "waveform_config.tcl")
+
+	os.makedirs(xlib_work_dir, exist_ok=True)
+	control_fifo_path = config._get_control_fifo_path(cfg, project_dir, top_name)
+	_ensure_fifo(control_fifo_path)
+
+	open(tcl_file, "w").write(_XSIM_WDB_TCL.format(wdb=wdb_file, wcfg=wcfg_file, top=top_name, fifo_path=control_fifo_path))
 
 	proc = subprocess.Popen(
 		[xsim_bin, top_name, "-t", tcl_file, "-g"],
-		cwd=work_dir,
+		cwd=xlib_work_dir,
 	)
 	logger.info("xsim waveform PID: %d", proc.pid)

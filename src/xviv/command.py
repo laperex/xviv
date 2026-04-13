@@ -15,17 +15,11 @@ logger = logging.getLogger(__name__)
 #- create --ip <ip_name>
 #--------------------------------------------------------------------------------------------------------------
 def cmd_ip_create(cfg: dict, project_dir: str, ip_name: str):
-	build_cfg = cfg.get("build", {})
-	ip_wrapper_dir = os.path.abspath(os.path.join(project_dir, build_cfg.get("wrapper_dir", config.DEFAULT_BUILD_WRAPPER_DIR)))
-
-	ip_list = cfg.get("ip", [])
-	ip_cfg = next((i for i in ip_list if i["name"] == ip_name), None)
-	if ip_cfg is None:
-		sys.exit(f"ERROR: IP '{ip_name}' not found in project.toml [[ip]] entries")
+	ip_wrapper_dir = config._get_wrapper_dir(cfg, project_dir)
+	ip_cfg = config._get_ip_cfg(cfg, ip_name)
 
 	if ip_cfg.get('create-wrapper', False):
-		ip_rtl_files = config._resolve_globs(ip_cfg.get("rtl", []), project_dir)
-		ip_top = ip_cfg.get("top", ip_cfg["name"])
+		ip_top, ip_rtl_files = config._get_ip_rtl_files(ip_cfg, project_dir)
 
 		wrapper.xviv_wrap_top(ip_top, ip_wrapper_dir, ip_rtl_files)
 
@@ -53,11 +47,10 @@ def cmd_bd_create(cfg: dict, project_dir: str, bd_name: str):
 #- create --platform <platform_name>
 #--------------------------------------------------------------------------------------------------------------
 def cmd_platform_create(cfg: dict, project_dir: str, platform_name: str):
-	build_dir = os.path.join(project_dir, cfg.get("build", {}).get("dir", config.DEFAULT_BUILD_DIR))
+	plat_cfg = config._get_platform_cfg(cfg, platform_name)
 
-	plat_cfg = platform._resolve_platform_cfg(cfg, platform_name)
-	xsa, _ = platform._platform_paths(cfg, project_dir, build_dir, plat_cfg)
-	bsp = platform._bsp_dir(build_dir, platform_name)
+	xsa, _ = config._get_platform_paths(cfg, project_dir, platform_name)
+	bsp = config._get_platform_dir(cfg, platform_name)
 	cpu = plat_cfg["cpu"]
 	os_name = plat_cfg.get("os", "standalone")
 
@@ -80,30 +73,27 @@ def cmd_platform_create(cfg: dict, project_dir: str, platform_name: str):
 #- create --app <app_name> | --platform <platform_name> | --template <template_name>
 #--------------------------------------------------------------------------------------------------------------
 def cmd_app_create(cfg: dict, project_dir: str, app_name: str, platform_name: typing.Optional[str], template_name: typing.Optional[str]):
-	build_dir = os.path.join(project_dir, cfg.get("build", {}).get("dir", config.DEFAULT_BUILD_DIR))
-	
-	app_cfg = platform._resolve_app_cfg(cfg, app_name)
-	
-	plat_name = platform_name or app_cfg["platform"]
-	# plat_name = app_cfg["platform"]
+	app_cfg = platform._get_app_cfg(cfg, app_name)
 
-	plat_cfg = platform._resolve_platform_cfg(cfg, plat_name)
-	xsa, _ = platform._platform_paths(cfg, project_dir, build_dir, plat_cfg)
-	bsp = platform._bsp_dir(build_dir, plat_name)
+	platform_name = platform_name or app_cfg["platform"]
+
+	plat_cfg = config._get_platform_cfg(cfg, platform_name)
+	xsa, _ = config._get_platform_paths(cfg, project_dir, platform_name)
+	bsp = config._get_platform_dir(cfg, project_dir, platform_name)
 
 	if not os.path.exists(xsa):
 		sys.exit(
 			f"ERROR: XSA not found: {xsa}\n"
-			f"  Run synthesis for platform '{plat_name}' first."
+			f"  Run synthesis for platform '{platform_name}' first."
 		)
 
 	# Auto-create BSP if absent
 	if not os.path.isdir(bsp):
-		logger.info("BSP not found - creating platform '%s' first", plat_name)
-		cmd_platform_create(cfg, project_dir, plat_name)
+		logger.info("BSP not found - creating platform '%s' first", platform_name)
 
+		cmd_platform_create(cfg, project_dir, platform_name)
 
-	app_out_dir = platform._app_dir(build_dir, app_name)
+	app_out_dir = config._get_app_dir(cfg, project_dir, app_name)
 	cpu = plat_cfg["cpu"]
 	os_name = plat_cfg.get("os", "standalone")
 
@@ -172,13 +162,10 @@ def cmd_bd_generate(cfg: dict, project_dir: str, bd_name: str):
 #--------------------------------------------------------------------------------------------------------------
 #- export --bd <bd_name>
 #--------------------------------------------------------------------------------------------------------------
-def cmd_bd_save(cfg: dict, project_dir: str, bd_name: str):
+def cmd_bd_export(cfg: dict, project_dir: str, bd_name: str):
 	sha, dirty, tag = utils._git_sha_tag()
 
-	bd_list = cfg.get("bd", [])
-	bd_cfg = next((b for b in bd_list if b["name"] == bd_name), None)
-	if bd_cfg is None:
-		sys.exit(f"ERROR: BD '{bd_name}' not found in project.toml [[bd]] entries")
+	bd_cfg = config._get_bd_cfg(cfg, bd_name)
 
 	export_base = bd_cfg.get("export_tcl", f"scripts/bd/{bd_name}.tcl")
 	export_base = os.path.abspath(os.path.join(project_dir, export_base))
@@ -196,13 +183,9 @@ def cmd_bd_save(cfg: dict, project_dir: str, bd_name: str):
 			"Commit changes before a production export."
 		)
 
-	config_tcl = config.generate_config_tcl(
-		cfg, project_dir,
-		bd_name=bd_name,
-		bd_export_path=versioned,
-	)
+	config_tcl = config.generate_config_tcl(cfg, project_dir, bd_name=bd_name)
 
-	vivado.run_vivado(cfg, vivado._find_tcl_script(), "export_bd", [], config_tcl)
+	vivado.run_vivado(cfg, vivado._find_tcl_script(), "export_bd", [versioned], config_tcl)
 	vivado._strip_bd_tcl(versioned)
 
 	utils._atomic_symlink(versioned, symlink)
@@ -229,31 +212,26 @@ def cmd_ip_synth(cfg: dict, project_dir: str, ip_name: str):
 def cmd_bd_synth(cfg: dict, project_dir: str, bd_name: str, ooc_run: typing.Optional[bool]):
 	_, _, tag = utils._git_sha_tag()
 
-	if bd_name:
-		bd_list = cfg.get("bd", [])
-		bd_cfg  = next((b for b in bd_list if b["name"] == bd_name), None)
-		if bd_cfg is None:
-			sys.exit(f"ERROR: BD '{bd_name}' not found in project.toml [[bd]] entries")
+	config_tcl = config.generate_config_tcl(cfg, project_dir, bd_name=bd_name)
 
-		bd_wrapper_top = f"{bd_name}_wrapper"
+	vivado.run_vivado(
+		cfg, vivado._find_tcl_script(), "synthesis",
+		[f"{bd_name}_wrapper", tag],
+		config_tcl,
+	)
 
-		config_tcl = config.generate_config_tcl(
-			cfg, project_dir,
-			bd_name=bd_name,
-			# top_name=bd_wrapper_top,
-			# synth_out_of_context_synth=args.out_of_context_synth,
-			# synth_report_all=args.report_all,
-			# synth_report_synth=args.report_synth,
-			# synth_report_place=args.report_place,
-			# synth_report_rout=args.report_route,
-			# synth_generate_netlist=args.generate_netlist,
-		)
+	# _, _, tag = utils._git_sha_tag()
 
-		vivado.run_vivado(
-			cfg, vivado._find_tcl_script(), "synthesis",
-			[bd_wrapper_top, tag],
-			config_tcl,
-		)
+	# if bd_name:
+	# 	bd_wrapper_top = f"{bd_name}_wrapper"
+
+	# 	config_tcl = config.generate_config_tcl(cfg, project_dir, bd_name=bd_name)
+
+	# 	vivado.run_vivado(
+	# 		cfg, vivado._find_tcl_script(), "synthesis",
+	# 		[bd_wrapper_top, tag],
+	# 		config_tcl,
+	# 	)
 
 		# ip_args: list[str] = []
 
@@ -299,16 +277,7 @@ def cmd_bd_synth(cfg: dict, project_dir: str, bd_name: str, ooc_run: typing.Opti
 def cmd_top_synth(cfg: dict, project_dir: str, top_name: str):
 	_, _, tag = utils._git_sha_tag()
 
-	config_tcl = config.generate_config_tcl(
-		cfg, project_dir,
-		top_name=top_name,
-		# synth_out_of_context_synth=args.out_of_context,
-		# synth_report_all=args.report_all,
-		# synth_report_synth=args.report_synth,
-		# synth_report_place=args.report_place,
-		# synth_report_rout=args.report_route,
-		# synth_generate_netlist=args.generate_netlist,
-	)
+	config_tcl = config.generate_config_tcl(cfg, project_dir, top_name=top_name)
 
 	vivado.run_vivado(
 		cfg, vivado._find_tcl_script(), "synthesis",
@@ -321,8 +290,7 @@ def cmd_top_synth(cfg: dict, project_dir: str, top_name: str):
 #- open --dcp <dcp_name> --top <top_name>
 #--------------------------------------------------------------------------------------------------------------
 def cmd_dcp_open(cfg: dict, project_dir: str, dcp_name: str, top_name: str):
-	build_dir = os.path.join(project_dir, cfg.get("build", {}).get("dir", config.DEFAULT_BUILD_DIR))
-	dcp_path = os.path.abspath(os.path.join(build_dir, top_name, f"{dcp_name}.dcp"))
+	dcp_path = config._get_dcp_path(cfg, project_dir, top_name, dcp_name)
 
 	config_tcl = config.generate_config_tcl(cfg, project_dir)
 	vivado.run_vivado(cfg, vivado._find_tcl_script(), "open_dcp", [dcp_path], config_tcl)
@@ -332,32 +300,28 @@ def cmd_dcp_open(cfg: dict, project_dir: str, dcp_name: str, top_name: str):
 #- open --snapshot  --top <top_name>
 #--------------------------------------------------------------------------------------------------------------
 def cmd_snapshot_open(cfg: dict, project_dir: str, top_name: str):
-	build_dir = os.path.join(project_dir, cfg.get("build", {}).get("dir", config.DEFAULT_BUILD_DIR))
-
-	waveform.open_snapshot(cfg, top_name, build_dir)
+	waveform.open_snapshot(cfg, project_dir, top_name)
 
 
 #--------------------------------------------------------------------------------------------------------------
 #- open --wdb  --top <top_name>
 #--------------------------------------------------------------------------------------------------------------
 def cmd_wdb_open(cfg: dict, project_dir: str, top_name: str):
-	build_dir = os.path.join(project_dir, cfg.get("build", {}).get("dir", config.DEFAULT_BUILD_DIR))
-
-	waveform.open_wdb(cfg, top_name, build_dir)
+	waveform.open_wdb(cfg, project_dir, top_name)
 
 
 #--------------------------------------------------------------------------------------------------------------
 #- elab --top <top_name> --run <time in ns>
 #--------------------------------------------------------------------------------------------------------------
 def cmd_top_elab(cfg: dict, project_dir: str, top_name: str, run: typing.Optional[str]):
-	build_dir = os.path.join(project_dir, cfg.get("build", {}).get("dir", config.DEFAULT_BUILD_DIR))
-	work_dir = os.path.join(build_dir, "elab", top_name)
+	xlib_work_dir = config._get_xlib_work_dir(cfg, project_dir, top_name)
+	sim_files = config._get_sim_files(cfg, project_dir)
 
-	sources_cfg = cfg.get("sources", {})
-	sim_files = config._resolve_globs(sources_cfg.get("sim", []), project_dir)
+	xsim_lib = "xv_work"
+	timescale = "1ns/1ps"
 
-	vivado.run_vivado_xvlog(cfg, work_dir, sim_files)
-	vivado.run_vivado_xelab(cfg, work_dir, top_name)
+	vivado.run_vivado_xvlog(cfg, xlib_work_dir, sim_files, xsim_lib=xsim_lib)
+	vivado.run_vivado_xelab(cfg, xlib_work_dir, top_name, timescale=timescale, xsim_lib=xsim_lib)
 
 	if run:
 		x_simulate_tcl = f"""
@@ -366,7 +330,7 @@ def cmd_top_elab(cfg: dict, project_dir: str, top_name: str, run: typing.Optiona
 			exit
 		"""
 
-		vivado.run_vivado_xsim(cfg, work_dir, top_name, x_simulate_tcl)
+		vivado.run_vivado_xsim(cfg, xlib_work_dir, top_name, x_simulate_tcl)
 
 
 
@@ -374,18 +338,14 @@ def cmd_top_elab(cfg: dict, project_dir: str, top_name: str, run: typing.Optiona
 #- reload --snapshot  --top <top_name>
 #--------------------------------------------------------------------------------------------------------------
 def cmd_snapshot_reload(cfg: dict, project_dir: str, top_name: str):
-	build_dir = os.path.join(project_dir, cfg.get("build", {}).get("dir", config.DEFAULT_BUILD_DIR))
-
-	waveform.reload_snapshot(build_dir, top_name)
+	waveform.reload_snapshot(cfg, project_dir, top_name)
 
 
 #--------------------------------------------------------------------------------------------------------------
 #- reload --wdb  --top <top_name>
 #--------------------------------------------------------------------------------------------------------------
 def cmd_wdb_reload(cfg: dict, project_dir: str, top_name: str):
-	build_dir = os.path.join(project_dir, cfg.get("build", {}).get("dir", config.DEFAULT_BUILD_DIR))
-
-	waveform.reload_wdb(build_dir, top_name)
+	waveform.reload_wdb(cfg, project_dir, top_name)
 
 
 
@@ -393,12 +353,7 @@ def cmd_wdb_reload(cfg: dict, project_dir: str, top_name: str):
 #- build --platform <platform_name>
 #--------------------------------------------------------------------------------------------------------------
 def cmd_platform_build(cfg: dict, project_dir: str, platform_name: str):
-	build_dir = os.path.join(project_dir, cfg.get("build", {}).get("dir", config.DEFAULT_BUILD_DIR))
-
-	# plat_cfg = platform._resolve_platform_cfg(cfg, platform_name)
-	bsp = platform._bsp_dir(build_dir, platform_name)
-
-	env = vitis._get_vitis_env(cfg)
+	bsp = config._get_platform_dir(cfg, project_dir, platform_name)
 
 	if not os.path.isdir(bsp):
 		sys.exit(
@@ -407,11 +362,12 @@ def cmd_platform_build(cfg: dict, project_dir: str, platform_name: str):
 		)
 
 	logger.info("Building BSP: %s", bsp)
+
 	subprocess.run(
 		["make", f"-j{os.cpu_count() or 4}"],
 		check=True,
 		cwd=bsp,
-		env=env
+		env=vitis._get_vitis_env(cfg)
 	)
 	logger.info("BSP build complete")
 
@@ -420,28 +376,22 @@ def cmd_platform_build(cfg: dict, project_dir: str, platform_name: str):
 #- build --app <app_name> | --info
 #--------------------------------------------------------------------------------------------------------------
 def cmd_app_build(cfg: dict, project_dir: str, app_name: str, info: typing.Optional[bool]):
-	build_dir = os.path.join(project_dir, cfg.get("build", {}).get("dir", config.DEFAULT_BUILD_DIR))
-
-	app_cfg = platform._resolve_app_cfg(cfg, app_name)
+	app_cfg = config._get_app_cfg(cfg, app_name)
 	plat_name = app_cfg["platform"]
-	plat_cfg = platform._resolve_platform_cfg(cfg, plat_name)
-	bsp = platform._bsp_dir(build_dir, plat_name)
+
+	plat_cfg = config._get_platform_cfg(cfg, plat_name)
 	cpu = plat_cfg["cpu"]
-	app_out_dir = platform._app_dir(build_dir, app_name)
-	src_dir = os.path.abspath(app_cfg.get("src_dir", f"srcs/sw/{app_name}"))
+
+	bsp = config._get_platform_dir(cfg, project_dir, plat_name)
+	app_out_dir = config._get_app_dir(cfg, project_dir, app_name)
 	env = vitis._get_vitis_env(cfg)
 
 	platform._transform_app_makefile(os.path.join(app_out_dir, "Makefile"))
 
-	if not os.path.isdir(app_out_dir):
-		sys.exit(
-			f"ERROR: App directory not found: {app_out_dir}\n"
-			f"  Run: xviv create-app --app {app_name}"
-		)
-
 	bsp_include = os.path.join(bsp, cpu, "include")
 	bsp_lib = os.path.join(bsp, cpu, "lib")
 
+	src_dir = os.path.abspath(app_cfg.get("src_dir", f"srcs/sw/{app_name}"))
 	c_sources = " ".join(config._resolve_globs(["**/*.c"], src_dir))
 
 	logger.info("Building app '%s'", app_name)
@@ -456,18 +406,17 @@ def cmd_app_build(cfg: dict, project_dir: str, app_name: str, info: typing.Optio
 		cwd=app_out_dir,
 		env=env
 	)
+
 	logger.info("App build complete")
 
 	if info:
-		elf = platform._find_elf(app_out_dir, app_name)
-		if elf:
-			logger.info("ELF: %s", elf)
-			print(f"\n=== ELF size: {os.path.basename(elf)} ===")
-			subprocess.run([platform._mb_tool(cfg, "size"), elf])
-			print(f"\n=== ELF sections: {os.path.basename(elf)} ===")
-			subprocess.run([platform._mb_tool(cfg, "objdump"), "-h", elf])
-		else:
-			logger.warning("No ELF found in %s", app_out_dir)
+		elf = platform._find_elf(cfg, project_dir, app_name)
+
+		logger.info("ELF: %s", elf)
+		print(f"\n=== ELF size: {os.path.basename(elf)} ===")
+		subprocess.run([platform._mb_tool(cfg, "size"), elf])
+		print(f"\n=== ELF sections: {os.path.basename(elf)} ===")
+		subprocess.run([platform._mb_tool(cfg, "objdump"), "-h", elf])
 
 
 
@@ -475,23 +424,18 @@ def cmd_app_build(cfg: dict, project_dir: str, app_name: str, info: typing.Optio
 #- program | --app <app_name> | --platform <platform_name> | --elf <elf_path> | --bitstream <bitstream_path>
 #--------------------------------------------------------------------------------------------------------------
 def cmd_program(cfg: dict, project_dir: str, app_name: typing.Optional[str], platform_name: typing.Optional[str], elf: typing.Optional[str], bitstream: typing.Optional[str]):
-	build_dir = os.path.join(project_dir, cfg.get("build", {}).get("dir", config.DEFAULT_BUILD_DIR))
-	
-	server = platform._hw_server(cfg)
-	
+	server = config._get_platform_hw_server(cfg)
+
 	bitstream_path = ""
 
 	if bitstream:
 		bitstream_path = os.path.abspath(bitstream)
 
 	elif platform_name:
-		plat_cfg = platform._resolve_platform_cfg(cfg, platform_name)
-		_, bitstream_path = platform._platform_paths(cfg, project_dir, build_dir, plat_cfg)
+		_, bitstream_path = config._get_platform_paths(cfg, project_dir, platform_name)
 
 	elif app_name:
-		app_cfg = platform._resolve_app_cfg(cfg, app_name)
-		plat_cfg = platform._resolve_platform_cfg(cfg, app_cfg.get("platform", None))
-		_, bitstream_path = platform._platform_paths(cfg, project_dir, build_dir, plat_cfg)
+		_, bitstream_path = config._get_platform_paths(cfg, project_dir, platform_name or config._get_app_cfg(cfg, app_name).get("platform", None))
 
 	if not os.path.exists(bitstream_path):
 		sys.exit(f"ERROR: Bitstream not found: {bitstream_path}")
@@ -505,15 +449,7 @@ def cmd_program(cfg: dict, project_dir: str, app_name: typing.Optional[str], pla
 			sys.exit(f"ERROR: ELF not found: {elf_path}")
 
 	elif app_name:
-		app_cfg = platform._resolve_app_cfg(cfg, app_name)
-		app_out_dir = platform._app_dir(build_dir, app_name)
-		elf_path = platform._find_elf(app_out_dir, app_name) or ""
-
-		if not elf_path:
-			sys.exit(
-				f"ERROR: No ELF found in {app_out_dir}\n"
-				f"  Run: xviv app-program --app {app_name}"
-			)
+		elf_path = platform._find_elf(cfg, project_dir, app_name)
 
 	logger.info("Programming FPGA")
 	logger.info("  Bitstream : %s", bitstream_path)
@@ -530,7 +466,7 @@ def cmd_program(cfg: dict, project_dir: str, app_name: typing.Optional[str], pla
 #- processor | --reset | --status
 #--------------------------------------------------------------------------------------------------------------
 def cmd_processor(cfg: dict, reset: typing.Optional[bool], status: typing.Optional[bool]):
-	server = platform._hw_server(cfg)
+	server = config._get_platform_hw_server(cfg)
 
 	if reset:
 		logger.info("Resetting embedded processor via JTAG (%s)", server)

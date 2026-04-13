@@ -40,20 +40,11 @@ import argparse
 import glob as _glob
 import logging
 import os
-import subprocess
 import sys
 import argcomplete
 
-from xviv import command, config, wrapper
-from xviv import waveform
-from xviv.bd_deps import find_all_ip_ooc_info
-from xviv.config import _resolve_globs, generate_config_tcl, load_config
-from xviv.hooks import generate_bd_hooks, generate_ip_hooks, generate_synth_hooks
-from xviv.platform import _app_dir, _bsp_dir, _find_elf, _hw_server, _mb_tool, _platform_paths, _resolve_app_cfg, _resolve_platform_cfg, _transform_app_makefile
-from xviv.utils import _atomic_symlink, _git_sha_tag, _setup_logging
-from xviv.vitis import _find_xsct_script, _get_vitis_env, run_xsct, run_xsct_live
-from xviv.vivado import _find_tcl_script, _strip_bd_tcl, run_vivado, run_vivado_xelab, run_vivado_xsim, run_vivado_xvlog
-from xviv.waveform import open_snapshot, open_wdb, reload_snapshot, reload_wdb
+from xviv import command, config
+from xviv.utils import _setup_logging
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +55,7 @@ def _find_config(prefix, parsed_args, **kwargs) -> str:
 
 def _ip_names_completer(prefix, parsed_args, **kwargs):
 	try:
-		cfg = load_config(os.path.abspath(_find_config(prefix, parsed_args)))
+		cfg = config.load_config(os.path.abspath(_find_config(prefix, parsed_args)))
 		return [ip["name"] for ip in cfg.get("ip", [])]
 	except Exception:
 		return []
@@ -72,7 +63,7 @@ def _ip_names_completer(prefix, parsed_args, **kwargs):
 
 def _bd_names_completer(prefix, parsed_args, **kwargs):
 	try:
-		cfg = load_config(os.path.abspath(_find_config(prefix, parsed_args)))
+		cfg = config.load_config(os.path.abspath(_find_config(prefix, parsed_args)))
 		return [bd["name"] for bd in cfg.get("bd", [])]
 	except Exception:
 		return []
@@ -80,7 +71,7 @@ def _bd_names_completer(prefix, parsed_args, **kwargs):
 
 def _top_names_completer(prefix, parsed_args, **kwargs):
 	try:
-		cfg = load_config(os.path.abspath(_find_config(prefix, parsed_args)))
+		cfg = config.load_config(os.path.abspath(_find_config(prefix, parsed_args)))
 		return [s["top"] for s in cfg.get("synthesis", [])]
 	except Exception:
 		return []
@@ -88,7 +79,7 @@ def _top_names_completer(prefix, parsed_args, **kwargs):
 
 def _dcp_stems_completer(prefix, parsed_args, **kwargs):
 	try:
-		cfg = load_config(os.path.abspath(_find_config(prefix, parsed_args)))
+		cfg = config.load_config(os.path.abspath(_find_config(prefix, parsed_args)))
 		top = getattr(parsed_args, "top", None)
 		build_dir = cfg.get("build", {}).get("dir", config.DEFAULT_BUILD_DIR)
 		if not top:
@@ -104,7 +95,7 @@ def _dcp_stems_completer(prefix, parsed_args, **kwargs):
 
 def _platform_names_completer(prefix, parsed_args, **kwargs):
 	try:
-		cfg = load_config(os.path.abspath(_find_config(prefix, parsed_args)))
+		cfg = config.load_config(os.path.abspath(_find_config(prefix, parsed_args)))
 		return [p["name"] for p in cfg.get("platform", [])]
 	except Exception:
 		return []
@@ -112,7 +103,7 @@ def _platform_names_completer(prefix, parsed_args, **kwargs):
 
 def _app_names_completer(prefix, parsed_args, **kwargs):
 	try:
-		cfg = load_config(os.path.abspath(_find_config(prefix, parsed_args)))
+		cfg = config.load_config(os.path.abspath(_find_config(prefix, parsed_args)))
 		return [a["name"] for a in cfg.get("app", [])]
 	except Exception:
 		return []
@@ -123,329 +114,219 @@ def build_parser() -> argparse.ArgumentParser:
 		prog="xviv",
 		description="FPGA project controller for Vivado / Vitis",
 	)
-	p.add_argument(
-		"--config", "-c",
-		default="project.toml",
-		metavar="TOML",
-		help="Project configuration file (default: project.toml)",
-	)
-	p.add_argument(
-		"--log-file",
-		default="",
-		metavar="FILE",
-		help="Append debug log to FILE",
-	)
+
+	p.add_argument("--config", "-c", default="project.toml", metavar="TOML", help="Project configuration file (default: project.toml)")
+	p.add_argument("--log-file", default="", metavar="FILE", help="Append debug log to FILE")
 
 	sub = p.add_subparsers(dest="command", required=True)
 
-	def _cmd(name: str, help_str: str):
-		return sub.add_parser(name, help=help_str)
+	# ------------------------------------------------------------------
+	# create --ip | --bd | --app [--platform] [--template] | --platform
+	# ------------------------------------------------------------------
+	c = sub.add_parser("create", help="Create an IP, BD, platform, or app")
+	
+	c.add_argument("--ip",       metavar="NAME", help="IP name").completer  = _ip_names_completer
+	c.add_argument("--bd",       metavar="NAME", help="BD name").completer  = _bd_names_completer
+	c.add_argument("--app",      metavar="NAME", help="App name").completer = _app_names_completer
+	c.add_argument("--platform", metavar="NAME", 
+		help="Platform to create, or platform override when used with --app").completer = _platform_names_completer
+	c.add_argument("--template", metavar="TMPL", default=None,
+		help="App template override (used with --app)")
 
-	for name in ("create-ip", "edit-ip"):
-		c = _cmd(name, f"{name} for the specified IP")
-		c.add_argument(
-			"--ip", required=True, help="IP name as defined in [[ip]] TOML entry"
-		).completer = _ip_names_completer
+	# ------------------------------------------------------------------
+	# edit --ip | --bd
+	# ------------------------------------------------------------------
+	c = sub.add_parser("edit", help="Open an IP or BD in Vivado for editing")
+	mg = c.add_mutually_exclusive_group(required=True)
+	mg.add_argument("--ip", metavar="NAME", help="IP name").completer = _ip_names_completer
+	mg.add_argument("--bd", metavar="NAME", help="BD name").completer = _bd_names_completer
 
-	c = _cmd("ip-config", "Generate a starter hooks file for an IP")
-	c.add_argument(
-		"--ip", required=True, help="IP name as defined in [[ip]] TOML entry"
-	).completer = _ip_names_completer
+	# ------------------------------------------------------------------
+	# config --ip | --bd | --top
+	# ------------------------------------------------------------------
+	c = sub.add_parser("config", help="Generate starter hooks for an IP, BD, or top")
+	mg = c.add_mutually_exclusive_group(required=True)
+	mg.add_argument("--ip",  metavar="NAME", help="IP name").completer  = _ip_names_completer
+	mg.add_argument("--bd",  metavar="NAME", help="BD name").completer  = _bd_names_completer
+	mg.add_argument("--top", metavar="NAME", help="Top module name").completer = _top_names_completer
 
-	for name in ("create-bd", "edit-bd", "generate-bd"):
-		c = _cmd(name, f"{name} for the specified Block Design")
-		c.add_argument(
-			"--bd", required=True, help="BD name as defined in [[bd]] TOML entry"
-		).completer = _bd_names_completer
+	# ------------------------------------------------------------------
+	# generate --bd
+	# ------------------------------------------------------------------
+	c = sub.add_parser("generate", help="Generate output products for a BD")
+	c.add_argument("--bd", required=True, metavar="NAME",
+		help="BD name").completer = _bd_names_completer
 
-	c = _cmd("export-bd", "Export the current BD as a versioned re-runnable TCL script")
-	c.add_argument(
-		"--bd",
-		required=True,
-		help="BD name as defined in [[bd]] TOML entry"
-	).completer = _bd_names_completer
+	# ------------------------------------------------------------------
+	# export --bd
+	# ------------------------------------------------------------------
+	c = sub.add_parser("export", help="Export BD as a versioned re-runnable TCL script")
+	c.add_argument("--bd", required=True, metavar="NAME",
+		help="BD name").completer = _bd_names_completer
 
-	c = _cmd("bd-config", "Generate a starter hooks file for a BD")
-	c.add_argument(
-		"--bd",
-		required=True,
-		help="BD name as defined in [[bd]] TOML entry"
-	).completer = _bd_names_completer
+	# ------------------------------------------------------------------
+	# synth --ip | --bd [--ooc-run] | --top
+	# ------------------------------------------------------------------
+	c = sub.add_parser("synth", help="Synthesise an IP, BD, or top module")
+	mg = c.add_mutually_exclusive_group(required=True)
+	mg.add_argument("--ip",  metavar="NAME", help="IP name").completer  = _ip_names_completer
+	mg.add_argument("--bd",  metavar="NAME", help="BD name").completer  = _bd_names_completer
+	mg.add_argument("--top", metavar="NAME", help="Top module name").completer = _top_names_completer
+	c.add_argument("--ooc-run", action="store_true", dest="ooc_run",
+		help="Run out-of-context synthesis for leaf IPs (BD only)")
 
-	c = _cmd("synthesis", "Synthesise, place, route, and write bitstream")
-	# --top and --bd are mutually exclusive
-	top_bd = c.add_mutually_exclusive_group(required=True)
-	top_bd.add_argument(
-		"--top",
-		default="",
-		help="Top module name (flat RTL synthesis)",
-	).completer = _top_names_completer
-	top_bd.add_argument(
-		"--bd",
-		default="",
-		help="BD name: OOC-synthesise all custom IPs then synthesise the BD wrapper",
-	).completer = _bd_names_completer
+	# ------------------------------------------------------------------
+	# open --dcp --top | --snapshot --top | --wdb --top
+	# ------------------------------------------------------------------
+	c = sub.add_parser("open", help="Open a checkpoint, simulation snapshot, or waveform DB")
+	mg = c.add_mutually_exclusive_group(required=True)
+	mg.add_argument("--dcp",      metavar="STEM", help="Checkpoint stem (e.g. post_synth)").completer = _dcp_stems_completer
+	mg.add_argument("--snapshot", action="store_true", help="Open simulation snapshot in xsim GUI")
+	mg.add_argument("--wdb",      action="store_true", help="Open waveform DB in xsim GUI")
+	c.add_argument("--top", required=True, metavar="NAME",
+		help="Top module / sim top name").completer = _top_names_completer
 
-	c.add_argument("--out-of-context-synth", action="store_true", dest="out_of_context_synth")
-	c.add_argument("--out-of-context-run", action="store_true", dest="out_of_context_run", default=False)
+	# ------------------------------------------------------------------
+	# elab --top [--run <time>]
+	# ------------------------------------------------------------------
+	c = sub.add_parser("elab", help="Compile and optionally run simulation")
+	c.add_argument("--top", required=True, metavar="NAME",
+		help="Simulation top module").completer = _top_names_completer
+	c.add_argument("--run", metavar="TIME", default="",
+		help="Simulation run time, e.g. 1000ns")
 
-	c.add_argument("--report-all",     action="store_true", dest="report_all")
-	c.add_argument("--report-synth",   action="store_true", dest="report_synth")
-	c.add_argument("--report-place",   action="store_true", dest="report_place")
-	c.add_argument("--report-route",   action="store_true", dest="report_route")
-	c.add_argument("--generate-netlist", action="store_true", dest="generate_netlist")
+	# ------------------------------------------------------------------
+	# reload --snapshot --top | --wdb --top
+	# ------------------------------------------------------------------
+	c = sub.add_parser("reload", help="Restart a simulation snapshot or reload a waveform DB")
+	mg = c.add_mutually_exclusive_group(required=True)
+	mg.add_argument("--snapshot", action="store_true", help="Restart snapshot")
+	mg.add_argument("--wdb",      action="store_true", help="Reload waveform window")
+	c.add_argument("--top", required=True, metavar="NAME",
+		help="Simulation top module").completer = _top_names_completer
 
-	c = _cmd("synth-config", "Generate a starter hooks file for synthesis")
-	c.add_argument(
-		"--top",
-		required=True, help="Top module name"
-	).completer = _top_names_completer
+	# ------------------------------------------------------------------
+	# build --platform | --app [--info]
+	# ------------------------------------------------------------------
+	c = sub.add_parser("build", help="Compile a BSP platform or application")
+	mg = c.add_mutually_exclusive_group(required=True)
+	mg.add_argument("--platform", metavar="NAME", help="Platform name").completer = _platform_names_completer
+	mg.add_argument("--app",      metavar="NAME", help="App name").completer      = _app_names_completer
+	c.add_argument("--info", action="store_true",
+		help="Print ELF section sizes after build (used with --app)")
 
-	c = _cmd("elaborate", "Compile and optionally run simulation")
-	c.add_argument(
-		"--top",
-		required=True, help="Simulation top module"
-	).completer = _top_names_completer
-	c.add_argument("--so",      default="", help="DPI shared library name (no path/extension)")
-	c.add_argument("--dpi-lib", default="", help="Directory containing the DPI .so")
-	c.add_argument("--run",     default="", help="Simulation run time, e.g. 1000ns")
-
-	c = _cmd("open-dcp", "Open a checkpoint in Vivado GUI")
-	c.add_argument(
-		"--top",
-		required=True, help="Top module name (locates build/<top>/)"
-	).completer = _top_names_completer
-	c.add_argument(
-		"--dcp",
-		default="post_synth", help="Checkpoint stem (default: post_synth)"
-	).completer = _dcp_stems_completer
-
-	c = _cmd("open-snapshot", "Open the simulation snapshot in xsim GUI")
-	c.add_argument("--top", required=True, help="Simulation top module").completer = _top_names_completer
-
-	c = _cmd("reload-snapshot", "Restart simulation snapshot")
-	c.add_argument("--top", required=True, help="Simulation top module").completer = _top_names_completer
-
-	c = _cmd("open-wdb", "Open the waveform database in xsim GUI")
-	c.add_argument("--top", required=True, help="Simulation top module").completer = _top_names_completer
-
-	c = _cmd("reload-wdb", "Reload waveform window")
-	c.add_argument("--top", required=True, help="Simulation top module").completer = _top_names_completer
-
-	c = _cmd(
-		"create-platform",
-		"Generate BSP from XSA using hsi (xsct). "
-		"BSP is placed in build/bsp/<platform>.",
-	)
-	c.add_argument(
-		"--platform",
-		required=True,
-		help="Platform name as defined in [[platform]] TOML entry",
-	).completer = _platform_names_completer
-
-	c = _cmd(
-		"platform-build",
-		"Compile the BSP with make -j<ncpu>.",
-	)
-	c.add_argument(
-		"--platform",
-		required=True,
-		help="Platform name as defined in [[platform]] TOML entry",
-	).completer = _platform_names_completer
-
-	c = _cmd(
-		"create-app",
-		"Scaffold an application from a Vitis template using hsi (xsct). "
-		"App is placed in build/app/<app>. "
-		"If the BSP does not yet exist it is created automatically.",
-	)
-	c.add_argument(
-		"--app",
-		required=True,
-		help="App name as defined in [[app]] TOML entry",
-	).completer = _app_names_completer
-	c.add_argument(
-		"--platform", default="",
-		help="Override the platform name specified in the [[app]] TOML entry",
-	).completer = _platform_names_completer
-	c.add_argument(
-		"--template", default="",
-		help="Override the app template (e.g. 'empty_application', 'hello_world')",
-	)
-
-	c = _cmd(
-		"app-build",
-		"Compile the application with make -j<ncpu>.",
-	)
-	c.add_argument(
-		"--app",
-		required=True,
-		help="App name as defined in [[app]] TOML entry",
-	).completer = _app_names_completer
-	c.add_argument(
-		"--info", action="store_true",
-		help="Print ELF section sizes and headers after a successful build "
-		"(uses microblaze-xilinx-elf-size and microblaze-xilinx-elf-objdump)",
-	)
-
-	c = _cmd(
-		"program",
-		"Download bitstream to FPGA, and optionally load an ELF. "
-		"Requires hw_server running (Vivado Hardware Manager or standalone).",
-	)
+	# ------------------------------------------------------------------
+	# program [--app | --platform] [--elf | --bitstream]
+	# ------------------------------------------------------------------
+	c = sub.add_parser("program", help="Download bitstream and/or ELF to FPGA")
 	bit_src = c.add_mutually_exclusive_group()
-	bit_src.add_argument(
-		"--bitstream", metavar="PATH",
-		help="Explicit path to the .bit file to program",
-	)
-	bit_src.add_argument(
-		"--platform", metavar="NAME",
-		help="Derive bitstream path from [[platform]] TOML entry",
-	).completer = _platform_names_completer
-
+	bit_src.add_argument("--platform",  metavar="NAME", help="Derive bitstream from [[platform]] entry").completer = _platform_names_completer
+	bit_src.add_argument("--bitstream", metavar="PATH", help="Explicit path to .bit file")
 	elf_src = c.add_mutually_exclusive_group()
-	elf_src.add_argument(
-		"--elf", metavar="PATH",
-		help="Explicit path to the .elf file to load",
-	)
-	elf_src.add_argument(
-		"--app", metavar="NAME",
-		help="Derive ELF path from [[app]] build directory",
-	).completer = _app_names_completer
+	elf_src.add_argument("--app", metavar="NAME", help="Derive ELF from [[app]] build dir").completer = _app_names_completer
+	elf_src.add_argument("--elf", metavar="PATH", help="Explicit path to .elf file")
 
-	c = _cmd(
-		"processor",
-		"Control the embedded MicroBlaze processor via JTAG.",
-	)
-	proc_action = c.add_mutually_exclusive_group(required=True)
-	proc_action.add_argument(
-		"--reset", action="store_true",
-		help="Soft-reset the processor (rst -processor then continue)",
-	)
-	proc_action.add_argument(
-		"--status", action="store_true",
-		help="Print target list, processor state, and key registers",
-	)
-
-	c = _cmd(
-		"jtag-monitor",
-		"Stream debug output from the embedded processor over JTAG. "
-		"Requires the MDM IP in the Vivado design with JTAG UART enabled. "
-		"Press Ctrl-C to stop.",
-	)
-	c.add_argument(
-		"--uart", action="store_true", default=True,
-		help="Stream JTAG UART output to stdout (default mode)",
-	)
+	# ------------------------------------------------------------------
+	# processor --reset | --status
+	# ------------------------------------------------------------------
+	c = sub.add_parser("processor", help="Control the embedded processor via JTAG")
+	mg = c.add_mutually_exclusive_group(required=True)
+	mg.add_argument("--reset",  action="store_true", help="Soft-reset the processor")
+	mg.add_argument("--status", action="store_true", help="Print processor state and registers")
 
 	return p
 
 
 def main() -> None:
 	parser = build_parser()
-
-	# echo 'eval "$(register-python-argcomplete xviv)"' >> ~/.zshrc
 	argcomplete.autocomplete(parser)
 	args = parser.parse_args()
 
-	cfg_path = os.path.abspath(args.config)
+	cfg_path    = os.path.abspath(args.config)
 	project_dir = os.path.dirname(cfg_path)
 	os.chdir(project_dir)
 
-	cfg = load_config(cfg_path)
-
+	cfg = config.load_config(cfg_path)
 	_setup_logging(
 		args.log_file or os.path.join(
-			os.path.join(project_dir, cfg.get("build", {}).get("dir", config.DEFAULT_BUILD_DIR)),
-			"xviv",
-			"xviv.log"
+			project_dir,
+			cfg.get("build", {}).get("dir", config.DEFAULT_BUILD_DIR),
+			"xviv", "xviv.log",
 		)
 	)
 
 	match args.command:
-		case "ip-create":
-			command.cmd_ip_create(cfg, project_dir, args.ip)
+		case "create":
+			if args.ip:
+				command.cmd_ip_create(cfg, project_dir, args.ip)
+			elif args.bd:
+				command.cmd_bd_create(cfg, project_dir, args.bd)
+			elif args.app:
+				command.cmd_app_create(cfg, project_dir, args.app, args.platform, args.template)
+			elif args.platform:
+				command.cmd_platform_create(cfg, project_dir, args.platform)
+			else:
+				parser.parse_args(['create', '--help'])
 
-		case "bd-create":
-			command.cmd_bd_create(cfg, project_dir, args.bd)
+		case "edit":
+			if args.ip:
+				command.cmd_ip_edit(cfg, project_dir, args.ip)
+			elif args.bd:
+				command.cmd_bd_edit(cfg, project_dir, args.bd)
 
-		case "platform-create":
-			command.cmd_platform_create(cfg, project_dir, args.platform)
+		case "config":
+			if args.ip:
+				command.cmd_ip_config(cfg, project_dir, args.ip)
+			elif args.bd:
+				command.cmd_bd_config(cfg, project_dir, args.bd)
+			elif args.top:
+				command.cmd_top_config(cfg, project_dir, args.top)
 
-		case "app-create":
-			command.cmd_app_create(cfg, project_dir, args.app, args.platform, args.template)
-
-
-		case "ip-edit":
-			command.cmd_ip_edit(cfg, project_dir, args.ip)
-
-		case "bd-edit":
-			command.cmd_bd_edit(cfg, project_dir, args.bd)
-
-
-		case "ip-config":
-			command.cmd_ip_config(cfg, project_dir, args.ip)
-
-		case "bd-config":
-			command.cmd_bd_config(cfg, project_dir, args.bd)
-
-		case "top-config":
-			command.cmd_top_config(cfg, project_dir, args.top)
-
-
-		case "bd-generate":
+		case "generate":
 			command.cmd_bd_generate(cfg, project_dir, args.bd)
 
+		case "export":
+			command.cmd_bd_export(cfg, project_dir, args.bd)
 
-		case "bd-save":
-			command.cmd_bd_save(cfg, project_dir, args.bd)
+		case "synth":
+			if args.ip:
+				command.cmd_ip_synth(cfg, project_dir, args.ip)
+			elif args.bd:
+				command.cmd_bd_synth(cfg, project_dir, args.bd, args.ooc_run)
+			elif args.top:
+				command.cmd_top_synth(cfg, project_dir, args.top)
 
+		case "open":
+			if args.dcp:
+				command.cmd_dcp_open(cfg, project_dir, args.dcp, args.top)
+			elif args.snapshot:
+				command.cmd_snapshot_open(cfg, project_dir, args.top)
+			elif args.wdb:
+				command.cmd_wdb_open(cfg, project_dir, args.top)
 
-		case "ip-synth":
-			command.cmd_ip_synth(cfg, project_dir, args.ip)
-
-		case "bd-synth":
-			command.cmd_bd_synth(cfg, project_dir, args.bd, args.ooc_run)
-
-		case "top-synth":
-			command.cmd_top_synth(cfg, project_dir, args.top)
-
-
-		case "dcp-open":
-			command.cmd_dcp_open(cfg, project_dir, args.top, args.dcp)
-
-		case "snapshot-open":
-			command.cmd_snapshot_open(cfg, project_dir, args.top)
-
-		case "wdb-open":
-			command.cmd_snapshot_open(cfg, project_dir, args.top)
-
-
-		case "top-elaborate":
+		case "elab":
 			command.cmd_top_elab(cfg, project_dir, args.top, args.run)
 
+		case "reload":
+			if args.snapshot:
+				command.cmd_snapshot_reload(cfg, project_dir, args.top)
+			elif args.wdb:
+				command.cmd_wdb_reload(cfg, project_dir, args.top)
 
-		case "snapshot-reload":
-			command.cmd_snapshot_reload(cfg, project_dir, args.top)
-
-		case "wdb-reload":
-			command.cmd_snapshot_reload(cfg, project_dir, args.top)
-
-
-		case "platform-build":
-			command.cmd_platform_build(cfg, project_dir, args.platform)
-
-		case "app-build":
-			command.cmd_app_build(cfg, project_dir, args.app, args.info)
-
+		case "build":
+			if args.platform:
+				command.cmd_platform_build(cfg, project_dir, args.platform)
+			elif args.app:
+				command.cmd_app_build(cfg, project_dir, args.app, args.info)
 
 		case "program":
-			command.cmd_program(cfg, project_dir, args.app, args.platform, args.elf, args.bitstream)
-
+			command.cmd_program(
+				cfg, project_dir,
+				args.app, args.platform, args.elf, args.bitstream,
+			)
 
 		case "processor":
 			command.cmd_processor(cfg, args.reset, args.status)
-
 
 		case _:
 			parser.print_help()

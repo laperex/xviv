@@ -2,13 +2,14 @@
 # Command: create_ip
 # =============================================================================
 proc cmd_create_ip {} {
-    global xviv_ip_name xviv_ip_vendor xviv_ip_library xviv_ip_version
-    global xviv_ip_top xviv_ip_rtl xviv_ip_hooks  xviv_ip_repo
+    global xviv_ip_name xviv_ip_vendor xviv_ip_library xviv_ip_version xviv_ip_repo
+    global xviv_ip_top xviv_ip_rtl xviv_ip_hooks
 
     xviv_require_vars xviv_ip_name xviv_ip_vendor xviv_ip_library xviv_ip_version xviv_ip_repo
 
     set ip_id     "$xviv_ip_vendor:$xviv_ip_library:$xviv_ip_name:$xviv_ip_version"
-    set ip_vid    "${xviv_ip_name}_[string map {. _} $xviv_ip_version]"
+    # set ip_vid    "${xviv_ip_name}_[string map {. _} $xviv_ip_version]"
+    set ip_vid    "${xviv_ip_name}"
     set ip_dir    "$xviv_ip_repo/$ip_vid"
     set proj_root "/dev/shm/build"
 

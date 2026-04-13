@@ -2,7 +2,7 @@
 # Command: export_bd
 #
 # Exports the current .bd as a fully self-contained re-runnable TCL script.
-# The output path (xviv_bd_export_tcl) is supplied by the Python controller
+# The output path (bd_export_tcl) is supplied by the Python controller
 # and already encodes the git SHA tag produced by _git_sha_tag().
 # Python updates the {bd_name}.tcl symlink after this proc exits.
 #
@@ -10,10 +10,10 @@
 # TCL recreates the BD identically on any machine with a matching Vivado +
 # IP installation.
 # =============================================================================
-proc cmd_export_bd {} {
-    global xviv_bd_name xviv_bd_dir xviv_bd_export_tcl
+proc cmd_export_bd { bd_export_tcl } {
+    global xviv_bd_name xviv_bd_dir
 
-    xviv_require_vars xviv_bd_name xviv_bd_dir xviv_bd_export_tcl
+    xviv_require_vars xviv_bd_name xviv_bd_dir bd_export_tcl
 
     set bd_file "$xviv_bd_dir/$xviv_bd_name/$xviv_bd_name.bd"
 
@@ -22,7 +22,7 @@ proc cmd_export_bd {} {
     }
 
     puts "INFO: Exporting Block Design - $xviv_bd_name"
-    puts "INFO: Output TCL             - $xviv_bd_export_tcl"
+    puts "INFO: Output TCL             - $bd_export_tcl"
 
     xviv_create_project "in_memory_project"
 
@@ -38,11 +38,11 @@ proc cmd_export_bd {} {
         }
     }
 
-    file mkdir [file dirname $xviv_bd_export_tcl]
+    file mkdir [file dirname $bd_export_tcl]
 
     # -no_ip_version intentionally omitted: full VLNV version pins are
     # required for bit-identical BD recreation on another machine.
-    write_bd_tcl -force -no_project_wrapper $xviv_bd_export_tcl
+    write_bd_tcl -force -no_project_wrapper $bd_export_tcl
     puts "INFO: Total elapsed: [xviv_elapsed]"
     exit 0
 }

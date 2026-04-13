@@ -3,28 +3,22 @@ import os
 import sys
 import typing
 
+from xviv import config
+
 logger = logging.getLogger(__name__)
 
 
-def generate_ip_hooks(
-		cfg: dict,
-		project_dir: str,
-		ip_name: str,
-		*,
-		exist_ok: bool = False,
-) -> typing.Optional[str]:
-	ip_list = cfg.get("ip", [])
-	ip_cfg = next((i for i in ip_list if i["name"] == ip_name), None)
-	if ip_cfg is None:
-		sys.exit(f"ERROR: IP '{ip_name}' not found in project.toml [[ip]] entries")
+def generate_ip_hooks(cfg: dict, project_dir: str, ip_name: str, exist_ok: bool = False) -> typing.Optional[str]:
+	ip_cfg = config._get_ip_cfg(cfg, ip_name)
 
-	version = ip_cfg.get("version", "1.0")
-	hooks_path = ip_cfg.get("hooks", f"scripts/ip/{ip_name}_{version}.tcl")
+	hooks_path = config._get_ip_hooks(ip_cfg)
+
 	hooks_path = os.path.join(project_dir, hooks_path)
 
 	if os.path.exists(hooks_path):
 		if exist_ok:
 			logger.debug("IP hooks already exist, skipping - %s", hooks_path)
+
 			return None
 		sys.exit(
 			f"ERROR: Hooks file already exists - {hooks_path}\n"
@@ -32,6 +26,7 @@ def generate_ip_hooks(
 		)
 
 	os.makedirs(os.path.dirname(hooks_path), exist_ok=True)
+
 	with open(hooks_path, "w") as fh:
 		fh.write(f"""\
 # Hook procs - xviv create-ip - {ip_name}
@@ -69,25 +64,39 @@ proc ipx_add_params {{}} {{
 proc ipx_add_memory_map {{}} {{
 
 }}
+
+
+# Hook procs - xviv synthesis - {ip_name}
+
+proc synth_pre {{}} {{
+
+}}
+
+proc synth_post {{}} {{
+
+}}
+
+proc place_post {{}} {{
+
+}}
+
+proc route_post {{}} {{
+
+}}
+
+proc bitstream_post {{}} {{
+
+}}
 """)
 	logger.info("IP hooks file created -> %s", hooks_path)
 	print(f"Edit: {hooks_path}")
 	return hooks_path
 
 
-def generate_bd_hooks(
-		cfg: dict,
-		project_dir: str,
-		bd_name: str,
-		*,
-		exist_ok: bool = False,
-) -> typing.Optional[str]:
-	bd_list = cfg.get("bd", [])
-	bd_cfg = next((b for b in bd_list if b["name"] == bd_name), None)
-	if bd_cfg is None:
-		sys.exit(f"ERROR: BD '{bd_name}' not found in project.toml [[bd]] entries")
+def generate_bd_hooks(cfg: dict, project_dir: str, bd_name: str, exist_ok: bool = False) -> typing.Optional[str]:
+	bd_cfg = config._get_bd_cfg(cfg, bd_name)
 
-	hooks_path = bd_cfg.get("hooks", f"scripts/bd/{bd_name}_hooks.tcl")
+	hooks_path = config._get_bd_hooks(bd_cfg)
 	hooks_path = os.path.join(project_dir, hooks_path)
 
 	if os.path.exists(hooks_path):
@@ -99,9 +108,7 @@ def generate_bd_hooks(
 			"Delete it first if you want to regenerate."
 		)
 
-	export_tcl_abs = os.path.abspath(
-		os.path.join(project_dir, bd_cfg.get("export_tcl", f"scripts/bd/{bd_name}.tcl"))
-	)
+	export_tcl_abs = os.path.abspath(os.path.join(project_dir, config._get_bd_export_tcl(bd_cfg)))
 	export_tcl_rel = os.path.relpath(export_tcl_abs, os.path.dirname(hooks_path))
 
 	os.makedirs(os.path.dirname(hooks_path), exist_ok=True)
@@ -129,20 +136,38 @@ proc bd_design_config {{ parentCell }} {{
 		start_gui
 	}}
 }}
+
+# Hook procs - xviv synthesis - {bd_name}
+
+proc synth_pre {{}} {{
+
+}}
+
+proc synth_post {{}} {{
+
+}}
+
+proc place_post {{}} {{
+
+}}
+
+proc route_post {{}} {{
+
+}}
+
+proc bitstream_post {{}} {{
+
+}}
 """)
 	logger.info("BD hooks file created -> %s", hooks_path)
 	print(f"Edit: {hooks_path}")
 	return hooks_path
 
 
-def generate_synth_hooks(cfg: dict, project_dir: str, top: str) -> None:
-	synth_list = cfg.get("synthesis", {})
-	synth_cfg = next((b for b in synth_list if b["top"] == top), None)
+def generate_synth_hooks(cfg: dict, project_dir: str, top_name: str) -> None:
+	synth_cfg = config._get_synth_cfg(cfg, top_name)
 
-	if synth_cfg is None:
-		sys.exit(f"ERROR: Synthesis Top '{top}' not found in project.toml [[bd]] entries")
-
-	hooks_path = synth_cfg.get("hooks", f"scripts/synth/{top}.tcl")
+	hooks_path = config._get_synth_hooks(synth_cfg)
 	hooks_path = os.path.join(project_dir, hooks_path)
 
 	if os.path.exists(hooks_path):
@@ -152,15 +177,31 @@ def generate_synth_hooks(cfg: dict, project_dir: str, top: str) -> None:
 		)
 
 	os.makedirs(os.path.dirname(hooks_path), exist_ok=True)
+
 	with open(hooks_path, "w") as fh:
 		fh.write(f"""\
-# Hook procs - xviv synthesis - {top}
+# Hook procs - xviv synthesis - {top_name}
 
-proc synth_pre {{}} {{}}
-proc synth_post {{}} {{}}
-proc place_post {{}} {{}}
-proc route_post {{}} {{}}
-proc bitstream_post {{}} {{}}
+proc synth_pre {{}} {{
+
+}}
+
+proc synth_post {{}} {{
+
+}}
+
+proc place_post {{}} {{
+
+}}
+
+proc route_post {{}} {{
+
+}}
+
+proc bitstream_post {{}} {{
+
+}}
+
 """)
 	logger.info("Synthesis hooks file created -> %s", hooks_path)
 	print(f"Edit: {hooks_path}")

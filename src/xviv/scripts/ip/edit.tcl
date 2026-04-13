@@ -6,7 +6,8 @@ proc cmd_edit_ip {} {
 
     xviv_require_vars xviv_ip_name xviv_ip_version xviv_ip_repo
 
-    set ip_vid    "${xviv_ip_name}_[string map {. _} $xviv_ip_version]"
+    # set ip_vid    "${xviv_ip_name}_[string map {. _} $xviv_ip_version]"
+	set ip_vid    "${xviv_ip_name}"
     set ip_dir    "$xviv_ip_repo/$ip_vid"
     set proj_root "/dev/shm/build"
 
