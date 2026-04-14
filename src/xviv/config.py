@@ -122,21 +122,87 @@ class BdConfig:
 
 @dataclasses.dataclass
 class SynthConfig:
-	top:              str
-	hooks:            str       = ""
-	rtl:              list[str] = dataclasses.field(default_factory=list)
-	xdc:              list[str] = dataclasses.field(default_factory=list)
-	xdc_ooc:          list[str] = dataclasses.field(default_factory=list)
-	fpga:             str       = ""
-	report_synth:     bool      = False
-	report_place:     bool      = False
-	report_route:     bool      = False
-	generate_netlist: bool      = False
-	out_of_context:	  bool      = False
+    top:              str
+    hooks:            str       = ""
+    rtl:              list[str] = dataclasses.field(default_factory=list)
+    xdc:              list[str] = dataclasses.field(default_factory=list)
+    xdc_ooc:          list[str] = dataclasses.field(default_factory=list)
+    fpga:             str       = ""
+    report_synth:     bool      = False
+    report_place:     bool      = False
+    report_route:     bool      = False
+    generate_netlist: bool      = False
+    out_of_context:   bool      = False
 
-	def __post_init__(self) -> None:
-		if not self.hooks:
-			self.hooks = f"scripts/synth/{self.top}.tcl"
+    # =========================================================================
+    # GLOBAL SETTINGS
+    # =========================================================================
+    # Caps the number of CPU threads Vivado will use (1-32)
+    max_threads: int = 8 
+
+    # autoIncr.Synth.RejectBehavior when incremental synthesis criteria isn't met
+    # values: continue (switch to default full synthesis) | terminate (stop build)
+    incr_synth_fallback: str = "continue"
+
+    # =========================================================================
+    # SYNTHESIS (synth_design)
+    # =========================================================================
+    # values: default | RuntimeOptimized | AreaOptimized_high | AreaOptimized_medium
+    #         PerformanceOptimized | AlternateRoutability | AreaMapLargeShiftRegToBRAM
+    synth_directive: str = "default"
+
+    # values: rebuilt | full | none
+    flatten_hierarchy: str = "rebuilt"
+    
+    # values: auto | one_hot | sequential | johnson | gray | off
+    fsm_extraction: str = "auto"
+
+    # =========================================================================
+    # LOGIC OPTIMIZATION (opt_design)
+    # Note: Must be True if using an incremental implementation reference!
+    # =========================================================================
+    run_opt_design: bool = True
+    
+    # values: default | Explore | ExploreArea | ExploreSequentialArea
+    #         AddRemap | ExploreWithRemap | RuntimeOptimized | NoBramPowerOpt
+    opt_directive: str = "default"
+
+    # =========================================================================
+    # PLACEMENT (place_design)
+    # =========================================================================
+    # values: default | Explore | WLDrivenBlockPlacement | Quick | RuntimeOptimized
+    #         ExtraNetDelay_high | ExtraNetDelay_medium | ExtraNetDelay_low
+    #         SpreadLogic_high | SpreadLogic_medium | SpreadLogic_low
+    #         AltSpreadLogic_high | AltSpreadLogic_medium | AltSpreadLogic_low
+    place_directive: str = "default"
+
+    # =========================================================================
+    # PHYSICAL OPTIMIZATION (phys_opt_design)
+    # Runs after placement to fix timing violations using physical data
+    # =========================================================================
+    run_phys_opt: bool = False
+    
+    # values: default | Explore | AggressiveExplore | AlternateReplication
+    #         AggressiveFanoutOpt | AlternateFlowWithRetiming | AddRetime
+    phys_opt_directive: str = "default"
+
+    # =========================================================================
+    # ROUTING (route_design)
+    # =========================================================================
+    # values: default | Explore | MoreGlobalIterations | HigherDelayCost 
+    #         AdvancedSkewModeling | NoTimingRelaxation | RuntimeOptimized | Quick
+    route_directive: str = "default"
+
+    # =========================================================================
+    # BITSTREAM GENERATION
+    # =========================================================================
+    # 32-bit hex string to embed via JTAG (e.g., "DEADBEEF"). 
+    # If left empty, xviv automatically injects the git SHA.
+    usr_access: str = ""
+
+    def __post_init__(self) -> None:
+        if not self.hooks:
+            self.hooks = f"scripts/synth/{self.top}.tcl"
 
 
 @dataclasses.dataclass
