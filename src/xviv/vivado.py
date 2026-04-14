@@ -1,20 +1,18 @@
-
 import importlib.resources
 import logging
 import os
 import subprocess
 import tempfile
 
-from xviv import config
+from xviv.config import ProjectConfig
 
 logger = logging.getLogger(__name__)
 
 
-def run_vivado_xvlog(cfg: dict, target_dir: str, fileset: list[str], xsim_lib: str) -> None:
-	vivado_path = config._get_vivado_path(cfg)
-	xvlog_bin = os.path.join(vivado_path, "bin", "xvlog")
+def run_vivado_xvlog(cfg: ProjectConfig, target_dir: str, fileset: list[str], xsim_lib: str) -> None:
+	xvlog_bin = os.path.join(cfg.vivado.path, "bin", "xvlog")
 
-	fileset.append(os.path.join(vivado_path, "data/verilog/src/glbl.v"))
+	fileset.append(os.path.join(cfg.vivado.path, "data/verilog/src/glbl.v"))
 
 	cmd = [xvlog_bin, "-sv", "-incr", "-work", xsim_lib, *fileset]
 	logger.info("Running: %s", " ".join(cmd))
@@ -22,9 +20,8 @@ def run_vivado_xvlog(cfg: dict, target_dir: str, fileset: list[str], xsim_lib: s
 	subprocess.run(cmd, check=True, cwd=target_dir)
 
 
-def run_vivado_xelab(cfg: dict, target_dir: str, top: str, timescale: str, xsim_lib: str) -> None:
-	vivado_path = config._get_vivado_path(cfg)
-	xelab_bin = os.path.join(vivado_path, "bin", "xelab")
+def run_vivado_xelab(cfg: ProjectConfig, target_dir: str, top: str, timescale: str, xsim_lib: str) -> None:
+	xelab_bin = os.path.join(cfg.vivado.path, "bin", "xelab")
 
 	cmd = [
 		xelab_bin,
@@ -45,13 +42,12 @@ def run_vivado_xelab(cfg: dict, target_dir: str, top: str, timescale: str, xsim_
 
 
 def run_vivado_xsim(
-		cfg: dict,
+		cfg: ProjectConfig,
 		target_dir: str,
 		top: str,
 		config_tcl_content: str,
 ) -> None:
-	vivado_path = config._get_vivado_path(cfg)
-	xsim_bin = os.path.join(vivado_path, "bin", "xsim")
+	xsim_bin = os.path.join(cfg.vivado.path, "bin", "xsim")
 
 	try:
 		with tempfile.NamedTemporaryFile(
@@ -74,15 +70,13 @@ def run_vivado_xsim(
 
 
 def run_vivado(
-		cfg: dict,
+		cfg: ProjectConfig,
 		tcl_script: str,
 		command: str,
 		extra_args: list[str],
 		config_tcl_content: str,
 ) -> None:
-	vivado_path = config._get_vivado_path(cfg)
-	vivado_bin = os.path.join(vivado_path, "bin", "vivado")
-	mode = config._get_vivado_mode(cfg)
+	vivado_bin = os.path.join(cfg.vivado.path, "bin", "vivado")
 
 	with tempfile.NamedTemporaryFile(
 			mode="w", suffix="_config.tcl", delete=False, prefix="xviv_"
@@ -93,7 +87,7 @@ def run_vivado(
 	try:
 		cmd = [
 			vivado_bin,
-			"-mode",    mode,
+			"-mode",    cfg.vivado.mode,
 			"-nolog", "-nojournal", "-notrace", "-quiet",
 			"-source",  tcl_script,
 			"-tclargs", command, config_tcl_path,

@@ -3,22 +3,19 @@ import os
 import sys
 import typing
 
-from xviv import config
+from xviv.config import ProjectConfig
 
 logger = logging.getLogger(__name__)
 
 
-def generate_ip_hooks(cfg: dict, project_dir: str, ip_name: str, exist_ok: bool = False) -> typing.Optional[str]:
-	ip_cfg = config._get_ip_cfg(cfg, ip_name)
+def generate_ip_hooks(cfg: ProjectConfig, ip_name: str, exist_ok: bool = False) -> typing.Optional[str]:
+	ip = cfg.get_ip(ip_name)
 
-	hooks_path = config._get_ip_hooks(ip_cfg)
-
-	hooks_path = os.path.join(project_dir, hooks_path)
+	hooks_path = cfg.abs_path(ip.hooks)
 
 	if os.path.exists(hooks_path):
 		if exist_ok:
 			logger.debug("IP hooks already exist, skipping - %s", hooks_path)
-
 			return None
 		sys.exit(
 			f"ERROR: Hooks file already exists - {hooks_path}\n"
@@ -93,11 +90,10 @@ proc bitstream_post {{}} {{
 	return hooks_path
 
 
-def generate_bd_hooks(cfg: dict, project_dir: str, bd_name: str, exist_ok: bool = False) -> typing.Optional[str]:
-	bd_cfg = config._get_bd_cfg(cfg, bd_name)
+def generate_bd_hooks(cfg: ProjectConfig, bd_name: str, exist_ok: bool = False) -> typing.Optional[str]:
+	bd = cfg.get_bd(bd_name)
 
-	hooks_path = config._get_bd_hooks(bd_cfg)
-	hooks_path = os.path.join(project_dir, hooks_path)
+	hooks_path = cfg.abs_path(bd.hooks)
 
 	if os.path.exists(hooks_path):
 		if exist_ok:
@@ -108,7 +104,7 @@ def generate_bd_hooks(cfg: dict, project_dir: str, bd_name: str, exist_ok: bool 
 			"Delete it first if you want to regenerate."
 		)
 
-	export_tcl_abs = os.path.abspath(os.path.join(project_dir, config._get_bd_export_tcl(bd_cfg)))
+	export_tcl_abs = cfg.abs_path(bd.export_tcl)
 	export_tcl_rel = os.path.relpath(export_tcl_abs, os.path.dirname(hooks_path))
 
 	os.makedirs(os.path.dirname(hooks_path), exist_ok=True)
@@ -164,11 +160,11 @@ proc bitstream_post {{}} {{
 	return hooks_path
 
 
-def generate_synth_hooks(cfg: dict, project_dir: str, top_name: str) -> None:
-	synth_cfg = config._get_synth_cfg(cfg, top_name)
+def generate_top_hooks(cfg: ProjectConfig, top_name: str) -> None:
+	"""Generate starter synthesis hooks file for a top-level synthesis entry."""
+	synth = cfg.get_synth(top_name)
 
-	hooks_path = config._get_synth_hooks(synth_cfg)
-	hooks_path = os.path.join(project_dir, hooks_path)
+	hooks_path = cfg.abs_path(synth.hooks)
 
 	if os.path.exists(hooks_path):
 		sys.exit(

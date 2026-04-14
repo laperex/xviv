@@ -382,7 +382,7 @@ proc cmd_synth_bd {bd_wrapper_top sha_tag} {
         # Add black-box stub as a synthesis source
         add_files -norecurse $stub_v
         set_property USED_IN {synthesis implementation} [get_files $stub_v]
-        puts "INFO: Black-box stub registered for $xci_name  →  $stub_v"
+        puts "INFO: Black-box stub registered for $xci_name  ->  $stub_v"
     }
 
     update_compile_order -fileset sources_1

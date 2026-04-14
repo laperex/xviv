@@ -1,239 +1,667 @@
+"""
+config.py  -  Project configuration for xviv
+=============================================
+
+Architecture
+------------
+The TOML file is parsed ONCE in load_config() into a ProjectConfig dataclass
+tree.  Every raw dict key access (i.e., every reference to the TOML schema)
+is confined to the _parse_* functions below.  If a TOML key is renamed or
+restructured, only those functions need to change.
+
+Callers receive a ProjectConfig and work with typed attributes:
+	cfg.vivado.path
+	cfg.get_ip("my_ip").vendor
+	cfg.build_dir          # resolved absolute path property
+	...
+
+generate_config_tcl() is the only place that maps Python config -> TCL globals.
+If a new TCL variable is needed, add it there (and nowhere else).
+"""
+
+from __future__ import annotations
+
+import dataclasses
+import glob
 import logging
-import typing
 import os
 import sys
 import tomllib
-import glob
+import typing
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_VIVADO_PATH = "/opt/Xilinx/Vivado/2024.1"
-DEFAULT_VITIS_PATH = "/opt/Xilinx/Vitis/2024.1"
+# =============================================================================
+# Constants
+# =============================================================================
 
-DEFAULT_BUILD_DIR = "build"
-DEFAULT_BUILD_IP_REPO = "build/ip"
-DEFAULT_BUILD_BD_DIR = "build/bd"
+DEFAULT_VIVADO_PATH    = "/opt/Xilinx/Vivado/2024.1"
+DEFAULT_VITIS_PATH     = "/opt/Xilinx/Vitis/2024.1"
+DEFAULT_BUILD_DIR      = "build"
+DEFAULT_BUILD_IP_REPO  = "build/ip"
+DEFAULT_BUILD_BD_DIR   = "build/bd"
 DEFAULT_BUILD_WRAPPER_DIR = "build/wrapper"
 
-# sources
-def _get_sim_files(cfg: dict, project_dir: str):
-	return _resolve_globs(cfg.get("sources", {}).get("sim", []), project_dir)
 
-# build artifacts paths
+# =============================================================================
+# Schema  -  one dataclass per TOML section
+#            THIS IS THE SINGLE SOURCE OF TRUTH for TOML structure.
+# =============================================================================
 
-def _get_build_dir(cfg: dict, project_dir: str) -> str:
-	return os.path.join(project_dir, cfg.get("build", {}).get("dir", DEFAULT_BUILD_DIR))
+@dataclasses.dataclass
+class FpgaConfig:
+	part:       str
+	board_part: str = ""
+	board_repo: str = ""
 
-def _get_dcp_path(cfg: dict, project_dir: str, top_name: str, dcp_name: str) -> str:
-	return os.path.abspath(os.path.join(_get_build_dir(cfg, project_dir), top_name, f"{dcp_name}.dcp"))
 
-def _get_wrapper_dir(cfg: dict, project_dir: str) -> str:
-	return os.path.abspath(os.path.join(project_dir, cfg.get("build", {}).get("wrapper_dir", DEFAULT_BUILD_WRAPPER_DIR)))
+@dataclasses.dataclass
+class VivadoConfig:
+	path:        str = DEFAULT_VIVADO_PATH
+	mode:        str = "batch"
+	max_threads: int = 8
+	hw_server:   str = "localhost:3121"
 
-# control fifo - waveforms
 
-def _get_control_fifo_path(cfg: dict, project_dir: str, top_name: str) -> str:
-	return os.path.join(_get_build_dir(cfg, project_dir), "xviv", top_name, "control.fifo")
+@dataclasses.dataclass
+class VitisConfig:
+	path: str = DEFAULT_VITIS_PATH
 
-def _get_xlib_work_dir(cfg: dict, project_dir: str, top_name: str) -> str:
-	return os.path.join(_get_build_dir(cfg, project_dir), "elab", top_name)
 
-# platform
+@dataclasses.dataclass
+class BuildConfig:
+	dir:         str = DEFAULT_BUILD_DIR
+	ip_repo:     str = DEFAULT_BUILD_IP_REPO
+	bd_dir:      str = DEFAULT_BUILD_BD_DIR
+	wrapper_dir: str = DEFAULT_BUILD_WRAPPER_DIR
 
-## platform
 
-def _get_platform_cfg(cfg: dict, plat_name: str) -> dict:
-	plat_list = cfg.get("platform", [])
-	plat_cfg = next((p for p in plat_list if p["name"] == plat_name), None)
+@dataclasses.dataclass
+class SourcesConfig:
+	rtl: list[str] = dataclasses.field(default_factory=list)
+	sim: list[str] = dataclasses.field(default_factory=list)
 
-	if plat_cfg is None:
+
+@dataclasses.dataclass
+class IpConfig:
+	name:           str
+	vendor:         str       = "user.org"
+	library:        str       = "user"
+	version:        str       = "1.0"
+	top:            str       = ""
+	rtl:            list[str] = dataclasses.field(default_factory=list)
+	hooks:          str       = ""
+	xdc:            list[str] = dataclasses.field(default_factory=list)
+	xdc_ooc:        list[str] = dataclasses.field(default_factory=list)
+	fpga:           str       = ""
+	create_wrapper: bool      = False
+
+	def __post_init__(self) -> None:
+		if not self.top:
+			self.top = self.name
+		if not self.hooks:
+			self.hooks = f"scripts/ip/{self.name}_{self.version}.tcl"
+
+
+@dataclasses.dataclass
+class BdConfig:
+	name:       str
+	hooks:      str       = ""
+	export_tcl: str       = ""
+	xdc:        list[str] = dataclasses.field(default_factory=list)
+	xdc_ooc:    list[str] = dataclasses.field(default_factory=list)
+	fpga:       str       = ""
+
+	def __post_init__(self) -> None:
+		if not self.hooks:
+			self.hooks = f"scripts/bd/{self.name}_hooks.tcl"
+		if not self.export_tcl:
+			self.export_tcl = f"scripts/bd/{self.name}.tcl"
+
+
+@dataclasses.dataclass
+class SynthConfig:
+	top:              str
+	hooks:            str       = ""
+	rtl:              list[str] = dataclasses.field(default_factory=list)
+	xdc:              list[str] = dataclasses.field(default_factory=list)
+	xdc_ooc:          list[str] = dataclasses.field(default_factory=list)
+	fpga:             str       = ""
+	report_synth:     bool      = False
+	report_place:     bool      = False
+	report_route:     bool      = False
+	generate_netlist: bool      = False
+
+	def __post_init__(self) -> None:
+		if not self.hooks:
+			self.hooks = f"scripts/synth/{self.top}.tcl"
+
+
+@dataclasses.dataclass
+class PlatformConfig:
+	name:      str
+	cpu:       str
+	os:        str = "standalone"
+	xsa:       str = ""
+	synth_top: str = ""
+
+
+@dataclasses.dataclass
+class AppConfig:
+	name:     str
+	platform: str
+	template: str = "empty_application"
+	src_dir:  str = ""
+
+	def __post_init__(self) -> None:
+		if not self.src_dir:
+			self.src_dir = f"srcs/sw/{self.name}"
+
+
+# =============================================================================
+# ProjectConfig  -  root object; all callers work with this
+# =============================================================================
+
+@dataclasses.dataclass
+class ProjectConfig:
+	base_dir: str          # resolved absolute path to the project root
+
+	fpga_default: typing.Optional[FpgaConfig]
+	fpga_named:   dict[str, FpgaConfig]
+
+	vivado:  VivadoConfig
+	vitis:   VitisConfig
+	build:   BuildConfig
+	sources: SourcesConfig
+
+	ips:       list[IpConfig]
+	bds:       list[BdConfig]
+	synths:    list[SynthConfig]
+	platforms: list[PlatformConfig]
+	apps:      list[AppConfig]
+
+	# ---- resolved absolute path properties ----------------------------------------------------------------
+
+	@property
+	def build_dir(self) -> str:
+		return os.path.join(self.base_dir, self.build.dir)
+
+	@property
+	def ip_repo(self) -> str:
+		return os.path.join(self.base_dir, self.build.ip_repo)
+
+	@property
+	def bd_dir(self) -> str:
+		return os.path.join(self.base_dir, self.build.bd_dir)
+
+	@property
+	def wrapper_dir(self) -> str:
+		return os.path.join(self.base_dir, self.build.wrapper_dir)
+
+	# ---- lookup helpers --------------------------------------------------------------------------------------------------------
+
+	def get_ip(self, name: str) -> IpConfig:
+		ip = next((i for i in self.ips if i.name == name), None)
+		if ip is None:
+			sys.exit(
+				f"ERROR: IP '{name}' not found in [[ip]] entries.\n"
+				f"  Available: {[i.name for i in self.ips]}"
+			)
+		return ip
+
+	def get_bd(self, name: str) -> BdConfig:
+		bd = next((b for b in self.bds if b.name == name), None)
+		if bd is None:
+			sys.exit(
+				f"ERROR: BD '{name}' not found in [[bd]] entries.\n"
+				f"  Available: {[b.name for b in self.bds]}"
+			)
+		return bd
+
+	def get_synth(self, top: str) -> SynthConfig:
+		s = next((s for s in self.synths if s.top == top), None)
+		if s is None:
+			sys.exit(
+				f"ERROR: Synthesis top '{top}' not found in [[synthesis]] entries.\n"
+				f"  Available: {[s.top for s in self.synths]}"
+			)
+		return s
+
+	def get_platform(self, name: str) -> PlatformConfig:
+		p = next((p for p in self.platforms if p.name == name), None)
+		if p is None:
+			sys.exit(
+				f"ERROR: Platform '{name}' not found in [[platform]] entries.\n"
+				f"  Available: {[p.name for p in self.platforms]}"
+			)
+		return p
+
+	def get_app(self, name: str) -> AppConfig:
+		a = next((a for a in self.apps if a.name == name), None)
+		if a is None:
+			sys.exit(
+				f"ERROR: App '{name}' not found in [[app]] entries.\n"
+				f"  Available: {[a.name for a in self.apps]}"
+			)
+		return a
+
+	def resolve_fpga(self, ref: typing.Optional[str] = None) -> FpgaConfig:
+		"""Return the FpgaConfig for the named target, or the default."""
+		if ref:
+			fpga = self.fpga_named.get(ref)
+			if fpga is None:
+				sys.exit(
+					f"ERROR: FPGA target '{ref}' not found in [fpga.*] tables.\n"
+					f"  Available: {list(self.fpga_named.keys())}"
+				)
+			return fpga
+		if self.fpga_default is None:
+			sys.exit(
+				"ERROR: No default [fpga] part found and no named fpga = '<name>' specified.\n"
+				"  Add  [fpga] part = '...'  or reference a named  [fpga.<name>]  target."
+			)
+		return self.fpga_default
+
+	# ---- path helpers ------------------------------------------------------------------------------------------------------------
+
+	def abs_path(self, rel: str) -> str:
+		return os.path.abspath(os.path.join(self.base_dir, rel))
+
+	def resolve_globs(self, patterns: list[str]) -> list[str]:
+		return _resolve_globs(patterns, self.base_dir)
+
+	def get_dcp_path(self, top: str, dcp_name: str) -> str:
+		return os.path.abspath(os.path.join(self.build_dir, top, f"{dcp_name}.dcp"))
+
+	def get_control_fifo_path(self, top: str) -> str:
+		return os.path.join(self.build_dir, "xviv", top, "control.fifo")
+
+	def get_xlib_work_dir(self, top: str) -> str:
+		return os.path.join(self.build_dir, "elab", top)
+
+	def get_platform_dir(self, name: str) -> str:
+		return os.path.join(self.build_dir, "bsp", name)
+
+	def get_app_dir(self, name: str) -> str:
+		app_dir = os.path.join(self.build_dir, "app", name)
+		if not os.path.isdir(app_dir):
+			sys.exit(
+				f"ERROR: App directory not found: {app_dir}\n"
+				f"  Run: xviv create --app {name}"
+			)
+		return app_dir
+
+	def get_platform_paths(self, name: str) -> tuple[str, str]:
+		"""Return (xsa_path, bitstream_path) for a platform."""
+		plat = self.get_platform(name)
+
+		if plat.xsa:
+			xsa = self.abs_path(plat.xsa)
+			stem = os.path.splitext(xsa)[0]
+			bit = stem + ".bit"
+			if not os.path.exists(bit):
+				candidates = sorted(glob.glob(os.path.join(os.path.dirname(xsa), "*.bit")))
+				if candidates:
+					bit = candidates[0]
+					logger.debug("Bitstream resolved via glob: %s", bit)
+			return xsa, bit
+
+		if plat.synth_top:
+			synth_dir = os.path.join(self.build_dir, "synth", plat.synth_top)
+			return (
+				os.path.join(synth_dir, f"{plat.synth_top}.xsa"),
+				os.path.join(synth_dir, f"{plat.synth_top}.bit"),
+			)
+
 		sys.exit(
-			f"ERROR: Platform '{plat_name}' not found in [[platform]] entries.\n"
-			f"  Available: {[p['name'] for p in plat_list]}"
+			f"ERROR: Platform '{name}' must specify either 'xsa' or 'synth_top' in project.toml."
 		)
 
-	return plat_cfg
 
-def _get_platform_dir(cfg, project_dir, plat_name: str) -> str:
-	return os.path.join(_get_build_dir(cfg, project_dir), "bsp", plat_name)
+# =============================================================================
+# TOML -> ProjectConfig
+# ALL raw dict key access is confined to the _parse_* functions below.
+# To rename a TOML key, change only the relevant function here.
+# =============================================================================
 
-def _get_platform_paths(cfg: dict, project_dir: str, plat_name: str) -> tuple[str, str]:
-	plat_cfg = _get_platform_cfg(cfg, project_dir)
+def _parse_fpga(raw: dict) -> tuple[typing.Optional[FpgaConfig], dict[str, FpgaConfig]]:
+	section = raw.get("fpga", {})
 
-	if "xsa" in plat_cfg:
-		xsa = os.path.abspath(os.path.join(project_dir, plat_cfg["xsa"]))
-		stem = os.path.splitext(xsa)[0]
-		bit = stem + ".bit"
-
-		if not os.path.exists(bit):
-			candidates = sorted(glob.glob(os.path.join(os.path.dirname(xsa), "*.bit")))
-
-			if candidates:
-				bit = candidates[0]
-				logger.debug("Bitstream resolved via glob: %s", bit)
-
-		return xsa, bit
-
-	if "synth_top" in plat_cfg:
-		top = plat_cfg["synth_top"]
-		synth_dir = os.path.join(_get_build_dir(cfg, project_dir), "synth", top)
-
-		xsa = os.path.join(synth_dir, f"{top}.xsa")
-		bit = os.path.join(synth_dir, f"{top}.bit")
-
-		return xsa, bit
-
-	sys.exit(f"ERROR: Platform '{plat_name}' must specify either 'xsa' or 'synth_top' in project.toml")
-
-def _get_platform_hw_server(cfg: dict) -> str:
-	return cfg.get("vivado", {}).get("hw_server", "localhost:3121")
-
-## app
-
-def _get_app_cfg(cfg: dict, app_name: str) -> dict:
-	app_list = cfg.get("app", [])
-	app_cfg = next((a for a in app_list if a["name"] == app_name), None)
-
-	if app_cfg is None:
-		sys.exit(
-			f"ERROR: App '{app_name}' not found in [[app]] entries.\n"
-			f"  Available: {[a['name'] for a in app_list]}"
+	# Default target: flat scalars directly under [fpga]
+	default_part = section.get("part", "")
+	fpga_default: typing.Optional[FpgaConfig] = (
+		FpgaConfig(
+			part=default_part,
+			board_part=section.get("board_part", ""),
+			board_repo=section.get("board_repo", ""),
 		)
+		if default_part
+		else None
+	)
 
-	return app_cfg
-
-def _get_app_src_dir(cfg: dict, app_name: str) -> str:
-	return os.path.abspath(_get_app_cfg(cfg, app_name).get("src_dir", f"srcs/sw/{app_name}"))
-
-def _get_app_dir(cfg: dict, project_dir: str, app_name: str) -> str:
-	app_dir = os.path.join(_get_build_dir(cfg, project_dir), "app", app_name)
-	
-	if not os.path.isdir(app_dir):
-		sys.exit(
-			f"ERROR: App directory not found: {app_dir}\n"
-			f"  Run: xviv create-app --app {app_name}"
+	# Named targets: [fpga.<name>] sub-tables
+	fpga_named: dict[str, FpgaConfig] = {
+		key: FpgaConfig(
+			part=val["part"],
+			board_part=val.get("board_part", ""),
+			board_repo=val.get("board_repo", ""),
 		)
+		for key, val in section.items()
+		if isinstance(val, dict) and val.get("part")
+	}
 
-	return app_dir
-
-# hooks
-
-## ip
-
-def _get_ip_cfg(cfg: dict, ip_name: str) -> dict:
-	ip_cfg = next((b for b in cfg.get("ip", {}) if b["name"] == ip_name), None)
-
-	if ip_cfg is None:
-		sys.exit(f"ERROR: IP '{ip_name}' not found in project.toml [[ip]] entries")
-
-	return ip_cfg
-
-def _get_ip_version(ip_cfg: dict) -> str:
-	return ip_cfg.get("version", "1.0")
-
-def _get_ip_rtl_files(ip_cfg: dict, project_dir: str) -> tuple[str, list[str]]:
-	return ip_cfg.get("top", ip_cfg["name"]), _resolve_globs(ip_cfg.get("rtl", []), project_dir)
-
-def _get_ip_hooks(ip_cfg: dict) -> str:
-	return ip_cfg.get("hooks", f"scripts/ip/{ip_cfg['name']}_{_get_ip_version(ip_cfg)}.tcl")
-
-## bd
-
-def _get_bd_cfg(cfg: dict, bd_name: str) -> dict:
-	bd_cfg = next((b for b in cfg.get("bd", {}) if b["name"] == bd_name), None)
-
-	if bd_cfg is None:
-		sys.exit(f"ERROR: BD '{bd_name}' not found in project.toml [[bd]] entries")
-
-	return bd_cfg
-
-def _get_bd_hooks(bd_cfg: dict) -> str:
-	return bd_cfg.get("hooks", f"scripts/bd/{bd_cfg['name']}_hooks.tcl")
-
-def _get_bd_export_tcl(bd_cfg: dict) -> str:
-	return bd_cfg.get("export_tcl", f"scripts/bd/{bd_cfg['name']}.tcl")
-
-## synth
-
-def _get_synth_cfg(cfg: dict, top_name: str) -> dict:
-	synth_cfg = next((b for b in cfg.get("synthesis", {}) if b["top"] == top_name), None)
-	
-	if synth_cfg is None:
-		sys.exit(f"ERROR: Synthesis Top '{top_name}' not found in project.toml [[bd]] entries")
-
-	return synth_cfg
-
-def _get_synth_hooks(synth_cfg: dict) -> str:
-	return synth_cfg.get("hooks", f"scripts/synth/{synth_cfg['top']}.tcl")
+	return fpga_default, fpga_named
 
 
+def _parse_vivado(raw: dict) -> VivadoConfig:
+	v = raw.get("vivado", {})
+	return VivadoConfig(
+		path=v.get("path", DEFAULT_VIVADO_PATH),
+		mode=v.get("mode", "batch"),
+		max_threads=int(v.get("max_threads", 8)),
+		hw_server=v.get("hw_server", "localhost:3121"),
+	)
 
-# vivado
 
-def _get_vivado_path(cfg: dict) -> str:
-	return cfg.get("vivado", {}).get("path", DEFAULT_VIVADO_PATH)
+def _parse_vitis(raw: dict) -> VitisConfig:
+	v = raw.get("vitis", {})
+	return VitisConfig(path=v.get("path", DEFAULT_VITIS_PATH))
 
-def _get_vivado_mode(cfg: dict) -> str:
-	return cfg.get("vivado", {}).get("mode", "batch")
 
-# vitis
+def _parse_build(raw: dict) -> BuildConfig:
+	b = raw.get("build", {})
+	return BuildConfig(
+		dir=b.get("dir", DEFAULT_BUILD_DIR),
+		ip_repo=b.get("ip_repo", DEFAULT_BUILD_IP_REPO),
+		bd_dir=b.get("bd_dir", DEFAULT_BUILD_BD_DIR),
+		wrapper_dir=b.get("wrapper_dir", DEFAULT_BUILD_WRAPPER_DIR),
+	)
 
-def _get_vitis_path(cfg: dict) -> str:
-	return cfg.get("vitis", {}).get("path", DEFAULT_VITIS_PATH)
 
-# config
+def _parse_sources(raw: dict) -> SourcesConfig:
+	s = raw.get("sources", {})
+	return SourcesConfig(
+		rtl=s.get("rtl", []),
+		sim=s.get("sim", []),
+	)
 
-def load_config(path: str) -> dict:
+
+def _parse_ips(raw: dict) -> list[IpConfig]:
+	return [
+		IpConfig(
+			name=i["name"],
+			vendor=i.get("vendor", "user.org"),
+			library=i.get("library", "user"),
+			version=i.get("version", "1.0"),
+			top=i.get("top", ""),
+			rtl=i.get("rtl", []),
+			hooks=i.get("hooks", ""),
+			xdc=i.get("xdc", []),
+			xdc_ooc=i.get("xdc_ooc", []),
+			fpga=i.get("fpga", ""),
+			create_wrapper=i.get("create-wrapper", False),
+		)
+		for i in raw.get("ip", [])
+	]
+
+
+def _parse_bds(raw: dict) -> list[BdConfig]:
+	return [
+		BdConfig(
+			name=b["name"],
+			hooks=b.get("hooks", ""),
+			export_tcl=b.get("export_tcl", ""),
+			xdc=b.get("xdc", []),
+			xdc_ooc=b.get("xdc_ooc", []),
+			fpga=b.get("fpga", ""),
+		)
+		for b in raw.get("bd", [])
+	]
+
+
+def _parse_synths(raw: dict) -> list[SynthConfig]:
+	return [
+		SynthConfig(
+			top=s["top"],
+			hooks=s.get("hooks", ""),
+			rtl=s.get("rtl", []),
+			xdc=s.get("xdc", []),
+			xdc_ooc=s.get("xdc_ooc", []),
+			fpga=s.get("fpga", ""),
+			report_synth=s.get("report_synth", False),
+			report_place=s.get("report_place", False),
+			report_route=s.get("report_route", False),
+			generate_netlist=s.get("generate_netlist", False),
+		)
+		for s in raw.get("synthesis", [])
+	]
+
+
+def _parse_platforms(raw: dict) -> list[PlatformConfig]:
+	return [
+		PlatformConfig(
+			name=p["name"],
+			cpu=p["cpu"],
+			os=p.get("os", "standalone"),
+			xsa=p.get("xsa", ""),
+			synth_top=p.get("synth_top", ""),
+		)
+		for p in raw.get("platform", [])
+	]
+
+
+def _parse_apps(raw: dict) -> list[AppConfig]:
+	return [
+		AppConfig(
+			name=a["name"],
+			platform=a["platform"],
+			template=a.get("template", "empty_application"),
+			src_dir=a.get("src_dir", ""),
+		)
+		for a in raw.get("app", [])
+	]
+
+
+# =============================================================================
+# Public entry-point
+# =============================================================================
+
+def load_config(path: str) -> ProjectConfig:
+	"""
+	Parse project.toml and return a fully validated ProjectConfig.
+	This is the only function that reads the raw TOML dict.
+	"""
 	path = os.path.abspath(path)
 	if not os.path.isfile(path):
 		sys.exit(f"ERROR: Config file not found - {path}")
+
 	with open(path, "rb") as fh:
-		cfg = tomllib.load(fh)
-	fpga = cfg.get("fpga", {})
-	has_default = isinstance(fpga.get("part"), str) and bool(fpga["part"])
-	has_named = any(isinstance(v, dict) and v.get("part") for v in fpga.values())
-	if not has_default and not has_named:
+		raw = tomllib.load(fh)
+
+	base_dir = os.path.dirname(path)
+
+	fpga_default, fpga_named = _parse_fpga(raw)
+
+	if fpga_default is None and not fpga_named:
 		sys.exit(
 			"ERROR: project.toml must define at least one FPGA target:\n"
-			"  [fpga] part = '...'              (default, used when no fpga = key present)\n"
-			"  [fpga.<name>] part = '...'       (named target, referenced via fpga = '<name>')"
+			"  [fpga] part = '...'        (default target)\n"
+			"  [fpga.<name>] part = '...' (named target, select with  fpga = '<name>')"
 		)
-	return cfg
+
+	return ProjectConfig(
+		base_dir     = base_dir,
+		fpga_default = fpga_default,
+		fpga_named   = fpga_named,
+		vivado       = _parse_vivado(raw),
+		vitis        = _parse_vitis(raw),
+		build        = _parse_build(raw),
+		sources      = _parse_sources(raw),
+		ips          = _parse_ips(raw),
+		bds          = _parse_bds(raw),
+		synths       = _parse_synths(raw),
+		platforms    = _parse_platforms(raw),
+		apps         = _parse_apps(raw),
+	)
 
 
-def _resolve_fpga(cfg: dict, name: typing.Optional[str]) -> dict:
-	fpga_section = cfg.get("fpga", {})
+# =============================================================================
+# TCL config generator
+#
+# Produces a self-contained TCL snippet that sets every global variable used
+# by scripts/xviv.tcl and its sub-scripts.  All variables are always emitted
+# (set to empty / zero by default) so TCL scripts never encounter unset vars.
+#
+# ip_name / bd_name / top_name select which context-specific block is active.
+# =============================================================================
 
-	if not name:
-		result = {k: v for k, v in fpga_section.items() if not isinstance(v, dict)}
-		if not result.get("part"):
-			sys.exit(
-				"ERROR: No fpga = '<name>' specified and no default [fpga] part found.\n"
-				"  Either add  [fpga] part = '...'  or set  fpga = '<name>'  in the entry."
-			)
-		return result
+def generate_config_tcl(
+	cfg: ProjectConfig,
+	*,
+	ip_name:  typing.Optional[str] = None,
+	bd_name:  typing.Optional[str] = None,
+	top_name: typing.Optional[str] = None,
+) -> str:
+	lines: list[str] = []
 
-	named = fpga_section.get(name)
-	if not isinstance(named, dict):
-		available = [k for k, v in fpga_section.items() if isinstance(v, dict)]
-		sys.exit(
-			f"ERROR: FPGA target '{name}' not found in project.toml.\n"
-			f"  Available named targets : {available}\n"
-			f"  Define it as            : [fpga.{name}]  part = '...'"
-		)
-	if not named.get("part"):
-		sys.exit(f"ERROR: [fpga.{name}] must define  part = '...'")
-	return named
+	# ---- resolve FPGA target (entry-level fpga = '<name>' override) ------------------
+	fpga_ref: str = ""
+	if ip_name:
+		fpga_ref = cfg.get_ip(ip_name).fpga
+	elif bd_name:
+		fpga_ref = cfg.get_bd(bd_name).fpga
+	elif top_name:
+		fpga_ref = cfg.get_synth(top_name).fpga
 
+	fpga = cfg.resolve_fpga(fpga_ref or None)
+	logger.debug("FPGA target: %s  part=%s", fpga_ref or "<default>", fpga.part)
+
+	# ---- Vivado tuning ----------------------------------------------------------------------------------------------------------------
+	lines.append(f"set_param general.maxThreads {cfg.vivado.max_threads}")
+
+	# ---- FPGA ----------------------------------------------------------------------------------------------------------------------------------
+	if fpga.board_repo:
+		lines.append(f'set_param board.repoPaths [list "{fpga.board_repo}"]')
+
+	lines += [
+		f'set xviv_fpga_part  "{fpga.part}"',
+		f'set xviv_board_part "{fpga.board_part}"',
+		f'set xviv_board_repo "{fpga.board_repo}"',
+	]
+
+	# ---- Build paths ----------------------------------------------------------------------------------------------------------------------
+	lines += [
+		f'set xviv_build_dir   "{cfg.build_dir}"',
+		f'set xviv_ip_repo     "{cfg.ip_repo}"',
+		f'set xviv_bd_dir      "{cfg.bd_dir}"',
+		f'set xviv_wrapper_dir "{cfg.wrapper_dir}"',
+	]
+
+	# ---- Global RTL sources (default; may be overridden per context below) --------
+	rtl_files     = cfg.resolve_globs(cfg.sources.rtl)
+	wrapper_files = cfg.resolve_globs([f"{cfg.build.wrapper_dir}/**/*"])
+
+	lines += [
+		f"set xviv_rtl_files     {_tcl_list(rtl_files)}",
+		f"set xviv_wrapper_files {_tcl_list(wrapper_files)}",
+		f"set xviv_xdc_files     {_tcl_list([])}",    # overridden per context
+	]
+
+	# ---- Synthesis report / netlist flags (defaults off) --------------------------------------------
+	lines += [
+		"set xviv_synth_report_synth    0",
+		"set xviv_synth_report_place    0",
+		"set xviv_synth_report_route    0",
+		"set xviv_synth_generate_netlist 0",
+		'set xviv_synth_hooks           ""',
+	]
+
+	# ---- IP variables (defaults empty) --------------------------------------------------------------------------------
+	lines += [
+		'set xviv_ip_name    ""',
+		'set xviv_ip_vendor  ""',
+		'set xviv_ip_library ""',
+		'set xviv_ip_version ""',
+		'set xviv_ip_top     ""',
+		f"set xviv_ip_rtl     {_tcl_list([])}",
+		'set xviv_ip_hooks   ""',
+	]
+
+	# ---- BD variables (defaults empty) --------------------------------------------------------------------------------
+	lines += [
+		'set xviv_bd_name       ""',
+		'set xviv_bd_hooks      ""',
+		# 'set xviv_bd_export_tcl ""',
+	]
+
+	# =========================================================================
+	# Context-specific overrides
+	# =========================================================================
+
+	if ip_name:
+		ip    = cfg.get_ip(ip_name)
+		hooks = cfg.abs_path(ip.hooks) if ip.hooks else ""
+		# IP-specific RTL overrides the global source glob; fall back if empty
+		ip_rtl = cfg.resolve_globs(ip.rtl) or rtl_files
+		xdc    = cfg.resolve_globs(ip.xdc)
+
+		lines += [
+			f'set xviv_ip_name    "{ip.name}"',
+			f'set xviv_ip_vendor  "{ip.vendor}"',
+			f'set xviv_ip_library "{ip.library}"',
+			f'set xviv_ip_version "{ip.version}"',
+			f'set xviv_ip_top     "{ip.top}"',
+			f"set xviv_ip_rtl     {_tcl_list(ip_rtl)}",
+			f'set xviv_ip_hooks   "{hooks}"',
+			f"set xviv_xdc_files  {_tcl_list(xdc)}",
+		]
+
+	elif bd_name:
+		bd     = cfg.get_bd(bd_name)
+		hooks  = cfg.abs_path(bd.hooks) if bd.hooks else ""
+		xdc    = cfg.resolve_globs(bd.xdc)
+
+		# For BD commands the "RTL" source is the .bd file itself;
+		# the synthesised wrapper is the companion .v file.
+		bd_file   = os.path.join(cfg.bd_dir, bd_name, f"{bd_name}.bd")
+		wrap_file = os.path.join(cfg.wrapper_dir, f"{bd_name}_wrapper.v")
+
+		lines += [
+			f'set xviv_bd_name       "{bd.name}"',
+			f'set xviv_bd_hooks      "{hooks}"',
+			f"set xviv_xdc_files     {_tcl_list(xdc)}",
+			# override global RTL/wrapper with BD-specific files
+			f"set xviv_rtl_files     {_tcl_list([bd_file])}",
+			f"set xviv_wrapper_files {_tcl_list([wrap_file])}",
+		]
+
+	elif top_name:
+		synth = cfg.get_synth(top_name)
+		hooks = cfg.abs_path(synth.hooks) if synth.hooks else ""
+		xdc   = cfg.resolve_globs(synth.xdc)
+
+		lines += [
+			f'set xviv_synth_hooks            "{hooks}"',
+			f"set xviv_xdc_files              {_tcl_list(xdc)}",
+			f"set xviv_synth_report_synth     {int(synth.report_synth)}",
+			f"set xviv_synth_report_place     {int(synth.report_place)}",
+			f"set xviv_synth_report_route     {int(synth.report_route)}",
+			f"set xviv_synth_generate_netlist {int(synth.generate_netlist)}",
+		]
+
+	return "\n".join(lines) + "\n"
+
+
+# =============================================================================
+# Internal helpers
+# =============================================================================
 
 def _resolve_globs(patterns: list[str], base: str) -> list[str]:
 	files: list[str] = []
-
 	for pat in patterns:
 		full_pat = os.path.join(base, pat)
 		hits = sorted(glob.glob(full_pat, recursive=True))
 		files.extend(os.path.abspath(h) for h in hits if os.path.isfile(h))
-
 	return files
 
 
@@ -242,158 +670,3 @@ def _tcl_list(items: list[str]) -> str:
 		return "[list]"
 	return "[list " + " ".join(f'"{i}"' for i in items) + "]"
 
-
-def generate_config_tcl(
-		cfg: dict,
-		base_dir: str,
-		*,
-
-		ip_name: typing.Optional[str] = None,
-		bd_name: typing.Optional[str] = None,
-		top_name: typing.Optional[str] = None,
-
-		bd_export_path: typing.Optional[str] = None,
-) -> str:
-	lines = []
-
-	max_threads = cfg.get("vivado", {}).get("max_threads", 8)
-	lines.append(f"set_param general.maxThreads {max_threads}")
-	
-	# if ip_name:
-		
-
-	# fpga_ref: typing.Optional[str] = None
-	# # if ip_name:
-	# # 	_e: dict[str, typing.Any] = next((i for i in cfg.get("ip",        []) if i["name"] == ip_name),  {})
-	# # 	fpga_ref = _e.get("fpga")
-
-	# # elif bd_name:
-	# # 	_e = next((b for b in cfg.get("bd",        []) if b["name"] == bd_name),  {})
-	# # 	fpga_ref = _e.get("fpga")
-
-	# # elif top_name:
-	# # 	_e = next((s for s in cfg.get("synthesis", []) if s["top"] == top_name), {})
-	# # 	fpga_ref = _e.get("fpga")
-
-	# fpga = _resolve_fpga(cfg, fpga_ref)
-	# part = fpga["part"]
-	# board_part = fpga.get("board_part", "")
-	# board_repo = fpga.get("board_repo", "")
-
-	# logger.debug("FPGA target: %s  part=%s", fpga_ref or "<default>", part)
-
-	# if board_repo:
-	# 	lines.append(f'set_param board.repoPaths [list "{board_repo}"]')
-
-	# lines.append(f'set xviv_fpga_part  "{part}"')
-	# lines.append(f'set xviv_board_part "{board_part}"')
-	# lines.append(f'set xviv_board_repo "{board_repo}"')
-
-	# build_cfg = cfg.get("build", {})
-	# build_dir = os.path.abspath(os.path.join(base_dir, build_cfg.get("dir",         DEFAULT_BUILD_DIR)))
-	# ip_repo = os.path.abspath(os.path.join(base_dir, build_cfg.get("ip_repo",     DEFAULT_BUILD_IP_REPO)))
-	# bd_dir = os.path.abspath(os.path.join(base_dir, build_cfg.get("bd_dir",      DEFAULT_BUILD_BD_DIR)))
-	# wrapper_dir = os.path.abspath(os.path.join(base_dir, build_cfg.get("wrapper_dir", DEFAULT_BUILD_WRAPPER_DIR)))
-
-	# lines.append(f'set xviv_build_dir   "{build_dir}"')
-	# lines.append(f'set xviv_ip_repo     "{ip_repo}"')
-	# lines.append(f'set xviv_bd_dir      "{bd_dir}"')
-	# lines.append(f'set xviv_wrapper_dir "{wrapper_dir}"')
-
-	# sources_cfg = cfg.get("sources", {})
-	# rtl_files = _resolve_globs(sources_cfg.get("rtl",     []), base_dir)
-	# wrapper_files = _resolve_globs([f"{wrapper_dir}/**/*"], base_dir)
-
-	# lines.append(f"set xviv_rtl_files     {_tcl_list(rtl_files)}")
-	# lines.append(f"set xviv_wrapper_files {_tcl_list(wrapper_files)}")
-
-	# if synth_report_all:
-	# 	synth_report_synth = True
-	# 	synth_report_post = True
-	# 	synth_report_place = True
-	# 	synth_report_rout = True
-
-	# # lines.append(f"set xviv_synth_out_of_context {int(synth_out_of_context_synth or False)}")
-	# lines.append(f"set xviv_synth_report_synth {int(synth_report_synth or False)}")
-	# lines.append(f"set xviv_synth_report_post {int(synth_report_post or False)}")
-	# lines.append(f"set xviv_synth_report_place {int(synth_report_place or False)}")
-	# lines.append(f"set xviv_synth_report_route {int(synth_report_rout or False)}")
-	# lines.append(f"set xviv_synth_generate_netlist {int(synth_generate_netlist or False)}")
-
-	# if ip_name:
-	# 	ip_list = cfg.get("ip", [])
-	# 	ip_cfg = next((i for i in ip_list if i["name"] == ip_name), None)
-	# 	if ip_cfg is None:
-	# 		sys.exit(f"ERROR: IP '{ip_name}' not found in project.toml [[ip]] entries")
-	# 	hooks = ip_cfg.get("hooks", "")
-	# 	if hooks:
-	# 		hooks = os.path.abspath(os.path.join(base_dir, hooks))
-
-	# 	ip_rtl_files = _resolve_globs(ip_cfg.get("rtl", []), base_dir)
-
-	# 	lines += [
-	# 		f'set xviv_ip_name    "{ip_cfg["name"]}"',
-	# 		f'set xviv_ip_vendor  "{ip_cfg.get("vendor",  "user.org")}"',
-	# 		f'set xviv_ip_library "{ip_cfg.get("library", "user")}"',
-	# 		f'set xviv_ip_version "{ip_cfg.get("version", "1.0")}"',
-	# 		f'set xviv_ip_top     "{ip_cfg.get("top", f"{ip_cfg["name"]}_wrapper")}"',
-	# 		f'set xviv_ip_rtl     "{_tcl_list(ip_rtl_files) if ip_rtl_files else _tcl_list(rtl_files)}"',
-	# 		f'set xviv_ip_hooks   "{hooks}"',
-	# 	]
-
-	# 	xdc_files = _resolve_globs(ip_cfg.get("xdc", []), base_dir)
-	# 	xdc_ooc_files = _resolve_globs(ip_cfg.get("xdc_ooc", []), base_dir)
-	# 	# lines.append(f"set xviv_xdc_files  {_tcl_list(xdc_ooc_files if synth_out_of_context_synth else xdc_files)}")
-	# 	lines.append(f"set xviv_xdc_files  {_tcl_list(xdc_files)}")
-
-	# if bd_name:
-	# 	bd_list = cfg.get("bd", [])
-	# 	bd_cfg = next((b for b in bd_list if b["name"] == bd_name), None)
-	# 	if bd_cfg is None:
-	# 		sys.exit(f"ERROR: BD '{bd_name}' not found in project.toml [[bd]] entries")
-
-	# 	hooks = bd_cfg.get("hooks", f"scripts/bd/{bd_name}_hooks.tcl")
-	# 	if hooks:
-	# 		hooks = os.path.abspath(os.path.join(base_dir, hooks))
-
-	# 	if bd_export_path:
-	# 		export_tcl = bd_export_path
-	# 	else:
-	# 		raw = bd_cfg.get("export_tcl", f"scripts/bd/{bd_name}.tcl")
-	# 		export_tcl = os.path.abspath(os.path.join(base_dir, raw))
-
-	# 	lines += [
-	# 		f'set xviv_bd_name       "{bd_cfg["name"]}"',
-	# 		f'set xviv_bd_hooks      "{hooks}"',
-	# 		f'set xviv_bd_export_tcl "{export_tcl}"',
-	# 	]
-
-	# 	xdc_files = _resolve_globs(bd_cfg.get("xdc", []), base_dir)
-	# 	xdc_ooc_files = _resolve_globs(bd_cfg.get("xdc_ooc", []), base_dir)
-
-	# 	# lines.append(f"set xviv_xdc_files  {_tcl_list(xdc_ooc_files if synth_out_of_context_synth else xdc_files)}")
-	# 	lines.append(f"set xviv_xdc_files  {_tcl_list(xdc_files)}")
-
-	# 	lines.append(f"set xviv_rtl_files     {_tcl_list([os.path.join(build_dir, "bd", bd_name, f"{bd_name}.bd")])}")
-	# 	lines.append(f"set xviv_wrapper_files {_tcl_list([os.path.join(build_dir, "wrapper", f"{bd_name}_wrapper.v")])}")
-
-	# if top_name:
-	# 	synth_list = cfg.get("synthesis", {})
-	# 	synth_cfg = next((b for b in synth_list if b["top"] == top_name), None)
-
-	# 	if synth_cfg is None:
-	# 		sys.exit(f"ERROR: Synthesis Top '{top_name}' not found in project.toml [[bd]] entries")
-
-	# 	synth_hooks = synth_cfg.get("hooks", "")
-
-	# 	if synth_hooks:
-	# 		synth_hooks = os.path.abspath(os.path.join(base_dir, synth_hooks))
-
-	# 	lines.append(f'set xviv_synth_hooks "{synth_hooks}"')
-
-	# 	xdc_files = _resolve_globs(synth_cfg.get("xdc", []), base_dir)
-	# 	xdc_ooc_files = _resolve_globs(synth_cfg.get("xdc_ooc", []), base_dir)
-	# 	# lines.append(f"set xviv_xdc_files  {_tcl_list(xdc_ooc_files if synth_out_of_context_synth else xdc_files)}")
-	# 	lines.append(f"set xviv_xdc_files  {_tcl_list(xdc_files)}")
-
-	return "\n".join(lines) + "\n"
