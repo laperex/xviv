@@ -31,8 +31,7 @@ def generate_ip_hooks(cfg: ProjectConfig, ip_name: str, exist_ok: bool = False) 
 # Called after the IP edit project is opened.
 # Add your RTL source files to the edit project here.
 proc ipx_add_files {{}} {{
-	add_files [glob -nocomplain ./srcs/rtl/*.sv]
-	add_files [glob -nocomplain ./srcs/rtl/*.v]
+
 }}
 
 # Called after ipx::merge_project_changes.

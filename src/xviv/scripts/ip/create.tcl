@@ -8,13 +8,14 @@ proc cmd_create_ip {} {
     xviv_require_vars xviv_ip_name xviv_ip_vendor xviv_ip_library xviv_ip_version xviv_ip_repo
 
     set ip_id     "$xviv_ip_vendor:$xviv_ip_library:$xviv_ip_name:$xviv_ip_version"
-    # set ip_vid    "${xviv_ip_name}_[string map {. _} $xviv_ip_version]"
-    set ip_vid    "${xviv_ip_name}"
+    set ip_vid    "${xviv_ip_name}_[string map {. _} $xviv_ip_version]"
     set ip_dir    "$xviv_ip_repo/$ip_vid"
     set proj_root "/dev/shm/build"
 
     file mkdir $xviv_ip_repo
     file mkdir $proj_root
+	
+	puts "top module name: $xviv_ip_top"
 
     foreach stub {
         ipx_add_files
@@ -25,10 +26,16 @@ proc cmd_create_ip {} {
     } { xviv_stub $stub }
 
     xviv_source_hooks xviv_ip_hooks
-    xviv_create_project "in_memory_project"
 
+    xviv_create_project "in_memory_project"
+	
     xviv_stage "Scaffolding IP skeleton - $ip_vid"
     _xviv_ip_scaffold $ip_id $ip_vid $ip_dir $proj_root
+
+	# puts "DEBUG vendor : [ipx::get_property vendor  [ipx::current_core]]"
+	# puts "DEBUG library: [ipx::get_property library [ipx::current_core]]"
+	# puts "DEBUG name   : [ipx::get_property name    [ipx::current_core]]"
+	# puts "DEBUG version: [ipx::get_property version [ipx::current_core]]"
 
     xviv_stage "Stripping default AXI-Lite scaffold"
     _xviv_ip_strip_scaffold

@@ -80,6 +80,7 @@ class BuildConfig:
 class SourcesConfig:
 	rtl: list[str] = dataclasses.field(default_factory=list)
 	sim: list[str] = dataclasses.field(default_factory=list)
+	xdc: list[str] = dataclasses.field(default_factory=list)
 
 
 @dataclasses.dataclass
@@ -131,6 +132,7 @@ class SynthConfig:
 	report_place:     bool      = False
 	report_route:     bool      = False
 	generate_netlist: bool      = False
+	out_of_context:	  bool      = False
 
 	def __post_init__(self) -> None:
 		if not self.hooks:
@@ -383,6 +385,7 @@ def _parse_sources(raw: dict) -> SourcesConfig:
 	return SourcesConfig(
 		rtl=s.get("rtl", []),
 		sim=s.get("sim", []),
+		xdc=s.get("xdc", []),
 	)
 
 
@@ -432,6 +435,7 @@ def _parse_synths(raw: dict) -> list[SynthConfig]:
 			report_place=s.get("report_place", False),
 			report_route=s.get("report_route", False),
 			generate_netlist=s.get("generate_netlist", False),
+			out_of_context=s.get("out_of_context", False),
 		)
 		for s in raw.get("synthesis", [])
 	]
@@ -558,13 +562,14 @@ def generate_config_tcl(
 	]
 
 	# ---- Global RTL sources (default; may be overridden per context below) --------
-	rtl_files     = cfg.resolve_globs(cfg.sources.rtl)
-	wrapper_files = cfg.resolve_globs([f"{cfg.build.wrapper_dir}/**/*"])
+	rtl     = cfg.resolve_globs(cfg.sources.rtl)
+	xdc     = cfg.resolve_globs(cfg.sources.xdc)
+	wrapper = cfg.resolve_globs([f"{cfg.build.wrapper_dir}/**/*"])
 
 	lines += [
-		f"set xviv_rtl_files     {_tcl_list(rtl_files)}",
-		f"set xviv_wrapper_files {_tcl_list(wrapper_files)}",
-		f"set xviv_xdc_files     {_tcl_list([])}",    # overridden per context
+		f"set xviv_rtl_files     {_tcl_list(rtl)}",
+		f"set xviv_xdc_files     {_tcl_list(xdc)}",
+		f"set xviv_wrapper_files {_tcl_list(wrapper)}",
 	]
 
 	# ---- Synthesis report / netlist flags (defaults off) --------------------------------------------
@@ -591,7 +596,6 @@ def generate_config_tcl(
 	lines += [
 		'set xviv_bd_name       ""',
 		'set xviv_bd_hooks      ""',
-		# 'set xviv_bd_export_tcl ""',
 	]
 
 	# =========================================================================
@@ -602,8 +606,11 @@ def generate_config_tcl(
 		ip    = cfg.get_ip(ip_name)
 		hooks = cfg.abs_path(ip.hooks) if ip.hooks else ""
 		# IP-specific RTL overrides the global source glob; fall back if empty
-		ip_rtl = cfg.resolve_globs(ip.rtl) or rtl_files
+		ip_rtl = cfg.resolve_globs(ip.rtl) or rtl
 		xdc    = cfg.resolve_globs(ip.xdc)
+
+		if not os.path.exists(hooks):
+			hooks = ""
 
 		lines += [
 			f'set xviv_ip_name    "{ip.name}"',
@@ -620,29 +627,40 @@ def generate_config_tcl(
 		bd     = cfg.get_bd(bd_name)
 		hooks  = cfg.abs_path(bd.hooks) if bd.hooks else ""
 		xdc    = cfg.resolve_globs(bd.xdc)
+		
+		if not os.path.exists(hooks):
+			hooks = ""
 
 		# For BD commands the "RTL" source is the .bd file itself;
 		# the synthesised wrapper is the companion .v file.
 		bd_file   = os.path.join(cfg.bd_dir, bd_name, f"{bd_name}.bd")
 		wrap_file = os.path.join(cfg.wrapper_dir, f"{bd_name}_wrapper.v")
+		
+		rtl = [bd_file]
 
 		lines += [
 			f'set xviv_bd_name       "{bd.name}"',
 			f'set xviv_bd_hooks      "{hooks}"',
+	
 			f"set xviv_xdc_files     {_tcl_list(xdc)}",
-			# override global RTL/wrapper with BD-specific files
+
 			f"set xviv_rtl_files     {_tcl_list([bd_file])}",
 			f"set xviv_wrapper_files {_tcl_list([wrap_file])}",
 		]
 
 	elif top_name:
-		synth = cfg.get_synth(top_name)
-		hooks = cfg.abs_path(synth.hooks) if synth.hooks else ""
-		xdc   = cfg.resolve_globs(synth.xdc)
+		synth	= cfg.get_synth(top_name)
+		hooks	= cfg.abs_path(synth.hooks) if synth.hooks else ""
+		xdc		= cfg.resolve_globs(synth.xdc) or xdc
+		rtl		= cfg.resolve_globs(synth.rtl) or rtl
+
+		if not os.path.exists(hooks):
+			hooks = ""
 
 		lines += [
 			f'set xviv_synth_hooks            "{hooks}"',
 			f"set xviv_xdc_files              {_tcl_list(xdc)}",
+			f"set xviv_rtl_files              {_tcl_list(rtl)}",
 			f"set xviv_synth_report_synth     {int(synth.report_synth)}",
 			f"set xviv_synth_report_place     {int(synth.report_place)}",
 			f"set xviv_synth_report_route     {int(synth.report_route)}",
