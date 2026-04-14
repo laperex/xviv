@@ -41,6 +41,16 @@ proc cmd_synthesis {top_module sha_tag} {
     # Synthesis
     # ------------------------------------------------------------------
     synth_pre
+	
+	# Incremental Synthesis
+	set reference_post_synth_dcp "$out_dir/post_synth.dcp"
+
+    if {[file exists $reference_post_synth_dcp]} {
+        xviv_stage "Applying Incremental Reference Checkpoint"
+        read_checkpoint -incremental $reference_post_synth_dcp
+    } else {
+        puts "INFO: No reference post_synth DCP found at $reference_post_synth_dcp. Running standard Synthesis."
+    }
 
     xviv_stage "Synthesis - $top_module  (sha: $sha_tag)"
 
@@ -53,6 +63,7 @@ proc cmd_synthesis {top_module sha_tag} {
         xviv_stage "Post-synthesis reports"
         report_timing_summary -file "$report_dir/post_synth_timing_summary.rpt"
         report_utilization    -file "$report_dir/post_synth_util.rpt"
+		report_incremental_reuse -file "$report_dir/post_synth_incremental_reuse.rpt"
     }
     if {$xviv_synth_generate_netlist} {
         file mkdir $netlist_dir
@@ -66,6 +77,17 @@ proc cmd_synthesis {top_module sha_tag} {
     # ------------------------------------------------------------------
     # Placement
     # ------------------------------------------------------------------
+	
+	# Incremental Implementation
+	set reference_post_route_dcp "$out_dir/post_route.dcp"
+
+    if {[file exists $reference_post_route_dcp]} {
+        xviv_stage "Applying Incremental Reference Checkpoint"
+        read_checkpoint -incremental $reference_post_route_dcp
+    } else {
+        puts "INFO: No reference post_route DCP found at $reference_post_route_dcp. Running standard Implementation."
+    }
+
     xviv_stage "Placement"
     place_design
     write_checkpoint -force "$out_dir/post_place.dcp"
@@ -97,6 +119,7 @@ proc cmd_synthesis {top_module sha_tag} {
         report_power          -file "$report_dir/post_route_power.rpt"
         report_route_status   -file "$report_dir/post_route_status.rpt"
         report_timing_summary -max_paths 10 -report_unconstrained -warn_on_violation -file "$report_dir/post_route_timing_summary.rpt"
+		report_incremental_reuse -file "$report_dir/post_impl_incremental_reuse.rpt"
     }
     if {$xviv_synth_generate_netlist} {
 		file mkdir $netlist_dir
