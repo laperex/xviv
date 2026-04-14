@@ -12,8 +12,8 @@
 # =============================================================================
 proc cmd_export_bd { bd_export_tcl } {
     global xviv_bd_name xviv_bd_dir
-
-    xviv_require_vars xviv_bd_name xviv_bd_dir bd_export_tcl
+	
+    xviv_require_vars xviv_bd_name xviv_bd_dir
 
     set bd_file "$xviv_bd_dir/$xviv_bd_name/$xviv_bd_name.bd"
 

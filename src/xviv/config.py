@@ -562,14 +562,14 @@ def generate_config_tcl(
 	]
 
 	# ---- Global RTL sources (default; may be overridden per context below) --------
-	rtl     = cfg.resolve_globs(cfg.sources.rtl)
-	xdc     = cfg.resolve_globs(cfg.sources.xdc)
-	wrapper = cfg.resolve_globs([f"{cfg.build.wrapper_dir}/**/*"])
+	default_rtl     = cfg.resolve_globs(cfg.sources.rtl)
+	default_xdc     = cfg.resolve_globs(cfg.sources.xdc)
+	default_wrapper = cfg.resolve_globs([f"{cfg.build.wrapper_dir}/**/*"])
 
 	lines += [
-		f"set xviv_rtl_files     {_tcl_list(rtl)}",
-		f"set xviv_xdc_files     {_tcl_list(xdc)}",
-		f"set xviv_wrapper_files {_tcl_list(wrapper)}",
+		f"set xviv_rtl_files     {_tcl_list(default_rtl)}",
+		f"set xviv_xdc_files     {_tcl_list(default_xdc)}",
+		f"set xviv_wrapper_files {_tcl_list(default_wrapper)}",
 	]
 
 	# ---- Synthesis report / netlist flags (defaults off) --------------------------------------------
@@ -606,7 +606,7 @@ def generate_config_tcl(
 		ip    = cfg.get_ip(ip_name)
 		hooks = cfg.abs_path(ip.hooks) if ip.hooks else ""
 		# IP-specific RTL overrides the global source glob; fall back if empty
-		ip_rtl = cfg.resolve_globs(ip.rtl) or rtl
+		ip_rtl = cfg.resolve_globs(ip.rtl) or default_rtl
 		xdc    = cfg.resolve_globs(ip.xdc)
 
 		if not os.path.exists(hooks):
@@ -624,9 +624,9 @@ def generate_config_tcl(
 		]
 
 	elif bd_name:
-		bd     = cfg.get_bd(bd_name)
-		hooks  = cfg.abs_path(bd.hooks) if bd.hooks else ""
-		xdc    = cfg.resolve_globs(bd.xdc)
+		bd     	= cfg.get_bd(bd_name)
+		hooks	= cfg.abs_path(bd.hooks) if bd.hooks else ""
+		xdc    	= cfg.resolve_globs(bd.xdc)
 		
 		if not os.path.exists(hooks):
 			hooks = ""
@@ -635,8 +635,6 @@ def generate_config_tcl(
 		# the synthesised wrapper is the companion .v file.
 		bd_file   = os.path.join(cfg.bd_dir, bd_name, f"{bd_name}.bd")
 		wrap_file = os.path.join(cfg.wrapper_dir, f"{bd_name}_wrapper.v")
-		
-		rtl = [bd_file]
 
 		lines += [
 			f'set xviv_bd_name       "{bd.name}"',
@@ -651,8 +649,8 @@ def generate_config_tcl(
 	elif top_name:
 		synth	= cfg.get_synth(top_name)
 		hooks	= cfg.abs_path(synth.hooks) if synth.hooks else ""
-		xdc		= cfg.resolve_globs(synth.xdc) or xdc
-		rtl		= cfg.resolve_globs(synth.rtl) or rtl
+		xdc		= cfg.resolve_globs(synth.xdc)
+		rtl		= cfg.resolve_globs(synth.rtl)
 
 		if not os.path.exists(hooks):
 			hooks = ""

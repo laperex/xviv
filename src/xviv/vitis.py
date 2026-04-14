@@ -23,7 +23,9 @@ def _get_vitis_env(cfg: ProjectConfig) -> dict[str, str]:
 
 
 def _xsct_bin(cfg: ProjectConfig) -> str:
-	return os.path.join(cfg.vitis.path, "bin", "xsct")
+	# return os.path.join(cfg.vitis.path, "bin", "xsct")
+	return os.path.join(cfg.vivado.path, "bin", "xsdb")
+
 
 
 def _find_xsct_script() -> str:
