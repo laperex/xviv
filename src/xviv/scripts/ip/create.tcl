@@ -3,7 +3,7 @@
 # =============================================================================
 proc cmd_create_ip {} {
     global xviv_ip_name xviv_ip_vendor xviv_ip_library xviv_ip_version xviv_ip_repo
-    global xviv_ip_top xviv_ip_rtl xviv_ip_hooks
+    global xviv_ip_top xviv_ip_hooks
 
     xviv_require_vars xviv_ip_name xviv_ip_vendor xviv_ip_library xviv_ip_version xviv_ip_repo
 
@@ -42,7 +42,7 @@ proc cmd_create_ip {} {
 
     xviv_stage "Adding RTL sources"
 
-	add_files -norecurse -scan_for_includes $xviv_ip_rtl
+	xviv_add_rtl_sources
 	set_property TOP $xviv_ip_top [current_fileset]
 
     ipx_add_files

@@ -76,11 +76,11 @@ class BuildConfig:
 	wrapper_dir: str = DEFAULT_BUILD_WRAPPER_DIR
 
 
-@dataclasses.dataclass
-class SourcesConfig:
-	rtl: list[str] = dataclasses.field(default_factory=list)
-	sim: list[str] = dataclasses.field(default_factory=list)
-	xdc: list[str] = dataclasses.field(default_factory=list)
+# @dataclasses.dataclass
+# class SourcesConfig:
+# 	rtl: list[str] = dataclasses.field(default_factory=list)
+# 	sim: list[str] = dataclasses.field(default_factory=list)
+# 	xdc: list[str] = dataclasses.field(default_factory=list)
 
 
 @dataclasses.dataclass
@@ -92,9 +92,9 @@ class IpConfig:
 	top:            str       = ""
 	rtl:            list[str] = dataclasses.field(default_factory=list)
 	hooks:          str       = ""
-	xdc:            list[str] = dataclasses.field(default_factory=list)
-	xdc_ooc:        list[str] = dataclasses.field(default_factory=list)
-	fpga:           str       = ""
+	# xdc:            list[str] = dataclasses.field(default_factory=list)
+	# xdc_ooc:        list[str] = dataclasses.field(default_factory=list)
+	# fpga:           str       = ""
 	create_wrapper: bool      = False
 
 	def __post_init__(self) -> None:
@@ -109,8 +109,8 @@ class BdConfig:
 	name:       str
 	hooks:      str       = ""
 	export_tcl: str       = ""
-	xdc:        list[str] = dataclasses.field(default_factory=list)
-	xdc_ooc:    list[str] = dataclasses.field(default_factory=list)
+	# xdc:        list[str] = dataclasses.field(default_factory=list)
+	# xdc_ooc:    list[str] = dataclasses.field(default_factory=list)
 	fpga:       str       = ""
 
 	def __post_init__(self) -> None:
@@ -122,87 +122,89 @@ class BdConfig:
 
 @dataclasses.dataclass
 class SynthConfig:
-    top:              str
-    hooks:            str       = ""
-    rtl:              list[str] = dataclasses.field(default_factory=list)
-    xdc:              list[str] = dataclasses.field(default_factory=list)
-    xdc_ooc:          list[str] = dataclasses.field(default_factory=list)
-    fpga:             str       = ""
-    report_synth:     bool      = False
-    report_place:     bool      = False
-    report_route:     bool      = False
-    generate_netlist: bool      = False
-    out_of_context:   bool      = False
+	top:              str
+	ip:               str
+	bd:               str
+	hooks:            str       = ""
+	rtl:              list[str] = dataclasses.field(default_factory=list)
+	xdc:              list[str] = dataclasses.field(default_factory=list)
+	xdc_ooc:          list[str] = dataclasses.field(default_factory=list)
+	fpga:             str       = ""
+	report_synth:     bool      = False
+	report_place:     bool      = False
+	report_route:     bool      = False
+	generate_netlist: bool      = False
+	out_of_context:   bool      = False
 
-    # =========================================================================
-    # GLOBAL SETTINGS
-    # =========================================================================
-    # Caps the number of CPU threads Vivado will use (1-32)
-    max_threads: int = 8 
+	# =========================================================================
+	# GLOBAL SETTINGS
+	# =========================================================================
+	# Caps the number of CPU threads Vivado will use (1-32)
+	max_threads: int = 8 
 
-    # autoIncr.Synth.RejectBehavior when incremental synthesis criteria isn't met
-    # values: continue (switch to default full synthesis) | terminate (stop build)
-    incr_synth_fallback: str = "continue"
+	# autoIncr.Synth.RejectBehavior when incremental synthesis criteria isn't met
+	# values: continue (switch to default full synthesis) | terminate (stop build)
+	incr_synth_fallback: str = "continue"
 
-    # =========================================================================
-    # SYNTHESIS (synth_design)
-    # =========================================================================
-    # values: default | RuntimeOptimized | AreaOptimized_high | AreaOptimized_medium
-    #         PerformanceOptimized | AlternateRoutability | AreaMapLargeShiftRegToBRAM
-    synth_directive: str = "default"
+	# =========================================================================
+	# SYNTHESIS (synth_design)
+	# =========================================================================
+	# values: default | RuntimeOptimized | AreaOptimized_high | AreaOptimized_medium
+	#         PerformanceOptimized | AlternateRoutability | AreaMapLargeShiftRegToBRAM
+	synth_directive: str = "default"
 
-    # values: rebuilt | full | none
-    flatten_hierarchy: str = "rebuilt"
-    
-    # values: auto | one_hot | sequential | johnson | gray | off
-    fsm_extraction: str = "auto"
+	# values: rebuilt | full | none
+	flatten_hierarchy: str = "rebuilt"
+	
+	# values: auto | one_hot | sequential | johnson | gray | off
+	fsm_extraction: str = "auto"
 
-    # =========================================================================
-    # LOGIC OPTIMIZATION (opt_design)
-    # Note: Must be True if using an incremental implementation reference!
-    # =========================================================================
-    run_opt_design: bool = True
-    
-    # values: default | Explore | ExploreArea | ExploreSequentialArea
-    #         AddRemap | ExploreWithRemap | RuntimeOptimized | NoBramPowerOpt
-    opt_directive: str = "default"
+	# =========================================================================
+	# LOGIC OPTIMIZATION (opt_design)
+	# Note: Must be True if using an incremental implementation reference!
+	# =========================================================================
+	run_opt_design: bool = True
+	
+	# values: default | Explore | ExploreArea | ExploreSequentialArea
+	#         AddRemap | ExploreWithRemap | RuntimeOptimized | NoBramPowerOpt
+	opt_directive: str = "default"
 
-    # =========================================================================
-    # PLACEMENT (place_design)
-    # =========================================================================
-    # values: default | Explore | WLDrivenBlockPlacement | Quick | RuntimeOptimized
-    #         ExtraNetDelay_high | ExtraNetDelay_medium | ExtraNetDelay_low
-    #         SpreadLogic_high | SpreadLogic_medium | SpreadLogic_low
-    #         AltSpreadLogic_high | AltSpreadLogic_medium | AltSpreadLogic_low
-    place_directive: str = "default"
+	# =========================================================================
+	# PLACEMENT (place_design)
+	# =========================================================================
+	# values: default | Explore | WLDrivenBlockPlacement | Quick | RuntimeOptimized
+	#         ExtraNetDelay_high | ExtraNetDelay_medium | ExtraNetDelay_low
+	#         SpreadLogic_high | SpreadLogic_medium | SpreadLogic_low
+	#         AltSpreadLogic_high | AltSpreadLogic_medium | AltSpreadLogic_low
+	place_directive: str = "default"
 
-    # =========================================================================
-    # PHYSICAL OPTIMIZATION (phys_opt_design)
-    # Runs after placement to fix timing violations using physical data
-    # =========================================================================
-    run_phys_opt: bool = False
-    
-    # values: default | Explore | AggressiveExplore | AlternateReplication
-    #         AggressiveFanoutOpt | AlternateFlowWithRetiming | AddRetime
-    phys_opt_directive: str = "default"
+	# =========================================================================
+	# PHYSICAL OPTIMIZATION (phys_opt_design)
+	# Runs after placement to fix timing violations using physical data
+	# =========================================================================
+	run_phys_opt: bool = False
+	
+	# values: default | Explore | AggressiveExplore | AlternateReplication
+	#         AggressiveFanoutOpt | AlternateFlowWithRetiming | AddRetime
+	phys_opt_directive: str = "default"
 
-    # =========================================================================
-    # ROUTING (route_design)
-    # =========================================================================
-    # values: default | Explore | MoreGlobalIterations | HigherDelayCost 
-    #         AdvancedSkewModeling | NoTimingRelaxation | RuntimeOptimized | Quick
-    route_directive: str = "default"
+	# =========================================================================
+	# ROUTING (route_design)
+	# =========================================================================
+	# values: default | Explore | MoreGlobalIterations | HigherDelayCost 
+	#         AdvancedSkewModeling | NoTimingRelaxation | RuntimeOptimized | Quick
+	route_directive: str = "default"
 
-    # =========================================================================
-    # BITSTREAM GENERATION
-    # =========================================================================
-    # 32-bit hex string to embed via JTAG (e.g., "DEADBEEF"). 
-    # If left empty, xviv automatically injects the git SHA.
-    usr_access: str = ""
+	# =========================================================================
+	# BITSTREAM GENERATION
+	# =========================================================================
+	# 32-bit hex string to embed via JTAG (e.g., "DEADBEEF"). 
+	# If left empty, xviv automatically injects the git SHA.
+	usr_access: str = ""
 
-    def __post_init__(self) -> None:
-        if not self.hooks:
-            self.hooks = f"scripts/synth/{self.top}.tcl"
+	def __post_init__(self) -> None:
+		if not self.hooks:
+			self.hooks = f"scripts/synth/{self.top}.tcl"
 
 
 @dataclasses.dataclass
@@ -240,7 +242,7 @@ class ProjectConfig:
 	vivado:  VivadoConfig
 	vitis:   VitisConfig
 	build:   BuildConfig
-	sources: SourcesConfig
+	# sources: SourcesConfig
 
 	ips:       list[IpConfig]
 	bds:       list[BdConfig]
@@ -286,13 +288,30 @@ class ProjectConfig:
 			)
 		return bd
 
-	def get_synth(self, top: str) -> SynthConfig:
-		s = next((s for s in self.synths if s.top == top), None)
+	def get_synth(self, *, top_name: typing.Optional[str] = None, bd_name: typing.Optional[str] = None, ip_name: typing.Optional[str] = None) -> SynthConfig:
+		s = next(
+			(
+				s for s in self.synths 
+				if (top_name is not None and s.top == top_name) or 
+				(ip_name is not None and s.ip == ip_name) or 
+				(bd_name is not None and s.bd == bd_name)
+			), 
+			None
+		)
+		
+		# Handle the failure cases
 		if s is None:
-			sys.exit(
-				f"ERROR: Synthesis top '{top}' not found in [[synthesis]] entries.\n"
-				f"  Available: {[s.top for s in self.synths]}"
-			)
+			# If 'top_name' was provided and we failed to find it, throw the error
+			if top_name is not None:
+				avail_tops = [s.top for s in self.synths if s.top is not None]
+				sys.exit(
+					f"ERROR: Synthesis top '{top_name}' not found in [[synthesis]] entries.\n"
+					f"  Available tops: {avail_tops}"
+				)
+
+			# If it was a 'bd_name' or 'ip_name' search that failed, return an empty config
+			return SynthConfig(top="", ip="", bd="")
+	
 		return s
 
 	def get_platform(self, name: str) -> PlatformConfig:
@@ -446,13 +465,13 @@ def _parse_build(raw: dict) -> BuildConfig:
 	)
 
 
-def _parse_sources(raw: dict) -> SourcesConfig:
-	s = raw.get("sources", {})
-	return SourcesConfig(
-		rtl=s.get("rtl", []),
-		sim=s.get("sim", []),
-		xdc=s.get("xdc", []),
-	)
+# def _parse_sources(raw: dict) -> SourcesConfig:
+# 	s = raw.get("sources", {})
+# 	return SourcesConfig(
+# 		rtl=s.get("rtl", []),
+# 		sim=s.get("sim", []),
+# 		xdc=s.get("xdc", []),
+# 	)
 
 
 def _parse_ips(raw: dict) -> list[IpConfig]:
@@ -465,9 +484,9 @@ def _parse_ips(raw: dict) -> list[IpConfig]:
 			top=i.get("top", ""),
 			rtl=i.get("rtl", []),
 			hooks=i.get("hooks", ""),
-			xdc=i.get("xdc", []),
-			xdc_ooc=i.get("xdc_ooc", []),
-			fpga=i.get("fpga", ""),
+			# xdc=i.get("xdc", []),
+			# xdc_ooc=i.get("xdc_ooc", []),
+			# fpga=i.get("fpga", ""),
 			create_wrapper=i.get("create-wrapper", False),
 		)
 		for i in raw.get("ip", [])
@@ -480,8 +499,8 @@ def _parse_bds(raw: dict) -> list[BdConfig]:
 			name=b["name"],
 			hooks=b.get("hooks", ""),
 			export_tcl=b.get("export_tcl", ""),
-			xdc=b.get("xdc", []),
-			xdc_ooc=b.get("xdc_ooc", []),
+			# xdc=b.get("xdc", []),
+			# xdc_ooc=b.get("xdc_ooc", []),
 			fpga=b.get("fpga", ""),
 		)
 		for b in raw.get("bd", [])
@@ -491,7 +510,9 @@ def _parse_bds(raw: dict) -> list[BdConfig]:
 def _parse_synths(raw: dict) -> list[SynthConfig]:
 	return [
 		SynthConfig(
-			top=s["top"],
+			top=s.get("top", ""),
+			ip=s.get("ip", ""),
+			bd=s.get("bd", ""),
 			hooks=s.get("hooks", ""),
 			rtl=s.get("rtl", []),
 			xdc=s.get("xdc", []),
@@ -566,7 +587,7 @@ def load_config(path: str) -> ProjectConfig:
 		vivado       = _parse_vivado(raw),
 		vitis        = _parse_vitis(raw),
 		build        = _parse_build(raw),
-		sources      = _parse_sources(raw),
+		# sources      = _parse_sources(raw),
 		ips          = _parse_ips(raw),
 		bds          = _parse_bds(raw),
 		synths       = _parse_synths(raw),
@@ -592,16 +613,17 @@ def generate_config_tcl(
 	bd_name:  typing.Optional[str] = None,
 	top_name: typing.Optional[str] = None,
 ) -> str:
+	if sum(arg is not None for arg in (top_name, bd_name, ip_name)) != 1:
+		sys.exit("ERROR: get_synth requires exactly one of 'top_name', 'bd_name', or 'ip_name' to be specified.")
+
 	lines: list[str] = []
 
 	# ---- resolve FPGA target (entry-level fpga = '<name>' override) ------------------
 	fpga_ref: str = ""
-	if ip_name:
-		fpga_ref = cfg.get_ip(ip_name).fpga
-	elif bd_name:
+	if bd_name:
 		fpga_ref = cfg.get_bd(bd_name).fpga
 	elif top_name:
-		fpga_ref = cfg.get_synth(top_name).fpga
+		fpga_ref = cfg.get_synth(top_name=top_name).fpga
 
 	fpga = cfg.resolve_fpga(fpga_ref or None)
 	logger.debug("FPGA target: %s  part=%s", fpga_ref or "<default>", fpga.part)
@@ -627,17 +649,6 @@ def generate_config_tcl(
 		f'set xviv_wrapper_dir "{cfg.wrapper_dir}"',
 	]
 
-	# ---- Global RTL sources (default; may be overridden per context below) --------
-	default_rtl     = cfg.resolve_globs(cfg.sources.rtl)
-	default_xdc     = cfg.resolve_globs(cfg.sources.xdc)
-	default_wrapper = cfg.resolve_globs([f"{cfg.build.wrapper_dir}/**/*"])
-
-	lines += [
-		f"set xviv_rtl_files     {_tcl_list(default_rtl)}",
-		f"set xviv_xdc_files     {_tcl_list(default_xdc)}",
-		f"set xviv_wrapper_files {_tcl_list(default_wrapper)}",
-	]
-
 	# ---- Synthesis report / netlist flags (defaults off) --------------------------------------------
 	lines += [
 		"set xviv_synth_report_synth    0",
@@ -654,7 +665,6 @@ def generate_config_tcl(
 		'set xviv_ip_library ""',
 		'set xviv_ip_version ""',
 		'set xviv_ip_top     ""',
-		f"set xviv_ip_rtl     {_tcl_list([])}",
 		'set xviv_ip_hooks   ""',
 	]
 
@@ -668,15 +678,21 @@ def generate_config_tcl(
 	# Context-specific overrides
 	# =========================================================================
 
+	synth	= cfg.get_synth(top_name=top_name, bd_name=bd_name, ip_name=ip_name)
+
+	synth_hooks	= cfg.abs_path(synth.hooks) if synth.hooks else ""
+
+	xdc		= cfg.resolve_globs(synth.xdc) if synth.xdc else []
+	rtl		= cfg.resolve_globs(synth.rtl) if synth.rtl else []
+
 	if ip_name:
 		ip    = cfg.get_ip(ip_name)
-		hooks = cfg.abs_path(ip.hooks) if ip.hooks else ""
+		ip_hooks = cfg.abs_path(ip.hooks) if ip.hooks else ""
 		# IP-specific RTL overrides the global source glob; fall back if empty
-		ip_rtl = cfg.resolve_globs(ip.rtl) or default_rtl
-		xdc    = cfg.resolve_globs(ip.xdc)
+		rtl = cfg.resolve_globs(ip.rtl)
 
-		if not os.path.exists(hooks):
-			hooks = ""
+		if not os.path.exists(ip_hooks):
+			ip_hooks = ""
 
 		lines += [
 			f'set xviv_ip_name    "{ip.name}"',
@@ -684,52 +700,40 @@ def generate_config_tcl(
 			f'set xviv_ip_library "{ip.library}"',
 			f'set xviv_ip_version "{ip.version}"',
 			f'set xviv_ip_top     "{ip.top}"',
-			f"set xviv_ip_rtl     {_tcl_list(ip_rtl)}",
-			f'set xviv_ip_hooks   "{hooks}"',
-			f"set xviv_xdc_files  {_tcl_list(xdc)}",
+			f'set xviv_ip_hooks   "{ip_hooks}"',
 		]
 
 	elif bd_name:
 		bd     	= cfg.get_bd(bd_name)
-		hooks	= cfg.abs_path(bd.hooks) if bd.hooks else ""
-		xdc    	= cfg.resolve_globs(bd.xdc)
+		bd_hooks	= cfg.abs_path(bd.hooks) if bd.hooks else ""
 		
-		if not os.path.exists(hooks):
-			hooks = ""
+		if not os.path.exists(bd_hooks):
+			bd_hooks = ""
 
 		# For BD commands the "RTL" source is the .bd file itself;
 		# the synthesised wrapper is the companion .v file.
 		bd_file   = os.path.join(cfg.bd_dir, bd_name, f"{bd_name}.bd")
 		wrap_file = os.path.join(cfg.wrapper_dir, f"{bd_name}_wrapper.v")
 
+		rtl = [wrap_file, bd_file]
+
 		lines += [
 			f'set xviv_bd_name       "{bd.name}"',
-			f'set xviv_bd_hooks      "{hooks}"',
-	
-			f"set xviv_xdc_files     {_tcl_list(xdc)}",
-
-			f"set xviv_rtl_files     {_tcl_list([bd_file])}",
-			f"set xviv_wrapper_files {_tcl_list([wrap_file])}",
+			f'set xviv_bd_hooks      "{bd_hooks}"',
 		]
 
-	elif top_name:
-		synth	= cfg.get_synth(top_name)
-		hooks	= cfg.abs_path(synth.hooks) if synth.hooks else ""
-		xdc		= cfg.resolve_globs(synth.xdc)
-		rtl		= cfg.resolve_globs(synth.rtl)
+	if not os.path.exists(synth_hooks):
+		synth_hooks = ""
 
-		if not os.path.exists(hooks):
-			hooks = ""
-
-		lines += [
-			f'set xviv_synth_hooks            "{hooks}"',
-			f"set xviv_xdc_files              {_tcl_list(xdc)}",
-			f"set xviv_rtl_files              {_tcl_list(rtl)}",
-			f"set xviv_synth_report_synth     {int(synth.report_synth)}",
-			f"set xviv_synth_report_place     {int(synth.report_place)}",
-			f"set xviv_synth_report_route     {int(synth.report_route)}",
-			f"set xviv_synth_generate_netlist {int(synth.generate_netlist)}",
-		]
+	lines += [
+		f'set xviv_synth_hooks            "{synth_hooks}"',
+		f"set xviv_xdc_files              {_tcl_list(xdc)}",
+		f"set xviv_rtl_files              {_tcl_list(rtl)}",
+		f"set xviv_synth_report_synth     {int(synth.report_synth)}",
+		f"set xviv_synth_report_place     {int(synth.report_place)}",
+		f"set xviv_synth_report_route     {int(synth.report_route)}",
+		f"set xviv_synth_generate_netlist {int(synth.generate_netlist)}",
+	]
 
 	return "\n".join(lines) + "\n"
 

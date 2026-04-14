@@ -161,17 +161,13 @@ proc xviv_create_project {name} {
 # a confusing "top module not found" error later without this guard.
 # ---------------------------------------------------------------------------
 proc xviv_add_rtl_sources {} {
-    global xviv_rtl_files xviv_wrapper_files xviv_xdc_files
+    global xviv_rtl_files xviv_xdc_files
 	# global xviv_synth_out_of_context
 
     set design_added 0
 
     if {[info exists xviv_rtl_files] && [llength $xviv_rtl_files] > 0} {
-        add_files $xviv_rtl_files
-        set design_added 1
-    }
-    if {[info exists xviv_wrapper_files] && [llength $xviv_wrapper_files] > 0} {
-        add_files $xviv_wrapper_files
+        add_files -scan_for_includes $xviv_rtl_files
         set design_added 1
     }
     if {[info exists xviv_xdc_files] && [llength $xviv_xdc_files] > 0} {
