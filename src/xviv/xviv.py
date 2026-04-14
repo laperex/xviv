@@ -37,7 +37,7 @@ reload-snapshot --top <sim_top>
 """
 
 import argparse
-import glob as _glob
+import glob
 import logging
 import os
 import sys
@@ -85,7 +85,7 @@ def _dcp_stems_completer(prefix, parsed_args, **kwargs):
 			return ["post_synth", "post_place", "post_route"]
 		stems = [
 			os.path.splitext(os.path.basename(f))[0]
-			for f in _glob.glob(os.path.join(cfg.build_dir, top, "*.dcp"))
+			for f in glob.glob(os.path.join(cfg.build_dir, top, "*.dcp"))
 		]
 		return stems or ["post_synth", "post_place", "post_route"]
 	except Exception:
