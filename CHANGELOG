@@ -1,0 +1,115 @@
+# Changelog
+
+## [0.2.0] — unreleased
+
+### Breaking changes
+
+- **CLI redesign.** All commands are now grouped under verb subcommands rather than hyphenated names. The old flat-command style (`create-ip`, `edit-bd`, `synthesis`, `elaborate`, `open-wdb`, etc.) is replaced by a two-token style:
+
+  | 0.1.x command | 0.2.0 command |
+  |---|---|
+  | `create-ip --ip <n>` | `create --ip <n>` |
+  | `edit-ip --ip <n>` | `edit --ip <n>` |
+  | `ip-config --ip <n>` | `config --ip <n>` |
+  | `create-bd --bd <n>` | `create --bd <n>` |
+  | `edit-bd --bd <n>` | `edit --bd <n>` |
+  | `generate-bd --bd <n>` | `generate --bd <n>` |
+  | `bd-config --bd <n>` | `config --bd <n>` |
+  | `synthesis --top <n>` | `synth --top <n>` |
+  | `synth-config --top <n>` | `config --top <n>` |
+  | `elaborate --top <n>` | `elab --top <n>` |
+  | `open-dcp --top <n>` | `open --dcp <stem> --top <n>` |
+  | `open-snapshot --top <n>` | `open --snapshot --top <n>` |
+  | `open-wdb --top <n>` | `open --wdb --top <n>` |
+  | `reload-snapshot --top <n>` | `reload --snapshot --top <n>` |
+  | `reload-wdb --top <n>` | `reload --wdb --top <n>` |
+
+- **`project.toml` schema changes.** The `[synthesis]` section key `constrs` is renamed `xdc`. Constraint files for IPs and BDs are now declared under `xdc` and `xdc_ooc` per-entry keys. The `wrapper` source glob is replaced by the `[build] wrapper_dir` path.
+
+- **Entry point renamed.** The `cli.py` / `wrap_top.py` entry points are replaced by `xviv.py` and `wrapper.py` respectively, with `__main__.py` added for `python -m xviv` invocation.
+
+- **`elaborate` → `elab`.** The `--so` / `--dpi-lib` DPI options are no longer supported on the `elab` subcommand (they were unused in practice and coupled tightly to the old Vivado-project simulation flow, which is superseded by the standalone xvlog/xelab flow).
+
+---
+
+### New features
+
+#### Block design export / import workflow
+
+- New `export --bd <n>` command exports the current BD as a versioned, self-contained re-runnable TCL script. The output filename encodes the git SHA tag (e.g. `image_processing_abc1234.tcl`); a stable symlink at `<bd_name>.tcl` is updated atomically after each export.
+- `create --bd` now auto-sources the exported TCL when it exists, recreating the BD non-interactively. When no export TCL is found, the GUI opens for interactive design as before.
+- `config --bd` generates a hooks file that includes a `bd_design_config` proc wired to the export TCL path, enabling the full create→design→export→recreate round-trip automatically.
+
+#### Out-of-context BD synthesis
+
+- New `synth --bd <n>` command runs a two-phase OOC synthesis flow for block designs: each leaf IP is synthesised out-of-context first (cached by DCP mtime vs `component.xml`), then the BD wrapper is synthesised with the OOC DCPs loaded as black-box replacements. Incremental re-use of the previous `post_route.dcp` as a reference checkpoint is applied automatically when available.
+
+#### Vitis / embedded processor support
+
+New `xsct`-backed commands for MicroBlaze and Vitis workflows:
+
+- `create --platform <n>` — generate a BSP from the XSA produced by synthesis using `hsi::generate_bsp`.
+- `build --platform <n>` — compile the BSP with `make`.
+- `create --app <n> [--platform <n>] [--template <t>]` — scaffold an application from a Vitis template; auto-creates the BSP if absent.
+- `build --app <n> [--info]` — compile the application; `--info` prints ELF section sizes.
+- `program [--platform | --bitstream] [--app | --elf]` — download bitstream and/or ELF over JTAG.
+- `processor --reset | --status` — soft-reset or inspect the embedded processor via JTAG.
+
+A new `xviv_xsct.tcl` dispatcher script implements all XSCT-side logic (platform creation, application scaffolding, programming, processor control, JTAG UART monitoring).
+
+#### Shell completion
+
+- Tab completion for all subcommands and `--ip`, `--bd`, `--top`, `--platform`, `--app`, `--dcp` arguments via `argcomplete`. Completion candidates are read live from `project.toml`. Activate with `eval "$(register-python-argcomplete xviv)"`.
+
+#### Build manifests and git SHA tagging
+
+- Synthesis outputs (bitstream, XSA) are now named with the short git SHA tag (e.g. `top_abc1234.bit`). A stable symlink `<top>.bit` / `<top>.xsa` always points at the latest build.
+- A `build.json` manifest is written after each successful synthesis run recording Vivado version, part, top module, git SHA, dirty flag, elapsed time, and timestamp.
+- The git SHA is embedded into the bitstream's `USR_ACCESS` register field for readback via JTAG without a separate manifest file.
+- All git operations are performed in Python (`_git_sha_tag()` in `utils.py`); the TCL scripts receive the computed tag as an argument and perform no git operations themselves.
+
+#### Typed configuration system
+
+- `project.toml` is now parsed once into a `ProjectConfig` dataclass tree (`FpgaConfig`, `VivadoConfig`, `VitisConfig`, `BuildConfig`, `SourcesConfig`, `IpConfig`, `BdConfig`, `SynthConfig`, `PlatformConfig`, `AppConfig`). All raw dict key access is confined to `_parse_*` functions in `config.py`.
+- Named FPGA targets are supported: `[fpga.<name>] part = '...'` entries can be referenced from individual `[[ip]]`, `[[bd]]`, or `[[synthesis]]` entries via `fpga = '<name>'`.
+- Per-entry `xdc`, `xdc_ooc`, `rtl`, and `hooks` paths resolve relative to the project root, falling back to auto-derived defaults when omitted.
+- `hw_server` is now configurable under `[vivado] hw_server = 'host:port'` (default `localhost:3121`).
+
+#### Improved TCL infrastructure
+
+- Monolithic `scripts/xviv.tcl` split into focused files: `ip/create.tcl`, `ip/edit.tcl`, `ip/utils.tcl`, `bd/create.tcl`, `bd/edit.tcl`, `bd/export.tcl`, `bd/generate.tcl`, `synthesis.tcl`, `open_dcp.tcl`.
+- `xviv_die` centralises all error exits with command and project context.
+- `xviv_require_vars` validates required config variables at the top of each command proc, catching misconfiguration before any Vivado work starts.
+- `xviv_elapsed` / `xviv_stage` provide a stopwatch printed at every major stage.
+- `xviv_create_project` validates the FPGA part string against the installed catalog via `get_parts` before creating the project.
+- `xviv_add_rtl_sources` warns when no design files are added rather than silently producing a confusing "top module not found" error later.
+- `xviv_update_symlink` uses `[file link]` instead of `exec ln` for portability.
+- `xviv_write_manifest` emits a JSON build record after synthesis.
+- IP creation split into `_xviv_ip_scaffold`, `_xviv_ip_strip_scaffold`, `_xviv_ip_infer_interfaces`, `_xviv_ip_expose_params`, `_xviv_ip_wire_memory_maps`, and `_xviv_ip_finalise` stage procs.
+
+---
+
+### Improvements
+
+- **Simulation build directory.** Elaboration outputs now go to `build/elab/<top>/` instead of `build/xviv/<top>/`. The waveform control FIFO path (`build/xviv/<top>/control.fifo`) is unchanged.
+- **IP wrapper creation.** When `create-wrapper = true` is set on an `[[ip]]` entry, `xviv_wrap_top` is invoked before Vivado, and the resulting `<top>_wrapper.sv` is passed to the IP create flow automatically.
+- **`bd_design_config` hooks.** The generated BD hooks file now includes lifecycle stubs for synthesis hooks (`synth_pre`, `synth_post`, `place_post`, `route_post`, `bitstream_post`) in the same file, reducing the number of separate files to maintain.
+- **`generate --bd` improvements.** Stale IP upgrade errors are caught and surfaced clearly rather than silently aborting. Uses `[file copy]` instead of `exec cp` for portability.
+- **Incremental synthesis.** `synth --bd` reuses the previous `post_route.dcp` as an incremental reference checkpoint when available, reducing re-implementation time for unchanged designs.
+- **Conditional `phys_opt_design`.** Physical optimisation is only run when timing fails after placement, saving time on designs that already meet timing.
+- **Logging.** Logger hierarchy is rooted at `xviv` across all modules; the log file defaults to `build/xviv/xviv.log`.
+
+---
+
+### Internal / structural changes
+
+- `cli.py` is removed; logic is split into `xviv.py` (argument parsing and dispatch), `command.py` (one function per command), `config.py` (TOML loading and TCL generation), `hooks.py` (hooks file generators), `vivado.py` (Vivado runner), `waveform.py` (xsim waveform helpers), `wrapper.py` (SV wrapper generator), `utils.py` (logging, git, symlink helpers), `vitis.py` (XSCT runner), and `platform.py` (ELF/Makefile helpers).
+- `wrap_top.py` is superseded by `wrapper.py`; the class is renamed `xviv_wrap_top` and the `work_dir` parameter renamed `out_dir`.
+- `bd_deps.py` is present but entirely commented out pending the OOC BD synthesis rework.
+- `inference.py` is carried forward unchanged (Vivado IP-XACT TCL generator from pyslang).
+
+---
+
+## [0.1.2] — previous release
+
+Initial public release. Single-file CLI (`cli.py`) with flat subcommands backed by a monolithic `scripts/xviv.tcl`.
