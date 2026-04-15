@@ -756,31 +756,31 @@ def generate_config_tcl(
 		return "\n".join(lines)
 
 
-	overview_lines = [
-		"\n===============================================================",
-		"CONFIGURATION OVERVIEW",
-		"===============================================================",
-		f"Mode            : {'IP' if ip_name else 'BD' if bd_name else 'TOP'}",
-		f"Target Name     : {ip_name or bd_name or top_name}",
-		f"FPGA Part       : {fpga.part}",
-		f"Board Part      : {fpga.board_part}",
-		f"Board Repo      : {fpga.board_repo}",
-		f"Build Dir       : {cfg.build_dir}",
-		f"IP Repo         : {cfg.ip_repo}",
-		f"BD Dir          : {cfg.bd_dir}",
-		f"Wrapper Dir     : {cfg.wrapper_dir}",
-		f"Max Threads     : {cfg.vivado.max_threads}",
-		f"Report Synth    : {synth.report_synth}",
-		f"Report Place    : {synth.report_place}",
-		f"Report Route    : {synth.report_route}",
-		f"Generate Netlist: {synth.generate_netlist}",
-		f"Synth Hooks     : {synth_hooks or '<none>'}",
-		_fmt_list("XDC Files", xdc),
-		_fmt_list("RTL Files", rtl),
-		"===============================================================",
-	]
+	# overview_lines = [
+	# 	"\n===============================================================",
+	# 	"CONFIGURATION OVERVIEW",
+	# 	"===============================================================",
+	# 	f"Mode            : {'IP' if ip_name else 'BD' if bd_name else 'TOP'}",
+	# 	f"Target Name     : {ip_name or bd_name or top_name}",
+	# 	f"FPGA Part       : {fpga.part}",
+	# 	f"Board Part      : {fpga.board_part}",
+	# 	f"Board Repo      : {fpga.board_repo}",
+	# 	f"Build Dir       : {cfg.build_dir}",
+	# 	f"IP Repo         : {cfg.ip_repo}",
+	# 	f"BD Dir          : {cfg.bd_dir}",
+	# 	f"Wrapper Dir     : {cfg.wrapper_dir}",
+	# 	f"Max Threads     : {cfg.vivado.max_threads}",
+	# 	f"Report Synth    : {synth.report_synth}",
+	# 	f"Report Place    : {synth.report_place}",
+	# 	f"Report Route    : {synth.report_route}",
+	# 	f"Generate Netlist: {synth.generate_netlist}",
+	# 	f"Synth Hooks     : {synth_hooks or '<none>'}",
+	# 	_fmt_list("XDC Files", xdc),
+	# 	_fmt_list("RTL Files", rtl),
+	# 	"===============================================================",
+	# ]
 
-	logger.info("\n".join(overview_lines))
+	# logger.info("\n".join(overview_lines))
 
 	return "\n".join(lines) + "\n"
 
