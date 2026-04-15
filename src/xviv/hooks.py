@@ -60,29 +60,6 @@ proc ipx_add_params {{}} {{
 proc ipx_add_memory_map {{}} {{
 
 }}
-
-
-# Hook procs - xviv synthesis - {ip_name}
-
-proc synth_pre {{}} {{
-
-}}
-
-proc synth_post {{}} {{
-
-}}
-
-proc place_post {{}} {{
-
-}}
-
-proc route_post {{}} {{
-
-}}
-
-proc bitstream_post {{}} {{
-
-}}
 """)
 	logger.info("IP hooks file created -> %s", hooks_path)
 	print(f"Edit: {hooks_path}")
@@ -131,28 +108,6 @@ proc bd_design_config {{ parentCell }} {{
 		start_gui
 	}}
 }}
-
-# Hook procs - xviv synthesis - {bd_name}
-
-proc synth_pre {{}} {{
-
-}}
-
-proc synth_post {{}} {{
-
-}}
-
-proc place_post {{}} {{
-
-}}
-
-proc route_post {{}} {{
-
-}}
-
-proc bitstream_post {{}} {{
-
-}}
 """)
 	logger.info("BD hooks file created -> %s", hooks_path)
 	print(f"Edit: {hooks_path}")
@@ -161,7 +116,7 @@ proc bitstream_post {{}} {{
 
 def generate_top_hooks(cfg: ProjectConfig, top_name: str) -> None:
 	"""Generate starter synthesis hooks file for a top-level synthesis entry."""
-	synth = cfg.get_synth(top_name)
+	synth = cfg.get_synth(top_name=top_name)
 
 	hooks_path = cfg.abs_path(synth.hooks)
 
