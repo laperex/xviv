@@ -257,9 +257,9 @@ def cmd_wdb_open(cfg: ProjectConfig, top_name: str):
 
 
 # -----------------------------------------------------------------------------
-# elab --top <top_name> [--run <time>]
+# elaborate --top <top_name> [--run <time>]
 # -----------------------------------------------------------------------------
-def cmd_top_elab(cfg: ProjectConfig, top_name: str, run: typing.Optional[str]):
+def cmd_top_elaborate(cfg: ProjectConfig, top_name: str, run: typing.Optional[str]):
 	xlib_work_dir = cfg.get_xlib_work_dir(top_name)
 	sim_files     = cfg.resolve_globs(cfg.get_simulation(top_name=top_name).rtl)
 
@@ -270,14 +270,21 @@ def cmd_top_elab(cfg: ProjectConfig, top_name: str, run: typing.Optional[str]):
 	vivado.run_vivado_xelab(cfg, xlib_work_dir, top_name, timescale=timescale, xsim_lib=xsim_lib)
 
 	if run:
-		x_simulate_tcl = f"""
-			log_wave -recursive *
-			run {run}
-			exit
-		"""
+		cmd_top_simulate(cfg, top_name, run)
 
-		vivado.run_vivado_xsim(cfg, xlib_work_dir, top_name, x_simulate_tcl)
+# -----------------------------------------------------------------------------
+# simulate --top <top_name> [--run <time>]
+# -----------------------------------------------------------------------------
+def cmd_top_simulate(cfg: ProjectConfig, top_name: str, run: str = "all"):
+	xlib_work_dir = cfg.get_xlib_work_dir(top_name)
 
+	x_simulate_tcl = f"""
+		log_wave -recursive *
+		run {run}
+		exit
+	"""
+
+	vivado.run_vivado_xsim(cfg, xlib_work_dir, top_name, x_simulate_tcl)
 
 # -----------------------------------------------------------------------------
 # reload --snapshot --top <top_name>
