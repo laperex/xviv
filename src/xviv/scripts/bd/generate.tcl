@@ -39,7 +39,7 @@ proc cmd_generate_bd {} {
         file mkdir $xviv_wrapper_dir
         # Use TCL file copy instead of exec cp for portability
         file copy -force $wrapper_src $xviv_wrapper_dir
-        puts "INFO: BD wrapper copied to $xviv_wrapper_dir"
+        puts "INFO: BD wrapper copied to $xviv_wrapper_dir/${xviv_bd_name}_wrapper.v"
     }
 
     puts "INFO: BD generation complete - [xviv_elapsed]"

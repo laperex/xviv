@@ -23,7 +23,7 @@ proc cmd_create_bd {} {
     xviv_create_project "in_memory_project"
     create_bd_design -dir $xviv_bd_dir $xviv_bd_name
 
-	if {![info exists hooks_file] || $hooks_file eq ""} {
+	if {![info exists xviv_bd_hooks] || $xviv_bd_hooks eq ""} {
 		puts "INFO: BD hooks not found. Starting GUI..."
 		puts "INFO: Tip: Save your design with 'xviv export --bd <bd_name>'."
 		puts "INFO: Tip: Enable automation with 'xviv config --bd <bd_name>'."
