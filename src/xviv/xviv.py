@@ -50,7 +50,12 @@ logger = logging.getLogger(__name__)
 
 
 def _find_config(prefix, parsed_args, **kwargs) -> str:
-	return getattr(parsed_args, "config", None) or "project.toml"
+	cfg = getattr(parsed_args, "config", None)
+	if cfg:
+		return cfg
+	if os.path.exists("project.cue"):
+		return "project.cue"
+	return "project.toml"
 
 
 def _ip_names_completer(prefix, parsed_args, **kwargs):
@@ -114,8 +119,8 @@ def build_parser() -> argparse.ArgumentParser:
 		description="FPGA project controller for Vivado / Vitis",
 	)
 
-	p.add_argument("--config", "-c", default="project.toml", metavar="TOML",
-				help="Project configuration file (default: project.toml)")
+	p.add_argument("--config", "-c", default="", metavar="TOML",
+				help="Project configuration file (default: project.cue | project.toml)")
 	p.add_argument("--log-file", default="", metavar="FILE",
 				help="Append debug log to FILE")
 
@@ -252,7 +257,16 @@ def main() -> None:
 	argcomplete.autocomplete(parser)
 	args = parser.parse_args()
 
-	cfg_path    = os.path.abspath(args.config)
+	target_config = args.config
+	if not target_config:
+		if os.path.exists("project.cue"):
+			target_config = "project.cue"
+		elif os.path.exists("project.toml"):
+			target_config = "project.toml"
+		else:
+			sys.exit("ERROR: Neither project.cue nor project.toml found in current directory.")
+
+	cfg_path    = os.path.abspath(target_config)
 	project_dir = os.path.dirname(cfg_path)
 	os.chdir(project_dir)
 

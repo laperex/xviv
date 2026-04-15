@@ -23,8 +23,10 @@ from __future__ import annotations
 
 import dataclasses
 import glob
+import json
 import logging
 import os
+import subprocess
 import sys
 import tomllib
 import typing
@@ -555,8 +557,30 @@ def load_config(path: str) -> ProjectConfig:
 	if not os.path.isfile(path):
 		sys.exit(f"ERROR: Config file not found - {path}")
 
-	with open(path, "rb") as fh:
-		raw = tomllib.load(fh)
+	ext = os.path.splitext(path)[1].lower()
+
+	if ext == ".toml":
+		with open(path, "rb") as fh:
+			raw = tomllib.load(fh)
+
+	elif ext == ".cue":
+		try:
+			result = subprocess.run(
+				["cue", "export", path, "--out", "json"],
+				capture_output=True,
+				text=True,
+				check=True
+			)
+			raw = json.loads(result.stdout)
+		except subprocess.CalledProcessError as e:
+			sys.exit(f"ERROR: CUE validation failed in {path}:\n{e.stderr}")
+		except FileNotFoundError:
+			sys.exit("ERROR: 'cue' CLI not found. Please install it: https://cuelang.org/docs/install/")
+		except json.JSONDecodeError as e:
+			sys.exit(f"ERROR: Failed to parse CUE JSON output:\n{e}")
+
+	else:
+		sys.exit(f"ERROR: Unsupported configuration format '{ext}'. Must be .toml or .cue")
 
 	base_dir = os.path.dirname(path)
 
