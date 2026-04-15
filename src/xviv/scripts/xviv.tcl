@@ -161,43 +161,28 @@ proc xviv_create_project {name} {
 # a confusing "top module not found" error later without this guard.
 # ---------------------------------------------------------------------------
 proc xviv_add_rtl_sources {} {
-    global xviv_rtl_files xviv_xdc_files
-	# global xviv_synth_out_of_context
-
-    set design_added 0
+    global xviv_rtl_files
 
     if {[info exists xviv_rtl_files] && [llength $xviv_rtl_files] > 0} {
         add_files -scan_for_includes $xviv_rtl_files
         set design_added 1
-    }
-    if {[info exists xviv_xdc_files] && [llength $xviv_xdc_files] > 0} {
-        add_files -fileset constrs_1 $xviv_xdc_files
-
-		# if {$xviv_synth_out_of_context} {
-		# 	set_property USED_IN {out_of_context} [get_files $xviv_xdc_files]
-		# }
-    }
-
-    if {!$design_added} {
-        puts "WARN: No RTL or wrapper source files were added to the project."
-        puts "WARN: Check that \[sources\] rtl/wrapper globs in project.toml match real files."
+    } else  {
+        puts "WARN: No RTL source files were added to the project."
     }
 
     update_compile_order -fileset sources_1
 }
 
-# ---------------------------------------------------------------------------
-# xviv_add_sim_sources  -  add simulation sources to sim_1
-# ---------------------------------------------------------------------------
-proc xviv_add_sim_sources {} {
-    global xviv_sim_files
-
-    if {[info exists xviv_sim_files] && [llength $xviv_sim_files] > 0} {
-        foreach f $xviv_sim_files {
-            add_files -fileset sim_1 $f
-        }
-    }
-    update_compile_order -fileset sim_1
+proc xviv_add_xdc_sources {} {
+    global xviv_xdc_files
+	
+    if {[info exists xviv_xdc_files] && [llength $xviv_xdc_files] > 0} {
+        add_files -fileset constrs_1 $xviv_xdc_files
+    } else {
+        puts "WARN: No XDC constraints files were added to the project."
+	}
+	
+    update_compile_order -fileset sources_1
 }
 
 # ---------------------------------------------------------------------------

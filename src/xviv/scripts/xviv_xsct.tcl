@@ -30,25 +30,6 @@
 #   jtag_uart  <hw_server>
 #       Stream JTAG UART output to stdout in real time.
 #
-#       HOW JTAG UART WORKS:
-#         The Xilinx MDM (MicroBlaze Debug Module) IP includes a lightweight
-#         JTAG UART peripheral.  When your firmware calls xil_printf() or
-#         print(), the MDM FIFO captures the bytes and xsct can drain them via
-#         readjtaguart without a physical UART cable.
-#
-#         Requirements:
-#           1. MDM IP present in the Vivado block design with JTAG UART enabled
-#              (C_USE_UART = 1 in the MDM IP customisation).
-#           2. hw_server running: start Vivado -> Open Hardware Manager ->
-#              Open Target, or run hw_server standalone:
-#                /opt/Xilinx/Vivado/2024.1/bin/hw_server
-#           3. FPGA programmed with a bitstream that includes the MDM.
-#
-#         readjtaguart -start -handle <proc> registers a callback that xsct
-#         invokes asynchronously each time data arrives in the JTAG UART FIFO.
-#         The "while {1} { after 100 }" loop keeps the xsct event loop
-#         spinning so callbacks are dispatched indefinitely until Ctrl-C.
-#
 # =============================================================================
 
 if {$::argc < 1} {
