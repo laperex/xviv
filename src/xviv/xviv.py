@@ -81,6 +81,13 @@ def _top_names_completer(prefix, parsed_args, **kwargs):
 	except Exception:
 		return []
 
+def _top_sim_names_completer(prefix, parsed_args, **kwargs):
+	try:
+		cfg = config.load_config(os.path.abspath(_find_config(prefix, parsed_args)))
+		return [s.top for s in cfg.simulations]
+	except Exception:
+		return []
+
 
 def _dcp_stems_completer(prefix, parsed_args, **kwargs):
 	try:
@@ -200,7 +207,7 @@ def build_parser() -> argparse.ArgumentParser:
 	# ------------------------------------------------------------------
 	c = sub.add_parser("elab", help="Compile and optionally run simulation")
 	c.add_argument("--top", required=True, metavar="NAME",
-		help="Simulation top module").completer = _top_names_completer
+		help="Simulation top module").completer = _top_sim_names_completer
 	c.add_argument("--run", metavar="TIME", default="",
 		help="Simulation run time, e.g. 1000ns")
 

@@ -261,7 +261,7 @@ def cmd_wdb_open(cfg: ProjectConfig, top_name: str):
 # -----------------------------------------------------------------------------
 def cmd_top_elab(cfg: ProjectConfig, top_name: str, run: typing.Optional[str]):
 	xlib_work_dir = cfg.get_xlib_work_dir(top_name)
-	sim_files     = cfg.resolve_globs(cfg.sources.sim)
+	sim_files     = cfg.resolve_globs(cfg.get_simulation(top_name=top_name).rtl)
 
 	xsim_lib  = "xv_work"
 	timescale = "1ns/1ps"

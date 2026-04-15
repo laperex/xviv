@@ -208,6 +208,10 @@ class SynthConfig:
 		if not self.hooks:
 			self.hooks = f"scripts/synth/{self.top}.tcl"
 
+@dataclasses.dataclass
+class SimulationConfig:
+	top:       str
+	rtl:       list[str] = dataclasses.field(default_factory=list)
 
 @dataclasses.dataclass
 class PlatformConfig:
@@ -247,11 +251,12 @@ class ProjectConfig:
 	build:   BuildConfig
 	# sources: SourcesConfig
 
-	ips:       list[IpConfig]
-	bds:       list[BdConfig]
-	synths:    list[SynthConfig]
-	platforms: list[PlatformConfig]
-	apps:      list[AppConfig]
+	ips:         list[IpConfig]
+	bds:         list[BdConfig]
+	synths:      list[SynthConfig]
+	platforms:   list[PlatformConfig]
+	apps:        list[AppConfig]
+	simulations: list[SimulationConfig]
 
 	# ---- resolved absolute path properties ----------------------------------------------------------------
 
@@ -316,6 +321,15 @@ class ProjectConfig:
 			return SynthConfig(top="", ip="", bd="")
 
 		return s
+
+	def get_simulation(self, top_name: str) -> SimulationConfig:
+		p = next((p for p in self.simulations if p.top == top_name), None)
+		if p is None:
+			sys.exit(
+				f"ERROR: simulation '{top_name}' not found in [[simulation]] entries.\n"
+				f"  Available: {[p.top for p in self.simulations]}"
+			)
+		return p
 
 	def get_platform(self, name: str) -> PlatformConfig:
 		p = next((p for p in self.platforms if p.name == name), None)
@@ -518,6 +532,14 @@ def _parse_synths(raw: dict) -> list[SynthConfig]:
 		for s in raw.get("synthesis", [])
 	]
 
+def _parse_simulations(raw: dict) -> list[SimulationConfig]:
+	return [
+		SimulationConfig(
+			top=p["top"],
+			rtl=p.get("rtl", []),
+		)
+		for p in raw.get("simulate", [])
+	]
 
 def _parse_platforms(raw: dict) -> list[PlatformConfig]:
 	return [
@@ -604,6 +626,7 @@ def load_config(path: str) -> ProjectConfig:
 		ips          = _parse_ips(raw),
 		bds          = _parse_bds(raw),
 		synths       = _parse_synths(raw),
+		simulations  = _parse_simulations(raw),
 		platforms    = _parse_platforms(raw),
 		apps         = _parse_apps(raw),
 	)
