@@ -140,7 +140,7 @@ class SynthConfig:
 	# GLOBAL SETTINGS
 	# =========================================================================
 	# Caps the number of CPU threads Vivado will use (1-32)
-	max_threads: int = 8 
+	max_threads: int = 8
 
 	# autoIncr.Synth.RejectBehavior when incremental synthesis criteria isn't met
 	# values: continue (switch to default full synthesis) | terminate (stop build)
@@ -155,7 +155,7 @@ class SynthConfig:
 
 	# values: rebuilt | full | none
 	flatten_hierarchy: str = "rebuilt"
-	
+
 	# values: auto | one_hot | sequential | johnson | gray | off
 	fsm_extraction: str = "auto"
 
@@ -164,7 +164,7 @@ class SynthConfig:
 	# Note: Must be True if using an incremental implementation reference!
 	# =========================================================================
 	run_opt_design: bool = True
-	
+
 	# values: default | Explore | ExploreArea | ExploreSequentialArea
 	#         AddRemap | ExploreWithRemap | RuntimeOptimized | NoBramPowerOpt
 	opt_directive: str = "default"
@@ -183,7 +183,7 @@ class SynthConfig:
 	# Runs after placement to fix timing violations using physical data
 	# =========================================================================
 	run_phys_opt: bool = False
-	
+
 	# values: default | Explore | AggressiveExplore | AlternateReplication
 	#         AggressiveFanoutOpt | AlternateFlowWithRetiming | AddRetime
 	phys_opt_directive: str = "default"
@@ -191,14 +191,14 @@ class SynthConfig:
 	# =========================================================================
 	# ROUTING (route_design)
 	# =========================================================================
-	# values: default | Explore | MoreGlobalIterations | HigherDelayCost 
+	# values: default | Explore | MoreGlobalIterations | HigherDelayCost
 	#         AdvancedSkewModeling | NoTimingRelaxation | RuntimeOptimized | Quick
 	route_directive: str = "default"
 
 	# =========================================================================
 	# BITSTREAM GENERATION
 	# =========================================================================
-	# 32-bit hex string to embed via JTAG (e.g., "DEADBEEF"). 
+	# 32-bit hex string to embed via JTAG (e.g., "DEADBEEF").
 	# If left empty, xviv automatically injects the git SHA.
 	usr_access: str = ""
 
@@ -236,7 +236,8 @@ class AppConfig:
 class ProjectConfig:
 	base_dir: str          # resolved absolute path to the project root
 
-	fpga_default: typing.Optional[FpgaConfig]
+	# fpga_default: typing.Optional[FpgaConfig]
+	fpga_default_ref: str
 	fpga_named:   dict[str, FpgaConfig]
 
 	vivado:  VivadoConfig
@@ -291,14 +292,14 @@ class ProjectConfig:
 	def get_synth(self, *, top_name: typing.Optional[str] = None, bd_name: typing.Optional[str] = None, ip_name: typing.Optional[str] = None) -> SynthConfig:
 		s = next(
 			(
-				s for s in self.synths 
-				if (top_name is not None and s.top == top_name) or 
-				(ip_name is not None and s.ip == ip_name) or 
+				s for s in self.synths
+				if (top_name is not None and s.top == top_name) or
+				(ip_name is not None and s.ip == ip_name) or
 				(bd_name is not None and s.bd == bd_name)
-			), 
+			),
 			None
 		)
-		
+
 		# Handle the failure cases
 		if s is None:
 			# If 'top_name' was provided and we failed to find it, throw the error
@@ -311,7 +312,7 @@ class ProjectConfig:
 
 			# If it was a 'bd_name' or 'ip_name' search that failed, return an empty config
 			return SynthConfig(top="", ip="", bd="")
-	
+
 		return s
 
 	def get_platform(self, name: str) -> PlatformConfig:
@@ -333,7 +334,8 @@ class ProjectConfig:
 		return a
 
 	def resolve_fpga(self, ref: typing.Optional[str] = None) -> FpgaConfig:
-		"""Return the FpgaConfig for the named target, or the default."""
+		ref = ref or self.fpga_default_ref
+
 		if ref:
 			fpga = self.fpga_named.get(ref)
 			if fpga is None:
@@ -342,12 +344,8 @@ class ProjectConfig:
 					f"  Available: {list(self.fpga_named.keys())}"
 				)
 			return fpga
-		if self.fpga_default is None:
-			sys.exit(
-				"ERROR: No default [fpga] part found and no named fpga = '<name>' specified.\n"
-				"  Add  [fpga] part = '...'  or reference a named  [fpga.<name>]  target."
-			)
-		return self.fpga_default
+
+		return list(self.fpga_named.values())[0]
 
 	# ---- path helpers ------------------------------------------------------------------------------------------------------------
 
@@ -411,20 +409,11 @@ class ProjectConfig:
 # To rename a TOML key, change only the relevant function here.
 # =============================================================================
 
-def _parse_fpga(raw: dict) -> tuple[typing.Optional[FpgaConfig], dict[str, FpgaConfig]]:
+def _parse_fpga(raw: dict) -> tuple[str, dict[str, FpgaConfig]]:
 	section = raw.get("fpga", {})
 
 	# Default target: flat scalars directly under [fpga]
-	default_part = section.get("part", "")
-	fpga_default: typing.Optional[FpgaConfig] = (
-		FpgaConfig(
-			part=default_part,
-			board_part=section.get("board_part", ""),
-			board_repo=section.get("board_repo", ""),
-		)
-		if default_part
-		else None
-	)
+	default_part_ref = section.get("default", "")
 
 	# Named targets: [fpga.<name>] sub-tables
 	fpga_named: dict[str, FpgaConfig] = {
@@ -437,7 +426,7 @@ def _parse_fpga(raw: dict) -> tuple[typing.Optional[FpgaConfig], dict[str, FpgaC
 		if isinstance(val, dict) and val.get("part")
 	}
 
-	return fpga_default, fpga_named
+	return default_part_ref, fpga_named
 
 
 def _parse_vivado(raw: dict) -> VivadoConfig:
@@ -571,18 +560,18 @@ def load_config(path: str) -> ProjectConfig:
 
 	base_dir = os.path.dirname(path)
 
-	fpga_default, fpga_named = _parse_fpga(raw)
+	fpga_default_ref, fpga_named = _parse_fpga(raw)
 
-	if fpga_default is None and not fpga_named:
+	if fpga_default_ref is None and not fpga_named:
 		sys.exit(
 			"ERROR: project.toml must define at least one FPGA target:\n"
-			"  [fpga] part = '...'        (default target)\n"
+			"  [fpga] default = '...'        (default target)\n"
 			"  [fpga.<name>] part = '...' (named target, select with  fpga = '<name>')"
 		)
 
 	return ProjectConfig(
 		base_dir     = base_dir,
-		fpga_default = fpga_default,
+		fpga_default_ref = fpga_default_ref,
 		fpga_named   = fpga_named,
 		vivado       = _parse_vivado(raw),
 		vitis        = _parse_vitis(raw),
@@ -706,7 +695,7 @@ def generate_config_tcl(
 	elif bd_name:
 		bd     	= cfg.get_bd(bd_name)
 		bd_hooks	= cfg.abs_path(bd.hooks) if bd.hooks else ""
-		
+
 		if not os.path.exists(bd_hooks):
 			bd_hooks = ""
 
@@ -734,6 +723,40 @@ def generate_config_tcl(
 		f"set xviv_synth_report_route     {int(synth.report_route)}",
 		f"set xviv_synth_generate_netlist {int(synth.generate_netlist)}",
 	]
+
+	def _fmt_list(name, items):
+		if not items:
+			return f"{name:<16}: <none>"
+		lines = [f"{name:<16}:"]
+		lines += [f"  - {x}" for x in items]
+		return "\n".join(lines)
+
+
+	overview_lines = [
+		"\n===============================================================",
+		"CONFIGURATION OVERVIEW",
+		"===============================================================",
+		f"Mode            : {'IP' if ip_name else 'BD' if bd_name else 'TOP'}",
+		f"Target Name     : {ip_name or bd_name or top_name}",
+		f"FPGA Part       : {fpga.part}",
+		f"Board Part      : {fpga.board_part}",
+		f"Board Repo      : {fpga.board_repo}",
+		f"Build Dir       : {cfg.build_dir}",
+		f"IP Repo         : {cfg.ip_repo}",
+		f"BD Dir          : {cfg.bd_dir}",
+		f"Wrapper Dir     : {cfg.wrapper_dir}",
+		f"Max Threads     : {cfg.vivado.max_threads}",
+		f"Report Synth    : {synth.report_synth}",
+		f"Report Place    : {synth.report_place}",
+		f"Report Route    : {synth.report_route}",
+		f"Generate Netlist: {synth.generate_netlist}",
+		f"Synth Hooks     : {synth_hooks or '<none>'}",
+		_fmt_list("XDC Files", xdc),
+		_fmt_list("RTL Files", rtl),
+		"===============================================================",
+	]
+
+	logger.info("\n".join(overview_lines))
 
 	return "\n".join(lines) + "\n"
 
