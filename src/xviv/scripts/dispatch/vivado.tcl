@@ -23,6 +23,8 @@ source "$script_dir/ip/utils.tcl"
 source "$script_dir/ip/create.tcl"
 source "$script_dir/ip/edit.tcl"
 
+source "$script_dir/reports/utilisation.tcl"
+
 source "$script_dir/bd/create.tcl"
 source "$script_dir/bd/edit.tcl"
 source "$script_dir/bd/export.tcl"
