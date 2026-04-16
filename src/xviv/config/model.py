@@ -334,7 +334,7 @@ class ProjectConfig:
 		return _resolve_globs(patterns, self.base_dir)
 
 	def get_dcp_path(self, top: str, dcp_name: str) -> str:
-		return os.path.abspath(os.path.join(self.build_dir, top, f"{dcp_name}.dcp"))
+		return os.path.abspath(os.path.join(self.build_dir, "synth", top, f"{dcp_name}.dcp"))
 
 	def get_control_fifo_path(self, top: str) -> str:
 		return os.path.join(self.build_dir, "xviv", top, "control.fifo")

@@ -235,5 +235,4 @@ proc cmd_synthesis {top_module sha_tag} {
         timestamp       [clock format [clock seconds] -format "%Y-%m-%dT%H:%M:%SZ"]
 
     puts "INFO: Build complete - [xviv_elapsed]"
-    exit 0
 }

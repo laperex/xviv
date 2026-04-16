@@ -31,11 +31,7 @@ def run():
 	os.chdir(project_dir)
 
 	cfg = load_config(cfg_path)
-	_setup_logging(
-		args.log_file or os.path.join(
-			cfg.build_dir, "xviv", "xviv.log",
-		)
-	)
+	_setup_logging(args.log_file or os.path.join(cfg.build_dir, "xviv", "xviv.log"))
 
 	match args.command:
 		case "create":
@@ -80,15 +76,15 @@ def run():
 
 		case "open":
 			if args.dcp:
-				cmd_dcp_open(cfg, args.dcp, args.top)
+				cmd_dcp_open(cfg, args.dcp, top_name=args.top, bd_name=args.bd, nogui=args.nogui)
 			elif args.snapshot:
-				cmd_snapshot_open(cfg, args.top)
+				cmd_snapshot_open(cfg, args.top, nogui=args.nogui)
 			elif args.wdb:
-				cmd_wdb_open(cfg, args.top)
+				cmd_wdb_open(cfg, args.top, nogui=args.nogui)
 
 		case "elaborate":
 			cmd_top_elaborate(cfg, args.top, args.run)
-		
+
 		case "simulate":
 			cmd_top_simulate(cfg, args.top, args.run)
 

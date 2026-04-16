@@ -1,5 +1,7 @@
 
 import argparse
+import argcomplete
+import glob
 import os
 from xviv.config.loader import load_config
 
@@ -28,8 +30,14 @@ def _bd_names_completer(prefix, parsed_args, **kwargs):
 	except Exception:
 		return []
 
-
 def _top_names_completer(prefix, parsed_args, **kwargs):
+	try:
+		cfg = load_config(os.path.abspath(_find_config(prefix, parsed_args)))
+		return [s.top for s in cfg.synths] + [s.top for s in cfg.simulations]
+	except Exception:
+		return []
+
+def _top_synth_names_completer(prefix, parsed_args, **kwargs):
 	try:
 		cfg = load_config(os.path.abspath(_find_config(prefix, parsed_args)))
 		return [s.top for s in cfg.synths]
@@ -116,7 +124,7 @@ def build_parser() -> argparse.ArgumentParser:
 	mg = c.add_mutually_exclusive_group(required=True)
 	mg.add_argument("--ip",  metavar="NAME", help="IP name").completer  = _ip_names_completer
 	mg.add_argument("--bd",  metavar="NAME", help="BD name").completer  = _bd_names_completer
-	mg.add_argument("--top", metavar="NAME", help="Top module name").completer = _top_names_completer
+	mg.add_argument("--top", metavar="NAME", help="Top module name").completer = _top_synth_names_completer
 
 	# ------------------------------------------------------------------
 	# generate --bd
@@ -139,7 +147,7 @@ def build_parser() -> argparse.ArgumentParser:
 	mg = c.add_mutually_exclusive_group(required=True)
 	mg.add_argument("--ip",  metavar="NAME", help="IP name").completer  = _ip_names_completer
 	mg.add_argument("--bd",  metavar="NAME", help="BD name").completer  = _bd_names_completer
-	mg.add_argument("--top", metavar="NAME", help="Top module name").completer = _top_names_completer
+	mg.add_argument("--top", metavar="NAME", help="Top module name").completer = _top_synth_names_completer
 	c.add_argument("--ooc-run", action="store_true", dest="ooc_run",
 		help="Run out-of-context synthesis for leaf IPs (BD only)")
 
@@ -154,8 +162,12 @@ def build_parser() -> argparse.ArgumentParser:
 		help="Open simulation snapshot in xsim GUI")
 	mg.add_argument("--wdb",      action="store_true",
 		help="Open waveform DB in xsim GUI")
-	c.add_argument("--top", required=True, metavar="NAME",
-		help="Top module / sim top name").completer = _top_names_completer
+	mg = c.add_mutually_exclusive_group(required=True)
+	mg.add_argument("--ip",  metavar="NAME", help="IP name").completer  = _ip_names_completer
+	mg.add_argument("--bd",  metavar="NAME", help="BD name").completer  = _bd_names_completer
+	mg.add_argument("--top", metavar="NAME", help="Top module name").completer = _top_names_completer
+	c.add_argument("--nogui",      action="store_true",
+		help="Do Not Open in GUI | TCL Mode")
 
 	# ------------------------------------------------------------------
 	# elaborate --top [--run <time>]
@@ -183,7 +195,7 @@ def build_parser() -> argparse.ArgumentParser:
 	mg.add_argument("--snapshot", action="store_true", help="Restart snapshot")
 	mg.add_argument("--wdb",      action="store_true", help="Reload waveform window")
 	c.add_argument("--top", required=True, metavar="NAME",
-		help="Simulation top module").completer = _top_names_completer
+		help="Simulation top module").completer = _top_synth_names_completer
 
 	# ------------------------------------------------------------------
 	# build --platform | --app [--info]

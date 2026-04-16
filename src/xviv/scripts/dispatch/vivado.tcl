@@ -275,7 +275,7 @@ switch -- $_cmd {
         if {$::argc < 3} {
             xviv_die "open_dcp requires <dcp_file>"
         }
-        cmd_open_dcp [lindex $::argv 2]
+        cmd_open_dcp [lindex $::argv 2] [lindex $::argv 3]
     }
     default {
         puts stderr "XVIV ERROR: Unknown command '$_cmd'"
