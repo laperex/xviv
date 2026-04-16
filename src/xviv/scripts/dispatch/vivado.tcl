@@ -1,8 +1,6 @@
 # =============================================================================
 # scripts/xviv.tcl  -  Unified Vivado TCL dispatcher
 #
-# Invoked exclusively by the Python controller (xviv).  Do not call directly.
-#
 # Usage:
 #   vivado -mode (batch|tcl) -nolog -nojournal -notrace -quiet \
 #          -source scripts/xviv.tcl \
@@ -17,24 +15,9 @@
 #   export_bd                           - export BD as a versioned re-runnable TCL
 #   synthesis    <top_module> <sha_tag> - synth -> place -> route -> bitstream
 #   open_dcp     <dcp_file>             - open a checkpoint in the GUI
-#
-# Changes from original:
-#   - xviv_die: centralised error reporting with project/design context
-#   - xviv_require_vars: config validation before any Vivado work starts
-#   - xviv_elapsed / xviv_stage: stopwatch printed at every major stage
-#   - xviv_create_project: validates part against installed catalog (get_parts)
-#   - xviv_add_rtl_sources: warns when no design files are added
-#   - xviv_source_hooks: catches syntax errors in hooks files with clear message
-#   - xviv_stub: logs when a no-op stub is installed
-#   - xviv_update_symlink: uses [file link] instead of exec ln (portable)
-#   - xviv_write_manifest: writes a JSON build record after synthesis
-#   - cmd_create_ip: split into _xviv_ip_* sub-procs (one per stage)
-#   - cmd_synthesis: sha_tag passed from Python; no git calls in TCL
-#   - cmd_generate_bd / cmd_export_bd: upgrade_ip wrapped in catch
-#   - cmd_generate_bd: uses [file copy] instead of exec cp
 # =============================================================================
 
-set script_dir [file dirname [file normalize [info script]]]
+set script_dir [file dirname [file dirname [file normalize [info script]]]]
 
 source "$script_dir/ip/utils.tcl"
 source "$script_dir/ip/create.tcl"
@@ -45,9 +28,8 @@ source "$script_dir/bd/edit.tcl"
 source "$script_dir/bd/export.tcl"
 source "$script_dir/bd/generate.tcl"
 
-source "$script_dir/open_dcp.tcl"
-
-source "$script_dir/synthesis.tcl"
+source "$script_dir/synth/open_dcp.tcl"
+source "$script_dir/synth/synthesis.tcl"
 
 if {$::argc < 2} {
     puts stderr "XVIV ERROR: Usage: vivado ... -source xviv.tcl -tclargs <command> <config.tcl> \[extra\]"

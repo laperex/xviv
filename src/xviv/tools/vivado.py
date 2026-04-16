@@ -4,7 +4,8 @@ import os
 import subprocess
 import tempfile
 
-from xviv.config import ProjectConfig
+from xviv.config.model import ProjectConfig
+
 
 logger = logging.getLogger(__name__)
 
@@ -100,7 +101,7 @@ def run_vivado(
 
 
 def _find_tcl_script() -> str:
-	ref = importlib.resources.files("xviv") / "scripts" / "xviv.tcl"
+	ref = importlib.resources.files("xviv") / "scripts" / "dispatch" / "vivado.tcl"
 
 	with importlib.resources.as_file(ref) as path:
 		return str(path)

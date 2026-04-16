@@ -4,8 +4,8 @@ import os
 import subprocess
 import typing
 
-from xviv.config import ProjectConfig
-from xviv import utils
+from xviv.config.model import ProjectConfig
+from xviv.utils.fs import shell_env
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +16,7 @@ def _get_vitis_env(cfg: ProjectConfig) -> dict[str, str]:
 	global _vitis_env_cache
 	if _vitis_env_cache is None:
 		settings_sh = os.path.join(cfg.vitis.path, "settings64.sh")
-		_vitis_env_cache = utils._shell_env(settings_sh)
+		_vitis_env_cache = shell_env(settings_sh)
 		_vitis_env_cache['PATH'] += f":{cfg.vitis.path}/gnu/microblaze/lin/bin"
 		logger.debug("Vitis environment sourced from %s", settings_sh)
 	return _vitis_env_cache
@@ -28,7 +28,7 @@ def _xsct_bin(cfg: ProjectConfig) -> str:
 
 
 def _find_xsct_script() -> str:
-	ref = importlib.resources.files("xviv") / "scripts" / "xviv_xsct.tcl"
+	ref = importlib.resources.files("xviv") / "scripts" / "dispatch" / "xsct.tcl"
 	with importlib.resources.as_file(ref) as path:
 		return str(path)
 

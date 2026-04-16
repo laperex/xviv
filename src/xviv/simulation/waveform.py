@@ -1,9 +1,9 @@
 import logging
 import os
-import stat
 import subprocess
 
-from xviv.config import ProjectConfig
+from xviv.config.model import ProjectConfig
+from xviv.utils.fifo import _ensure_fifo, _fifo_send
 
 logger = logging.getLogger(__name__)
 
@@ -55,23 +55,6 @@ fileevent $xviv_fifo_fh readable _fifo_handle
 puts "xviv: FIFO ready at $xviv_fifo_path"
 """
 
-def _ensure_fifo(path: str) -> None:
-	if os.path.exists(path):
-		if not stat.S_ISFIFO(os.stat(path).st_mode):
-			os.unlink(path)
-			os.mkfifo(path)
-	else:
-		os.makedirs(os.path.dirname(path), exist_ok=True)
-		os.mkfifo(path)
-
-
-def _fifo_send(path: str, command: str) -> None:
-	try:
-		fd = os.open(path, os.O_WRONLY | os.O_NONBLOCK)
-		with os.fdopen(fd, "w") as fh:
-			fh.write(command + "\n")
-	except OSError as e:
-		logger.warning("FIFO send failed (%s) - is xsim running?", e)
 
 
 def reload_wdb(cfg: ProjectConfig, top_name: str) -> None:
@@ -86,20 +69,6 @@ def reload_wdb(cfg: ProjectConfig, top_name: str) -> None:
 		"}"
 	)
 	logger.info("Reloading waveform: %s", path)
-	_fifo_send(path, cmd)
-
-
-def reload_snapshot(cfg: ProjectConfig, top_name: str) -> None:
-	path = cfg.get_control_fifo_path(top_name)
-	cmd = (
-		"set _wcfg [get_property FILE_PATH [current_wave_config]]; "
-		"save_wave_config $_wcfg; "
-		f"xsim {top_name};"
-		"log_wave -recursive *; "
-		"run all; "
-		"open_wave_config $_wcfg"
-	)
-	logger.info("Reloading snapshot: %s", path)
 	_fifo_send(path, cmd)
 
 
@@ -150,3 +119,17 @@ def open_snapshot(cfg: ProjectConfig, top_name: str) -> None:
 		cwd=xlib_work_dir,
 	)
 	logger.info("xsim waveform PID: %d", proc.pid)
+
+
+def reload_snapshot(cfg: ProjectConfig, top_name: str) -> None:
+	path = cfg.get_control_fifo_path(top_name)
+	cmd = (
+		"set _wcfg [get_property FILE_PATH [current_wave_config]]; "
+		"save_wave_config $_wcfg; "
+		f"xsim {top_name};"
+		"log_wave -recursive *; "
+		"run all; "
+		"open_wave_config $_wcfg"
+	)
+	logger.info("Reloading snapshot: %s", path)
+	_fifo_send(path, cmd)

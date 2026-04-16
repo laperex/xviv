@@ -17,8 +17,8 @@ import sys
 import tempfile
 
 import pyslang
+from xviv.utils.log import _setup_logging
 
-from xviv.utils import _setup_logging
 
 logger = logging.getLogger(__name__)
 

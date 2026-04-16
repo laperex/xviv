@@ -4,7 +4,7 @@ import re
 import glob
 import sys
 
-from xviv.config import ProjectConfig
+from xviv.config.model import ProjectConfig
 
 logger = logging.getLogger(__name__)
 

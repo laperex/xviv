@@ -27,7 +27,7 @@ Issues     = "https://github.com/laperex/xviv/issues"
 
 [project.scripts]
 xviv = "xviv.xviv:main"
-xviv_wrapper = "xviv.wrapper:main"
+xviv_wrapper = "xviv.generator.wrapper:main"
 
 [tool.hatchling.build.targets.wheel]
 packages = ["src/xviv"]
