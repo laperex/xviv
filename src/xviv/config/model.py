@@ -3,6 +3,7 @@ import dataclasses
 import glob
 import logging
 import os
+import shutil
 import sys
 import typing
 
@@ -401,20 +402,23 @@ def _parse_fpga(raw: dict) -> tuple[str, dict[str, FpgaConfig]]:
 
 	return default_part_ref, fpga_named
 
+# set env var !: XVIV_VIVADO_DIR
+# set env var !: XVIV_VITIS_DIR
 
 def _parse_vivado(raw: dict) -> VivadoConfig:
 	v = raw.get("vivado", {})
 	return VivadoConfig(
-		path=v.get("path", DEFAULT_VIVADO_PATH),
+		path=os.environ.get('XVIV_VIVADO_DIR') or DEFAULT_VIVADO_PATH,
 		mode=v.get("mode", "batch"),
-		max_threads=int(v.get("max_threads", 8)),
+		max_threads=int(v.get("max_threads", 20)),
 		hw_server=v.get("hw_server", "localhost:3121"),
 	)
 
 
 def _parse_vitis(raw: dict) -> VitisConfig:
-	v = raw.get("vitis", {})
-	return VitisConfig(path=v.get("path", DEFAULT_VITIS_PATH))
+	return VitisConfig(
+		path=os.environ.get('XVIV_VITIS_DIR') or DEFAULT_VITIS_PATH
+	)
 
 
 def _parse_build(raw: dict) -> BuildConfig:
