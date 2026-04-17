@@ -116,6 +116,7 @@ def build_parser() -> argparse.ArgumentParser:
 	mg = c.add_mutually_exclusive_group(required=True)
 	mg.add_argument("--ip", metavar="NAME", help="IP name").completer = _ip_names_completer
 	mg.add_argument("--bd", metavar="NAME", help="BD name").completer = _bd_names_completer
+	c.add_argument("--nogui",      action="store_true", help="Do Not Open in GUI | TCL Mode")
 
 	# ------------------------------------------------------------------
 	# config --ip | --bd | --top
@@ -166,8 +167,7 @@ def build_parser() -> argparse.ArgumentParser:
 	mg.add_argument("--ip",  metavar="NAME", help="IP name").completer  = _ip_names_completer
 	mg.add_argument("--bd",  metavar="NAME", help="BD name").completer  = _bd_names_completer
 	mg.add_argument("--top", metavar="NAME", help="Top module name").completer = _top_names_completer
-	c.add_argument("--nogui",      action="store_true",
-		help="Do Not Open in GUI | TCL Mode")
+	c.add_argument("--nogui",      action="store_true", help="Do Not Open in GUI | TCL Mode")
 
 	# ------------------------------------------------------------------
 	# elaborate --top [--run <time>]

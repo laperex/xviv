@@ -247,10 +247,9 @@ proc xviv_write_manifest {path args} {
 # =============================================================================
 switch -- $_cmd {
     create_ip   { cmd_create_ip }
-    edit_ip     { cmd_edit_ip   }
-
+    edit_ip     { cmd_edit_ip [lindex $::argv 2] }
     create_bd   { cmd_create_bd }
-    edit_bd     { cmd_edit_bd   }
+    edit_bd     { cmd_edit_bd [lindex $::argv 2] }
     generate_bd { cmd_generate_bd }
     export_bd   { cmd_export_bd [lindex $::argv 2] }
 

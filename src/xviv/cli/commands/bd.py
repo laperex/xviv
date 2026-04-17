@@ -22,9 +22,13 @@ def cmd_bd_create(cfg: ProjectConfig, bd_name: str):
 # -----------------------------------------------------------------------------
 # edit --bd <bd_name>
 # -----------------------------------------------------------------------------
-def cmd_bd_edit(cfg: ProjectConfig, bd_name: str):
+def cmd_bd_edit(cfg: ProjectConfig, bd_name: str, nogui: bool = False):
 	config_tcl = generate_config_tcl(cfg, bd_name=bd_name)
-	vivado.run_vivado(cfg, vivado._find_tcl_script(), "edit_bd", [], config_tcl)
+
+	if nogui:
+		cfg.vivado.mode = "tcl"
+
+	vivado.run_vivado(cfg, vivado._find_tcl_script(), "edit_bd", [str(int(not nogui))], config_tcl)
 
 
 # -----------------------------------------------------------------------------

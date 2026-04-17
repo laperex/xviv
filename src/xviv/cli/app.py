@@ -48,9 +48,9 @@ def run():
 
 		case "edit":
 			if args.ip:
-				cmd_ip_edit(cfg, args.ip)
+				cmd_ip_edit(cfg, args.ip, nogui=args.nogui)
 			elif args.bd:
-				cmd_bd_edit(cfg, args.bd)
+				cmd_bd_edit(cfg, args.bd, nogui=args.nogui)
 
 		case "config":
 			if args.ip:

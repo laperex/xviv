@@ -32,9 +32,13 @@ def cmd_ip_create(cfg: ProjectConfig, ip_name: str):
 # -----------------------------------------------------------------------------
 # edit --ip <ip_name>
 # -----------------------------------------------------------------------------
-def cmd_ip_edit(cfg: ProjectConfig, ip_name: str):
+def cmd_ip_edit(cfg: ProjectConfig, ip_name: str, nogui: bool = False):
 	config_tcl = generate_config_tcl(cfg, ip_name=ip_name)
-	vivado.run_vivado(cfg, vivado._find_tcl_script(), "edit_ip", [], config_tcl)
+
+	if nogui:
+		cfg.vivado.mode = "tcl"
+
+	vivado.run_vivado(cfg, vivado._find_tcl_script(), "edit_ip", [str(int(not nogui))], config_tcl)
 
 
 # -----------------------------------------------------------------------------
