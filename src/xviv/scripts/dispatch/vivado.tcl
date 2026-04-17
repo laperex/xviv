@@ -261,7 +261,7 @@ switch -- $_cmd {
         # sha_tag is argv[3], computed by Python _git_sha_tag().
         # Defaults to "unknown" when called without a sha_tag for
         # backward compatibility with any direct Vivado invocations.
-        set _sha_tag [expr {$::argc > 3 ? [lindex $::argv 3] : "unknown"}]
+        set _sha_tag [expr {$::argc > 3 ? [lindex $::argv 3] : ""}]
         cmd_synthesis [lindex $::argv 2] $_sha_tag
     }
 	synth_bd {

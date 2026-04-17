@@ -204,11 +204,16 @@ proc cmd_synthesis {top_module sha_tag} {
     # ------------------------------------------------------------------
     # USR_ACCESS & Bitstream Generation
     # ------------------------------------------------------------------
-    set_property BITSTREAM.CONFIG.USR_ACCESS 0x${usr_access_val} [current_design]
-    puts "INFO: USR_ACCESS = 0x${usr_access_val}"
+    set export_filename "${top_module}"
+
+	if { $sha_tag } {
+    	set_property BITSTREAM.CONFIG.USR_ACCESS 0x${usr_access_val} [current_design]
+    	puts "INFO: USR_ACCESS = 0x${usr_access_val}"
+
+		set export_filename "${top_module}_${sha_tag}"
+	}
 
     xviv_stage "Generating bitstream"
-    set export_filename "${top_module}_${sha_tag}"
 
     write_bitstream   -force "$out_dir/${export_filename}.bit"
     write_hw_platform -fixed -include_bit -force -file "$out_dir/${export_filename}.xsa"
