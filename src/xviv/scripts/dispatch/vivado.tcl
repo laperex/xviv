@@ -257,6 +257,7 @@ switch -- $_cmd {
         if {$::argc < 3} {
             xviv_die "synthesis requires <top_module>"
         }
+		# TODO: better versioning for .bit and .xsa
         # sha_tag is argv[3], computed by Python _git_sha_tag().
         # Defaults to "unknown" when called without a sha_tag for
         # backward compatibility with any direct Vivado invocations.
