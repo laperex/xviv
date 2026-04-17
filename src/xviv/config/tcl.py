@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 import logging
 import os
 import sys
@@ -180,5 +181,9 @@ def generate_config_tcl(
 	# ]
 
 	# logger.info("\n".join(overview_lines))
+	
+	lines += [
+		f"set xviv_iso_timestamp {datetime.now(timezone.utc).isoformat()}"
+	]
 
 	return "\n".join(lines) + "\n"

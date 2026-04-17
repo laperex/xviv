@@ -1,10 +1,21 @@
+proc git_diff_to_file {outfile} {
+    set diff ""
+    catch {exec git diff HEAD} diff
+
+    set fh [open $outfile w]
+    puts -nonewline $fh $diff
+    close $fh
+
+    return [string length $diff]
+}
+
 # =============================================================================
 # Command: synthesis <top_module> <sha_tag>
 # =============================================================================
 proc cmd_synthesis {top_module sha_tag} {
     global xviv_bd_dir xviv_build_dir xviv_synth_hooks xviv_fpga_part
     global xviv_synth_report_synth xviv_synth_report_place
-    global xviv_synth_report_route xviv_synth_generate_netlist
+    global xviv_synth_report_route xviv_synth_generate_netlist xviv_iso_timestamp
 
     # ------------------------------------------------------------------
     # CONFIGURATION VARIABLES (Mapped from SynthConfig dataclass)
@@ -43,16 +54,17 @@ proc cmd_synthesis {top_module sha_tag} {
     # Apply global thread limit
     # set_param general.maxThreads $max_threads
 
-    set out_dir     "$xviv_build_dir/synth/$top_module"
-    set report_dir  "$out_dir/reports"
-    set netlist_dir "$out_dir/netlists"
-
     set dirty     0
     set sha_short $sha_tag
     if {[string match "*_dirty" $sha_tag]} {
         set dirty 1
         set sha_short [string range $sha_tag 0 end-6]
     }
+
+    set out_dir     "$xviv_build_dir/synth/$top_module"
+	set run_dir     "$out_dir/runs/$sha_short"
+    set report_dir  "$run_dir/reports"
+    set netlist_dir "$run_dir/netlists"
 
     # Determine final USR_ACCESS value
     if {$usr_access_override ne ""} {
@@ -204,29 +216,29 @@ proc cmd_synthesis {top_module sha_tag} {
     # ------------------------------------------------------------------
     # USR_ACCESS & Bitstream Generation
     # ------------------------------------------------------------------
-    set export_filename "${top_module}"
+    # set stem      "${top_module}"    ;# bare filename stem, no path
+	file mkdir $run_dir
 
-	if { $sha_tag } {
-    	set_property BITSTREAM.CONFIG.USR_ACCESS 0x${usr_access_val} [current_design]
-    	puts "INFO: USR_ACCESS = 0x${usr_access_val}"
+	if { $sha_tag ne "" } {
+		set_property BITSTREAM.CONFIG.USR_ACCESS 0x${usr_access_val} [current_design]
+		puts "INFO: USR_ACCESS = 0x${usr_access_val}"
 
-		set export_filename "${top_module}_${sha_tag}"
+		if { $dirty } {
+			git_diff_to_file "$run_dir/${top_module}.patch"
+		}
 	}
 
-    xviv_stage "Generating bitstream"
+	xviv_stage "Generating bitstream"
 
-    write_bitstream   -force "$out_dir/${export_filename}.bit"
-    write_hw_platform -fixed -include_bit -force -file "$out_dir/${export_filename}.xsa"
-
-    xviv_update_symlink "$out_dir/${top_module}.bit" "${export_filename}.bit"
-    xviv_update_symlink "$out_dir/${top_module}.xsa" "${export_filename}.xsa"
+	write_bitstream   -force                      "$run_dir/${top_module}.bit"
+	write_hw_platform -fixed -include_bit -force  "$run_dir/${top_module}.xsa"
 
     bitstream_post
 
     # ------------------------------------------------------------------
     # Build manifest
     # ------------------------------------------------------------------
-    xviv_write_manifest "$out_dir/build.json"               \
+    xviv_write_manifest "$run_dir/build.json"               \
         vivado_version  [version -short]                    \
         part            $xviv_fpga_part                     \
         top             $top_module                         \
@@ -234,10 +246,20 @@ proc cmd_synthesis {top_module sha_tag} {
         sha_short       $sha_short                          \
         dirty           [expr {$dirty ? "true" : "false"}]  \
         mode            "global"                            \
-        bitstream       "${export_filename}.bit"            \
-        xsa             "${export_filename}.xsa"            \
+        diff            "$run_dir/${top_module}.patch"      \
+        bitstream       "$run_dir/${top_module}.bit"        \
+        xsa             "$run_dir/${top_module}.xsa"        \
         elapsed         [xviv_elapsed]                      \
-        timestamp       [clock format [clock seconds] -format "%Y-%m-%dT%H:%M:%SZ"]
+		timestamp       $xviv_iso_timestamp
+
+	if { $sha_tag ne "" } {
+		xviv_update_symlink "$out_dir/${top_module}.bit"   "$run_dir/${top_module}.bit"
+		xviv_update_symlink "$out_dir/${top_module}.xsa"   "$run_dir/${top_module}.xsa"
+		if { $dirty } {
+			xviv_update_symlink "$out_dir/${top_module}.patch" "$run_dir/${top_module}.patch"
+		}
+		xviv_update_symlink "$out_dir/build.json"   "$run_dir/build.json"
+	}
 
     puts "INFO: Build complete - [xviv_elapsed]"
 }
