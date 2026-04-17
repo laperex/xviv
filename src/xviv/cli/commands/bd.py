@@ -5,7 +5,6 @@ from xviv.config.model import ProjectConfig
 from xviv.config.tcl import generate_config_tcl
 from xviv.generator.hooks import generate_bd_hooks
 from xviv.tools import vivado
-from xviv.utils.fs import _atomic_symlink
 from xviv.utils.git import _git_sha_tag
 
 logger = logging.getLogger(__name__)
@@ -18,7 +17,7 @@ def cmd_bd_create(cfg: ProjectConfig, bd_name: str):
 	cmd_bd_config(cfg, bd_name)
 	config_tcl = generate_config_tcl(cfg, bd_name=bd_name)
 	vivado.run_vivado(cfg, vivado._find_tcl_script(), "create_bd", [], config_tcl)
-	
+
 
 # -----------------------------------------------------------------------------
 # edit --bd <bd_name>
@@ -47,17 +46,29 @@ def cmd_bd_generate(cfg: ProjectConfig, bd_name: str):
 # export --bd <bd_name>
 # -----------------------------------------------------------------------------
 def cmd_bd_export(cfg: ProjectConfig, bd_name: str):
+	def _strip_bd_tcl(path: str, prefix: list[str]) -> None:
+		with open(path, "r") as f:
+			data = f.read()
+		start = data.find("set bCheckIPsPassed")
+		end = data.find("save_bd_design")
+		if start == -1 or end == -1:
+			raise RuntimeError(
+				f"Could not find expected markers in exported BD TCL: {path}\n"
+				f"  'set bCheckIPsPassed' found: {start != -1}\n"
+				f"  'save_bd_design'     found: {end != -1}"
+			)
+		with open(path, "w") as f:
+			f.write('\n'.join(prefix) + '\n\n' + data[start:end])
+
 	sha, dirty, tag = _git_sha_tag()
 
 	bd         = cfg.get_bd(bd_name)
 	export_base = cfg.abs_path(bd.export_tcl)
-	stem        = os.path.splitext(export_base)[0]
-	versioned   = f"{stem}_{tag}.tcl"
-	symlink     = export_base
+
+	os.makedirs(os.path.dirname(export_base), exist_ok=True)
 
 	logger.info("BD export: sha=%s dirty=%s", sha, dirty)
-	logger.info("BD export versioned: %s", versioned)
-	logger.info("BD export symlink  : %s", symlink)
+	logger.info("BD export path: %s", export_base)
 
 	if dirty:
 		logger.warning(
@@ -67,18 +78,14 @@ def cmd_bd_export(cfg: ProjectConfig, bd_name: str):
 
 	config_tcl = generate_config_tcl(cfg, bd_name=bd_name)
 
-	vivado.run_vivado(cfg, vivado._find_tcl_script(), "export_bd", [versioned], config_tcl)
-	vivado._strip_bd_tcl(versioned)
+	vivado.run_vivado(cfg, vivado._find_tcl_script(), "export_bd", [export_base], config_tcl)
+	_strip_bd_tcl(export_base, [
+		f"# commit: {sha}",
+		f"# dirty:  {dirty}",
+		f"# bd:     {bd_name}"
+	])
 
-	_atomic_symlink(versioned, symlink)
-	logger.info(
-		"Symlink updated: %s -> %s",
-		os.path.basename(symlink),
-		os.path.basename(versioned),
-	)
-
-	print(f"Exported : {versioned}")
-	print(f"Symlink  : {symlink} -> {os.path.basename(versioned)}")
+	print(f"Exported : {export_base}")
 
 
 # -----------------------------------------------------------------------------

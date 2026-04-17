@@ -4,16 +4,6 @@ import subprocess
 import sys
 
 
-def _atomic_symlink(target: str, link_path: str) -> None:
-	link_dir = os.path.dirname(link_path)
-	tmp_link = os.path.join(link_dir, f".tmp_{os.path.basename(link_path)}")
-	rel_target = os.path.relpath(target, link_dir)
-	if os.path.lexists(tmp_link):
-		os.unlink(tmp_link)
-	os.symlink(rel_target, tmp_link)
-	os.replace(tmp_link, link_path)
-
-
 def shell_env(source_file: str) -> dict[str, str]:
 	if not os.path.isfile(source_file):
 		sys.exit(f"ERROR: Vitis settings not found: {source_file}")
