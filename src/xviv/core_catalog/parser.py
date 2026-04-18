@@ -1,19 +1,15 @@
 """
-core_catalog.py  (revised)
-===========================
-Changes from previous version:
+core_catalog.py
+===============
+Parse Vivado's vv_index.xml into an in-memory catalog.
 
-1. _parse_vv_index now also collects VLNVs that appear ONLY inside
-   <UpgradesFrom> elements and creates stub CoreEntry objects for them,
-   so older versions are visible in the completer even when they have
-   no own <IP> block in the installed Vivado's vv_index.xml.
+Used by:
+  - _core_vlnv_completer()  → tab completion with rich descriptions
+  - _validate_cores()        → pre-flight checks at load_config() time
+  - cmd_core_create()        → pre-flight before launching Vivado
 
-2. CoreEntry gains an `is_stub` flag to distinguish full entries (own
-   <IP> block, can be instantiated) from stub entries (referenced only
-   in UpgradesFrom, may not be instantiatable in this Vivado version).
-
-3. load() returns a VersionGroup dict alongside the flat catalog so
-   completers can show all versions of an IP grouped together.
+The XML lives at:  <vivado_path>/data/ip/vv_index.xml
+It is parsed once per process per Vivado installation and cached.
 """
 
 from __future__ import annotations
@@ -26,6 +22,7 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
+# Maximum description length shown in tab completion
 _DESC_MAX = 72
 
 
@@ -35,263 +32,224 @@ _DESC_MAX = 72
 
 @dataclasses.dataclass(frozen=True)
 class CoreEntry:
-    vlnv:                 str
-    vendor:               str
-    library:              str
-    name:                 str                  # short ip name, e.g. "clk_wiz"
-    version:              str
-    display_name:         str
-    description:          str
-    hidden:               bool
-    board_dependent:      bool
-    ipi_only:             bool
-    unsupported_families: frozenset[str]
-    upgrades_from:        tuple[str, ...]
-    is_stub:              bool = False         # True → only seen in UpgradesFrom
+	vlnv:                 str               # "xilinx.com:ip:fifo_generator:13.2"
+	vendor:               str               # "xilinx.com"
+	library:              str               # "ip"
+	name:                 str               # "fifo_generator"
+	version:              str               # "13.2"
+	display_name:         str               # "FIFO Generator"
+	description:          str               # full description text
+	hidden:               bool              # HideInGui="true"  → internal subcore
+	board_dependent:      bool              # BoardDependent="true"
+	ipi_only:             bool              # only DesignTool=IPI listed
+	unsupported_families: frozenset[str]    # families with status=Not-Supported
+	upgrades_from:        tuple[str, ...]   # older VLNVs this supersedes
 
-    @property
-    def short_desc(self) -> str:
-        text = " ".join(self.description.split())
-        if len(text) > _DESC_MAX:
-            text = text[:_DESC_MAX - 1] + "…"
-        return text
+	@property
+	def short_desc(self) -> str:
+		"""
+		One-line description suitable for terminal display.
+		Truncates long descriptions and strips embedded newlines.
+		"""
+		text = " ".join(self.description.split())   # collapse whitespace
+		if len(text) > _DESC_MAX:
+			text = text[:_DESC_MAX - 1] + "…"
+		return text
 
-    @property
-    def completion_description(self) -> str:
-        """Rich one-line description for terminal tab completion."""
-        parts = [self.display_name or self.name]
-        parts.append(f"[{self.vendor}/{self.library}]")
+	@property
+	def completion_description(self) -> str:
+		"""
+		Rich description shown alongside a VLNV in tab completion.
 
-        flags: list[str] = []
-        if self.is_stub:
-            flags.append("⚠ older version — may not install in this Vivado")
-        elif self.hidden:
-            flags.append("⚠ internal subcore")
-        elif self.board_dependent:
-            flags.append("⚠ board-dependent")
-        elif self.ipi_only:
-            flags.append("⚠ IPI-only")
+		Format:
+			<DisplayName>  [<vendor>/<library>]  <short description>
 
-        if flags:
-            parts.append("  ".join(flags))
-        elif self.short_desc:
-            parts.append(self.short_desc)
+		Example:
+			FIFO Generator  [xilinx.com/ip]  Configurable synchronous and …
+		"""
+		parts = [self.display_name]
 
-        return "  ".join(parts)
+		vendor_lib = f"[{self.vendor}/{self.library}]"
+		parts.append(vendor_lib)
 
+		# Warn flags visible in the completion list
+		flags: list[str] = []
+		if self.hidden:
+			flags.append("⚠ internal subcore")
+		if self.board_dependent:
+			flags.append("⚠ board-dependent")
+		if self.ipi_only:
+			flags.append("⚠ IPI-only")
+		if flags:
+			parts.append("  ".join(flags))
+		elif self.short_desc:
+			parts.append(self.short_desc)
 
-@dataclasses.dataclass
-class VersionGroup:
-    """All known versions of a single IP name, newest first."""
-    name:    str                   # e.g. "clk_wiz"
-    vendor:  str                   # e.g. "xilinx.com"
-    library: str                   # e.g. "ip"
-    entries: list[CoreEntry]       # sorted newest → oldest
-
-    @property
-    def latest(self) -> CoreEntry:
-        return self.entries[0]
-
-    @property
-    def has_older_versions(self) -> bool:
-        return len(self.entries) > 1
+		return "  ".join(parts)
 
 
 # =============================================================================
 # Parser
 # =============================================================================
 
-def _parse_vv_index(xml_path: str) -> tuple[
-    dict[str, CoreEntry],       # vlnv → CoreEntry  (all versions)
-    dict[str, VersionGroup],    # "<vendor>:<library>:<name>" → VersionGroup
-]:
-    """
-    Parse vv_index.xml.
+def _parse_vv_index(xml_path: str) -> dict[str, CoreEntry]:
+	"""
+	Parse vv_index.xml → dict keyed by VLNV string.
 
-    Two-pass strategy:
-      Pass 1 — build full CoreEntry for every <IP> block.
-      Pass 2 — walk every <UpgradesFrom> and create stub CoreEntry objects
-               for any VLNV not already present from Pass 1.
+	Returns an empty dict (not an error) when the file is absent or
+	unparseable, so all callers can always proceed gracefully.
+	"""
+	if not os.path.isfile(xml_path):
+		logger.debug("vv_index.xml not found at %s", xml_path)
+		return {}
 
-    Returns (catalog, groups).
-    """
-    if not os.path.isfile(xml_path):
-        logger.debug("vv_index.xml not found at %s", xml_path)
-        return {}, {}
+	try:
+		tree = ET.parse(xml_path)
+	except ET.ParseError as exc:
+		logger.warning("Failed to parse vv_index.xml: %s", exc)
+		return {}
 
-    try:
-        root = ET.parse(xml_path).getroot()
-    except ET.ParseError as exc:
-        logger.warning("Failed to parse vv_index.xml: %s", exc)
-        return {}, {}
+	root = tree.getroot()
+	catalog: dict[str, CoreEntry] = {}
 
-    catalog: dict[str, CoreEntry] = {}
+	for ip_el in root.findall("IP"):
 
-    # ------------------------------------------------------------------
-    # Pass 1: full entries from <IP> blocks
-    # ------------------------------------------------------------------
-    for ip_el in root.findall("IP"):
+		# ---- VLNV --------------------------------------------------------
+		vlnv_el = ip_el.find("VLNV")
+		if vlnv_el is None:
+			continue
+		vlnv = (vlnv_el.get("value") or "").strip()
+		if not vlnv:
+			continue
 
-        def _val(tag: str, default: str = "") -> str:
-            el = ip_el.find(tag)
-            if el is None:
-                return default
-            return (el.get("value") or el.text or default).strip()
+		parts = vlnv.split(":")
+		if len(parts) != 4:
+			continue
+		vendor, library, name, version = parts
 
-        vlnv = _val("VLNV")
-        if not vlnv:
-            continue
-        parts = vlnv.split(":")
-        if len(parts) != 4:
-            continue
-        vendor, library, name, version = parts
+		# ---- Helper: first child element text/value ----------------------
+		def _val(tag: str, default: str = "") -> str:
+			el = ip_el.find(tag)
+			if el is None:
+				return default
+			return (el.get("value") or el.text or default).strip()
 
-        hide_el = ip_el.find("HideInGui")
-        hidden = hide_el is not None and hide_el.get("value", "").lower() == "true"
+		# ---- HideInGui ---------------------------------------------------
+		hide_el = ip_el.find("HideInGui")
+		hidden = (
+			hide_el is not None
+			and hide_el.get("value", "").lower() == "true"
+		)
 
-        board_el = ip_el.find("BoardDependent")
-        board_dependent = board_el is not None and board_el.get("value", "").lower() == "true"
+		# ---- BoardDependent ----------------------------------------------
+		board_el = ip_el.find("BoardDependent")
+		board_dependent = (
+			board_el is not None
+			and board_el.get("value", "").lower() == "true"
+		)
 
-        tools = {el.get("value", "") for el in ip_el.findall("DesignToolContexts/DesignTool")}
-        ipi_only = bool(tools) and tools == {"IPI"}
+		# ---- IPI-only ----------------------------------------------------
+		tool_els = ip_el.findall("DesignToolContexts/DesignTool")
+		tools = {el.get("value", "") for el in tool_els}
+		ipi_only = bool(tools) and tools == {"IPI"}
 
-        unsupported: set[str] = set()
-        for fam_el in ip_el.findall("Families/Family"):
-            for part_el in fam_el.findall("Part"):
-                if part_el.get("status", "") == "Not-Supported":
-                    unsupported.add(fam_el.get("name", ""))
+		# ---- Unsupported families ----------------------------------------
+		unsupported: set[str] = set()
+		for fam_el in ip_el.findall("Families/Family"):
+			fam_name = fam_el.get("name", "")
+			for part_el in fam_el.findall("Part"):
+				if part_el.get("status", "") == "Not-Supported":
+					unsupported.add(fam_name)
 
-        upgrades_from = tuple(
-            u.get("value", "")
-            for u in ip_el.findall("UpgradesFrom/Upgrade")
-            if u.get("value")
-        )
+		# ---- UpgradesFrom ------------------------------------------------
+		upgrades_from = tuple(
+			u.get("value", "")
+			for u in ip_el.findall("UpgradesFrom/Upgrade")
+			if u.get("value")
+		)
 
-        catalog[vlnv] = CoreEntry(
-            vlnv                 = vlnv,
-            vendor               = vendor,
-            library              = library,
-            name                 = name,
-            version              = version,
-            display_name         = _val("DisplayName"),
-            description          = _val("Description"),
-            hidden               = hidden,
-            board_dependent      = board_dependent,
-            ipi_only             = ipi_only,
-            unsupported_families = frozenset(unsupported),
-            upgrades_from        = upgrades_from,
-            is_stub              = False,
-        )
+		catalog[vlnv] = CoreEntry(
+			vlnv                 = vlnv,
+			vendor               = vendor,
+			library              = library,
+			name                 = name,
+			version              = version,
+			display_name         = _val("DisplayName"),
+			description          = _val("Description"),
+			hidden               = hidden,
+			board_dependent      = board_dependent,
+			ipi_only             = ipi_only,
+			unsupported_families = frozenset(unsupported),
+			upgrades_from        = upgrades_from,
+		)
 
-    # ------------------------------------------------------------------
-    # Pass 2: stub entries from <UpgradesFrom> references
-    #
-    # Example: axis_data_fifo:2.0 lists axis_data_fifo:1.0 in UpgradesFrom.
-    # If 1.0 has no own <IP> block, it won't be in catalog yet.
-    # We create a stub so the completer can surface it with a warning.
-    # ------------------------------------------------------------------
-    for entry in list(catalog.values()):
-        for older_vlnv in entry.upgrades_from:
-            if older_vlnv in catalog:
-                continue                    # already has a full entry
-
-            parts = older_vlnv.split(":")
-            if len(parts) != 4:
-                continue
-            vendor, library, name, version = parts
-
-            catalog[older_vlnv] = CoreEntry(
-                vlnv                 = older_vlnv,
-                vendor               = vendor,
-                library              = library,
-                name                 = name,
-                version              = version,
-                # Inherit display_name/description from the newer version
-                display_name         = entry.display_name,
-                description          = entry.description,
-                hidden               = entry.hidden,
-                board_dependent      = entry.board_dependent,
-                ipi_only             = entry.ipi_only,
-                unsupported_families = entry.unsupported_families,
-                upgrades_from        = (),
-                is_stub              = True,     # ← key flag
-            )
-
-    # ------------------------------------------------------------------
-    # Build VersionGroup index
-    # ------------------------------------------------------------------
-    groups: dict[str, VersionGroup] = {}
-
-    for entry in catalog.values():
-        group_key = f"{entry.vendor}:{entry.library}:{entry.name}"
-        if group_key not in groups:
-            groups[group_key] = VersionGroup(
-                name    = entry.name,
-                vendor  = entry.vendor,
-                library = entry.library,
-                entries = [],
-            )
-        groups[group_key].entries.append(entry)
-
-    # Sort each group newest → oldest (simple lexicographic version sort)
-    for group in groups.values():
-        group.entries.sort(key=lambda e: e.version, reverse=True)
-
-    logger.debug(
-        "vv_index.xml: %d entries (%d stubs) across %d IPs from %s",
-        len(catalog),
-        sum(1 for e in catalog.values() if e.is_stub),
-        len(groups),
-        xml_path,
-    )
-    return catalog, groups
+	logger.debug(
+		"vv_index.xml: parsed %d entries from %s", len(catalog), xml_path
+	)
+	return catalog
 
 
 # =============================================================================
-# Cache
+# Cache + public API
 # =============================================================================
 
-_CATALOG_CACHE:  dict[str, dict[str, CoreEntry]]    = {}
-_GROUPS_CACHE:   dict[str, dict[str, VersionGroup]] = {}
-
-
-def _ensure_loaded(vivado_path: str) -> None:
-    if vivado_path not in _CATALOG_CACHE:
-        xml_path = os.path.join(vivado_path, "data", "ip", "vv_index.xml")
-        cat, grps = _parse_vv_index(xml_path)
-        _CATALOG_CACHE[vivado_path] = cat
-        _GROUPS_CACHE[vivado_path]  = grps
+_CATALOG_CACHE: dict[str, dict[str, CoreEntry]] = {}
 
 
 def load(vivado_path: str) -> dict[str, CoreEntry]:
-    _ensure_loaded(vivado_path)
-    return _CATALOG_CACHE[vivado_path]
+	"""
+	Load (and cache) the catalog for a Vivado installation.
+	Safe to call repeatedly — parses once per process.
+	"""
+	if vivado_path not in _CATALOG_CACHE:
+		xml_path = os.path.join(vivado_path, "data", "ip", "vv_index.xml")
+		_CATALOG_CACHE[vivado_path] = _parse_vv_index(xml_path)
+	return _CATALOG_CACHE[vivado_path]
 
-
-def load_groups(vivado_path: str) -> dict[str, VersionGroup]:
-    _ensure_loaded(vivado_path)
-    return _GROUPS_CACHE[vivado_path]
-
-
-# =============================================================================
-# Public query API
-# =============================================================================
 
 def lookup(vivado_path: str, vlnv: str) -> Optional[CoreEntry]:
-    return load(vivado_path).get(vlnv)
+	"""Return the CoreEntry for an exact VLNV, or None."""
+	return load(vivado_path).get(vlnv)
 
 
 def find_by_name(vivado_path: str, ip_name: str) -> list[CoreEntry]:
-    """All versions of ip_name, newest first."""
-    group_key = next(
-        (k for k in load_groups(vivado_path) if k.endswith(f":{ip_name}")),
-        None,
-    )
-    if group_key is None:
-        return []
-    return load_groups(vivado_path)[group_key].entries
+	"""
+	All entries whose short name matches ip_name.
+	Used to suggest correct version when the user writes a bad VLNV.
+	"""
+	return [e for e in load(vivado_path).values() if e.name == ip_name]
 
 
 def user_visible(vivado_path: str) -> list[CoreEntry]:
-    """Non-hidden entries — what the Vivado IP Catalog GUI shows."""
-    return [e for e in load(vivado_path).values() if not e.hidden]
+	"""
+	Entries a user would see in the Vivado IP Catalog GUI.
+	Excludes hidden subcores and IPI-only internal primitives.
+	"""
+	return [
+		e for e in load(vivado_path).values()
+		if not e.hidden
+	]
+
+
+def search(
+	vivado_path: str,
+	prefix: str,
+	*,
+	include_hidden: bool = False,
+) -> list[CoreEntry]:
+	"""
+	Return entries whose VLNV, display_name, or description contain
+	`prefix` (case-insensitive).  Used by the tab completer.
+	"""
+	needle = prefix.lower()
+	results = []
+	for entry in load(vivado_path).values():
+		if not include_hidden and entry.hidden:
+			continue
+		if (
+			needle in entry.vlnv.lower()
+			or needle in entry.display_name.lower()
+			or needle in entry.description.lower()
+		):
+			results.append(entry)
+	return results

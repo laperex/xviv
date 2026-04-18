@@ -1,15 +1,38 @@
 """
-completers.py  (revised)
-=========================
-Key change: _core_vlnv_completer now uses VersionGroup to emit ALL
-known versions of each IP, newest first, with clear labelling.
+completers.py  (additions to xviv.py)
+======================================
+Tab completion for the --core argument.
 
-Terminal output when typing  `xviv search-core clk_wiz`:
+argcomplete dict protocol
+--------------------------
+When a completer returns a dict instead of a list, argcomplete passes it
+to the shell with descriptions:
 
-  xilinx.com:ip:clk_wiz:6.0   Clocking Wizard [xilinx.com/ip] latest   Clock synthesis …
-  xilinx.com:ip:clk_wiz:5.4   Clocking Wizard [xilinx.com/ip] older
-  xilinx.com:ip:clk_wiz:5.3   Clocking Wizard [xilinx.com/ip] older
-  xilinx.com:ip:clk_wiz:5.2   Clocking Wizard [xilinx.com/ip] ⚠ older version — may not install in this Vivado
+	zsh   → shows  "vlnv  --  description"  in the menu
+	fish  → shows  "vlnv\tdescription"  inline
+	bash  → shows vlnv only (bash has no native description support)
+
+The dict format is:  { completion_value: description_string }
+
+Two completers are provided:
+
+_core_instance_completer
+	Completes the --core NAME argument from [[core]] entries already
+	defined in project.toml.  Enriches each name with its vlnv and
+	display_name from vv_index.xml.
+
+	Example output during tab:
+		pixel_fifo     xilinx.com:ip:fifo_generator:13.2  FIFO Generator
+		clk_wiz_0      xilinx.com:ip:clk_wiz:6.0          Clocking Wizard
+
+_core_vlnv_completer
+	Used when a new [[core]] is being defined and the user is completing
+	the vlnv= value.  Scans vv_index.xml and shows display names and
+	descriptions.  Filters by the typed prefix.
+
+	Example output during tab of  "xilinx.com:ip:fifo<TAB>":
+		xilinx.com:ip:fifo_generator:13.2   FIFO Generator  [xilinx.com/ip]
+		xilinx.com:ip:axis_data_fifo:2.0    AXI4-Stream Data FIFO  [xilinx.com/ip]
 """
 
 from __future__ import annotations
@@ -17,285 +40,228 @@ from __future__ import annotations
 import logging
 import os
 
-from xviv.cli.parser import _find_config
-from xviv.config.model import DEFAULT_VIVADO_PATH
 from xviv.core_catalog import parser
 
 logger = logging.getLogger(__name__)
 
-_TERM_DESC_WIDTH = 88
+# Maximum description width in terminal (characters)
+_TERM_DESC_WIDTH = 80
 
 
 # =============================================================================
-# Internal helpers
-# =============================================================================
-
-def _get_vivado_path() -> str:
-    return os.environ.get("XVIV_VIVADO_DIR") or DEFAULT_VIVADO_PATH
-
-
-# def _find_config() -> str:
-#     for name in ("project.cue", "project.toml"):
-#         if os.path.exists(name):
-#             return name
-#     return ""
-
-
-def _truncate(text: str, width: int) -> str:
-    text = " ".join(text.split())
-    return text[:width - 1] + "…" if len(text) > width else text
-
-
-# =============================================================================
-# Completer 1: --core NAME  (configured instances from project.toml)
+# Completer 1: --core NAME  (completes configured instance names)
 # =============================================================================
 
 def _core_instance_completer(prefix: str, parsed_args, **kwargs) -> dict[str, str]:
-    """
-    Complete [[core]] instance names from project.toml, enriched with
-    VLNV and display_name from vv_index.xml.
+	"""
+	Complete configured [[core]] instance names from project.toml.
 
-    This completer deliberately shows ONLY configured instances — not all
-    catalog IPs.  Use `xviv search-core` to browse the full catalog.
-    """
-    # from xviv import config, parser
+	For each name, the description shown is:
+		<vlnv>   <DisplayName from vv_index.xml>
 
-    try:
-        cfg_path = getattr(parsed_args, "config", None) or _find_config(prefix, parsed_args)
-        if not cfg_path:
-            return {}
+	Example (zsh menu):
+		pixel_fifo   -- xilinx.com:ip:fifo_generator:13.2  FIFO Generator
+		clk_wiz_0    -- xilinx.com:ip:clk_wiz:6.0  Clocking Wizard
+	"""
 
-        # cfg      = config.load_config(os.path.abspath(cfg_path))
-        catalog  = parser.load(_get_vivado_path())
-        groups   = parser.load_groups(_get_vivado_path())
+	try:
+		vivado_path = os.environ.get('XVIV_VIVADO_DIR') or ""
+		catalog = parser.load(vivado_path)
 
-        completions: dict[str, str] = {}
+		completions: dict[str, str] = {}
 
-        for core in catalog.values():
-            if not core.name.startswith(prefix):
-                continue
+		for core in catalog.values():
+			if not core.name.startswith(prefix):
+				continue
 
-            entry = catalog.get(core.vlnv)
-            if entry:
-                # Show newer version hint if one exists
-                group_key = f"{entry.vendor}:{entry.library}:{entry.name}"
-                group     = groups.get(group_key)
-                newer_hint = ""
-                if group and group.latest.vlnv != core.vlnv and not group.latest.is_stub:
-                    newer_hint = f"  → newer: {group.latest.vlnv}"
+			# Look up rich info from vv_index.xml
+			entry = catalog.get(core.vlnv)
 
-                stub_hint = "  ⚠ may not install in this Vivado" if entry.is_stub else ""
-                desc = (
-                    f"{core.vlnv}"
-                    f"  {entry.display_name}"
-                    f"{stub_hint}"
-                    f"{newer_hint}"
-                )
-            else:
-                desc = f"{core.vlnv}  (not found in catalog)"
+			if entry:
+				desc = _fmt_instance_desc(core.vlnv, entry)
+			else:
+				# VLNV not in catalog (custom IP or wrong version)
+				desc = f"{core.vlnv}  (not found in catalog)"
 
-            completions[core.name] = desc
+			completions[f"{core.name}:{core.version}"] = desc
 
-        return completions
+		return completions
+	except Exception as exc:
+		logger.debug("_core_instance_completer failed: %s", exc)
+		return {}
 
-    except Exception as exc:
-        logger.debug("_core_instance_completer error: %s", exc)
-        return {}
+
+def _fmt_instance_desc(vlnv: str, entry) -> str:
+	"""
+	Format the description shown next to a configured core instance name.
+
+		xilinx.com:ip:fifo_generator:13.2  FIFO Generator  — Configurable …
+	"""
+	parts = [vlnv, entry.display_name]
+
+	flags = []
+	if entry.hidden:
+		flags.append("⚠ internal")
+	if entry.board_dependent:
+		flags.append("⚠ board-dep")
+	if entry.ipi_only:
+		flags.append("⚠ IPI-only")
+
+	if flags:
+		parts.append("  ".join(flags))
+
+	desc_text = " ".join(entry.description.split())
+	avail = _TERM_DESC_WIDTH - sum(len(p) + 2 for p in parts)
+	if avail > 10 and desc_text:
+		if len(desc_text) > avail:
+			desc_text = desc_text[:avail - 1] + "…"
+		parts.append(f"— {desc_text}")
+
+	return "  ".join(parts)
 
 
 # =============================================================================
-# Completer 2: search-core QUERY  (full catalog scan from vv_index.xml)
+# Completer 2: vlnv= value  (scans vv_index.xml for a new [[core]] entry)
 # =============================================================================
 
 def _core_vlnv_completer(prefix: str, parsed_args, **kwargs) -> dict[str, str]:
-    """
-    Complete a VLNV string from vv_index.xml.
+	"""
+	Complete a VLNV string against vv_index.xml.
 
-    Shows ALL versions of matching IPs — including older versions that
-    appear only in <UpgradesFrom> entries (marked as stubs).
+	Intended for use when adding a new [[core]] entry to project.toml —
+	not for the --core CLI flag (which takes an instance name).
 
-    Versions are emitted newest-first within each IP group so zsh/fish
-    menus present the most useful choice at the top.
+	The prefix is matched against the full VLNV string, the IP short name,
+	and the display name, so partial matches work:
 
-    Stub entries (older versions not directly in this Vivado install)
-    are shown with a clear warning rather than silently omitted.
-    """
-    # from xviv import parser
+		"fifo"        → matches fifo_generator, axis_data_fifo, …
+		"xilinx.com:ip:clk"  → matches clk_wiz, clk_in_blk, …
+		"Clocking"    → matches via display_name
 
-    try:
-        vivado_path = _get_vivado_path()
-        catalog     = parser.load(vivado_path)
-        groups      = parser.load_groups(vivado_path)
+	The description shown is:
+		<DisplayName>  [<vendor>/<library>]  <short description>
 
-        if not catalog:
-            return {}
+	Hidden subcores are excluded unless the prefix explicitly matches
+	their VLNV (for power users who know what they're doing).
+	"""
+	
+	return {}
 
-        needle = prefix.lower()
+	try:
+		vivado_path = os.environ.get('XVIV_VIVADO_DIR') or ""
+		catalog = parser.load(vivado_path)
 
-        # ---- Find matching VersionGroups ---------------------------------
-        # Match against the group (ip_name, display_name) rather than
-        # individual VLNVs so that typing "clk_wiz" surfaces ALL versions
-        # of clk_wiz in one pass, not just those whose VLNV starts with
-        # the typed string.
+		if not catalog:
+			return {}
 
-        matching_groups: list[tuple[str, "parser.VersionGroup"]] = []
+		needle = prefix.lower()
+		completions: dict[str, str] = {}
 
-        for group_key, group in sorted(groups.items()):
-            # Skip groups where all entries are hidden (pure subcores)
-            visible = [e for e in group.entries if not e.hidden]
-            if not visible and not any(
-                needle in e.vlnv.lower() for e in group.entries
-            ):
-                continue
+		for vlnv, entry in sorted(catalog.items()):
+			# Filter hidden unless the user has typed enough to be deliberate
+			if entry.hidden and not vlnv.lower().startswith(needle):
+				continue
 
-            representative = group.entries[0]   # newest (may be stub)
-            # Fall back to first non-stub for display_name/description
-            full_entry = next(
-                (e for e in group.entries if not e.is_stub),
-                representative,
-            )
+			# Match against vlnv, display_name, description
+			if not (
+				needle in vlnv.lower()
+				or needle in entry.display_name.lower()
+				or needle in entry.name.lower()
+			):
+				continue
 
-            if not (
-                needle in group.name.lower()
-                or needle in full_entry.display_name.lower()
-                or needle in full_entry.description.lower()
-                or any(needle in e.vlnv.lower() for e in group.entries)
-            ):
-                continue
+			completions[vlnv] = _fmt_vlnv_desc(entry)
 
-            matching_groups.append((group_key, group))
+		return completions
 
-        # ---- Emit completions for every version in each matching group ---
-        completions: dict[str, str] = {}
+	except Exception as exc:
+		logger.debug("_core_vlnv_completer failed: %s", exc)
+		return {}
 
-        for _key, group in matching_groups:
-            full_entry = next(
-                (e for e in group.entries if not e.is_stub),
-                group.entries[0],
-            )
 
-            for idx, entry in enumerate(group.entries):
-                # Version label
-                if idx == 0 and not entry.is_stub:
-                    version_label = "latest"
-                elif entry.is_stub:
-                    version_label = "⚠ older — may not install in this Vivado"
-                else:
-                    version_label = "older"
+def _fmt_vlnv_desc(entry) -> str:
+	"""
+	Format the description shown next to a VLNV in completion.
 
-                # Flags
-                flags: list[str] = []
-                if full_entry.board_dependent:
-                    flags.append("board-dep")
-                if full_entry.ipi_only:
-                    flags.append("IPI-only")
+		FIFO Generator  [xilinx.com/ip]  Configurable synchronous and …
+	"""
+	parts: list[str] = []
 
-                flag_str = "  ".join(f"[{f}]" for f in flags)
+	# Display name is the primary identifier
+	parts.append(entry.display_name or entry.name)
 
-                # Description (only on the latest/full entry to avoid clutter)
-                desc_str = ""
-                if idx == 0 and not entry.is_stub and full_entry.short_desc:
-                    avail = _TERM_DESC_WIDTH - len(full_entry.display_name) - 30
-                    if avail > 12:
-                        desc_str = _truncate(full_entry.description, avail)
+	# Vendor/library context
+	parts.append(f"[{entry.vendor}/{entry.library}]")
 
-                parts = [
-                    full_entry.display_name or group.name,
-                    f"[{entry.vendor}/{entry.library}]",
-                    version_label,
-                ]
-                if flag_str:
-                    parts.append(flag_str)
-                if desc_str:
-                    parts.append(desc_str)
+	# Warning flags
+	flags: list[str] = []
+	if entry.hidden:
+		flags.append("⚠ internal subcore")
+	if entry.board_dependent:
+		flags.append("⚠ board-dependent")
+	if entry.ipi_only:
+		flags.append("⚠ IPI-only")
 
-                completions[entry.vlnv] = "  ".join(parts)
+	if flags:
+		parts.append("  ".join(flags))
+	else:
+		# Short description — truncated to keep the line readable
+		desc = " ".join(entry.description.split())
+		avail = _TERM_DESC_WIDTH - sum(len(p) + 2 for p in parts)
+		if avail > 12 and desc:
+			if len(desc) > avail:
+				desc = desc[:avail - 1] + "…"
+			parts.append(desc)
 
-        return completions
-
-    except Exception as exc:
-        logger.debug("_core_vlnv_completer error: %s", exc)
-        return {}
+	return "  ".join(parts)
 
 
 # =============================================================================
-# search-core command  (cmd_search_core in command.py)
+# argparse wiring  (add to build_parser() in xviv.py)
 # =============================================================================
 
-def cmd_search_core(vivado_path: str, query: str, *, all_versions: bool = False) -> None:
-    """
-    Print a formatted table of IPs matching `query`.
+"""
+In build_parser(), inside the "create" subparser block, replace:
 
-        xviv search-core fifo
-        xviv search-core fifo --all-versions
-    """
-    # from xviv import parser
+	c.add_argument("--core", metavar="NAME", ...)
 
-    catalog = parser.load(vivado_path)
-    groups  = parser.load_groups(vivado_path)
+with:
 
-    if not catalog:
-        print("WARNING: vv_index.xml not found. Check vivado.path in project.toml.")
-        return
+	c.add_argument(
+		"--core",
+		metavar="NAME",
+		help="Instantiate an IP from Vivado's IP catalog",
+	).completer = _core_instance_completer
 
-    needle = query.lower()
+The VLNV completer is registered separately on a dedicated search subcommand:
 
-    matching: list["parser.VersionGroup"] = []
-    for group in sorted(groups.values(), key=lambda g: g.name):
-        full = next((e for e in group.entries if not e.is_stub), group.entries[0])
-        if full.hidden:
-            continue
-        if (
-            needle in group.name.lower()
-            or needle in full.display_name.lower()
-            or needle in full.description.lower()
-        ):
-            matching.append(group)
+	# ---------------------------------------------------------------------------
+	# search-core  (find a VLNV to put in project.toml)
+	# ---------------------------------------------------------------------------
+	c = sub.add_parser(
+		"search-core",
+		help="Search Vivado's IP catalog by name, VLNV, or keyword",
+	)
+	c.add_argument(
+		"query",
+		metavar="QUERY",
+		help="IP name, partial VLNV, or keyword (e.g. 'fifo', 'clk_wiz')",
+	).completer = _core_vlnv_completer
 
-    if not matching:
-        print(f"No IPs found matching '{query}'.")
-        return
+This gives the user two distinct workflows:
 
-    W_VLNV = 52
-    W_NAME = 30
-    W_DESC = 55
+	# Find the right VLNV to use
+	$ xviv search-core fifo<TAB>
+	xilinx.com:ip:fifo_generator:13.2   FIFO Generator  [xilinx.com/ip]  …
+	xilinx.com:ip:axis_data_fifo:2.0    AXI4-Stream Data FIFO  [xilinx.com/ip]  …
 
-    header = f"{'VLNV':<{W_VLNV}}  {'Display Name':<{W_NAME}}  {'Description / Notes'}"
-    sep    = f"{'─' * W_VLNV}  {'─' * W_NAME}  {'─' * W_DESC}"
-    print(f"\n{header}\n{sep}")
+	# After adding [[core]] to project.toml, create it
+	$ xviv create --core pixel_fifo<TAB>
+	pixel_fifo   xilinx.com:ip:fifo_generator:13.2  FIFO Generator  — Configurable …
+"""
 
-    for group in matching:
-        full = next((e for e in group.entries if not e.is_stub), group.entries[0])
 
-        versions_to_show = group.entries if all_versions else [group.entries[0]]
+# =============================================================================
+# search-core command implementation  (add to command.py)
+# =============================================================================
 
-        for idx, entry in enumerate(versions_to_show):
-            vlnv_col = entry.vlnv[:W_VLNV]
-            name_col = (full.display_name if idx == 0 else "")[:W_NAME]
-
-            if entry.is_stub:
-                desc_col = "⚠ older version — may not be available in this Vivado"
-            elif idx == 0:
-                flags = []
-                if full.board_dependent: flags.append("[board-dep]")
-                if full.ipi_only:        flags.append("[IPI-only]")
-                raw  = " ".join(full.description.split())
-                desc_col = ("  ".join(flags) + "  " if flags else "") + _truncate(raw, W_DESC)
-            else:
-                desc_col = "older version"
-
-            print(f"{vlnv_col:<{W_VLNV}}  {name_col:<{W_NAME}}  {desc_col}")
-
-        if not all_versions and group.has_older_versions:
-            older_count = len(group.entries) - 1
-            stub_count  = sum(1 for e in group.entries[1:] if e.is_stub)
-            note = f"  ↳ {older_count} older version(s)"
-            if stub_count:
-                note += f" ({stub_count} not in this Vivado install)"
-            note += " — use --all-versions to show"
-            print(note)
-
-    total = sum(len(g.entries) for g in matching)
-    shown = len(matching) if not all_versions else total
-    print(f"\n{len(matching)} IP(s) matched.  "
-          f"Add to project.toml:  vlnv = \"<VLNV>\"  in a [[core]] entry.")
