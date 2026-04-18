@@ -218,15 +218,18 @@ proc cmd_synthesis {top_module sha_tag} {
     # ------------------------------------------------------------------
     # set stem      "${top_module}"    ;# bare filename stem, no path
 	file mkdir $run_dir
+	set patch_file ""
 
 	if { $sha_tag ne "" } {
 		set_property BITSTREAM.CONFIG.USR_ACCESS 0x${usr_access_val} [current_design]
 		puts "INFO: USR_ACCESS = 0x${usr_access_val}"
 
 		if { $dirty } {
-			git_diff_to_file "$run_dir/${top_module}.patch"
+			set patch_file "$run_dir/${top_module}.patch"
+			git_diff_to_file $patch_file
 		}
 	}
+	
 
 	xviv_stage "Generating bitstream"
 
@@ -246,7 +249,7 @@ proc cmd_synthesis {top_module sha_tag} {
         sha_short       $sha_short                          \
         dirty           [expr {$dirty ? "true" : "false"}]  \
         mode            "global"                            \
-        diff            "$run_dir/${top_module}.patch"      \
+        diff            $patch_file      \
         bitstream       "$run_dir/${top_module}.bit"        \
         xsa             "$run_dir/${top_module}.xsa"        \
         elapsed         [xviv_elapsed]                      \
@@ -256,7 +259,7 @@ proc cmd_synthesis {top_module sha_tag} {
 		xviv_update_symlink "$out_dir/${top_module}.bit"   "$run_dir/${top_module}.bit"
 		xviv_update_symlink "$out_dir/${top_module}.xsa"   "$run_dir/${top_module}.xsa"
 		if { $dirty } {
-			xviv_update_symlink "$out_dir/${top_module}.patch" "$run_dir/${top_module}.patch"
+			xviv_update_symlink "$out_dir/${top_module}.patch" $patch_file
 		}
 		xviv_update_symlink "$out_dir/build.json"   "$run_dir/build.json"
 	}

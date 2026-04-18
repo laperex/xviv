@@ -25,6 +25,8 @@ proc cmd_create_bd {} {
 	if {[file exists $xviv_bd_state_tcl]} {
 		puts "INFO: Importing Block Design: $xviv_bd_state_tcl"
 
+		set parentCell ""
+
     	source $xviv_bd_state_tcl
 
 		xviv_refresh_bd_addresses
