@@ -20,6 +20,7 @@ DEFAULT_VITIS_PATH     = "/opt/Xilinx/Vitis/2024.1"
 DEFAULT_BUILD_DIR      = "build"
 DEFAULT_BUILD_IP_REPO  = "build/ip"
 DEFAULT_BUILD_BD_DIR   = "build/bd"
+DEFAULT_BUILD_CORE_DIR = "build/core"
 DEFAULT_BUILD_WRAPPER_DIR = "build/wrapper"
 
 # =============================================================================
@@ -52,6 +53,7 @@ class BuildConfig:
 	ip_repo:     str = DEFAULT_BUILD_IP_REPO
 	bd_dir:      str = DEFAULT_BUILD_BD_DIR
 	wrapper_dir: str = DEFAULT_BUILD_WRAPPER_DIR
+	core_dir:    str = DEFAULT_BUILD_CORE_DIR
 
 
 @dataclasses.dataclass
@@ -230,6 +232,10 @@ class ProjectConfig:
 	@property
 	def ip_repo(self) -> str:
 		return os.path.join(self.base_dir, self.build.ip_repo)
+
+	@property
+	def core_dir(self) -> str:
+		return os.path.join(self.base_dir, self.build.core_dir)
 
 	@property
 	def bd_dir(self) -> str:

@@ -14,7 +14,7 @@ proc cmd_create_ip {} {
 
     file mkdir $xviv_ip_repo
     file mkdir $proj_root
-	
+
 	puts "top module name: $xviv_ip_top"
 
     foreach stub {
@@ -28,7 +28,7 @@ proc cmd_create_ip {} {
     xviv_source_hooks xviv_ip_hooks
 
     xviv_create_project "in_memory_project"
-	
+
     xviv_stage "Scaffolding IP skeleton - $ip_vid"
     _xviv_ip_scaffold $ip_id $ip_vid $ip_dir $proj_root
 
@@ -39,6 +39,9 @@ proc cmd_create_ip {} {
 
     xviv_stage "Stripping default AXI-Lite scaffold"
     _xviv_ip_strip_scaffold
+
+	# delete obselete hdl dir
+	file delete -force "$ip_dir/hdl"
 
     xviv_stage "Adding RTL sources"
 

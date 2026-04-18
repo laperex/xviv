@@ -16,7 +16,7 @@ proc _xviv_ip_scaffold {ip_id ip_vid ip_dir proj_root} {
         $xviv_ip_version -dir $xviv_ip_repo
     add_peripheral_interface S00_AXI \
         -interface_mode slave -axi_type lite [ipx::find_open_core $ip_id]
-    generate_peripheral -driver [ipx::find_open_core $ip_id] -force
+    generate_peripheral [ipx::find_open_core $ip_id] -force
     write_peripheral    [ipx::find_open_core $ip_id]
 
     ipx::edit_ip_in_project -upgrade true -name "edit_$ip_vid" \

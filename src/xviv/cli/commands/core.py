@@ -9,8 +9,8 @@ from xviv.tools import vivado
 # -----------------------------------------------------------------------------
 # create --core <core_id>
 # -----------------------------------------------------------------------------
-def cmd_core_create(cfg: ProjectConfig, core_id: typing.Optional[str]):
-	config_tcl = generate_config_tcl(cfg, core_id=core_id)
+def cmd_core_create(cfg: ProjectConfig, core_vlnv: typing.Optional[str], core_name: typing.Optional[str]):
+	config_tcl = generate_config_tcl(cfg, core_name=core_name, core_vlnv=core_vlnv)
 	cfg.vivado.mode = 'tcl'
 	vivado.run_vivado(cfg, vivado._find_tcl_script(), "create_core", [], config_tcl)
 
