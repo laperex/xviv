@@ -4,7 +4,7 @@ import argcomplete
 import glob
 import os
 from xviv.config.loader import load_config
-from xviv.core_catalog.completer import _core_instance_completer, _core_vlnv_completer
+from xviv.catalog.completer import _core_instance_completer, _core_vlnv_completer
 
 
 def _find_config(prefix, parsed_args, **kwargs) -> str:

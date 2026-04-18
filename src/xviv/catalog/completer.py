@@ -8,7 +8,7 @@ import shutil
 # from xviv.config.loader import load_config
 # from xviv.cli.parser import _find_config
 from xviv.config.loader import load_config
-from xviv.core_catalog import parser
+from xviv.catalog import data
 
 logger = logging.getLogger(__name__)
 
@@ -33,14 +33,15 @@ def _core_instance_completer(prefix: str, parsed_args, **kwargs) -> dict[str, st
 		real_prefix = tokens[-1] if tokens else prefix
 
 		vivado_path = os.environ.get('XVIV_VIVADO_DIR') or ""
-		catalog = dict(parser.load(vivado_path))  # copy so we can merge
+		ip_repo_path = ""
 
-		# merge in any custom IPs from the project's ip_repo
 		try:
 			cfg = load_config(os.path.abspath(_find_config(prefix, parsed_args)))
-			catalog.update(parser.load_ip_repo(cfg.ip_repo))
+			ip_repo_path = cfg.ip_repo
 		except Exception as exc:
 			logger.debug("ip_repo scan skipped: %s", exc)
+
+		catalog = dict(data.load(vivado_path, [ip_repo_path]))
 
 		completions: dict[str, str] = {}
 		for vlnv, entry in catalog.items():
@@ -80,12 +81,12 @@ def _core_vlnv_completer(prefix: str, parsed_args, **kwargs) -> dict[str, str]:
 
 	try:
 		vivado_path = os.environ.get('XVIV_VIVADO_DIR') or ""
-		catalog = parser.load(vivado_path)
-		if not catalog:
+		data = data.load(vivado_path)
+		if not data:
 			return {}
 		needle = prefix.lower()
 		completions: dict[str, str] = {}
-		for vlnv, entry in sorted(catalog.items()):
+		for vlnv, entry in sorted(data.items()):
 			if entry.hidden and not vlnv.lower().startswith(needle):
 				continue
 			if not (

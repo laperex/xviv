@@ -4,6 +4,8 @@ import dataclasses
 import logging
 import os
 import shutil
+import sys
+import typing
 import xml.etree.ElementTree as ET
 from typing import Optional
 
@@ -35,8 +37,10 @@ class CoreEntry:
 	def short_desc(self) -> str:
 		desc_max = _term_width() // 2
 		text = " ".join(self.description.split())
+
 		if len(text) > desc_max:
 			text = text[:desc_max - 1] + "…"
+
 		return text
 
 	@property
@@ -132,15 +136,38 @@ def _parse_vv_index(xml_path: str) -> dict[str, CoreEntry]:
 _CATALOG_CACHE: dict[str, dict[str, CoreEntry]] = {}
 
 
-def load(vivado_path: str) -> dict[str, CoreEntry]:
+def load(vivado_path: str, ip_repo: list[str] = []) -> dict[str, CoreEntry]:
 	if vivado_path not in _CATALOG_CACHE:
 		xml_path = os.path.join(vivado_path, "data", "ip", "vv_index.xml")
 		_CATALOG_CACHE[vivado_path] = _parse_vv_index(xml_path)
+
+		for repo in ip_repo:
+			_CATALOG_CACHE[vivado_path].update(load_ip_repo(repo))
+
 	return _CATALOG_CACHE[vivado_path]
 
 
-def lookup(vivado_path: str, vlnv: str) -> Optional[CoreEntry]:
-	return load(vivado_path).get(vlnv)
+def lookup(vivado_path: str, ip_repo: list[str], id: str) -> CoreEntry:
+	catalog = load(vivado_path, ip_repo)
+
+	entry = catalog.get(id, None)
+	if entry is None:
+		for key in catalog:
+			if id in key:
+				if entry:
+					entry = None
+					break
+
+				entry = catalog[key]
+
+	if not entry:
+		sys.exit(
+			f"ERROR: Unable to resolve vlnv from core_id: {id}"
+		)
+
+	print(f"INFO: resolved vlnv {entry.vlnv} from {id}")
+
+	return entry
 
 
 def find_by_name(vivado_path: str, ip_name: str) -> list[CoreEntry]:
