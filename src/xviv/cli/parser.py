@@ -105,11 +105,13 @@ def build_completions_parser() -> argparse.ArgumentParser:
 	c.add_argument("--ip",       metavar="NAME", help="IP name").completer  = _ip_names_completer
 	c.add_argument("--bd",       metavar="NAME", help="BD name").completer  = _bd_names_completer
 	c.add_argument("--app",      metavar="NAME", help="App name").completer = _app_names_completer
-	c.add_argument("--core",     metavar="NAME", help="Instantiate an IP from Vivado's IP catalog").completer = _core_instance_completer
+	c.add_argument("--vlnv",     metavar="NAME", help="VLNV of IP from Vivado's IP catalog").completer = _core_instance_completer
 	c.add_argument("--platform", metavar="NAME",
 		help="Platform to create, or platform override when used with --app").completer = _platform_names_completer
 	c.add_argument("--template", metavar="TMPL", default=None,
 		help="App template override (used with --app)")
+	c.add_argument("--core", default=None,
+		help="Core name")
 
 	c = sub.add_parser(
 		"search",

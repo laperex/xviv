@@ -42,21 +42,22 @@ proc apply_ip_config {ip raw_list} {
 # Command: create_core
 # =============================================================================
 proc cmd_create_core {} {
-	global xviv_core_vlnv
+	global xviv_core_vlnv xviv_core_name xviv_core_dir
 
 	xviv_create_project "in_memory_project"
-
-	puts $xviv_core_vlnv
 	
-	# create_ip -vlnv $xviv_core_vlnv -module_name ip_rgb_to_hsv_temp3 -dir ./build/core
-	# start_ip_gui -vlnv $xviv_core_vlnv -module_name ip_rgb_to_hsv_temp3
-	# start_ip_gui -vlnv $xviv_core_vlnv -module_name ip_rgb_to_hsv_temp3
-	# read_ip build/core/ip_rgb_to_hsv_3/ip_rgb_to_hsv_3.xci
-	# start_ip_gui -ip [get_ips ip_rgb_to_hsv_3]
+	file mkdir $xviv_core_dir
+	
+	set xci_file "$xviv_core_dir/$xviv_core_name/${xviv_core_name}.xci"
 
-	read_ip build/core/clk_wiz_5/clk_wiz_5.xci
+	create_ip -vlnv $xviv_core_vlnv -module_name $xviv_core_name -dir $xviv_core_dir
+	generate_target {instantiation_template} [get_files $xci_file]
 
-	set_property -dict [list CLKOUT2_USED {true} MMCM_CLKOUT1_DIVIDE {10} NUM_OUT_CLKS {2} CLKOUT2_JITTER {130.958} CLKOUT2_PHASE_ERROR {98.575}] [get_ips clk_wiz_5]
+	generate_target all [get_files  $xci_file]
+	catch { config_ip_cache -export [get_ips -all $xviv_core_name] }
+
+	# synth_ip [get_ips -all $xviv_core_name]
+	# set_property -dict [list CLKOUT2_USED {true} MMCM_CLKOUT1_DIVIDE {10} NUM_OUT_CLKS {2} CLKOUT2_JITTER {130.958} CLKOUT2_PHASE_ERROR {98.575}] [get_ips clk_wiz_5]
 }
 
 

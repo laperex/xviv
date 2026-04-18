@@ -26,9 +26,11 @@ def generate_config_tcl(
 	ip_name:  typing.Optional[str] = None,
 	bd_name:  typing.Optional[str] = None,
 	top_name: typing.Optional[str] = None,
-	core_id: typing.Optional[str] = None,
+
+	core_name: typing.Optional[str] = None,
+	core_vlnv: typing.Optional[str] = None,
 ) -> str:
-	if sum(arg is not None for arg in (top_name, bd_name, ip_name, core_id)) != 1:
+	if sum(arg is not None for arg in (top_name, bd_name, ip_name, core_name)) != 1:
 		sys.exit("ERROR: get_synth requires exactly one of 'top_name', 'bd_name', 'ip_name' or 'core_id' to be specified.")
 
 	lines: list[str] = []
@@ -92,6 +94,7 @@ def generate_config_tcl(
 	# ---- Core variables (defaults empty) --------------------------------------------------------------------------------
 	lines += [
 		'set xviv_core_vlnv     ""',
+		'set xviv_core_name     ""',
 	]
 	# =========================================================================
 	# Context-specific overrides
@@ -140,11 +143,15 @@ def generate_config_tcl(
 			f'set xviv_bd_name       "{bd.name}"',
 			f'set xviv_bd_hooks      "{bd_hooks}"',
 		]
-	elif core_id:
-		core_entry = data.lookup(cfg.vivado.path, [ cfg.ip_repo ], core_id)
+	elif core_name:
+		core_entry = data.lookup(cfg.vivado.path, [ cfg.ip_repo ], core_vlnv or "")
+		
+		core_dir = cfg.core_dir
 
 		lines += [
 			f'set xviv_core_vlnv     "{core_entry.vlnv}"',
+			f'set xviv_core_name     "{core_name}"',
+			f'set xviv_core_dir      "{core_dir}"',
 		]
 
 	if not os.path.exists(synth_hooks):
