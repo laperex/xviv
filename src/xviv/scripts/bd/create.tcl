@@ -32,8 +32,6 @@ proc cmd_create_bd {} {
 		save_bd_design
 	} else {
 		puts "INFO: BD hooks not found. Starting GUI..."
-		puts "INFO: Tip: Save your design with 'xviv export --bd <bd_name>'."
-		puts "INFO: Tip: Enable automation with 'xviv config --bd <bd_name>'."
 
 		override_save_bd_design
 		start_gui
