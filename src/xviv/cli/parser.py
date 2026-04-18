@@ -4,6 +4,7 @@ import argcomplete
 import glob
 import os
 from xviv.config.loader import load_config
+from xviv.core_catalog.completer import _core_instance_completer, _core_vlnv_completer
 
 
 def _find_config(prefix, parsed_args, **kwargs) -> str:
@@ -83,7 +84,7 @@ def _app_names_completer(prefix, parsed_args, **kwargs):
 		return []
 
 
-def build_parser() -> argparse.ArgumentParser:
+def build_completions_parser() -> argparse.ArgumentParser:
 	p = argparse.ArgumentParser(
 		prog="xviv",
 		description="FPGA project controller for Vivado / Vitis",
@@ -104,10 +105,21 @@ def build_parser() -> argparse.ArgumentParser:
 	c.add_argument("--ip",       metavar="NAME", help="IP name").completer  = _ip_names_completer
 	c.add_argument("--bd",       metavar="NAME", help="BD name").completer  = _bd_names_completer
 	c.add_argument("--app",      metavar="NAME", help="App name").completer = _app_names_completer
+	c.add_argument("--core",     metavar="NAME", help="Instantiate an IP from Vivado's IP catalog").completer = _core_instance_completer
 	c.add_argument("--platform", metavar="NAME",
 		help="Platform to create, or platform override when used with --app").completer = _platform_names_completer
 	c.add_argument("--template", metavar="TMPL", default=None,
 		help="App template override (used with --app)")
+
+	c = sub.add_parser(
+		"search",
+		help="Search Vivado's IP catalog by name, VLNV, or keyword",
+	)
+	c.add_argument(
+		"query",
+		metavar="QUERY",
+		help="IP name, partial VLNV, or keyword (e.g. 'fifo', 'clk_wiz')",
+	).completer = _core_vlnv_completer
 
 	# ------------------------------------------------------------------
 	# edit --ip | --bd

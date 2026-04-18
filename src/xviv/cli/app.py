@@ -3,17 +3,18 @@ import os
 import sys
 import argcomplete
 from xviv.cli.commands.bd import cmd_bd_config, cmd_bd_create, cmd_bd_edit, cmd_bd_export, cmd_bd_generate, cmd_bd_synth
+from xviv.cli.commands.core import cmd_search_core
 from xviv.cli.commands.ip import cmd_ip_config, cmd_ip_create, cmd_ip_edit, cmd_ip_synth
 from xviv.cli.commands.sim import cmd_top_elaborate, cmd_top_simulate
 from xviv.cli.commands.synth import cmd_dcp_open, cmd_top_config, cmd_top_synth
 from xviv.cli.commands.waveform import cmd_snapshot_open, cmd_snapshot_reload, cmd_wdb_open, cmd_wdb_reload
 from xviv.cli.commands.xsct import cmd_app_build, cmd_app_create, cmd_platform_build, cmd_platform_create, cmd_processor, cmd_program
-from xviv.cli.parser import build_parser
+from xviv.cli.parser import build_completions_parser
 from xviv.config.loader import load_config
 from xviv.utils.log import _setup_logging
 
 def run():
-	parser = build_parser()
+	parser = build_completions_parser()
 	argcomplete.autocomplete(parser)
 	args = parser.parse_args()
 
@@ -45,6 +46,9 @@ def run():
 				cmd_platform_create(cfg, args.platform)
 			else:
 				parser.parse_args(['create', '--help'])
+
+		case "search":
+			cmd_search_core(cfg, args.query)
 
 		case "edit":
 			if args.ip:
