@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "xviv"
-version = "0.2.0"
+dynamic = ["version"]
 description = "FPGA project controller for Vivado"
 readme = "README.md"
 requires-python = ">=3.11"
