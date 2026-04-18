@@ -22,7 +22,7 @@ jobs:
         run: python -m build
 
       - name: Upload to PyPI
-        run: twine upload dist/*
+        run: twine upload --verbose dist/*
         env:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
