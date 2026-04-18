@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 [project]
@@ -19,6 +19,12 @@ classifiers = [
 ]
 license = {text = "MIT"}
 keywords = ["fpga", "vivado", "xilinx", "eda", "rtl"]
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/xviv/_version.py"
 
 [tool.setuptools.package-data]
 xviv = ["scripts/**/*.tcl"]
