@@ -28,6 +28,7 @@ source "$script_dir/reports/utilisation.tcl"
 source "$script_dir/core/create.tcl"
 source "$script_dir/core/edit.tcl"
 
+source "$script_dir/bd/util.tcl"
 source "$script_dir/bd/create.tcl"
 source "$script_dir/bd/edit.tcl"
 source "$script_dir/bd/export.tcl"

@@ -14,7 +14,6 @@ logger = logging.getLogger(__name__)
 # create --bd <bd_name>
 # -----------------------------------------------------------------------------
 def cmd_bd_create(cfg: ProjectConfig, bd_name: str):
-	cmd_bd_config(cfg, bd_name, exist_ok=True)
 	config_tcl = generate_config_tcl(cfg, bd_name=bd_name)
 	vivado.run_vivado(cfg, vivado._find_tcl_script(), "create_bd", [], config_tcl)
 
