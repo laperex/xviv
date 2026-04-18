@@ -85,7 +85,7 @@ class BdConfig:
 		if not self.hooks:
 			self.hooks = f"scripts/bd/{self.name}_hooks.tcl"
 		if not self.export_tcl:
-			self.export_tcl = f"scripts/bd/export/{self.name}.tcl"
+			self.export_tcl = f"scripts/bd/state/{self.name}.tcl"
 
 
 @dataclasses.dataclass
