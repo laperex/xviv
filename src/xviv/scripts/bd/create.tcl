@@ -22,14 +22,7 @@ proc cmd_create_bd {} {
     xviv_create_project "in_memory_project"
     create_bd_design -dir $xviv_bd_dir $xviv_bd_name
 
-	if {![info exists xviv_bd_state_tcl] || $xviv_bd_state_tcl eq ""} {
-		puts "INFO: BD hooks not found. Starting GUI..."
-		puts "INFO: Tip: Save your design with 'xviv export --bd <bd_name>'."
-		puts "INFO: Tip: Enable automation with 'xviv config --bd <bd_name>'."
-
-		override_save_bd_design
-		start_gui
-	} else {
+	if {[file exists $xviv_bd_state_tcl]} {
 		puts "INFO: Importing Block Design: $xviv_bd_state_tcl"
 
     	source $xviv_bd_state_tcl
@@ -37,5 +30,12 @@ proc cmd_create_bd {} {
 		xviv_refresh_bd_addresses
 		validate_bd_design
 		save_bd_design
+	} else {
+		puts "INFO: BD hooks not found. Starting GUI..."
+		puts "INFO: Tip: Save your design with 'xviv export --bd <bd_name>'."
+		puts "INFO: Tip: Enable automation with 'xviv config --bd <bd_name>'."
+
+		override_save_bd_design
+		start_gui
 	}
 }
