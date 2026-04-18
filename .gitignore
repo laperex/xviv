@@ -23,6 +23,7 @@ pip-delete-this-directory.txt
 .pypirc
 /.mypy_cache
 
+src/xviv/_version.py
 
 FEATURES
 DESIGN.md
