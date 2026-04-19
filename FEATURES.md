@@ -1,12 +1,12 @@
 - find use for export_bd
 
-- change config synth:
-	old: xviv config --synth -> generates synth config for top module only 
-	new: xviv config --synth (--bd <bd_name> | --ip <ip_name> | --top <top_name>) -> generates synth config for all targets
+- core
+	- use in sim
+	- use in synth
 
 - project guide in search core
 	link to project guide - html / pdf as a column in xviv search <query>
-	
+
 - search changes in syntax
 	old: xviv search <query>
 	new: xviv search --core <query>

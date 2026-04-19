@@ -182,6 +182,11 @@ class SimulationConfig:
 class CoreConfig:
 	name:       str
 	vlnv:       str
+	state_tcl:  str
+	
+	def __post_init__(self) -> None:
+		if not self.state_tcl:
+			self.state_tcl = f"scripts/core/state/{self.name}.tcl"
 
 @dataclasses.dataclass
 class PlatformConfig:
@@ -479,7 +484,7 @@ def _parse_bds(raw: dict) -> list[BdConfig]:
 		BdConfig(
 			name=b["name"],
 			hooks=b.get("hooks", ""),
-			state_tcl=b.get("state_tcl", ""),
+		state_tcl=b.get("state_tcl", ""),
 			# xdc=b.get("xdc", []),
 			# xdc_ooc=b.get("xdc_ooc", []),
 			fpga=b.get("fpga", ""),
@@ -491,7 +496,8 @@ def _parse_cores(raw: dict) -> list[CoreConfig]:
 	return [
 		CoreConfig(
 			name=b["name"],
-			vlnv=b["vlnv"]
+			vlnv=b["vlnv"],
+			state_tcl=b.get('state_tcl', '')
 		)
 		for b in raw.get("core", [])
 	]
