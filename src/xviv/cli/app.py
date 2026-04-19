@@ -2,7 +2,7 @@
 import os
 import sys
 import argcomplete
-from xviv.cli.commands.bd import cmd_bd_config, cmd_bd_create, cmd_bd_edit, cmd_bd_export, cmd_bd_generate, cmd_bd_synth
+from xviv.cli.commands.bd import cmd_bd_config, cmd_bd_create, cmd_bd_edit, cmd_bd_generate, cmd_bd_synth
 from xviv.cli.commands.core import cmd_core_create, cmd_search_core
 from xviv.cli.commands.ip import cmd_ip_config, cmd_ip_create, cmd_ip_edit, cmd_ip_synth
 from xviv.cli.commands.sim import cmd_top_elaborate, cmd_top_simulate
@@ -68,9 +68,6 @@ def run():
 
 		case "generate":
 			cmd_bd_generate(cfg, args.bd)
-
-		case "export":
-			cmd_bd_export(cfg, args.bd)
 
 		case "synth":
 			if args.ip:

@@ -7,7 +7,7 @@ proc strip_bd_tcl {path prefix} {
     set end   [string first "save_bd_design" $data]
 
     if {$start == -1 || $end == -1} {
-        error "Could not find expected markers in exported BD TCL: $path\n\
+        error "Could not find expected markers in state BD TCL: $path\n\
             'set bCheckIPsPassed' found: [expr {$start != -1}]\n\
             'save_bd_design'      found: [expr {$end != -1}]"
     }

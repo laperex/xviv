@@ -1,3 +1,5 @@
+- find use for export_bd
+
 - change config synth:
 	old: xviv config --synth -> generates synth config for top module only 
 	new: xviv config --synth (--bd <bd_name> | --ip <ip_name> | --top <top_name>) -> generates synth config for all targets
@@ -51,17 +53,6 @@
 	cmd_processor
 
 - add debug cores. 
-
-	```TCL
-	rename exit _original_exit
-	proc exit {args} {
-		write_xdc -type misc -force ./test_constraints_test_exit.xdc
-
-		_original_exit {*}$args
-	}
-	```
-
-- better edit bd
 
 	```TCL
 	rename exit _original_exit

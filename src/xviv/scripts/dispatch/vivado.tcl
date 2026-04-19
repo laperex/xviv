@@ -12,7 +12,6 @@
 #   create_bd                           - create a new Block Design
 #   edit_bd                             - open an existing BD in the GUI
 #   generate_bd                         - generate BD output products + wrapper
-#   export_bd                           - export BD as a versioned re-runnable TCL
 #   synthesis    <top_module> <sha_tag> - synth -> place -> route -> bitstream
 #   open_dcp     <dcp_file>             - open a checkpoint in the GUI
 # =============================================================================
@@ -31,7 +30,6 @@ source "$script_dir/core/edit.tcl"
 source "$script_dir/bd/util.tcl"
 source "$script_dir/bd/create.tcl"
 source "$script_dir/bd/edit.tcl"
-source "$script_dir/bd/export.tcl"
 source "$script_dir/bd/generate.tcl"
 
 source "$script_dir/synth/util.tcl"
@@ -238,7 +236,6 @@ switch -- $_cmd {
 	create_bd   { cmd_create_bd }
     edit_bd     { cmd_edit_bd [lindex $::argv 2] }
     generate_bd { cmd_generate_bd }
-    export_bd   { cmd_export_bd [lindex $::argv 2] }
 
 	create_core { cmd_create_core }
 
@@ -272,7 +269,7 @@ switch -- $_cmd {
         puts stderr "XVIV ERROR: Unknown command '$_cmd'"
         puts stderr "Valid commands:"
         puts stderr "  create_ip   edit_ip"
-        puts stderr "  create_bd   edit_bd   generate_bd   export_bd"
+        puts stderr "  create_bd   edit_bd   generate_bd"
         exit 1
     }
 }

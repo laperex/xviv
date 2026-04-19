@@ -1,12 +1,6 @@
 # xviv
 
-[![PyPI](https://img.shields.io/pypi/v/xviv)](https://pypi.org/project/xviv/)
-[![Python](https://img.shields.io/pypi/pyversions/xviv)](https://pypi.org/project/xviv/)
-[![License](https://img.shields.io/pypi/l/xviv)](https://pypi.org/project/xviv/)
-
-**A Python-based CLI controller for Xilinx Vivado and Vitis workflows.**
-
-`xviv` drives Vivado in non-project (batch) mode via a single `project.toml` configuration file and a set of TCL scripts. It covers the full FPGA development lifecycle: IP packaging, Block Design, synthesis, implementation, bitstream generation, BSP/platform creation, and embedded application build/program.
+**xviv** is a command-line project controller for AMD/Xilinx Vivado and Vitis workflows. It replaces the manual, GUI-driven FPGA development cycle with a declarative, reproducible, version-control-friendly build system driven by a single `project.toml` (or `project.cue`) configuration file.
 
 ---
 
@@ -14,36 +8,26 @@
 
 - [Features](#features)
 - [Installation](#installation)
-- [Project Configuration](#project-configuration)
+- [Quick Start](#quick-start)
+- [Configuration](#configuration)
 - [Commands](#commands)
-  - [IP Management](#ip-management)
-  - [Block Design](#block-design)
-  - [Synthesis](#synthesis)
-  - [Simulation](#simulation)
-  - [Embedded (Vitis / xsct)](#embedded-vitis--xsct)
-  - [Programming](#programming)
-- [Hooks System](#hooks-system)
-- [Out-of-Context (OOC) Synthesis](#out-of-context-ooc-synthesis)
-- [Interface Inference Tool (xviv_infer)](#interface-inference-tool-xviv_infer)
-- [Wrapper Generator](#wrapper-generator)
 - [Shell Completion](#shell-completion)
-- [Directory Layout](#directory-layout)
+- [Project Layout](#project-layout)
 
 ---
 
 ## Features
 
-- **Single config file** — all project settings live in `project.toml`
-- **Non-project / batch mode** — no `.xpr` file, no stale GUI state
-- **IP packaging** — scaffold, edit, and version custom IPs with a hooks API
-- **Block Design** — create, edit, generate, and export BDs as re-runnable TCL
-- **OOC synthesis** — out-of-context per-IP synthesis with automatic DCP caching and incremental builds
-- **Synthesis -> Implementation -> Bitstream** — single command with optional reports and netlists
-- **Git-tagged bitstreams** — SHA embeds in USR_ACCESS for traceability
-- **Embedded workflow** — BSP generation, app scaffolding, build, and JTAG program via `xsct`
-- **xsim integration** — compile, elaborate, run, and live-reload waveforms via a FIFO control channel
-- **Shell completion** — `argcomplete`-powered tab completion for all commands and arguments
-- **Interface inference** — `pyslang`-based SV parser auto-generates Vivado IP-XACT TCL for bus interface registration
+- **Declarative project config** — FPGA part, IP cores, block designs, synthesis targets, simulation targets, and embedded platforms all defined in one file.
+- **CUE or TOML** — validated CUE schemas (`project.cue`) or plain TOML (`project.toml`).
+- **IP management** — create, edit, and synthesise custom IP packaged in Vivado's IP catalog format. Optional SV wrapper generation via `pyslang` for interface-port flattening.
+- **Block Design (BD)** — create, edit, generate output products, export versioned TCL snapshots, and synthesise BDs without touching the GUI.
+- **Full synthesis pipeline** — synth → opt → place → phys-opt → route → bitstream, with incremental synthesis and incremental implementation support and per-stage hooks.
+- **Simulation** — compile with `xvlog`/`xelab`, run with `xsim`, open waveforms, and hot-reload snapshots over a FIFO control channel.
+- **Embedded (MicroBlaze)** — BSP generation, app scaffolding, build, FPGA programming, processor reset and status via `xsct`.
+- **IP catalog search** — full-text search across VLNV, display name, and description.
+- **Shell autocompletion** — `argcomplete`-powered tab completion for every flag, including dynamic IP/BD/top names and VLNV strings from the live catalog.
+- **Git-aware builds** — SHA tag and dirty-state tracking embedded in bitstream `USR_ACCESS` and output filenames; diff patches captured for dirty builds.
 
 ---
 
@@ -53,119 +37,158 @@
 pip install xviv
 ```
 
-Or from source:
+Requires Python 3.10+.  
+Optional: install [`cue`](https://cuelang.org/docs/install/) to use `.cue` project files.  
+Optional: install `pyslang` for SV wrapper generation.
+
+Vivado/Vitis must be installed separately. Point `xviv` at them via environment variables:
 
 ```bash
-git clone https://github.com/laperex/xviv
-cd xviv
-pip install -e .
-```
-
-**Requirements**
-
-| Dependency | Notes |
-|---|---|
-| Python ≥ 3.11 | Uses `tomllib`, `match` statements |
-| Vivado 2024.1 | Tested version; 2023.x likely works |
-| Vitis 2024.1 | Required only for embedded (`xsct`) commands |
-| `pyslang` | Required for `wrapper` and `inference` features |
-| `argcomplete` | Shell completion |
-
-Activate shell completion once:
-
-```bash
-activate-global-python-argcomplete
-# or for a single shell session:
-eval "$(register-python-argcomplete xviv)"
+export XVIV_VIVADO_DIR=/opt/Xilinx/Vivado/2024.1
+export XVIV_VITIS_DIR=/opt/Xilinx/Vitis/2024.1
 ```
 
 ---
 
-## Project Configuration
+## Quick Start
 
-All project settings are declared in `project.toml`, placed at the root of your project. `xviv` automatically `chdir`s to the directory containing the config file before any command runs.
+```bash
+# 1. Create project.toml in your project root
+cat > project.toml <<'EOF'
+[fpga.main]
+part       = "xc7z020clg400-1"
+board_part = "digilentinc.com:zedboard:part0:1.0"
+
+[[synthesis]]
+top = "top_design"
+rtl = ["srcs/rtl/**/*.sv"]
+xdc = ["constraints/top.xdc"]
+EOF
+
+# 3. Synthesise the top-level design
+xviv synth --top top_design
+
+# 4. Open the post-synthesis checkpoint
+xviv open --dcp post_synth --top top_design
+```
+
+---
+
+## Configuration
+
+xviv reads `project.cue` first, then falls back to `project.toml`. The `--config` / `-c` flag overrides this.
+
+### `[fpga]`
 
 ```toml
-# ── FPGA target ────────────────────────────────────────────────
 [fpga]
+default = "main"          # which named target to use by default
+
+[fpga.main]
 part       = "xc7z020clg400-1"
-board_part = "tul.com.tw:pynq-z2:part0:1.0"
-board_repo = "/path/to/board_files"   # optional
+board_part = "digilentinc.com:zedboard:part0:1.0"
+board_repo = ""            # optional path to a custom board repo
 
-# Named targets (select with  fpga = "artix7"  in a [[synthesis]] entry)
-[fpga.artix7]
-part = "xc7a35tcpg236-1"
+[fpga.ooc]
+part = "xc7z020clg400-1"  # a second named target for OOC synthesis
+```
 
-# ── Tool paths ─────────────────────────────────────────────────
+### `[vivado]`
+
+```toml
 [vivado]
-path        = "/opt/Xilinx/Vivado/2024.1"
-mode        = "batch"        # batch | tcl
+mode        = "batch"          # batch | tcl
 max_threads = 8
 hw_server   = "localhost:3121"
+```
 
+### `[vitis]`
+
+```toml
 [vitis]
-path = "/opt/Xilinx/Vitis/2024.1"
+# path is read from $XVIV_VITIS_DIR; no explicit key needed
+```
 
-# ── Build output directories ───────────────────────────────────
+### `[build]`
+
+```toml
 [build]
 dir         = "build"
 ip_repo     = "build/ip"
 bd_dir      = "build/bd"
 wrapper_dir = "build/wrapper"
+core_dir    = "build/core"
+```
 
-# ── Global RTL sources (applied to every top-level synthesis) ──
-[sources]
-rtl = ["srcs/rtl/**/*.sv", "srcs/rtl/**/*.v"]
-xdc = ["srcs/xdc/*.xdc"]
-sim = ["srcs/sim/**/*.sv"]
+### `[[ip]]`
 
-# ── Custom IPs ─────────────────────────────────────────────────
+```toml
 [[ip]]
-name    = "my_accelerator"
-vendor  = "myorg.com"
-library = "user"
-version = "1.0"
-top     = "my_accelerator"
-rtl     = ["srcs/ip/my_accelerator/**/*.sv"]
+name           = "my_ip"
+vendor         = "user.org"
+library        = "user"
+version        = "1.0"
+top            = "my_ip"          # HDL top module name
+rtl            = ["srcs/rtl/**/*.sv"]
+hooks          = "scripts/ip/my_ip_1.0.tcl"   # auto-generated path if omitted
+create-wrapper = false            # true to auto-generate a flat SV wrapper
+```
 
-[[ip]]
-name           = "axi_wrapper"
-top            = "axi_wrapper"
-rtl            = ["srcs/ip/axi_wrapper/**/*.sv"]
-create_wrapper = true   # auto-generate SV wrapper flattening interfaces
+### `[[bd]]`
 
-# ── Block Designs ──────────────────────────────────────────────
+```toml
 [[bd]]
 name       = "system"
-xdc        = ["srcs/xdc/system.xdc"]
-export_tcl = "scripts/bd/system.tcl"
+hooks      = "scripts/bd/system_hooks.tcl"    # auto-generated if omitted
+export_tcl = "scripts/bd/state/system.tcl"    # auto-generated if omitted
+fpga       = ""                               # override fpga target
+```
 
-# ── Top-level synthesis runs ───────────────────────────────────
+### `[[synthesis]]`
+
+```toml
 [[synthesis]]
-top              = "system_wrapper"
-fpga             = "pynqz2"          # selects [fpga.pynqz2] target
-xdc              = ["srcs/xdc/system.xdc"]
-report_synth     = true
-report_place     = true
-report_route     = true
+top              = "top_design"
+ip               = ""              # IP name if this is an IP synth entry
+bd               = ""              # BD name if this is a BD synth entry
+rtl              = ["srcs/rtl/**/*.sv"]
+xdc              = ["constraints/top.xdc"]
+xdc_ooc          = []
+fpga             = ""              # override fpga target
+hooks            = "scripts/synth/top_design.tcl"
+
+# Reporting
+report_synth     = false
+report_place     = false
+report_route     = false
 generate_netlist = false
+out_of_context   = false
+```
 
-[[synthesis]]
-top             = "my_module"
-rtl             = ["srcs/rtl/my_module.sv"]
-out_of_context  = true
+### `[[simulate]]`
 
-# ── Platform / BSP ─────────────────────────────────────────────
+```toml
+[[simulate]]
+top = "tb_top"
+rtl = ["srcs/sim/**/*.sv", "srcs/rtl/**/*.sv"]
+```
+
+### `[[platform]]`
+
+```toml
 [[platform]]
-name      = "pynqz2_bsp"
+name      = "zed_platform"
 cpu       = "ps7_cortexa9_0"
 os        = "standalone"
-synth_top = "system_wrapper"   # derive XSA from a synthesis run
+synth_top = "top_design"   # or: xsa = "path/to/manual.xsa"
+```
 
-# ── Embedded applications ──────────────────────────────────────
+### `[[app]]`
+
+```toml
 [[app]]
 name     = "hello_world"
-platform = "pynqz2_bsp"
+platform = "zed_platform"
 template = "hello_world"
 src_dir  = "srcs/sw/hello_world"
 ```
@@ -174,333 +197,166 @@ src_dir  = "srcs/sw/hello_world"
 
 ## Commands
 
-All commands accept `--config <path>` (default: `project.toml`) and `--log-file <path>`.
+### `create`
 
-### IP Management
-
-#### `xviv create --ip <name>`
-
-Scaffolds a new custom IP in the IP repository (`build/ip/`).
-
-1. Reads `[[ip]]` config for `<name>`.
-2. If `create_wrapper = true`, parses your RTL with `pyslang` and auto-generates a SystemVerilog wrapper that flattens interface ports.
-3. Launches Vivado, creates the IP skeleton, strips the default AXI-Lite scaffold, adds your RTL, infers bus interfaces (AXI-Stream, AXI-MM), exposes HDL parameters in the GUI, and saves `component.xml`.
-
-```bash
-xviv create --ip my_accelerator
+```
+xviv create --ip   <name>               # scaffold and package a custom IP
+xviv create --bd   <name>               # create a new Block Design project
+xviv create --core <name> --vlnv <vlnv> # instantiate a catalog IP into build/core
+xviv create --platform <name>           # generate a BSP from an XSA
+xviv create --app  <name> [--platform <p>] [--template <t>]
 ```
 
-Hooks file is auto-generated at `scripts/ip/my_accelerator_1.0.tcl` on first run. Customize it to control interface inference, parameter layout, and memory maps.
+### `search`
 
-#### `xviv edit --ip <name>`
-
-Opens an existing IP in the Vivado IP Packager GUI for interactive editing.
-
-```bash
-xviv edit --ip my_accelerator
+```
+xviv search <query>     # search VLNV, display name, and description
 ```
 
-#### `xviv config --ip <name>`
+### `edit`
 
-Generates a starter hooks TCL file for the IP without launching Vivado.
-
-```bash
-xviv config --ip my_accelerator
-# Edit: scripts/ip/my_accelerator_1.0.tcl
+```
+xviv edit --ip <name> [--nogui]
+xviv edit --bd <name> [--nogui]
 ```
 
----
+### `config`
 
-### Block Design
+Generates a starter hooks TCL file for the named target. Safe to re-run only before the hooks file exists.
 
-#### `xviv create --bd <name>`
-
-Creates a new Block Design. If a hooks file with an exported BD TCL exists, the BD is recreated automatically. Otherwise Vivado opens the GUI for interactive design.
-
-```bash
-xviv create --bd system
+```
+xviv config --ip  <name>
+xviv config --bd  <name>
+xviv config --top <name>
 ```
 
-#### `xviv edit --bd <name>`
+### `generate`
 
-Opens an existing BD in the Vivado GUI for interactive editing.
-
-```bash
-xviv edit --bd system
+```
+xviv generate --bd <name>   # generate output products + Verilog wrapper
 ```
 
-#### `xviv generate --bd <name>`
+### `export`
 
-Generates all BD output products (synthesis, simulation, implementation targets) and copies the BD wrapper Verilog to `build/wrapper/`.
-
-```bash
-xviv generate --bd system
+```
+xviv export --bd <name>     # export BD as a versioned re-runnable TCL script
 ```
 
-#### `xviv export --bd <name>`
+### `synth`
 
-Exports the BD as a versioned, re-runnable TCL script tagged with the current git SHA. A symlink `scripts/bd/system.tcl` always points to the latest export.
-
-```bash
-xviv export --bd system
-# Exported : scripts/bd/system_abc1234.tcl
-# Symlink  : scripts/bd/system.tcl -> system_abc1234.tcl
+```
+xviv synth --ip  <name>
+xviv synth --bd  <name> [--ooc-run]
+xviv synth --top <name>
 ```
 
-#### `xviv config --bd <name>`
+### `open`
 
-Generates a starter hooks file that sources the exported TCL on `create-bd`, enabling fully automated BD recreation from version control.
-
-```bash
-xviv config --bd system
+```
+xviv open --dcp <stem> --top <name> [--nogui]   # open a .dcp checkpoint
+xviv open --snapshot   --top <name>             # open post-sim waveform
+xviv open --wdb        --top <name>             # open a .wdb waveform DB
 ```
 
----
+### `elaborate`
 
-### Synthesis
-
-#### `xviv synth --top <module>`
-
-Runs the complete flow: Synthesis -> Placement -> Routing -> Bitstream + XSA.
-
-```bash
-xviv synth --top system_wrapper
+```
+xviv elaborate --top <name> [--run <time>]   # compile + optionally run sim
 ```
 
-Output in `build/synth/system_wrapper/`:
+### `simulate`
 
-| File | Description |
-|---|---|
-| `post_synth.dcp` | Post-synthesis checkpoint |
-| `post_place.dcp` | Post-placement checkpoint |
-| `post_route.dcp` | Post-routing checkpoint |
-| `system_wrapper_abc1234.bit` | Tagged bitstream |
-| `system_wrapper_abc1234.xsa` | Hardware platform for Vitis |
-| `system_wrapper.bit` -> symlink | Always points to latest |
-| `build.json` | Build manifest (Vivado version, part, SHA, timing) |
-
-#### `xviv synth --bd <name>`
-
-Synthesises a BD wrapper. With `--ooc-run`, performs per-IP out-of-context synthesis first (see [OOC Synthesis](#out-of-context-ooc-synthesis)).
-
-```bash
-xviv synth --bd system
-xviv synth --bd system --ooc-run
+```
+xviv simulate --top <name> [--run <time>]
 ```
 
-#### `xviv open --dcp post_synth --top system_wrapper`
+### `reload`
 
-Opens a saved checkpoint in the Vivado GUI for inspection.
-
-```bash
-xviv open --dcp post_route --top system_wrapper
+```
+xviv reload --snapshot --top <name>   # hot-reload xsim snapshot
+xviv reload --wdb      --top <name>   # reload waveform DB
 ```
 
----
+### `build`
 
-### Simulation
-
-#### `xviv elab --top <sim_top> [--run <time>]`
-
-Compiles (`xvlog`), elaborates (`xelab`), and optionally runs (`xsim`) a simulation.
-
-```bash
-xviv elab --top tb_my_module --run 1000ns
+```
+xviv build --platform <name>
+xviv build --app      <name> [--info]
 ```
 
-#### `xviv open --snapshot --top <sim_top>`
+### `program`
 
-Opens the simulation snapshot in the xsim GUI with a live FIFO control channel.
-
-```bash
-xviv open --snapshot --top tb_my_module
+```
+xviv program [--platform <name>] [--app <name>] [--elf <path>] [--bitstream <path>]
 ```
 
-#### `xviv reload --snapshot --top <sim_top>`
+### `processor`
 
-Re-runs the simulation and reloads the waveform without closing xsim.
-
-```bash
-xviv reload --snapshot --top tb_my_module
 ```
-
-#### `xviv open --wdb --top <sim_top>` / `xviv reload --wdb --top <sim_top>`
-
-Open or reload a static WDB waveform file.
-
----
-
-### Embedded (Vitis / xsct)
-
-#### `xviv create --platform <name>`
-
-Generates a Board Support Package (BSP) from the XSA produced by a synthesis run.
-
-```bash
-xviv create --platform pynqz2_bsp
-```
-
-#### `xviv build --platform <name>`
-
-Compiles the BSP (`make -j<nproc>`).
-
-```bash
-xviv build --platform pynqz2_bsp
-```
-
-#### `xviv create --app <name> [--platform <name>] [--template <template>]`
-
-Scaffolds an embedded application from a Vitis template.
-
-```bash
-xviv create --app hello_world
-xviv create --app hello_world --template empty_application
-```
-
-Common templates: `empty_application`, `hello_world`, `lwip_echo_server`, `zynq_fsbl`
-
-#### `xviv build --app <name> [--info]`
-
-Compiles the application. `--info` prints ELF size and section layout.
-
-```bash
-xviv build --app hello_world --info
-```
-
----
-
-### Programming
-
-#### `xviv program --platform <name> [--app <name>]`
-
-Downloads the bitstream and optionally the ELF to the connected FPGA via JTAG.
-
-```bash
-xviv program --platform pynqz2_bsp --app hello_world
-xviv program --bitstream build/synth/system_wrapper/system_wrapper.bit
-```
-
-#### `xviv processor --reset | --status`
-
-Soft-reset the MicroBlaze or print JTAG target state and registers.
-
-```bash
 xviv processor --reset
 xviv processor --status
 ```
 
 ---
 
-## Hooks System
-
-Every major command supports a TCL hooks file that is sourced inside the Vivado session. Hooks are generated by `xviv config` and live under `scripts/`.
-
-**IP hooks** (`scripts/ip/<name>_<version>.tcl`):
-
-| Proc | When called |
-|---|---|
-| `ipx_add_files` | After opening the edit project |
-| `ipx_merge_changes` | After `ipx::merge_project_changes` |
-| `ipx_infer_bus_interfaces` | After default AXI-Stream / AXI-MM inference |
-| `ipx_add_params` | After HDL parameters are exposed in the GUI |
-| `ipx_add_memory_map` | After memory maps are wired |
-| `synth_pre` / `synth_post` | Before/after synthesis |
-| `place_post` / `route_post` / `bitstream_post` | After each implementation stage |
-
-**BD hooks** (`scripts/bd/<name>_hooks.tcl`):
-
-| Proc | When called |
-|---|---|
-| `bd_design_config parentCell` | Main BD creation hook; sources exported TCL if present |
-| `synth_pre` / `synth_post` / `place_post` / `route_post` / `bitstream_post` | Implementation stages |
-
-**Synthesis hooks** (`scripts/synth/<top>.tcl`):
-
-Same `synth_pre` / `synth_post` / `place_post` / `route_post` / `bitstream_post` procs.
-
----
-
-## Out-of-Context (OOC) Synthesis
-
-OOC synthesis pre-compiles each leaf IP independently, then links the DCPs into the BD wrapper synthesis. This dramatically reduces iteration time for large BDs — only changed IPs are re-synthesised.
-
-```bash
-xviv synth --bd system --ooc-run
-```
-
-DCPs are cached in `build/synth/<bd_wrapper>/ooc/<ip_name>/post_synth.dcp`. A DCP is skipped when it is newer than the IP's `component.xml`. The BD wrapper synthesis uses black-box stubs and `read_checkpoint -cell` to link everything together.
-
-An incremental reference DCP (`post_route_reference.dcp`) is saved after each successful route and used automatically on the next run to speed up placement.
-
----
-
-## Interface Inference Tool (xviv_infer)
-
-`inference.py` parses a SystemVerilog module with `pyslang` and emits a Vivado IP-XACT TCL script that registers every port group as a named bus interface.
-
-```bash
-python -m xviv.inference my_ip.sv --verbose
-python -m xviv.inference my_ip.sv --dry-run
-python -m xviv.inference my_ip.sv -o my_ip_interfaces.tcl --vlnv-v2
-```
-
-**Supported interfaces:** AXI4, AXI4-Lite, AXI-Stream, AXI3, APB, AHB-Lite, BRAM, FIFO-Write, FIFO-Read, IIC, SPI, UART, CAN, GPIO, Differential Clock, MII, GMII, RGMII, SGMII, XGMII, Clock signal, Reset signal, Interrupt signal.
-
-Port groups are inferred from name prefixes (`s_axi_*`, `m_axis_*`, etc.) and suffix matching. The generated TCL is designed to be sourced from the `ipx_infer_bus_interfaces` hook.
-
----
-
-## Wrapper Generator
-
-`wrapper.py` / `xviv create --ip` with `create_wrapper = true` auto-generates a SystemVerilog wrapper that flattens interface ports (e.g., AXI interface bundles) into individual scalar ports for IP packaging.
-
-```bash
-# Standalone usage
-python -m xviv.wrapper --top my_module -o build/wrapper srcs/rtl/my_module.sv
-```
-
----
-
 ## Shell Completion
 
-```bash
-# Bash (add to ~/.bashrc)
-eval "$(register-python-argcomplete xviv)"
+Enable `argcomplete` system-wide:
 
-# Zsh (add to ~/.zshrc)
-autoload -U bashcompinit && bashcompinit
+```bash
+activate-global-python-argcomplete
+```
+
+Or per-shell (bash):
+
+```bash
 eval "$(register-python-argcomplete xviv)"
 ```
 
-Tab-completing `--ip`, `--bd`, `--top`, `--platform`, `--app`, and `--dcp` arguments reads live from `project.toml`.
+Tab completion is context-aware: IP names, BD names, top names, DCP stems, VLNV strings, and platform/app names all complete dynamically from your project config and the live Vivado IP catalog.
 
 ---
 
-## Directory Layout
+## Project Layout
+
+A typical project using xviv looks like:
 
 ```
-project-root/
-├── project.toml              # Single source of truth
+my_project/
+├── project.toml
 ├── srcs/
-│   ├── rtl/                  # RTL sources (globbed by [sources] rtl)
-│   ├── sim/                  # Simulation sources
-│   ├── xdc/                  # Constraint files
-│   ├── ip/                   # IP-specific RTL
-│   └── sw/                   # Embedded application sources
+│   ├── rtl/
+│   │   └── *.sv
+│   ├── sim/
+│   │   └── *.sv
+│   └── sw/
+│       └── hello_world/
+│           └── main.c
+├── constraints/
+│   └── top.xdc
 ├── scripts/
 │   ├── ip/
-│   │   └── my_ip_1.0.tcl     # IP hooks (generated by xviv config --ip)
+│   │   └── my_ip_1.0.tcl     # generated by: xviv config --ip my_ip
 │   ├── bd/
-│   │   ├── system_hooks.tcl  # BD hooks (generated by xviv config --bd)
-│   │   └── system.tcl        # Exported BD TCL (symlink to versioned file)
+│   │   ├── system_hooks.tcl  # generated by: xviv config --bd system
+│   │   └── state/
+│   │       └── system.tcl    # generated by: xviv export --bd system
 │   └── synth/
-│       └── system_wrapper.tcl
-└── build/                    # All generated artifacts (gitignore this)
-    ├── ip/                   # Packaged IP repository
-    ├── bd/                   # Block Design files
-    ├── wrapper/              # Auto-generated BD wrappers
-    ├── synth/                # Synthesis / implementation outputs
-    ├── elab/                 # xsim elaboration directories
-    ├── bsp/                  # Vitis BSP platforms
-    └── app/                  # Embedded application build trees
+│       └── top_design.tcl    # generated by: xviv config --top top_design
+└── build/                    # all outputs; safe to gitignore
+    ├── ip/                   # packaged custom IPs
+    ├── bd/                   # block design files
+    ├── wrapper/              # generated SV wrappers
+    ├── core/                 # instantiated catalog IP cores
+    ├── elab/                 # simulation elaboration outputs
+    ├── synth/                # synthesis checkpoints + bitstreams
+    ├── bsp/                  # embedded BSPs
+    ├── app/                  # embedded application builds
+    └── xviv/                 # xviv logs and control FIFOs
 ```
+
+---
+
+## License
+
+See `LICENSE` for details.

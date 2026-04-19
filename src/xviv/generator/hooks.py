@@ -81,33 +81,13 @@ def generate_bd_hooks(cfg: ProjectConfig, bd_name: str, exist_ok: bool = False) 
 			"Delete it first if you want to regenerate."
 		)
 
-	export_tcl_abs = cfg.abs_path(bd.export_tcl)
-	export_tcl_rel = os.path.relpath(export_tcl_abs, os.path.dirname(hooks_path))
-
 	os.makedirs(os.path.dirname(hooks_path), exist_ok=True)
 	with open(hooks_path, "w") as fh:
 		fh.write(f"""\
 # Hook procs - xviv create-bd / edit-bd - {bd_name}
-set ::_bd_design_tcl [file join [file dirname [info script]] "{export_tcl_rel}"]
 
 proc bd_design_config {{ parentCell }} {{
-	global _bd_design_tcl
-
-	if {{[file exists $_bd_design_tcl]}} {{
-		puts "INFO: Sourcing exported BD TCL - $_bd_design_tcl"
-		source $_bd_design_tcl
-
-		xviv_refresh_bd_addresses
-		validate_bd_design
-		save_bd_design
-		exit 0
-
-	}} else {{
-		puts "INFO: No exported BD TCL found at $_bd_design_tcl"
-		puts "INFO: Opening GUI for interactive design."
-		puts "INFO: When done, run:  xviv export-bd --bd {bd_name}"
-		start_gui
-	}}
+	
 }}
 """)
 	logger.info("BD hooks file created -> %s", hooks_path)

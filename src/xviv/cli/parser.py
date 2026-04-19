@@ -149,13 +149,6 @@ def build_completions_parser() -> argparse.ArgumentParser:
 		help="BD name").completer = _bd_names_completer
 
 	# ------------------------------------------------------------------
-	# export --bd
-	# ------------------------------------------------------------------
-	c = sub.add_parser("export", help="Export BD as a versioned re-runnable TCL script")
-	c.add_argument("--bd", required=True, metavar="NAME",
-		help="BD name").completer = _bd_names_completer
-
-	# ------------------------------------------------------------------
 	# synth --ip | --bd [--ooc-run] | --top
 	# ------------------------------------------------------------------
 	c = sub.add_parser("synth", help="Synthesise an IP, BD, or top module")

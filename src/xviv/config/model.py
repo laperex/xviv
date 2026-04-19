@@ -78,14 +78,14 @@ class IpConfig:
 class BdConfig:
 	name:       str
 	hooks:      str       = ""
-	export_tcl: str       = ""
+	state_tcl: str       = ""
 	fpga:       str       = ""
 
 	def __post_init__(self) -> None:
 		if not self.hooks:
 			self.hooks = f"scripts/bd/{self.name}_hooks.tcl"
-		if not self.export_tcl:
-			self.export_tcl = f"scripts/bd/state/{self.name}.tcl"
+		if not self.state_tcl:
+			self.state_tcl = f"scripts/bd/state/{self.name}.tcl"
 
 
 @dataclasses.dataclass
@@ -461,7 +461,7 @@ def _parse_bds(raw: dict) -> list[BdConfig]:
 		BdConfig(
 			name=b["name"],
 			hooks=b.get("hooks", ""),
-			export_tcl=b.get("export_tcl", ""),
+			state_tcl=b.get("state_tcl", ""),
 			# xdc=b.get("xdc", []),
 			# xdc_ooc=b.get("xdc_ooc", []),
 			fpga=b.get("fpga", ""),
