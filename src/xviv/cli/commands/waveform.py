@@ -62,8 +62,8 @@ def cmd_snapshot_open(cfg: ProjectConfig, top_name: str, nogui: bool = False):
 	xsim_bin = os.path.join(cfg.vivado.path, "bin", "xsim")
 	xlib_work_dir = cfg.get_xlib_work_dir(top_name)
 
-	wdb_file  = os.path.join(xlib_work_dir, "waveform.wdb")
-	wcfg_file = os.path.join(xlib_work_dir, "waveform.wcfg")
+	wdb_file  = os.path.join(xlib_work_dir, f"{top_name}.wdb")
+	wcfg_file = os.path.join(xlib_work_dir, f"{top_name}.wcfg")
 	tcl_file  = os.path.join(xlib_work_dir, "waveform_config.tcl")
 
 	os.makedirs(xlib_work_dir, exist_ok=True)
@@ -108,8 +108,8 @@ def cmd_wdb_open(cfg: ProjectConfig, top_name: str, nogui: bool = False):
 	xsim_bin = os.path.join(cfg.vivado.path, "bin", "xsim")
 	xlib_work_dir = cfg.get_xlib_work_dir(top_name)
 
-	wdb_file  = "waveform.wdb"
-	wcfg_file = "waveform.wcfg"
+	wdb_file  = f"{top_name}.wdb"
+	wcfg_file = f"{top_name}.wcfg"
 	tcl_file  = os.path.join(xlib_work_dir, "waveform_config.tcl")
 
 	os.makedirs(xlib_work_dir, exist_ok=True)

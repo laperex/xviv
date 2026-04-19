@@ -21,7 +21,7 @@ def run_vivado_xvlog(cfg: ProjectConfig, target_dir: str, fileset: list[str], xs
 	subprocess.run(cmd, check=True, cwd=target_dir)
 
 
-def run_vivado_xelab(cfg: ProjectConfig, target_dir: str, top: str, timescale: str, xsim_lib: str) -> None:
+def run_vivado_xelab(cfg: ProjectConfig, target_dir: str, top: str, timescale: str, xsim_lib: str, run_all=False) -> None:
 	xelab_bin = os.path.join(cfg.vivado.path, "bin", "xelab")
 
 	cmd = [
@@ -35,8 +35,12 @@ def run_vivado_xelab(cfg: ProjectConfig, target_dir: str, top: str, timescale: s
 		"-debug", "typical",
 		"-mt", "20",
 		"-s", top,
-		"-timescale", timescale,
+		"-timescale", timescale
 	]
+
+	if run_all:
+		cmd.append('-R')
+
 	logger.info("Running: %s", " ".join(cmd))
 	os.makedirs(target_dir, exist_ok=True)
 	subprocess.run(cmd, check=True, cwd=target_dir)
@@ -60,7 +64,7 @@ def run_vivado_xsim(
 		cmd = [
 			xsim_bin,
 			"--stats", top,
-			"--wdb", os.path.join(target_dir, "waveform.wdb"),
+			"--wdb", os.path.join(target_dir, f"{top}.wdb"),
 			"-t", config_tcl_path,
 		]
 		logger.info("Running: %s", " ".join(cmd))

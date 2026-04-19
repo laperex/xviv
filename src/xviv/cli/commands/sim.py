@@ -14,9 +14,11 @@ def cmd_top_elaborate(cfg: ProjectConfig, top_name: str, run: typing.Optional[st
 	timescale = "1ns/1ps"
 
 	vivado.run_vivado_xvlog(cfg, xlib_work_dir, sim_files, xsim_lib=xsim_lib)
-	vivado.run_vivado_xelab(cfg, xlib_work_dir, top_name, timescale=timescale, xsim_lib=xsim_lib)
 
-	if run:
+	run_all = run == "all"
+	vivado.run_vivado_xelab(cfg, xlib_work_dir, top_name, timescale=timescale, xsim_lib=xsim_lib, run_all=run_all)
+
+	if not run_all and run:
 		cmd_top_simulate(cfg, top_name, run)
 
 # -----------------------------------------------------------------------------
