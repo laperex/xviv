@@ -122,10 +122,7 @@ def build_completions_parser() -> argparse.ArgumentParser:
 		help="VLNV of IP from Vivado's IP catalog").completer = _core_instance_completer
 	c.add_argument("--gui",      action="store_true", help="Customize in GUI")
 
-	c = sub.add_parser(
-		"search",
-		help="Search Vivado's IP catalog by name, VLNV, or keyword",
-	)
+	c = sub.add_parser("search", help="Search Vivado's IP catalog by name, VLNV, or keyword")
 	c.add_argument(
 		"query",
 		metavar="QUERY",
@@ -139,6 +136,7 @@ def build_completions_parser() -> argparse.ArgumentParser:
 	mg = c.add_mutually_exclusive_group(required=True)
 	mg.add_argument("--ip", metavar="NAME", help="IP name").completer = _ip_names_completer
 	mg.add_argument("--bd", metavar="NAME", help="BD name").completer = _bd_names_completer
+	mg.add_argument("--core", metavar="NAME", help="Core name").completer = _core_names_completer
 	c.add_argument("--nogui",      action="store_true", help="Do Not Open in GUI | TCL Mode")
 
 	# ------------------------------------------------------------------

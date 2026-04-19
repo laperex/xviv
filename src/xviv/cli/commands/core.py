@@ -25,7 +25,7 @@ def cmd_core_edit(cfg: ProjectConfig, core_name: typing.Optional[str], nogui: bo
 	if nogui:
 		cfg.vivado.mode = 'tcl'
 
-	vivado.run_vivado(cfg, vivado._find_tcl_script(), "edit_core", [], config_tcl)
+	vivado.run_vivado(cfg, vivado._find_tcl_script(), "edit_core", [str(int(not nogui))], config_tcl)
 
 # -----------------------------------------------------------------------------
 # search --query <query>

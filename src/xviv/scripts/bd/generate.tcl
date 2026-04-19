@@ -27,10 +27,12 @@ proc cmd_generate_bd {} {
 		}
 	}
 
+	xviv_stage "Generating output products"
 	# replace with a different techinque
     reset_target  {synthesis simulation implementation} [get_files $bd_file]
     generate_target all                                 [get_files $bd_file]
 
+	xviv_stage "Validate design"
 	validate_bd_design
 
     set wrapper_src [make_wrapper -files [get_files $bd_file] -top]

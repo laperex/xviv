@@ -26,6 +26,7 @@ source "$script_dir/reports/utilisation.tcl"
 
 source "$script_dir/core/create.tcl"
 source "$script_dir/core/edit.tcl"
+source "$script_dir/core/generate.tcl"
 
 source "$script_dir/bd/util.tcl"
 source "$script_dir/bd/create.tcl"
@@ -58,6 +59,14 @@ set _xviv_t0 [clock milliseconds]
 # =============================================================================
 # Shared utilities
 # =============================================================================
+
+
+	
+proc xviv_assert { expr msg } {
+	if { ![uplevel 1 [list expr $expr]] } {
+		xviv_die "Assertion failed: $msg"
+	}
+}
 
 # ---------------------------------------------------------------------------
 # xviv_die  -  print a structured error message and exit 1.
@@ -238,6 +247,7 @@ switch -- $_cmd {
     generate_bd { cmd_generate_bd }
 
 	create_core { cmd_create_core [lindex $::argv 2] }
+    edit_core   { cmd_edit_core [lindex $::argv 2] }
 
 	synthesis   {
         if {$::argc < 3} {
