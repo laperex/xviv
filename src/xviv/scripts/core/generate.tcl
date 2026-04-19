@@ -1,3 +1,6 @@
+# =============================================================================
+# Command: generate_core
+# =============================================================================
 proc cmd_generate_core {} {
     global current_project xviv_core_vlnv xviv_core_name xviv_core_dir
 
