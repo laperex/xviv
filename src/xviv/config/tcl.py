@@ -145,14 +145,14 @@ def generate_config_tcl(
 			f'set xviv_bd_hooks      "{bd_hooks}"',
 			f'set xviv_bd_state_tcl  "{bd.state_tcl}"'
 		]
-	elif core_name:
-		core_entry = data.lookup(cfg.vivado.path, [ cfg.ip_repo ], core_vlnv or "")
-		
+	elif core_name is not None:
+		core_entry = data.lookup(cfg.vivado.path, [ cfg.ip_repo ], core_vlnv) if core_vlnv else data.CoreEntry
+
 		core_dir = cfg.core_dir
 
 		lines += [
 			f'set xviv_core_vlnv     "{core_entry.vlnv}"',
-			f'set xviv_core_name     "{core_name}"',
+			f'set xviv_core_name     "{core_name if core_name else core_entry.name}"',
 			f'set xviv_core_dir      "{core_dir}"',
 		]
 

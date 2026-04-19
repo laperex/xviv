@@ -75,6 +75,13 @@ def _platform_names_completer(prefix, parsed_args, **kwargs):
 	except Exception:
 		return []
 
+def _core_names_completer(prefix, parsed_args, **kwargs):
+	try:
+		cfg = load_config(os.path.abspath(_find_config(prefix, parsed_args)))
+		return [p.name for p in cfg.cores]
+	except Exception:
+		return []
+
 
 def _app_names_completer(prefix, parsed_args, **kwargs):
 	try:
@@ -102,16 +109,18 @@ def build_completions_parser() -> argparse.ArgumentParser:
 	# ------------------------------------------------------------------
 	c = sub.add_parser("create", help="Create an IP, BD, platform, or app")
 
-	c.add_argument("--ip",       metavar="NAME", help="IP name").completer  = _ip_names_completer
+	c.add_argument("--ip", metavar="NAME", help="IP name").completer  = _ip_names_completer
+	c.add_argument("--core", metavar="NAME", nargs="?", const="", default=None,
+		help="Core instance name (optional — derived from --vlnv if omitted)").completer = _core_names_completer
 	c.add_argument("--bd",       metavar="NAME", help="BD name").completer  = _bd_names_completer
 	c.add_argument("--app",      metavar="NAME", help="App name").completer = _app_names_completer
-	c.add_argument("--vlnv",     metavar="NAME", help="VLNV of IP from Vivado's IP catalog").completer = _core_instance_completer
 	c.add_argument("--platform", metavar="NAME",
 		help="Platform to create, or platform override when used with --app").completer = _platform_names_completer
 	c.add_argument("--template", metavar="TMPL", default=None,
 		help="App template override (used with --app)")
-	c.add_argument("--core", default=None,
-		help="Core name")
+	c.add_argument("--vlnv", default=None,
+		help="VLNV of IP from Vivado's IP catalog").completer = _core_instance_completer
+	c.add_argument("--gui",      action="store_true", help="Customize in GUI")
 
 	c = sub.add_parser(
 		"search",

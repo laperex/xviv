@@ -179,6 +179,11 @@ class SimulationConfig:
 	rtl:       list[str] = dataclasses.field(default_factory=list)
 
 @dataclasses.dataclass
+class CoreConfig:
+	name:       str
+	vlnv:       str
+
+@dataclasses.dataclass
 class PlatformConfig:
 	name:      str
 	cpu:       str
@@ -220,6 +225,7 @@ class ProjectConfig:
 	synths:      list[SynthConfig]
 	platforms:   list[PlatformConfig]
 	apps:        list[AppConfig]
+	cores: 		 list[CoreConfig]
 	simulations: list[SimulationConfig]
 
 	# ---- resolved absolute path properties ----------------------------------------------------------------
@@ -263,6 +269,15 @@ class ProjectConfig:
 				f"  Available: {[b.name for b in self.bds]}"
 			)
 		return bd
+
+	def get_core(self, name: str) -> CoreConfig:
+		core = next((b for b in self.cores if b.name == name), None)
+		if core is None:
+			sys.exit(
+				f"ERROR: Core '{name}' not found in [[core]] entries.\n"
+				f"  Available: {[b.name for b in self.cores]}"
+			)
+		return core
 
 	def get_synth(self, *, top_name: typing.Optional[str] = None, bd_name: typing.Optional[str] = None, ip_name: typing.Optional[str] = None) -> SynthConfig:
 		s = next(
@@ -472,6 +487,14 @@ def _parse_bds(raw: dict) -> list[BdConfig]:
 		for b in raw.get("bd", [])
 	]
 
+def _parse_cores(raw: dict) -> list[CoreConfig]:
+	return [
+		CoreConfig(
+			name=b["name"],
+			vlnv=b["vlnv"]
+		)
+		for b in raw.get("core", [])
+	]
 
 def _parse_synths(raw: dict) -> list[SynthConfig]:
 	return [

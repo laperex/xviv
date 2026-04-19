@@ -3,7 +3,7 @@ import os
 import sys
 import argcomplete
 from xviv.cli.commands.bd import cmd_bd_config, cmd_bd_create, cmd_bd_edit, cmd_bd_generate, cmd_bd_synth
-from xviv.cli.commands.core import cmd_core_create, cmd_search_core
+from xviv.cli.commands.core import cmd_core_create, cmd_core_edit, cmd_search_core
 from xviv.cli.commands.ip import cmd_ip_config, cmd_ip_create, cmd_ip_edit, cmd_ip_synth
 from xviv.cli.commands.sim import cmd_top_elaborate, cmd_top_simulate
 from xviv.cli.commands.synth import cmd_dcp_open, cmd_synth_config, cmd_top_synth
@@ -44,8 +44,8 @@ def run():
 				cmd_app_create(cfg, args.app, args.platform, args.template)
 			elif args.platform:
 				cmd_platform_create(cfg, args.platform)
-			elif args.core:
-				cmd_core_create(cfg, args.vlnv, args.core)
+			elif args.core is not None:
+				cmd_core_create(cfg, args.vlnv, args.core, args.gui)
 			else:
 				parser.parse_args(['create', '--help'])
 
@@ -57,6 +57,8 @@ def run():
 				cmd_ip_edit(cfg, args.ip, nogui=args.nogui)
 			elif args.bd:
 				cmd_bd_edit(cfg, args.bd, nogui=args.nogui)
+			elif args.core:
+				cmd_core_edit(cfg, args.core, nogui=args.nogui)
 
 		case "config":
 			if args.synth:

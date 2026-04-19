@@ -7,13 +7,25 @@ from xviv.catalog import data
 from xviv.tools import vivado
 
 # -----------------------------------------------------------------------------
-# create --core <core_id>
+# create --vlnv <vlnv_id> --core <core_id>
 # -----------------------------------------------------------------------------
-def cmd_core_create(cfg: ProjectConfig, core_vlnv: typing.Optional[str], core_name: typing.Optional[str]):
+def cmd_core_create(cfg: ProjectConfig, core_vlnv: typing.Optional[str], core_name: typing.Optional[str], gui: bool = False):
 	config_tcl = generate_config_tcl(cfg, core_name=core_name, core_vlnv=core_vlnv)
-	cfg.vivado.mode = 'tcl'
-	vivado.run_vivado(cfg, vivado._find_tcl_script(), "create_core", [], config_tcl)
 
+	cfg.vivado.mode = 'tcl'
+
+	vivado.run_vivado(cfg, vivado._find_tcl_script(), "create_core", [str(int(gui))], config_tcl)
+
+# -----------------------------------------------------------------------------
+# edit --core <core_id>
+# -----------------------------------------------------------------------------
+def cmd_core_edit(cfg: ProjectConfig, core_name: typing.Optional[str], nogui: bool = False):
+	config_tcl = generate_config_tcl(cfg, core_name=core_name)
+
+	if nogui:
+		cfg.vivado.mode = 'tcl'
+
+	vivado.run_vivado(cfg, vivado._find_tcl_script(), "edit_core", [], config_tcl)
 
 # -----------------------------------------------------------------------------
 # search --query <query>

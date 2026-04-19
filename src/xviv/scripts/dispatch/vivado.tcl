@@ -237,7 +237,7 @@ switch -- $_cmd {
     edit_bd     { cmd_edit_bd [lindex $::argv 2] }
     generate_bd { cmd_generate_bd }
 
-	create_core { cmd_create_core }
+	create_core { cmd_create_core [lindex $::argv 2] }
 
 	synthesis   {
         if {$::argc < 3} {

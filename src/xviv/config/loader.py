@@ -62,6 +62,7 @@ def load_config(path: str) -> model.ProjectConfig:
 		# sources      = model._parse_sources(raw),
 		ips          = model._parse_ips(raw),
 		bds          = model._parse_bds(raw),
+		cores        = model._parse_cores(raw),
 		synths       = model._parse_synths(raw),
 		simulations  = model._parse_simulations(raw),
 		platforms    = model._parse_platforms(raw),
