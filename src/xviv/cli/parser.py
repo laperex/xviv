@@ -120,7 +120,7 @@ def build_completions_parser() -> argparse.ArgumentParser:
 		help="App template override (used with --app)")
 	c.add_argument("--vlnv", default=None,
 		help="VLNV of IP from Vivado's IP catalog").completer = _core_instance_completer
-	c.add_argument("--gui",      action="store_true", help="Customize in GUI")
+	c.add_argument("--edit",      action="store_true", help="Customize in GUI")
 
 	c = sub.add_parser("search", help="Search Vivado's IP catalog by name, VLNV, or keyword")
 	c.add_argument(

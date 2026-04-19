@@ -9,12 +9,12 @@ from xviv.tools import vivado
 # -----------------------------------------------------------------------------
 # create --vlnv <vlnv_id> --core <core_id>
 # -----------------------------------------------------------------------------
-def cmd_core_create(cfg: ProjectConfig, core_vlnv: typing.Optional[str], core_name: typing.Optional[str], gui: bool = False):
+def cmd_core_create(cfg: ProjectConfig, core_vlnv: typing.Optional[str], core_name: typing.Optional[str], edit: bool = False):
 	config_tcl = generate_config_tcl(cfg, core_name=core_name, core_vlnv=core_vlnv)
 
 	# cfg.vivado.mode = 'tcl'
 
-	vivado.run_vivado(cfg, vivado._find_tcl_script(), "create_core", [str(int(gui))], config_tcl)
+	vivado.run_vivado(cfg, vivado._find_tcl_script(), "create_core", [str(int(edit))], config_tcl)
 
 # -----------------------------------------------------------------------------
 # edit --core <core_id>

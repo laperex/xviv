@@ -45,7 +45,7 @@ def run():
 			elif args.platform:
 				cmd_platform_create(cfg, args.platform)
 			elif args.core is not None:
-				cmd_core_create(cfg, args.vlnv, args.core, args.gui)
+				cmd_core_create(cfg, args.vlnv, args.core, args.edit)
 			else:
 				parser.parse_args(['create', '--help'])
 
