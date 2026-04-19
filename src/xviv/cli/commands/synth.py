@@ -1,16 +1,16 @@
 import typing
 from xviv.config.model import ProjectConfig
 from xviv.config.tcl import generate_config_tcl
-from xviv.generator.hooks import generate_top_hooks
+from xviv.generator.hooks import generate_synth_hooks
 from xviv.tools import vivado
 from xviv.utils.git import _git_sha_tag
 
 
 # -----------------------------------------------------------------------------
-# config --top <top_name>
+# config (--top <top_name> | --bd <bd_name>) --synth
 # -----------------------------------------------------------------------------
-def cmd_top_config(cfg: ProjectConfig, top_name: str):
-	generate_top_hooks(cfg, top_name)
+def cmd_synth_config(cfg: ProjectConfig, top_name: typing.Optional[str], bd_name: typing.Optional[str], ip_name: typing.Optional[str]):
+	generate_synth_hooks(cfg, top_name=top_name, bd_name=bd_name, ip_name=ip_name)
 
 
 # -----------------------------------------------------------------------------

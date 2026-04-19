@@ -140,13 +140,12 @@ def build_completions_parser() -> argparse.ArgumentParser:
 	mg.add_argument("--ip",  metavar="NAME", help="IP name").completer  = _ip_names_completer
 	mg.add_argument("--bd",  metavar="NAME", help="BD name").completer  = _bd_names_completer
 	mg.add_argument("--top", metavar="NAME", help="Top module name").completer = _top_synth_names_completer
-
+	c.add_argument("--synth", action="store_true", dest="synth", help="for synthesis targets")
 	# ------------------------------------------------------------------
 	# generate --bd
 	# ------------------------------------------------------------------
 	c = sub.add_parser("generate", help="Generate output products for a BD")
-	c.add_argument("--bd", required=True, metavar="NAME",
-		help="BD name").completer = _bd_names_completer
+	c.add_argument("--bd", required=True, metavar="NAME", help="BD name").completer = _bd_names_completer
 
 	# ------------------------------------------------------------------
 	# synth --ip | --bd [--ooc-run] | --top

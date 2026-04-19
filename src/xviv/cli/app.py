@@ -6,7 +6,7 @@ from xviv.cli.commands.bd import cmd_bd_config, cmd_bd_create, cmd_bd_edit, cmd_
 from xviv.cli.commands.core import cmd_core_create, cmd_search_core
 from xviv.cli.commands.ip import cmd_ip_config, cmd_ip_create, cmd_ip_edit, cmd_ip_synth
 from xviv.cli.commands.sim import cmd_top_elaborate, cmd_top_simulate
-from xviv.cli.commands.synth import cmd_dcp_open, cmd_top_config, cmd_top_synth
+from xviv.cli.commands.synth import cmd_dcp_open, cmd_synth_config, cmd_top_synth
 from xviv.cli.commands.waveform import cmd_snapshot_open, cmd_snapshot_reload, cmd_wdb_open, cmd_wdb_reload
 from xviv.cli.commands.xsct import cmd_app_build, cmd_app_create, cmd_platform_build, cmd_platform_create, cmd_processor, cmd_program
 from xviv.cli.parser import build_completions_parser
@@ -59,12 +59,15 @@ def run():
 				cmd_bd_edit(cfg, args.bd, nogui=args.nogui)
 
 		case "config":
-			if args.ip:
-				cmd_ip_config(cfg, args.ip)
-			elif args.bd:
-				cmd_bd_config(cfg, args.bd)
-			elif args.top:
-				cmd_top_config(cfg, args.top)
+			if args.synth:
+				cmd_synth_config(cfg, top_name=args.top, bd_name=args.bd, ip_name=args.ip)
+			else:
+				if args.ip:
+					cmd_ip_config(cfg, args.ip)
+				elif args.bd:
+					cmd_bd_config(cfg, args.bd)
+				elif args.top:
+					sys.exit('ERROR: --top <top_name> cannot be specified without --synth')
 
 		case "generate":
 			cmd_bd_generate(cfg, args.bd)

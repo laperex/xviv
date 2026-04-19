@@ -171,7 +171,7 @@ class SynthConfig:
 
 	def __post_init__(self) -> None:
 		if not self.hooks:
-			self.hooks = f"scripts/synth/{self.top}.tcl"
+			self.hooks = f"scripts/synth/{self.ip or self.bd or self.top or ""}.tcl"
 
 @dataclasses.dataclass
 class SimulationConfig:
@@ -202,7 +202,6 @@ class AppConfig:
 # =============================================================================
 # ProjectConfig  -  root object; all callers work with this
 # =============================================================================
-
 @dataclasses.dataclass
 class ProjectConfig:
 	base_dir: str
@@ -276,6 +275,11 @@ class ProjectConfig:
 			None
 		)
 
+		if bd_name:
+			self.get_bd(bd_name)
+		elif ip_name:
+			self.get_ip(ip_name)
+
 		# Handle the failure cases
 		if s is None:
 			# If 'top_name' was provided and we failed to find it, throw the error
@@ -286,8 +290,7 @@ class ProjectConfig:
 					f"  Available tops: {avail_tops}"
 				)
 
-			# If it was a 'bd_name' or 'ip_name' search that failed, return an empty config
-			return SynthConfig(top="", ip="", bd="")
+			return SynthConfig(top="", ip=ip_name or "", bd=bd_name or "")
 
 		return s
 
