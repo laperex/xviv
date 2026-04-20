@@ -40,7 +40,7 @@ def cmd_top_simulate(cfg: ProjectConfig, top_name: str, run: str = "all"):
 
 	vivado.run_vivado_xsim(cfg, xlib_work_dir, top_name, x_simulate_tcl)
 
-
+# WAVEFORM
 
 _XSIM_WDB_TCL = """
 set xsi_sim_wdb_file  {wdb}
@@ -89,54 +89,6 @@ proc _fifo_handle {{}} {{
 fileevent $xviv_fifo_fh readable _fifo_handle
 puts "xviv: FIFO ready at $xviv_fifo_path"
 """
-
-
-# -----------------------------------------------------------------------------
-# open --snapshot --top <top_name>
-# -----------------------------------------------------------------------------
-def cmd_snapshot_open(cfg: ProjectConfig, top_name: str, nogui: bool = False):
-	xsim_bin = os.path.join(cfg.vivado.path, "bin", "xsim")
-	xlib_work_dir = cfg.get_xlib_work_dir(top_name)
-
-	wdb_file  = os.path.join(xlib_work_dir, f"{top_name}.wdb")
-	wcfg_file = os.path.join(xlib_work_dir, f"{top_name}.wcfg")
-	tcl_file  = os.path.join(xlib_work_dir, "waveform_config.tcl")
-
-	os.makedirs(xlib_work_dir, exist_ok=True)
-	control_fifo_path = cfg.get_control_fifo_path(top_name)
-	_ensure_fifo(control_fifo_path)
-
-	with open(tcl_file, "w") as f:
-		f.write(
-		_XSIM_WDB_TCL.format(
-			wdb=wdb_file, wcfg=wcfg_file,
-			top=top_name, fifo_path=control_fifo_path,
-		)
-	)
-
-	proc = subprocess.Popen(
-		[xsim_bin, top_name, "-t", tcl_file, "" if nogui else "-g"],
-		cwd=xlib_work_dir,
-	)
-	logger.info("xsim waveform PID: %d", proc.pid)
-
-
-# -----------------------------------------------------------------------------
-# reload --snapshot --top <top_name>
-# -----------------------------------------------------------------------------
-def cmd_snapshot_reload(cfg: ProjectConfig, top_name: str):
-	path = cfg.get_control_fifo_path(top_name)
-	cmd = (
-		"set _wcfg [get_property FILE_PATH [current_wave_config]]; "
-		"save_wave_config $_wcfg; "
-		f"xsim {top_name};"
-		"log_wave -recursive *; "
-		"run all; "
-		"open_wave_config $_wcfg"
-	)
-	logger.info("Reloading snapshot: %s", path)
-	_fifo_send(path, cmd)
-
 
 # -----------------------------------------------------------------------------
 # open --wdb --top <top_name>

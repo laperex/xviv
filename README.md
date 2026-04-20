@@ -254,7 +254,6 @@ xviv synth --top <name>
 
 ```
 xviv open --dcp <stem> --top <name> [--nogui]   # open a .dcp checkpoint
-xviv open --snapshot   --top <name>             # open post-sim waveform
 xviv open --wdb        --top <name>             # open a .wdb waveform DB
 ```
 
@@ -273,8 +272,7 @@ xviv simulate --top <name> [--run <time>]
 ### `reload`
 
 ```
-xviv reload --snapshot --top <name>   # hot-reload xsim snapshot
-xviv reload --wdb      --top <name>   # reload waveform DB
+xviv reload   --top <name>   # reload waveform DB
 ```
 
 ### `build`

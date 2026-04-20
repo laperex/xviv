@@ -1,5 +1,7 @@
 - find use for export_bd - [removed export_bd]
 
+- cli prompt to make user enter vivado & vitis path for env var. is env var is not set or is incompatible. 
+
 - core
 	- use in synth
 
