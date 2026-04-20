@@ -456,6 +456,7 @@ def _parse_build(raw: dict) -> BuildConfig:
 		dir=b.get("dir", DEFAULT_BUILD_DIR),
 		ip_repo=b.get("ip_repo", DEFAULT_BUILD_IP_REPO),
 		bd_dir=b.get("bd_dir", DEFAULT_BUILD_BD_DIR),
+		core_dir=b.get("core_dir", DEFAULT_BUILD_CORE_DIR),
 		wrapper_dir=b.get("wrapper_dir", DEFAULT_BUILD_WRAPPER_DIR),
 	)
 
