@@ -474,7 +474,7 @@ def _parse_ips(raw: dict) -> list[IpConfig]:
 			# xdc=i.get("xdc", []),
 			# xdc_ooc=i.get("xdc_ooc", []),
 			# fpga=i.get("fpga", ""),
-			create_wrapper=i.get("create-wrapper", False),
+			create_wrapper=i.get("create_wrapper", False),
 		)
 		for i in raw.get("ip", [])
 	]
