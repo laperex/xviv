@@ -25,6 +25,7 @@ pip-delete-this-directory.txt
 
 src/xviv/_version.py
 
+text.md
 FEATURES
 DESIGN.md
 ISSUES.md
