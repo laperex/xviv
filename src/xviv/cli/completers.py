@@ -18,25 +18,19 @@ dcp_stems_completer                      — completer for .dcp stem names
 import glob
 import os
 
-from xviv.catalog.completer import _core_instance_completer, _core_vlnv_completer
-from xviv.config.loader import load_config
+from xviv.catalog.completer import core_instance_completer
+from xviv.config.loader import find_config, load_config
 
 
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
 
-def _find_config(prefix, parsed_args, **kwargs) -> str:
-	cfg = getattr(parsed_args, "config", None)
-	if cfg:
-		return cfg
-	return "project.cue" if os.path.exists("project.cue") else "project.toml"
-
 
 def _cfg_completer(collection: str, attr: str = "name"):
 	def completer(prefix, parsed_args, **kwargs):
 		try:
-			cfg = load_config(os.path.abspath(_find_config(prefix, parsed_args)))
+			cfg = load_config(os.path.abspath(find_config(prefix, parsed_args)))
 			return [getattr(item, attr) for item in getattr(cfg, collection)]
 		except Exception:
 			return []
@@ -46,7 +40,7 @@ def _cfg_completer(collection: str, attr: str = "name"):
 def _top_completer(*, synth: bool = True, sim: bool = True):
 	def completer(prefix, parsed_args, **kwargs):
 		try:
-			cfg = load_config(os.path.abspath(_find_config(prefix, parsed_args)))
+			cfg = load_config(os.path.abspath(find_config(prefix, parsed_args)))
 			tops = []
 			if synth:
 				tops += [s.top for s in cfg.synths]
@@ -71,15 +65,13 @@ c_top_all       = _top_completer(synth=True,  sim=True)
 c_top_synth     = _top_completer(synth=True,  sim=False)
 c_top_sim       = _top_completer(synth=False, sim=True)
 
-# Re-exported so command files only need to import from this module
-c_core_instance = _core_instance_completer
-c_core_vlnv     = _core_vlnv_completer
+c_core_instance = core_instance_completer
 
 
 def dcp_stems_completer(prefix, parsed_args, **kwargs):
 	"""Complete .dcp stem names (post_synth, post_place, post_route, ...)."""
 	try:
-		cfg = load_config(os.path.abspath(_find_config(prefix, parsed_args)))
+		cfg = load_config(os.path.abspath(find_config(prefix, parsed_args)))
 		top = getattr(parsed_args, "top", None)
 		if not top:
 			return ["post_synth", "post_place", "post_route"]

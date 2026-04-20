@@ -4,8 +4,8 @@ import os
 import sys
 import typing
 
+from xviv.catalog.catalog import get_catalog
 from xviv.config.model import ProjectConfig
-from xviv.catalog import data
 
 logger = logging.getLogger(__name__)
 
@@ -145,15 +145,17 @@ def generate_config_tcl(
 			f'set xviv_bd_state_tcl  "{bd.state_tcl}"'
 		]
 	elif core_name is not None:
+		catalog = get_catalog(cfg.vivado.path, [cfg.ip_repo])
+
 		if core_vlnv:
-			entry = data.lookup(cfg.vivado.path, [ cfg.ip_repo ], core_vlnv)
+			entry = catalog.lookup(core_vlnv)
 			core_vlnv = entry.vlnv
 
 			if not core_name:
 				core_name = entry.name
 		else:
 			core_cfg = cfg.get_core(core_name)
-			core_vlnv = data.lookup(cfg.vivado.path, [ cfg.ip_repo ], core_cfg.vlnv).vlnv
+			core_vlnv = catalog.lookup(core_cfg.vlnv).vlnv
 
 		core_dir = cfg.core_dir
 

@@ -1,9 +1,9 @@
 
 
 import typing
+from xviv.catalog.catalog import get_catalog
 from xviv.config.model import ProjectConfig
 from xviv.config.tcl import generate_config_tcl
-from xviv.catalog import data
 from xviv.tools import vivado
 
 # -----------------------------------------------------------------------------
@@ -31,10 +31,7 @@ def cmd_core_edit(cfg: ProjectConfig, core_name: typing.Optional[str], nogui: bo
 # search --query <query>
 # -----------------------------------------------------------------------------
 def cmd_search_core(cfg: ProjectConfig, query: str) -> None:
-	catalog = data.load(cfg.vivado.path, [cfg.ip_repo])
-	if not catalog:
-		print("WARNING: vv_index.xml not found or empty. Check vivado.path in project.toml.")
-		return
+	catalog = get_catalog(cfg.vivado.path, [cfg.ip_repo])
 
 	needle = query.lower()
 	matches = [

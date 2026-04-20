@@ -7,6 +7,15 @@ import tomllib
 from xviv.config import model
 
 
+def find_config(prefix, parsed_args, **kwargs) -> str:
+	cfg = getattr(parsed_args, "config", None)
+	if cfg:
+		return cfg
+	if os.path.exists("project.cue"):
+		return "project.cue"
+	return "project.toml"
+
+
 def load_config(path: str) -> model.ProjectConfig:
 	"""
 	Parse project.toml and return a fully validated model.ProjectConfig.
