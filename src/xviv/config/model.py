@@ -7,7 +7,7 @@ import shutil
 import sys
 import typing
 
-from xviv.utils.fs import _resolve_globs
+from xviv.utils.fs import resolve_globs
 
 logger = logging.getLogger(__name__)
 
@@ -361,7 +361,7 @@ class ProjectConfig:
 		return os.path.abspath(os.path.join(self.base_dir, rel))
 
 	def resolve_globs(self, patterns: list[str]) -> list[str]:
-		return _resolve_globs(patterns, self.base_dir)
+		return resolve_globs(patterns, self.base_dir)
 
 	def get_dcp_path(self, top: str, dcp_name: str) -> str:
 		return os.path.abspath(os.path.join(self.build_dir, "synth", top, f"{dcp_name}.dcp"))

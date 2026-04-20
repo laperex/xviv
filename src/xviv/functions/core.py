@@ -14,7 +14,7 @@ def cmd_core_create(cfg: ProjectConfig, core_vlnv: typing.Optional[str], core_na
 
 	# cfg.vivado.mode = 'tcl'
 
-	vivado.run_vivado(cfg, vivado._find_tcl_script(), "create_core", [str(int(edit))], config_tcl)
+	vivado.run_vivado(cfg, vivado.find_vivado_script(), "create_core", [str(int(edit))], config_tcl)
 
 # -----------------------------------------------------------------------------
 # edit --core <core_id>
@@ -25,7 +25,7 @@ def cmd_core_edit(cfg: ProjectConfig, core_name: typing.Optional[str], nogui: bo
 	if nogui:
 		cfg.vivado.mode = 'tcl'
 
-	vivado.run_vivado(cfg, vivado._find_tcl_script(), "edit_core", [str(int(not nogui))], config_tcl)
+	vivado.run_vivado(cfg, vivado.find_vivado_script(), "edit_core", [str(int(not nogui))], config_tcl)
 
 # -----------------------------------------------------------------------------
 # search --query <query>

@@ -27,7 +27,7 @@ def cmd_ip_create(cfg: ProjectConfig, ip_name: str):
 		ip.rtl = ip_rtl_files   # absolute paths are glob-safe on POSIX
 
 	config_tcl = generate_config_tcl(cfg, ip_name=ip_name)
-	vivado.run_vivado(cfg, vivado._find_tcl_script(), "create_ip", [], config_tcl)
+	vivado.run_vivado(cfg, vivado.find_vivado_script(), "create_ip", [], config_tcl)
 
 # -----------------------------------------------------------------------------
 # edit --ip <ip_name>
@@ -38,7 +38,7 @@ def cmd_ip_edit(cfg: ProjectConfig, ip_name: str, nogui: bool = False):
 	if nogui:
 		cfg.vivado.mode = "tcl"
 
-	vivado.run_vivado(cfg, vivado._find_tcl_script(), "edit_ip", [str(int(not nogui))], config_tcl)
+	vivado.run_vivado(cfg, vivado.find_vivado_script(), "edit_ip", [str(int(not nogui))], config_tcl)
 
 
 # -----------------------------------------------------------------------------

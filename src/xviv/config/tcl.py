@@ -6,7 +6,6 @@ import typing
 
 from xviv.config.model import ProjectConfig
 from xviv.catalog import data
-from xviv.utils.fs import _tcl_list
 
 logger = logging.getLogger(__name__)
 
@@ -216,3 +215,10 @@ def generate_config_tcl(
 	]
 
 	return "\n".join(lines) + "\n"
+
+
+def _tcl_list(items: list[str]) -> str:
+	if not items:
+		return "[list]"
+	return "[list " + " ".join(f'"{i}"' for i in items) + "]"
+

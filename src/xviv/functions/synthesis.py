@@ -22,7 +22,7 @@ def cmd_top_synth(cfg: ProjectConfig, top_name: str):
 	config_tcl = generate_config_tcl(cfg, top_name=top_name)
 
 	vivado.run_vivado(
-		cfg, vivado._find_tcl_script(), "synthesis",
+		cfg, vivado.find_vivado_script(), "synthesis",
 		[top_name, tag],
 		config_tcl,
 	)
@@ -40,4 +40,4 @@ def cmd_dcp_open(cfg: ProjectConfig, dcp_name: str, top_name: typing.Optional[st
 	if nogui:
 		cfg.vivado.mode = "tcl"
 
-	vivado.run_vivado(cfg, vivado._find_tcl_script(), "open_dcp", [dcp_path, str(int(not nogui))], config_tcl)
+	vivado.run_vivado(cfg, vivado.find_vivado_script(), "open_dcp", [dcp_path, str(int(not nogui))], config_tcl)

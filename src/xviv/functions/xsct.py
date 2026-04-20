@@ -1,13 +1,14 @@
+import glob
 import logging
 import os
+import re
 import subprocess
 import sys
 import typing
 
 from xviv.config.model import ProjectConfig
-from xviv.embedded.platform import _find_elf, _mb_tool, _transform_app_makefile
 from xviv.tools import xsct
-from xviv.utils.fs import _resolve_globs
+from xviv.utils.fs import resolve_globs
 
 
 logger = logging.getLogger(__name__)
@@ -33,7 +34,7 @@ def cmd_platform_create(cfg: ProjectConfig, platform_name: str):
 	logger.info("  OS     : %s", plat.os)
 	logger.info("  BSP dir: %s", bsp)
 
-	xsct.run_xsct(cfg, xsct._find_xsct_script(), ["create_platform", xsa, plat.cpu, plat.os, bsp])
+	xsct.run_xsct(cfg, xsct.find_xsct_script(), ["create_platform", xsa, plat.cpu, plat.os, bsp])
 
 
 # -----------------------------------------------------------------------------
@@ -72,7 +73,7 @@ def cmd_app_create(
 	logger.info("  App dir : %s", app_out_dir)
 
 	xsct.run_xsct(
-		cfg, xsct._find_xsct_script(),
+		cfg, xsct.find_xsct_script(),
 		["create_app", xsa, plat.cpu, plat.os, template, app_out_dir],
 	)
 
@@ -100,7 +101,7 @@ def cmd_platform_build(cfg: ProjectConfig, platform_name: str):
 		["make", f"-j{os.cpu_count() or 4}"],
 		check=True,
 		cwd=bsp,
-		env=xsct._get_vitis_env(cfg),
+		env=xsct.get_vitis_env(cfg),
 	)
 	logger.info("BSP build complete")
 
@@ -114,7 +115,7 @@ def cmd_app_build(cfg: ProjectConfig, app_name: str, info: typing.Optional[bool]
 
 	bsp         = cfg.get_platform_dir(app.platform)
 	app_out_dir = cfg.get_app_dir(app_name)
-	env         = xsct._get_vitis_env(cfg)
+	env         = xsct.get_vitis_env(cfg)
 
 	_transform_app_makefile(os.path.join(app_out_dir, "Makefile"))
 
@@ -122,7 +123,7 @@ def cmd_app_build(cfg: ProjectConfig, app_name: str, info: typing.Optional[bool]
 	bsp_lib     = os.path.join(bsp, plat.cpu, "lib")
 
 	src_dir   = cfg.abs_path(app.src_dir)
-	c_sources = " ".join(_resolve_globs(["**/*.c"], src_dir))
+	c_sources = " ".join(resolve_globs(["**/*.c"], src_dir))
 
 	logger.info("Building app '%s'", app_name)
 	subprocess.run(
@@ -192,7 +193,7 @@ def cmd_program(
 		logger.info("  ELF       : %s", elf_path)
 	logger.info("  hw_server : %s", server)
 
-	xsct.run_xsct(cfg, xsct._find_xsct_script(), ["program", bitstream_path, elf_path, server])
+	xsct.run_xsct(cfg, xsct.find_xsct_script(), ["program", bitstream_path, elf_path, server])
 
 
 # -----------------------------------------------------------------------------
@@ -203,7 +204,63 @@ def cmd_processor(cfg: ProjectConfig, reset: typing.Optional[bool], status: typi
 
 	if reset:
 		logger.info("Resetting embedded processor via JTAG (%s)", server)
-		xsct.run_xsct(cfg, xsct._find_xsct_script(), ["processor_reset", server])
+		xsct.run_xsct(cfg, xsct.find_xsct_script(), ["processor_reset", server])
 
 	elif status:
-		xsct.run_xsct(cfg, xsct._find_xsct_script(), ["processor_status", server])
+		xsct.run_xsct(cfg, xsct.find_xsct_script(), ["processor_status", server])
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def _find_elf(cfg: ProjectConfig, app_name: str) -> str:
+    app_out_dir = cfg.get_app_dir(app_name)
+
+    candidates = [
+        os.path.join(app_out_dir, "Debug", f"{app_name}.elf"),
+        os.path.join(app_out_dir, f"{app_name}.elf"),
+    ]
+
+    for c in candidates:
+        if os.path.exists(c):
+            return c
+
+    hits = sorted(glob.glob(os.path.join(app_out_dir, "**", "*.elf"), recursive=True))
+
+    if not hits:
+        sys.exit(f"No ELF found in {app_out_dir}")
+
+    return hits[0]
+
+
+def _mb_tool(cfg: ProjectConfig, tool: str) -> str:
+    return os.path.join(
+        cfg.vivado.path, "gnu", "microblaze", "lin", "bin",
+        f"microblaze-xilinx-elf-{tool}",
+    )
+
+
+def _transform_app_makefile(path: str):
+    content = open(path, "rt").read()
+
+    content = re.sub(
+        r'(patsubst\s+%\.\w+,\s*)(?!build/)%.o',
+        r'\1build/%.o',
+        content
+    )
+
+    content = re.sub(
+        r'(?<!build/)%.o(:%\.[cSs])',
+        r'build/%.o\1',
+        content
+    )
+
+    content = re.sub(
+        r'(build/%.o:%\.[cSs]\n)(?!\t@mkdir)',
+        r'\1\t@mkdir -p $(dir $@)\n',
+        content
+    )
+
+    open(path, 'wt').write(content)
