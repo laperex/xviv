@@ -7,9 +7,9 @@ from xviv.config.tcl import generate_config_tcl
 from xviv.tools import vivado
 
 # -----------------------------------------------------------------------------
-# create --vlnv <vlnv_id> --core <core_id>
+# create  --core <core_id> --vlnv <vlnv_id>
 # -----------------------------------------------------------------------------
-def cmd_core_create(cfg: ProjectConfig, core_vlnv: typing.Optional[str], core_name: typing.Optional[str], edit: bool = False):
+def cmd_core_create(cfg: ProjectConfig, core_name: typing.Optional[str], core_vlnv: typing.Optional[str], edit: bool = False):
 	config_tcl = generate_config_tcl(cfg, core_name=core_name, core_vlnv=core_vlnv)
 
 	# cfg.vivado.mode = 'tcl'

@@ -4,6 +4,7 @@ import os
 import subprocess
 import sys
 import tomllib
+from xviv.catalog.catalog import get_catalog
 from xviv.config import model
 
 
@@ -60,15 +61,14 @@ def load_config(path: str) -> model.ProjectConfig:
 			"  [fpga] default = '...'        (default target)\n"
 			"  [fpga.<name>] part = '...' (named target, select with  fpga = '<name>')"
 		)
-
-	return model.ProjectConfig(
+	
+	cfg = model.ProjectConfig(
 		base_dir     = base_dir,
 		fpga_default_ref = fpga_default_ref,
 		fpga_named   = fpga_named,
 		vivado       = model._parse_vivado(raw),
 		vitis        = model._parse_vitis(raw),
 		build        = model._parse_build(raw),
-		# sources      = model._parse_sources(raw),
 		ips          = model._parse_ips(raw),
 		bds          = model._parse_bds(raw),
 		cores        = model._parse_cores(raw),
@@ -77,3 +77,9 @@ def load_config(path: str) -> model.ProjectConfig:
 		platforms    = model._parse_platforms(raw),
 		apps         = model._parse_apps(raw),
 	)
+
+	catalog = get_catalog(cfg.vivado.path, [cfg.ip_repo])
+	for core in cfg.cores:
+		core.vlnv = catalog.lookup(core.vlnv).vlnv
+
+	return cfg

@@ -10,6 +10,14 @@
 - project guide in search core
 	link to project guide - html / pdf as a column in xviv search <query>
 
+- package ip that uses another ip core internally.
+	- Declare clk_wiz as a sub-core so downstream users know they need it
+	ipx::add_subcore xilinx.com:ip:clk_wiz:6.0 [ipx::get_file_groups xilinx_verilogsynthesis -of $ip_core]
+
+	- Include the XCI so the IP packager carries it
+	ipx::add_file ip/clk_wiz_0/clk_wiz_0.xci $synth_fs
+	set_property type xci [ipx::get_files ip/clk_wiz_0/clk_wiz_0.xci -of $synth_fs]
+
 - search changes in syntax
 	old: xviv search <query>
 	new: xviv search --core <query>

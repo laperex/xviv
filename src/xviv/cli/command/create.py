@@ -41,11 +41,11 @@ class CreateCommand(Command):
 			cmd_ip_create(cfg, args.ip)
 		elif args.bd:
 			cmd_bd_create(cfg, args.bd)
+		elif args.core is not None:
+			cmd_core_create(cfg, args.core, args.vlnv, args.edit)
 		elif args.app:
 			cmd_app_create(cfg, args.app, args.platform, args.template)
 		elif args.platform:
 			cmd_platform_create(cfg, args.platform)
-		elif args.core is not None:
-			cmd_core_create(cfg, args.vlnv, args.core, args.edit)
 		else:
 			sys.exit("ERROR: one of --ip / --bd / --app / --platform / --core is required")

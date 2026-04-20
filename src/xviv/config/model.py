@@ -3,6 +3,7 @@ import dataclasses
 import glob
 import logging
 import os
+import re
 import shutil
 import sys
 import typing
@@ -66,26 +67,47 @@ class IpConfig:
 	rtl:            list[str] = dataclasses.field(default_factory=list)
 	hooks:          str       = ""
 	create_wrapper: bool      = False
+	vlnv:			str       = ""
 
 	def __post_init__(self) -> None:
 		if not self.top:
 			self.top = self.name
 		if not self.hooks:
 			self.hooks = f"scripts/ip/{self.name}_{self.version}.tcl"
+		if not self.vlnv:
+			self.vlnv = f"{self.vendor}:{self.library}:{self.name}:{self.version}"
 
 
 @dataclasses.dataclass
 class BdConfig:
 	name:       str
 	hooks:      str       = ""
-	state_tcl: str       = ""
+	state_tcl:  str       = ""
 	fpga:       str       = ""
+	vlnv_list:  list[str] = dataclasses.field(default_factory=list)
 
 	def __post_init__(self) -> None:
 		if not self.hooks:
 			self.hooks = f"scripts/bd/{self.name}_hooks.tcl"
 		if not self.state_tcl:
 			self.state_tcl = f"scripts/bd/state/{self.name}.tcl"
+		if os.path.exists(self.state_tcl):
+			with open(self.state_tcl, 'rt') as f:
+				self.vlnv_list = self._resolve_vlnv_list(f.read())
+
+	def _resolve_vlnv_list(self, text) -> list[str]:
+		match = re.search(r'set\s+list_check_ips\s+"(.*?)"', text, re.DOTALL)
+
+		if match:
+			raw = match.group(1)
+
+			return [
+				ip for ip in [
+					line.strip().rstrip("\\").strip() for line in raw.splitlines()
+				] if ip
+			]
+
+		return []
 
 
 @dataclasses.dataclass
@@ -485,7 +507,7 @@ def _parse_bds(raw: dict) -> list[BdConfig]:
 		BdConfig(
 			name=b["name"],
 			hooks=b.get("hooks", ""),
-		state_tcl=b.get("state_tcl", ""),
+			state_tcl=b.get("state_tcl", ""),
 			# xdc=b.get("xdc", []),
 			# xdc_ooc=b.get("xdc_ooc", []),
 			fpga=b.get("fpga", ""),
