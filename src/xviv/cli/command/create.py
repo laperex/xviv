@@ -4,6 +4,7 @@ import sys
 from xviv.cli.command.base import Command
 from xviv.cli.completers import arg, c_ip, c_bd, c_app, c_platform, c_core, c_core_instance
 from xviv.cli.command.bd   import cmd_bd_create
+from xviv.functions.all import cmd_all_create
 from xviv.functions.core import cmd_core_create
 from xviv.functions.ip   import cmd_ip_create
 from xviv.functions.xsct import cmd_app_create, cmd_platform_create
@@ -31,9 +32,12 @@ class CreateCommand(Command):
 		c.add_argument("--template", metavar="TMPL", default=None,
 					help="App template override (used with --app)")
 		c.add_argument("--edit", action="store_true", help="Customize in GUI")
+		c.add_argument("--all", action="store_true", help="Create all targets specified in project.toml")
 
 	def run(self, cfg, args: argparse.Namespace) -> None:
-		if args.ip:
+		if args.all:
+			cmd_all_create(cfg)
+		elif args.ip:
 			cmd_ip_create(cfg, args.ip)
 		elif args.bd:
 			cmd_bd_create(cfg, args.bd)
