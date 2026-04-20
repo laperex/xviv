@@ -2,24 +2,45 @@
 # Command: generate_bd
 # =============================================================================
 proc cmd_generate_bd {} {
-    global xviv_bd_name xviv_bd_dir xviv_wrapper_dir
+    global current_bd_design xviv_bd_name xviv_bd_dir xviv_wrapper_dir
 
     xviv_require_vars xviv_bd_name xviv_bd_dir
 
     set bd_file "$xviv_bd_dir/$xviv_bd_name/$xviv_bd_name.bd"
+	set bd_mtime [file mtime $bd_file]
+    set wrapper "$xviv_wrapper_dir/${xviv_bd_name}_wrapper.v"
 
-    if {![file exists $bd_file]} {
-        xviv_die "BD file not found: $bd_file\nHas create-bd been run?"
+    if { [file exists $wrapper] } {
+        if { $bd_mtime < [file mtime $wrapper] } {
+			puts "INFO: Output products are up to date"
+
+			return
+        }
     }
 
-    puts "INFO: Generating Block Design output products - $xviv_bd_name"
-    xviv_create_project "in_memory_project"
+    if {![file exists $bd_file]} {
+        xviv_die "BD file not found: $bd_file"
+    }
 
-    read_bd        $bd_file
-    open_bd_design $bd_file
+	if { [catch {current_project} project] } {
+    	xviv_create_project "in_memory_project"
 
-    # Upgrade stale IPs with a catch so a single failed upgrade does not abort
-    # the entire generation run.  The user is warned to verify manually.
+	    puts "INFO: Generate Block Design"
+		puts "INFO:   Name : $xviv_bd_name"
+		puts "INFO:   BD   : $bd_file"
+	}
+
+	if { [get_files -quiet $bd_file] eq "" } {
+	    read_bd $bd_file
+	}
+
+	if { [catch {current_bd_design} current] || $current ne $xviv_bd_name } {
+		open_bd_design $bd_file
+	}
+
+	# -------------------------------
+
+	xviv_stage "Upgrade stale IPs"
     set stale_cells [get_bd_cells -hierarchical -filter {TYPE == ip}]
 	if {[llength $stale_cells] > 0} {
 		if {[catch {upgrade_ip $stale_cells} err]} {
@@ -28,22 +49,20 @@ proc cmd_generate_bd {} {
 	}
 
 	xviv_stage "Generating output products"
-	# replace with a different techinque
-    reset_target  {synthesis simulation implementation} [get_files $bd_file]
-    generate_target all                                 [get_files $bd_file]
+    reset_target all [get_files $bd_file]
+    generate_target all [get_files $bd_file]
 
 	xviv_stage "Validate design"
 	validate_bd_design
 
+	xviv_stage "Make wrapper"
     set wrapper_src [make_wrapper -files [get_files $bd_file] -top]
-
     if {[info exists xviv_wrapper_dir] && $xviv_wrapper_dir ne ""} {
         file mkdir $xviv_wrapper_dir
-        # Use TCL file copy instead of exec cp for portability
+
         file copy -force $wrapper_src $xviv_wrapper_dir
         puts "INFO: BD wrapper copied to $xviv_wrapper_dir/${xviv_bd_name}_wrapper.v"
     }
 
-    puts "INFO: BD generation complete - [xviv_elapsed]"
-    exit 0
+    puts "INFO: Generate BD complete - [xviv_elapsed]"
 }

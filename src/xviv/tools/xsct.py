@@ -45,6 +45,5 @@ def run_xsct_live(cfg: ProjectConfig, tcl_script: str, args: list[str]) -> None:
 
 	try:
 		subprocess.run(cmd, check=True)
-
 	except KeyboardInterrupt:
 		logger.info("jtag-monitor stopped by user")

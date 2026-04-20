@@ -3,22 +3,28 @@
 # =============================================================================
 proc cmd_generate_core {} {
     global current_project xviv_core_vlnv xviv_core_name xviv_core_dir
+	
+    xviv_require_vars xviv_core_name xviv_core_dir
 
 	set xci_file "$xviv_core_dir/$xviv_core_name/${xviv_core_name}.xci"
+
+	if {![file exists $xci_file]} {
+        xviv_die "XCI file not found: $xci_file"
+    }
 
 	if { [catch {current_project} project] } {
 		xviv_create_project "in_memory_project"
 
 		puts "INFO: Generate Core"
-		puts "INFO:   VLNV : $xviv_core_vlnv"
 		puts "INFO:   Name : $xviv_core_name"
-		puts "INFO:   Dir  : $xviv_core_dir"
 		puts "INFO:   XCI  : $xci_file"
 	}
 
 	if { [get_files -quiet $xci_file] eq "" } {
 		read_ip $xci_file
 	}
+
+	# -------------------------------
 
 	xviv_stage "Generating output products"
     generate_target all [get_files $xci_file]
@@ -33,6 +39,7 @@ proc cmd_generate_core {} {
 
 	close $fd
 	puts "INFO: Wrote sim fileset $out_file"
+	puts "INFO: Generate Core Complete - [xviv_elapsed]"
 }
 
 # start_ip_gui     ;# open customize/re-customize IP GUI

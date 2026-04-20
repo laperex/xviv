@@ -12,7 +12,11 @@ proc cmd_create_core { gui } {
     puts "INFO:   Dir  : $xviv_core_dir"
 
     file mkdir $xviv_core_dir
-	file delete -force $xviv_core_dir/$xviv_core_name
+	set core_subdir [file join $xviv_core_dir $xviv_core_name]
+    if {[file exists $core_subdir]} {
+        puts "WARNING: Removing existing BD directory - $core_subdir"
+        file delete -force $core_subdir
+    }
 
     xviv_create_project "in_memory_project"
 

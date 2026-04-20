@@ -21,6 +21,8 @@ proc cmd_edit_core { gui } {
 		read_ip $xci_file
 	}
 
+	# -------------------------------
+
 	if { $gui } {
 		set current_ip [get_ips $xviv_core_name]
 		set config_list [start_ip_gui -ip $current_ip]

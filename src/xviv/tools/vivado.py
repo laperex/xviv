@@ -2,6 +2,7 @@ import importlib.resources
 import logging
 import os
 import subprocess
+import sys
 import tempfile
 
 from xviv.config.model import ProjectConfig
@@ -18,7 +19,11 @@ def run_vivado_xvlog(cfg: ProjectConfig, target_dir: str, fileset: list[str], xs
 	cmd = [xvlog_bin, "-sv", "-incr", "-work", xsim_lib, *fileset]
 	logger.info("Running: %s", " ".join(cmd))
 	os.makedirs(target_dir, exist_ok=True)
-	subprocess.run(cmd, check=True, cwd=target_dir)
+
+	try:
+		subprocess.run(cmd, check=True, cwd=target_dir)
+	except subprocess.CalledProcessError as e:
+		sys.exit(e.returncode)
 
 
 def run_vivado_xelab(cfg: ProjectConfig, target_dir: str, top: str, timescale: str, xsim_lib: str, run_all=False) -> None:
@@ -43,7 +48,11 @@ def run_vivado_xelab(cfg: ProjectConfig, target_dir: str, top: str, timescale: s
 
 	logger.info("Running: %s", " ".join(cmd))
 	os.makedirs(target_dir, exist_ok=True)
-	subprocess.run(cmd, check=True, cwd=target_dir)
+
+	try:
+		subprocess.run(cmd, check=True, cwd=target_dir)
+	except subprocess.CalledProcessError as e:
+		sys.exit(e.returncode)
 
 
 def run_vivado_xsim(
@@ -69,7 +78,11 @@ def run_vivado_xsim(
 		]
 		logger.info("Running: %s", " ".join(cmd))
 		os.makedirs(target_dir, exist_ok=True)
-		subprocess.run(cmd, check=True, cwd=target_dir)
+
+		try:
+			subprocess.run(cmd, check=True, cwd=target_dir)
+		except subprocess.CalledProcessError as e:
+			sys.exit(e.returncode)
 	finally:
 		os.unlink(config_tcl_path)
 
@@ -99,7 +112,11 @@ def run_vivado(
 			*extra_args,
 		]
 		logger.info("Running: %s", " ".join(cmd))
-		subprocess.run(cmd, check=True)
+
+		try:
+			subprocess.run(cmd, check=True)
+		except subprocess.CalledProcessError as e:
+			sys.exit(e.returncode)
 	finally:
 		os.unlink(config_tcl_path)
 

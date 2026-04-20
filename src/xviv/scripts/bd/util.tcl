@@ -36,3 +36,14 @@ proc override_save_bd_design {} {
 		save_bd_tcl
 	}
 }
+
+proc override_bd_exit {} {
+	rename exit _xviv_exit
+	proc exit {args} {
+		# stop_gui
+
+		# catch { cmd_generate_bd }
+
+		_xviv_exit {*}$args
+	}
+}
