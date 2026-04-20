@@ -100,12 +100,12 @@ def generate_config_tcl(
 	# Context-specific overrides
 	# =========================================================================
 
-	synth	= cfg.get_synth(top_name=top_name, bd_name=bd_name, ip_name=ip_name)
+	synth_cfg	= cfg.get_synth(top_name=top_name, bd_name=bd_name, ip_name=ip_name)
 
-	synth_hooks	= cfg.abs_path(synth.hooks) if synth.hooks else ""
+	synth_hooks	= cfg.abs_path(synth_cfg.hooks) if synth_cfg.hooks else ""
 
-	xdc		= cfg.resolve_globs(synth.xdc) if synth.xdc else []
-	rtl		= cfg.resolve_globs(synth.rtl) if synth.rtl else []
+	xdc		= cfg.resolve_globs(synth_cfg.xdc) if synth_cfg.xdc else []
+	rtl		= cfg.resolve_globs(synth_cfg.rtl) if synth_cfg.rtl else []
 
 	if ip_name:
 		ip    = cfg.get_ip(ip_name)
@@ -172,10 +172,10 @@ def generate_config_tcl(
 		f'set xviv_synth_hooks            "{synth_hooks}"',
 		f"set xviv_xdc_files              {_tcl_list(xdc)}",
 		f"set xviv_rtl_files              {_tcl_list(rtl)}",
-		f"set xviv_synth_report_synth     {int(synth.report_synth)}",
-		f"set xviv_synth_report_place     {int(synth.report_place)}",
-		f"set xviv_synth_report_route     {int(synth.report_route)}",
-		f"set xviv_synth_generate_netlist {int(synth.generate_netlist)}",
+		f"set xviv_synth_report_synth     {int(synth_cfg.report_synth)}",
+		f"set xviv_synth_report_place     {int(synth_cfg.report_place)}",
+		f"set xviv_synth_report_route     {int(synth_cfg.report_route)}",
+		f"set xviv_synth_generate_netlist {int(synth_cfg.generate_netlist)}",
 	]
 
 	def _fmt_list(name, items):
