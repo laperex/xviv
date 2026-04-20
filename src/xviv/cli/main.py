@@ -1,4 +1,3 @@
-# main.py  (replaces both app.py and parser.py — both can be deleted)
 import argparse
 import argcomplete
 import os
