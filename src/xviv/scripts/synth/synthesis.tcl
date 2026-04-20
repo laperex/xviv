@@ -113,7 +113,17 @@ proc cmd_synthesis {top_module sha_tag} {
                  -directive $synth_directive \
                  -flatten_hierarchy $flatten_hierarchy \
                  -fsm_extraction $fsm_extraction
-                 
+
+    # ------------------------------------------------------------------
+    # Logic Optimization
+    # NOTE: Per Vivado Critical Warning [Project 1-948], opt_design 
+    # must be run BEFORE read_checkpoint -incremental in non-project flow.
+    # ------------------------------------------------------------------
+    if {$run_opt_design} {
+        xviv_stage "Logic Optimization"
+        opt_design -directive $opt_directive
+    }
+
     write_checkpoint -force "$out_dir/post_synth.dcp"
 
     if {$xviv_synth_report_synth} {
@@ -133,16 +143,6 @@ proc cmd_synthesis {top_module sha_tag} {
     }
 
     synth_post
-
-    # ------------------------------------------------------------------
-    # Logic Optimization
-    # NOTE: Per Vivado Critical Warning [Project 1-948], opt_design 
-    # must be run BEFORE read_checkpoint -incremental in non-project flow.
-    # ------------------------------------------------------------------
-    if {$run_opt_design} {
-        xviv_stage "Logic Optimization"
-        opt_design -directive $opt_directive
-    }
 
     # ------------------------------------------------------------------
     # Incremental Implementation Setup
