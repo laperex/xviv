@@ -1,8 +1,11 @@
-- find use for export_bd
+- find use for export_bd - [removed export_bd]
 
 - core
-	- use in sim
 	- use in synth
+
+- overhaul synth
+
+- synth add debug marking
 
 - project guide in search core
 	link to project guide - html / pdf as a column in xviv search <query>
