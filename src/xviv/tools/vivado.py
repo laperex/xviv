@@ -20,10 +20,12 @@ def find_vivado_script() -> str:
 
 def run_vivado_xvlog(cfg: ProjectConfig, target_dir: str, fileset: list[str], xsim_lib: str) -> None:
 	xvlog_bin = os.path.join(cfg.vivado.path, "bin", "xvlog")
+	
+	extra_files = [
+		os.path.join(cfg.vivado.path, "data/verilog/src/glbl.v")
+	]
 
-	fileset.append(os.path.join(cfg.vivado.path, "data/verilog/src/glbl.v"))
-
-	cmd = [xvlog_bin, "-sv", "-incr", "-work", xsim_lib, *fileset]
+	cmd = [xvlog_bin, "-sv", "-incr", "-work", xsim_lib, *fileset, *extra_files]
 	logger.info("Running: %s", " ".join(cmd))
 	os.makedirs(target_dir, exist_ok=True)
 
