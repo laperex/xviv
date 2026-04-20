@@ -5,6 +5,7 @@ from xviv.catalog.catalog import get_catalog
 from xviv.config.model import ProjectConfig
 from xviv.config.tcl import generate_config_tcl
 from xviv.tools import vivado
+from xviv.tools.util import find_vivado_script
 
 # -----------------------------------------------------------------------------
 # create  --core <core_id> --vlnv <vlnv_id>
@@ -14,7 +15,7 @@ def cmd_core_create(cfg: ProjectConfig, core_name: typing.Optional[str], core_vl
 
 	# cfg.vivado.mode = 'tcl'
 
-	vivado.run_vivado(cfg, vivado.find_vivado_script(), "create_core", [str(int(edit))], config_tcl)
+	vivado.run_vivado(cfg, find_vivado_script(), "create_core", [str(int(edit))], config_tcl)
 
 # -----------------------------------------------------------------------------
 # edit --core <core_id>
@@ -25,7 +26,7 @@ def cmd_core_edit(cfg: ProjectConfig, core_name: typing.Optional[str], nogui: bo
 	if nogui:
 		cfg.vivado.mode = 'tcl'
 
-	vivado.run_vivado(cfg, vivado.find_vivado_script(), "edit_core", [str(int(not nogui))], config_tcl)
+	vivado.run_vivado(cfg, find_vivado_script(), "edit_core", [str(int(not nogui))], config_tcl)
 
 # -----------------------------------------------------------------------------
 # search --query <query>

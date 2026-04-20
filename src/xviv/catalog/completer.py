@@ -6,15 +6,15 @@ import shutil
 
 from xviv.config.loader import find_config, load_config
 from xviv.catalog.catalog import Catalog, get_catalog
+from xviv.tools.util import find_vivado_dir_path
 
 logger = logging.getLogger(__name__)
 
 def _term_width() -> int:
 	return shutil.get_terminal_size().columns * 2
 
-
 def _build_catalog(prefix, parsed_args) -> Catalog:
-	vivado_path = os.environ.get("XVIV_VIVADO_DIR") or ""
+	vivado_path = find_vivado_dir_path()
 	ip_repos: list[str] = []
 	try:
 		cfg = load_config(os.path.abspath(find_config(prefix, parsed_args)))

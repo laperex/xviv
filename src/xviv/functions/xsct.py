@@ -8,6 +8,7 @@ import typing
 
 from xviv.config.model import ProjectConfig
 from xviv.tools import xsct
+from xviv.tools.util import find_xsct_script
 from xviv.utils.fs import resolve_globs
 
 
@@ -34,7 +35,7 @@ def cmd_platform_create(cfg: ProjectConfig, platform_name: str):
 	logger.info("  OS     : %s", plat.os)
 	logger.info("  BSP dir: %s", bsp)
 
-	xsct.run_xsct(cfg, xsct.find_xsct_script(), ["create_platform", xsa, plat.cpu, plat.os, bsp])
+	xsct.run_xsct(cfg, find_xsct_script(), ["create_platform", xsa, plat.cpu, plat.os, bsp])
 
 
 # -----------------------------------------------------------------------------
@@ -73,7 +74,7 @@ def cmd_app_create(
 	logger.info("  App dir : %s", app_out_dir)
 
 	xsct.run_xsct(
-		cfg, xsct.find_xsct_script(),
+		cfg, find_xsct_script(),
 		["create_app", xsa, plat.cpu, plat.os, template, app_out_dir],
 	)
 
@@ -100,8 +101,7 @@ def cmd_platform_build(cfg: ProjectConfig, platform_name: str):
 	subprocess.run(
 		["make", f"-j{os.cpu_count() or 4}"],
 		check=True,
-		cwd=bsp,
-		env=xsct.get_vitis_env(cfg),
+		cwd=bsp
 	)
 	logger.info("BSP build complete")
 
@@ -115,7 +115,6 @@ def cmd_app_build(cfg: ProjectConfig, app_name: str, info: typing.Optional[bool]
 
 	bsp         = cfg.get_platform_dir(app.platform)
 	app_out_dir = cfg.get_app_dir(app_name)
-	env         = xsct.get_vitis_env(cfg)
 
 	_transform_app_makefile(os.path.join(app_out_dir, "Makefile"))
 
@@ -134,8 +133,7 @@ def cmd_app_build(cfg: ProjectConfig, app_name: str, info: typing.Optional[bool]
 			f"LIBPATH=-L{bsp_lib}",
 		],
 		check=True,
-		cwd=app_out_dir,
-		env=env,
+		cwd=app_out_dir
 	)
 
 	logger.info("App build complete")
@@ -193,7 +191,7 @@ def cmd_program(
 		logger.info("  ELF       : %s", elf_path)
 	logger.info("  hw_server : %s", server)
 
-	xsct.run_xsct(cfg, xsct.find_xsct_script(), ["program", bitstream_path, elf_path, server])
+	xsct.run_xsct(cfg, find_xsct_script(), ["program", bitstream_path, elf_path, server])
 
 
 # -----------------------------------------------------------------------------
@@ -204,10 +202,10 @@ def cmd_processor(cfg: ProjectConfig, reset: typing.Optional[bool], status: typi
 
 	if reset:
 		logger.info("Resetting embedded processor via JTAG (%s)", server)
-		xsct.run_xsct(cfg, xsct.find_xsct_script(), ["processor_reset", server])
+		xsct.run_xsct(cfg, find_xsct_script(), ["processor_reset", server])
 
 	elif status:
-		xsct.run_xsct(cfg, xsct.find_xsct_script(), ["processor_status", server])
+		xsct.run_xsct(cfg, find_xsct_script(), ["processor_status", server])
 
 
 # ---------------------------------------------------------------------------

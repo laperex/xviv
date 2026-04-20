@@ -4,6 +4,7 @@ from xviv.config.model import ProjectConfig
 from xviv.config.tcl import generate_config_tcl
 from xviv.generator.hooks import generate_bd_hooks
 from xviv.tools import vivado
+from xviv.tools.util import find_vivado_script
 from xviv.utils.git import _git_sha_tag
 
 logger = logging.getLogger(__name__)
@@ -14,7 +15,7 @@ logger = logging.getLogger(__name__)
 # -----------------------------------------------------------------------------
 def cmd_bd_create(cfg: ProjectConfig, bd_name: str):
 	config_tcl = generate_config_tcl(cfg, bd_name=bd_name)
-	vivado.run_vivado(cfg, vivado.find_vivado_script(), "create_bd", [], config_tcl)
+	vivado.run_vivado(cfg, find_vivado_script(), "create_bd", [], config_tcl)
 
 
 # -----------------------------------------------------------------------------
@@ -26,7 +27,7 @@ def cmd_bd_edit(cfg: ProjectConfig, bd_name: str, nogui: bool = False):
 	if nogui:
 		cfg.vivado.mode = "tcl"
 
-	vivado.run_vivado(cfg, vivado.find_vivado_script(), "edit_bd", [str(int(not nogui))], config_tcl)
+	vivado.run_vivado(cfg, find_vivado_script(), "edit_bd", [str(int(not nogui))], config_tcl)
 
 
 # -----------------------------------------------------------------------------
@@ -41,7 +42,7 @@ def cmd_bd_config(cfg: ProjectConfig, bd_name: str, exist_ok=False):
 # -----------------------------------------------------------------------------
 def cmd_bd_generate(cfg: ProjectConfig, bd_name: str):
 	config_tcl = generate_config_tcl(cfg, bd_name=bd_name)
-	vivado.run_vivado(cfg, vivado.find_vivado_script(), "generate_bd", [], config_tcl)
+	vivado.run_vivado(cfg, find_vivado_script(), "generate_bd", [], config_tcl)
 
 
 # -----------------------------------------------------------------------------
@@ -53,7 +54,7 @@ def cmd_bd_synth(cfg: ProjectConfig, bd_name: str, ooc_run: typing.Optional[bool
 	config_tcl = generate_config_tcl(cfg, bd_name=bd_name)
 
 	vivado.run_vivado(
-		cfg, vivado.find_vivado_script(), "synthesis",
+		cfg, find_vivado_script(), "synthesis",
 		[f"{bd_name}_wrapper", tag],
 		config_tcl,
 	)

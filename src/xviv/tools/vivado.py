@@ -1,4 +1,3 @@
-import importlib.resources
 import logging
 import os
 import subprocess
@@ -9,13 +8,6 @@ from xviv.config.model import ProjectConfig
 
 
 logger = logging.getLogger(__name__)
-
-
-def find_vivado_script() -> str:
-	ref = importlib.resources.files("xviv") / "scripts" / "dispatch" / "vivado.tcl"
-
-	with importlib.resources.as_file(ref) as path:
-		return str(path)
 
 
 def run_vivado_xvlog(cfg: ProjectConfig, target_dir: str, fileset: list[str], xsim_lib: str) -> None:

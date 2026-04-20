@@ -4,10 +4,10 @@ import glob
 import logging
 import os
 import re
-import shutil
 import sys
 import typing
 
+from xviv.tools.util import find_vitis_dir_path, find_vivado_dir_path
 from xviv.utils.fs import resolve_globs
 
 logger = logging.getLogger(__name__)
@@ -193,7 +193,7 @@ class SynthConfig:
 
 	def __post_init__(self) -> None:
 		if not self.hooks:
-			self.hooks = f"scripts/synth/{self.ip or self.bd or self.top or ""}.tcl"
+			self.hooks = f"scripts/synth/{self.ip or self.bd or self.top}.tcl"
 
 @dataclasses.dataclass
 class SimulationConfig:
@@ -433,7 +433,6 @@ class ProjectConfig:
 		)
 
 
-
 def _parse_fpga(raw: dict) -> tuple[str, dict[str, FpgaConfig]]:
 	section = raw.get("fpga", {})
 
@@ -453,13 +452,11 @@ def _parse_fpga(raw: dict) -> tuple[str, dict[str, FpgaConfig]]:
 
 	return default_part_ref, fpga_named
 
-# set env var !: XVIV_VIVADO_DIR
-# set env var !: XVIV_VITIS_DIR
 
 def _parse_vivado(raw: dict) -> VivadoConfig:
 	v = raw.get("vivado", {})
 	return VivadoConfig(
-		path=os.environ.get('XVIV_VIVADO_DIR') or DEFAULT_VIVADO_PATH,
+		path=find_vivado_dir_path(),
 		mode=v.get("mode", "batch"),
 		max_threads=int(v.get("max_threads", 20)),
 		hw_server=v.get("hw_server", "localhost:3121"),
@@ -468,7 +465,7 @@ def _parse_vivado(raw: dict) -> VivadoConfig:
 
 def _parse_vitis(raw: dict) -> VitisConfig:
 	return VitisConfig(
-		path=os.environ.get('XVIV_VITIS_DIR') or DEFAULT_VITIS_PATH
+		path=find_vitis_dir_path()
 	)
 
 
