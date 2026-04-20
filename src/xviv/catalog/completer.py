@@ -5,7 +5,7 @@ import os
 import shutil
 
 from xviv.config.loader import find_config, load_config
-from xviv.catalog.catalog import Catalog
+from xviv.catalog.catalog import Catalog, get_catalog
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +22,7 @@ def _build_catalog(prefix, parsed_args) -> Catalog:
 			ip_repos = [cfg.ip_repo]
 	except Exception as exc:
 		logger.debug("ip_repo scan skipped: %s", exc)
-	return Catalog(vivado_path, ip_repos)
+	return get_catalog(vivado_path, ip_repos)
 
 
 # --- Completer 1: --core NAME ---
