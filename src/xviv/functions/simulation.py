@@ -106,7 +106,8 @@ def cmd_snapshot_open(cfg: ProjectConfig, top_name: str, nogui: bool = False):
 	control_fifo_path = cfg.get_control_fifo_path(top_name)
 	_ensure_fifo(control_fifo_path)
 
-	open(tcl_file, "w").write(
+	with open(tcl_file, "w") as f:
+		f.write(
 		_XSIM_WDB_TCL.format(
 			wdb=wdb_file, wcfg=wcfg_file,
 			top=top_name, fifo_path=control_fifo_path,
@@ -152,7 +153,8 @@ def cmd_wdb_open(cfg: ProjectConfig, top_name: str, nogui: bool = False):
 	fifo = cfg.get_control_fifo_path(top_name)
 	_ensure_fifo(fifo)
 
-	open(tcl_file, "w").write(
+	with open(tcl_file, "w") as f:
+		f.write(
 		_XSIM_WDB_TCL.format(wdb=wdb_file, wcfg=wcfg_file, top=top_name, fifo_path=fifo)
 	)
 
