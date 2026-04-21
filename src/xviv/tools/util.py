@@ -38,7 +38,7 @@ def _source_settings(settings_path: str) -> None:
 		capture_output=True,
 		text=True,
 	)
-	if result.returncode != 0:
+	if result.returncode != 0 or not result.stdout:
 		sys.exit(f"ERROR: failed to source {settings_path!r}:\n{result.stderr}")
 
 	sourced_env = dict(
@@ -62,13 +62,15 @@ def _load_dotenv(path: str = ".env") -> None:
 					continue
 				key, _, val = line.partition("=")
 				key = key.strip()
-				val = val.strip()
 				if key and key not in os.environ:
 					os.environ[key] = val
 	except FileNotFoundError:
 		pass
 
 def _source_settings_from_env(tool: str) -> None:
+	if not shutil.which("bash"):
+		sys.exit("ERROR: bash is required but not found on PATH")
+
 	if shutil.which(tool):
 		return
 
