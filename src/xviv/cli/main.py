@@ -36,14 +36,6 @@ _COMMANDS: list[type[Command]] = [
 	ProcessorCommand,
 ]
 
-def _resolve_config(explicit: str) -> str:
-	if os.path.exists(explicit):
-		return explicit
-	for candidate in ("project.cue", "project.toml"):
-		if os.path.exists(candidate):
-			return candidate
-	sys.exit("ERROR: neither project.cue nor project.toml found in current directory.")
-
 def run() -> None:
 	p = argparse.ArgumentParser(
 		prog="xviv",

@@ -7,15 +7,16 @@ import tomllib
 from xviv.catalog.catalog import get_catalog
 from xviv.config import model
 
+def resolve_config_completer(prefix, parsed_args, **kwargs) -> str:
+	return resolve_config(getattr(parsed_args, "config", ""))
 
-def find_config(prefix, parsed_args, **kwargs) -> str:
-	cfg = getattr(parsed_args, "config", None)
-	if cfg:
-		return cfg
-	if os.path.exists("project.cue"):
-		return "project.cue"
-	return "project.toml"
-
+def resolve_config(explicit: str) -> str:
+	if os.path.exists(explicit):
+		return explicit
+	for candidate in ("project.cue", "project.toml"):
+		if os.path.exists(candidate):
+			return candidate
+	sys.exit("ERROR: neither project.cue nor project.toml found in current directory.")
 
 def load_config(path: str) -> model.ProjectConfig:
 	"""

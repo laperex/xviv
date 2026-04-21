@@ -4,7 +4,7 @@ import logging
 import os
 import shutil
 
-from xviv.config.loader import find_config, load_config
+from xviv.config.loader import resolve_config_completer, load_config
 from xviv.catalog.catalog import Catalog, get_catalog
 from xviv.tools.util import find_vivado_dir_path
 
@@ -17,7 +17,7 @@ def _build_catalog(prefix, parsed_args) -> Catalog:
 	vivado_path = find_vivado_dir_path()
 	ip_repos: list[str] = []
 	try:
-		cfg = load_config(os.path.abspath(find_config(prefix, parsed_args)))
+		cfg = load_config(os.path.abspath(resolve_config_completer(prefix, parsed_args)))
 		if cfg.ip_repo:
 			ip_repos = [cfg.ip_repo]
 	except Exception as exc:

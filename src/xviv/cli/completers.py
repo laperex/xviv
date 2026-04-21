@@ -19,7 +19,7 @@ import glob
 import os
 
 from xviv.catalog.completer import core_instance_completer
-from xviv.config.loader import find_config, load_config
+from xviv.config.loader import resolve_config_completer, load_config
 
 
 # ---------------------------------------------------------------------------
@@ -30,7 +30,7 @@ from xviv.config.loader import find_config, load_config
 def _cfg_completer(collection: str, attr: str = "name"):
 	def completer(prefix, parsed_args, **kwargs):
 		try:
-			cfg = load_config(os.path.abspath(find_config(prefix, parsed_args)))
+			cfg = load_config(os.path.abspath(resolve_config_completer(prefix, parsed_args)))
 			return [getattr(item, attr) for item in getattr(cfg, collection)]
 		except Exception:
 			return []
@@ -40,7 +40,7 @@ def _cfg_completer(collection: str, attr: str = "name"):
 def _top_completer(*, synth: bool = True, sim: bool = True):
 	def completer(prefix, parsed_args, **kwargs):
 		try:
-			cfg = load_config(os.path.abspath(find_config(prefix, parsed_args)))
+			cfg = load_config(os.path.abspath(resolve_config_completer(prefix, parsed_args)))
 			tops = []
 			if synth:
 				tops += [s.top for s in cfg.synths]
@@ -71,7 +71,7 @@ c_core_instance = core_instance_completer
 def dcp_stems_completer(prefix, parsed_args, **kwargs):
 	"""Complete .dcp stem names (post_synth, post_place, post_route, ...)."""
 	try:
-		cfg = load_config(os.path.abspath(find_config(prefix, parsed_args)))
+		cfg = load_config(os.path.abspath(resolve_config_completer(prefix, parsed_args)))
 		top = getattr(parsed_args, "top", None)
 		if not top:
 			return ["post_synth", "post_place", "post_route"]
