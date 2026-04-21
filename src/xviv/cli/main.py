@@ -17,7 +17,7 @@ from xviv.cli.command.reload import ReloadCommand
 from xviv.cli.command.build import BuildCommand
 from xviv.cli.command.program import ProgramCommand
 from xviv.cli.command.processor import ProcessorCommand
-from xviv.config.loader import load_config
+from xviv.config.loader import load_config, resolve_config
 from xviv.utils.log import _setup_logging
 
 _COMMANDS: list[type[Command]] = [
@@ -56,7 +56,7 @@ def run() -> None:
 	argcomplete.autocomplete(p)
 	args = p.parse_args()
 
-	cfg_path = os.path.abspath(_resolve_config(args.config))
+	cfg_path = os.path.abspath(resolve_config(args.config))
 	project_dir = os.path.dirname(cfg_path)
 	os.chdir(project_dir)
 
