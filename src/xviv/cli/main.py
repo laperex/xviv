@@ -1,5 +1,4 @@
 import argparse
-import subprocess
 import argcomplete
 import os
 import sys
@@ -37,39 +36,15 @@ _COMMANDS: list[type[Command]] = [
 	ProcessorCommand,
 ]
 
-
 def _resolve_config(explicit: str) -> str:
-	if explicit:
+	if os.path.exists(explicit):
 		return explicit
 	for candidate in ("project.cue", "project.toml"):
 		if os.path.exists(candidate):
 			return candidate
 	sys.exit("ERROR: neither project.cue nor project.toml found in current directory.")
 
-def _source_settings(settings_path: str) -> None:
-	if not os.path.isfile(settings_path):
-		sys.exit(f"ERROR: settings file not found: {settings_path!r}")
-
-	result = subprocess.run(
-		["bash", "-c", f'source "{settings_path}" && env -0'],
-		capture_output=True,
-		text=True,
-	)
-	if result.returncode != 0:
-		sys.exit(f"ERROR: failed to source {settings_path!r}:\n{result.stderr}")
-
-	sourced_env = dict(
-		entry.partition("=")[::2]
-		for entry in result.stdout.split("\0")
-		if "=" in entry
-	)
-	for k, v in sourced_env.items():
-		if os.environ.get(k) != v:
-			os.environ[k] = v
-
 def run() -> None:
-	_source_settings("/opt/Xilinx/2025.2/Vivado/settings64.sh")
-
 	p = argparse.ArgumentParser(
 		prog="xviv",
 		description="FPGA project controller for Vivado / Vitis",
