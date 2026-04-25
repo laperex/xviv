@@ -16,8 +16,10 @@ def _term_width() -> int:
 def _build_catalog(prefix, parsed_args) -> Catalog:
 	vivado_path = find_vivado_dir_path()
 	ip_repos: list[str] = []
+	
 	try:
 		cfg = load_config(os.path.abspath(resolve_config_completer(prefix, parsed_args)))
+		
 		if cfg.ip_repo:
 			ip_repos = [cfg.ip_repo]
 	except Exception as exc:
@@ -36,9 +38,11 @@ def core_instance_completer(prefix: str, parsed_args, **kwargs) -> dict[str, str
 		catalog = _build_catalog(prefix, parsed_args)
 
 		completions: dict[str, str] = {}
+
 		for vlnv, entry in catalog.items():
 			name_ver = f"{entry.name}:{entry.version}"
 			desc = _fmt_instance_desc(vlnv, entry)
+
 			if name_ver.startswith(real_prefix):
 				completions[name_ver] = desc
 			else:
@@ -63,23 +67,4 @@ def _fmt_instance_desc(vlnv: str, entry) -> str:
 		if len(desc_text) > avail:
 			desc_text = desc_text[:avail - 1] + "…"
 		parts.append(f"— {desc_text}")
-	return "  ".join(parts)
-
-
-def _fmt_vlnv_desc(entry) -> str:
-	parts: list[str] = [entry.display_name or entry.name]
-	parts.append(f"[{entry.vendor}/{entry.library}]")
-	flags: list[str] = []
-	if entry.hidden:          flags.append("⚠ internal subcore")
-	if entry.board_dependent: flags.append("⚠ board-dependent")
-	if entry.ipi_only:        flags.append("⚠ IPI-only")
-	if flags:
-		parts.append("  ".join(flags))
-	else:
-		desc = " ".join(entry.description.split())
-		avail = _term_width() - sum(len(p) + 2 for p in parts)
-		if avail > 12 and desc:
-			if len(desc) > avail:
-				desc = desc[:avail - 1] + "…"
-			parts.append(desc)
 	return "  ".join(parts)
