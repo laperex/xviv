@@ -7,6 +7,7 @@ import re
 import sys
 import typing
 
+from xviv.catalog.catalog import get_catalog
 from xviv.tools.util import find_vitis_dir_path, find_vivado_dir_path
 from xviv.utils.fs import resolve_globs
 
@@ -55,6 +56,7 @@ class BuildConfig:
 	bd_dir:      str = DEFAULT_BUILD_BD_DIR
 	wrapper_dir: str = DEFAULT_BUILD_WRAPPER_DIR
 	core_dir:    str = DEFAULT_BUILD_CORE_DIR
+	max_parallel_jobs: int = 4
 
 
 @dataclasses.dataclass
@@ -94,6 +96,8 @@ class BdConfig:
 		if os.path.exists(self.state_tcl):
 			with open(self.state_tcl, 'rt') as f:
 				self.vlnv_list = self._resolve_vlnv_list(f.read())
+
+				logger.info(f"Retrieved VLNV's of Reuired IP's for BD {self.name} from {self.state_tcl}\n\t{self.vlnv_list}")
 
 	def _resolve_vlnv_list(self, text) -> list[str]:
 		match = re.search(r'set\s+list_check_ips\s+"(.*?)"', text, re.DOTALL)
@@ -288,6 +292,15 @@ class ProjectConfig:
 			)
 		return ip
 
+	def get_ip_by_vlnv(self, vlnv: str) -> IpConfig:
+		ip = next((i for i in self.ips if vlnv in i.vlnv), None)
+		if ip is None:
+			sys.exit(
+				f"ERROR: IP matching vlnv: '{vlnv}' not found in [[ip]] entries.\n"
+				f"  Available: {[i.name for i in self.ips]}"
+			)
+		return ip
+
 	def get_bd(self, name: str) -> BdConfig:
 		bd = next((b for b in self.bds if b.name == name), None)
 		if bd is None:
@@ -468,10 +481,13 @@ def _parse_vitis(raw: dict) -> VitisConfig:
 		path=find_vitis_dir_path()
 	)
 
+def _parse_parallel(raw: dict) -> int:
+	return raw.get('max_parallel_jobs', 4)
 
 def _parse_build(raw: dict) -> BuildConfig:
 	b = raw.get("build", {})
 	return BuildConfig(
+		max_parallel_jobs=b.get("max_parallel_jobs", 4),
 		dir=b.get("dir", DEFAULT_BUILD_DIR),
 		ip_repo=b.get("ip_repo", DEFAULT_BUILD_IP_REPO),
 		bd_dir=b.get("bd_dir", DEFAULT_BUILD_BD_DIR),

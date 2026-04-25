@@ -4,6 +4,7 @@ from collections.abc import ValuesView
 import logging
 import os
 from typing import Iterator
+import typing
 
 from xviv.catalog.model import CoreEntry
 from xviv.catalog.parsers import load_ip_repo, parse_vv_index
@@ -62,16 +63,20 @@ class Catalog:
 		return self._cores.get(vlnv)
 
 	def lookup(self, id: str) -> CoreEntry:
-		"""
-		Resolve a core by exact VLNV or unambiguous partial match
-		"""
-		# Exact hit first
+		entry = self.lookup_none(id)
+
+		if entry:
+			return entry
+		
+		raise CoreNotFound(id)
+
+	def lookup_none(self, id: str) -> typing.Optional[CoreEntry]:
 		entry = self._cores.get(id)
 		if entry is not None:
 			return entry
 
-		# Partial substring match
 		matches = [e for key, e in self._cores.items() if id in key]
+
 		if len(matches) == 1:
 			logger.info("Resolved %r → %s", id, matches[0].vlnv)
 			return matches[0]
@@ -79,7 +84,7 @@ class Catalog:
 			candidates = ", ".join(e.vlnv for e in matches[:5])
 			raise CoreNotFound(f"{id!r} is ambiguous: {candidates}...")
 
-		raise CoreNotFound(id)
+		return None
 
 	def find_by_name(self, ip_name: str) -> list[CoreEntry]:
 		"""All cores whose `name` field equals ip_name (any version)."""

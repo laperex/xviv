@@ -1,5 +1,6 @@
 import subprocess
 
+
 def _git_sha_tag() -> tuple[str, bool, str]:
 	try:
 		sha = subprocess.check_output(

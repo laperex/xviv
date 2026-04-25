@@ -1,5 +1,7 @@
 import logging
+import sys
 import typing
+from xviv.catalog.catalog import get_catalog
 from xviv.config.model import ProjectConfig
 from xviv.config.tcl import generate_config_tcl
 from xviv.generator.hooks import generate_bd_hooks
@@ -15,6 +17,21 @@ logger = logging.getLogger(__name__)
 # -----------------------------------------------------------------------------
 def cmd_bd_create(cfg: ProjectConfig, bd_name: str):
 	config_tcl = generate_config_tcl(cfg, bd_name=bd_name)
+
+	bd_cfg = cfg.get_bd(bd_name)
+
+	catalog = get_catalog(cfg.vivado.path, [ cfg.ip_repo ])
+
+	required_ips = bd_cfg.vlnv_list
+
+	unresolved_ips = [i for i in required_ips if not catalog.get(i)]
+	if unresolved_ips:
+		sys.exit(f"ERROR: These IP's cannot be resolved: {unresolved_ips}")
+
+	required_ips_create_list = [i for i in required_ips if i in [k.vlnv for k in cfg.ips]]
+	if required_ips_create_list:
+		pass
+
 	vivado.run_vivado(cfg, find_vivado_script(), "create_bd", [], config_tcl)
 
 

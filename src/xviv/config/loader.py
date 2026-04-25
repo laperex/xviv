@@ -80,7 +80,14 @@ def load_config(path: str) -> model.ProjectConfig:
 	)
 
 	catalog = get_catalog(cfg.vivado.path, [cfg.ip_repo])
+
 	for core in cfg.cores:
-		core.vlnv = catalog.lookup(core.vlnv).vlnv
+		lookup = catalog.lookup_none(core.vlnv)
+		if lookup:
+			core.vlnv = lookup.vlnv
+		else:
+			core.vlnv = cfg.get_ip_by_vlnv(core.vlnv).vlnv
+
+		print(core.name, core.vlnv)
 
 	return cfg
