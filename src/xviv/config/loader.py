@@ -79,13 +79,13 @@ def load_config(path: str) -> model.ProjectConfig:
 		apps         = model._parse_apps(raw),
 	)
 
-	catalog = get_catalog(cfg.vivado.path, [cfg.ip_repo])
+	# catalog = get_catalog(cfg.vivado.path, [cfg.ip_repo])
 
-	for core in cfg.cores:
-		lookup = catalog.lookup_none(core.vlnv)
-		if lookup:
-			core.vlnv = lookup.vlnv
-		else:
-			core.vlnv = cfg.get_ip_by_vlnv(core.vlnv).vlnv
+	# for core in cfg.cores:
+	# 	lookup = catalog.lookup_none(core.vlnv)
+	# 	if lookup:
+	# 		core.vlnv = lookup.vlnv
+	# 	else:
+	# 		core.vlnv = cfg.get_ip_by_vlnv(core.vlnv).vlnv
 
 	return cfg
