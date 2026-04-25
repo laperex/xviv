@@ -56,9 +56,12 @@ def core_instance_completer(prefix: str, parsed_args, **kwargs) -> dict[str, str
 def _fmt_instance_desc(vlnv: str, entry) -> str:
 	parts = [vlnv, entry.display_name]
 	flags = []
-	if entry.hidden:          flags.append("⚠ internal")
-	if entry.board_dependent: flags.append("⚠ board-dep")
-	if entry.ipi_only:        flags.append("⚠ IPI-only")
+	if entry.hidden:
+		flags.append("⚠ internal")
+	if entry.board_dependent:
+		flags.append("⚠ board-dep")
+	if entry.ipi_only:
+		flags.append("⚠ IPI-only")
 	if flags:
 		parts.append("  ".join(flags))
 	desc_text = " ".join(entry.description.split())
