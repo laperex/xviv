@@ -31,9 +31,12 @@ class CoreEntry:
 	def completion_description(self) -> str:
 		parts = [self.display_name, f"[{self.vendor}/{self.library}]"]
 		flags: list[str] = []
-		if self.hidden:          flags.append("⚠ internal subcore")
-		if self.board_dependent: flags.append("⚠ board-dependent")
-		if self.ipi_only:        flags.append("⚠ IPI-only")
+		if self.hidden:
+			flags.append("⚠ internal subcore")
+		if self.board_dependent:
+			flags.append("⚠ board-dependent")
+		if self.ipi_only:
+			flags.append("⚠ IPI-only")
 		if flags:
 			parts.append("  ".join(flags))
 		elif self.short_desc:
