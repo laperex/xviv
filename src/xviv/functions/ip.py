@@ -1,4 +1,6 @@
 import os
+import sys
+import typing
 from xviv.tools import vivado
 from xviv.config.model import ProjectConfig
 from xviv.config.tcl import generate_config_tcl
@@ -10,8 +12,11 @@ from xviv.tools.util import find_vivado_script
 # -----------------------------------------------------------------------------
 # create --ip <ip_name>
 # -----------------------------------------------------------------------------
-def cmd_ip_create(cfg: ProjectConfig, ip_name: str):
-	ip = cfg.get_ip(ip_name)
+def cmd_ip_create(cfg: ProjectConfig, ip_name: typing.Optional[str] = None, ip_vlnv: typing.Optional[str] = None):
+	ip = cfg.get_ip(ip_name) if ip_name else cfg.get_ip_by_vlnv(ip_vlnv) if ip_vlnv else None
+	
+	if ip is None:
+		sys.exit(f"ERROR: Unable to Resolve IP from ip_name: {ip_name}, ip_vlnv: {ip_vlnv}")
 
 	if ip.create_wrapper:
 		ip_top        = ip.top
@@ -27,7 +32,7 @@ def cmd_ip_create(cfg: ProjectConfig, ip_name: str):
 		ip.top = f"{ip_top}_wrapper"
 		ip.rtl = ip_rtl_files   # absolute paths are glob-safe on POSIX
 
-	config_tcl = generate_config_tcl(cfg, ip_name=ip_name)
+	config_tcl = generate_config_tcl(cfg, ip_name=ip.name)
 	vivado.run_vivado(cfg, find_vivado_script(), "create_ip", [], config_tcl)
 
 # -----------------------------------------------------------------------------

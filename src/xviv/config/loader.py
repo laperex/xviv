@@ -88,6 +88,4 @@ def load_config(path: str) -> model.ProjectConfig:
 		else:
 			core.vlnv = cfg.get_ip_by_vlnv(core.vlnv).vlnv
 
-		print(core.name, core.vlnv)
-
 	return cfg
