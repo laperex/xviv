@@ -19,10 +19,6 @@ class CoreNotFound(KeyError):
 
 
 class Catalog:
-	"""
-	Read-only view of all IP cores available to a Vivado installation.
-	"""
-
 	def __init__(self, vivado_path: str, ip_repos: list[str] | None = None) -> None:
 		self._cores: dict[str, CoreEntry] = {}
 		self._load(vivado_path, ip_repos or [])
@@ -59,7 +55,6 @@ class Catalog:
 	# ------------------------------------------------------------------
 
 	def get(self, vlnv: str) -> CoreEntry | None:
-		"""Exact VLNV match, returns None if not found."""
 		return self._cores.get(vlnv)
 
 	def lookup(self, id: str) -> CoreEntry:
@@ -87,7 +82,6 @@ class Catalog:
 		return None
 
 	def find_by_name(self, ip_name: str) -> list[CoreEntry]:
-		"""All cores whose `name` field equals ip_name (any version)."""
 		return [e for e in self._cores.values() if e.name == ip_name]
 
 	# ------------------------------------------------------------------
@@ -123,19 +117,12 @@ class Catalog:
 
 # ------------------------------------------------------------------
 # Process-level cache
-# Keyed on (vivado_path, sorted ip_repos) so different repo
-# combinations never collide.
 # ------------------------------------------------------------------
 
 _CACHE: dict[tuple[str, tuple[str, ...]], Catalog] = {}
 
 
 def get_catalog(vivado_path: str, ip_repos: list[str] | None = None) -> Catalog:
-	"""
-	Return a cached Catalog for the given vivado_path + ip_repos combo.
-	Completers and subcommands that don't hold a long-lived context can
-	call this instead of constructing Catalog directly.
-	"""
 	key = (vivado_path, tuple(sorted(ip_repos or [])))
 	if key not in _CACHE:
 		_CACHE[key] = Catalog(vivado_path, ip_repos)
