@@ -1,8 +1,10 @@
 import logging
 import os
+from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import typing
 
 from xviv.config.model import ProjectConfig
 
@@ -94,8 +96,11 @@ def run_vivado(
 		command: str,
 		extra_args: list[str],
 		config_tcl_content: str,
+		label: str = 'vivado',
+		log_dir: typing.Optional[str] = None
 ) -> None:
 	vivado_bin = os.path.join(cfg.vivado.path, "bin", "vivado")
+	job_log = logger.getChild(label)
 
 	with tempfile.NamedTemporaryFile(
 			mode="w", suffix="_config.tcl", delete=False, prefix="xviv_"
@@ -112,11 +117,34 @@ def run_vivado(
 			"-tclargs", command, config_tcl_path,
 			*extra_args,
 		]
-		logger.info("Running: %s", " ".join(cmd))
+		job_log.info("Running: %s", " ".join(cmd))
 
+		log_path = Path(log_dir) / f"{label}.log" if log_dir else None
+		if log_path:
+			log_path.parent.mkdir(parents=True, exist_ok=True)
+
+		log_file = log_path.open("w") if log_path else None
 		try:
-			subprocess.run(cmd, check=True)
-		except subprocess.CalledProcessError as e:
-			sys.exit(e.returncode)
+			with subprocess.Popen(
+				cmd,
+				stdout=subprocess.PIPE,
+				stderr=subprocess.STDOUT,
+				text=True,
+				bufsize=1,
+			) as proc:
+				assert proc.stdout
+				for line in proc.stdout:
+					stripped = line.rstrip()
+					job_log.info(stripped)
+					if log_file:
+						log_file.write(line)
+				proc.wait()
+		finally:
+			if log_file:
+				log_file.close()
+
+		if proc.returncode != 0:
+			job_log.error("Vivado exited with code %d", proc.returncode)
+			raise subprocess.CalledProcessError(proc.returncode, cmd)
 	finally:
 		os.unlink(config_tcl_path)

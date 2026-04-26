@@ -1,5 +1,7 @@
 from functools import partial
+import json
 import logging
+import os
 import sys
 import typing
 from xviv.catalog.catalog import get_catalog
@@ -7,6 +9,7 @@ from xviv.config.model import ProjectConfig
 from xviv.config.tcl import generate_config_tcl
 from xviv.functions.ip import cmd_ip_create
 from xviv.generator.hooks import generate_bd_hooks
+from xviv.parsers.bd_file import get_bd_core_dict
 from xviv.tools import vivado
 from xviv.tools.util import find_vivado_script
 from xviv.utils.git import _git_sha_tag
@@ -86,12 +89,40 @@ def cmd_bd_generate(cfg: ProjectConfig, bd_name: str):
 # synth --bd <bd_name> [--ooc-run]
 # -----------------------------------------------------------------------------
 def cmd_bd_synth(cfg: ProjectConfig, bd_name: str, ooc_run: typing.Optional[bool]):
-	_, _, tag = _git_sha_tag()
+	# _, _, tag = _git_sha_tag()
+
+	# config_tcl = generate_config_tcl(cfg, bd_name=bd_name)
+
+	# vivado.run_vivado(
+	# 	cfg, find_vivado_script(), "synthesis",
+	# 	[f"{bd_name}_wrapper", tag],
+	# 	config_tcl,
+	# )
+	# _, _, tag = _git_sha_tag()
 
 	config_tcl = generate_config_tcl(cfg, bd_name=bd_name)
 
-	vivado.run_vivado(
-		cfg, find_vivado_script(), "synthesis",
-		[f"{bd_name}_wrapper", tag],
-		config_tcl,
-	)
+	components = get_bd_core_dict(cfg, bd_name)
+
+	cfg.vivado.mode = 'batch'
+
+	if components:
+		max_workers = 15
+
+		target_dir = cfg.get_bd_ooc_targets_dir_path(bd_name)
+
+		run_parallel(
+			[
+				(
+					partial(vivado.run_vivado,
+						cfg, find_vivado_script(), "standalone_synthesis",
+						[ c['vlnv'], c['xci_name'], c['xci_path'], c['inst_hier_path'], target_dir ],
+						config_tcl,
+						c['xci_name'],
+						cfg.build_dir
+					),
+					f"vivado.run_vivado - [ {c['vlnv']}, {c['xci_name']}, {c['xci_path']}, {c['inst_hier_path']} ]"
+				) for c in components
+			],
+			max_workers=max_workers
+		)

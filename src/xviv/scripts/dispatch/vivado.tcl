@@ -34,6 +34,7 @@ source "$script_dir/bd/edit.tcl"
 source "$script_dir/bd/generate.tcl"
 
 source "$script_dir/synth/util.tcl"
+source "$script_dir/synth/standalone.tcl"
 source "$script_dir/synth/open_dcp.tcl"
 source "$script_dir/synth/synthesis.tcl"
 
@@ -248,6 +249,8 @@ switch -- $_cmd {
 
 	create_core { cmd_create_core [lindex $::argv 2] }
     edit_core   { cmd_edit_core [lindex $::argv 2] }
+
+    standalone_synthesis   { cmd_synthesis_standalone [lindex $::argv 2] [lindex $::argv 3] [lindex $::argv 4] [lindex $::argv 5] [lindex $::argv 6] }
 
 	synthesis   {
         if {$::argc < 3} {

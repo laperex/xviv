@@ -4,7 +4,7 @@ import sys
 from xviv.config.model import ProjectConfig
 
 
-def get_bd_component_dict(cfg: ProjectConfig, bd_name: str) -> dict:
+def get_bd_core_dict(cfg: ProjectConfig, bd_name: str) -> list[dict]:
 	bd_dir = os.path.join(cfg.bd_dir, bd_name)
 	bd_file = os.path.join(bd_dir, f"{bd_name}.bd")
 	bd_dict = {}
@@ -18,7 +18,7 @@ def get_bd_component_dict(cfg: ProjectConfig, bd_name: str) -> dict:
 	if not bd_dict:
 		sys.exit(f"ERROR: BD data read from {bd_file} is empty")
 
-	resolved_components: list = []
+	resolved_components: list[dict] = []
 
 	def _recursive_find(components_dict: dict) -> None:
 		if not components_dict:
@@ -43,9 +43,7 @@ def get_bd_component_dict(cfg: ProjectConfig, bd_name: str) -> dict:
 						'xci_path': xci_path,
 						'inst_hier_path': inst_hier_path,
 					})
-	
+
 	_recursive_find(bd_dict)
 
-	print(json.dumps(resolved_components, indent=4))
-
-	return {}
+	return resolved_components

@@ -401,6 +401,9 @@ class ProjectConfig:
 	def get_dcp_path(self, top: str, dcp_name: str) -> str:
 		return os.path.abspath(os.path.join(self.build_dir, "synth", top, f"{dcp_name}.dcp"))
 
+	def get_bd_ooc_targets_dir_path(self, bd_name: str) -> str:
+		return os.path.abspath(os.path.join(self.build_dir, 'synth_ooc', 'bd', bd_name))
+
 	def get_control_fifo_path(self, top: str) -> str:
 		return os.path.join(self.build_dir, "xviv", top, "control.fifo")
 
@@ -487,7 +490,7 @@ def _parse_parallel(raw: dict) -> int:
 def _parse_build(raw: dict) -> BuildConfig:
 	b = raw.get("build", {})
 	return BuildConfig(
-		max_parallel_jobs=b.get("max_parallel_jobs", 4),
+		max_parallel_jobs=b.get("max_parallel_jobs", 10),
 		dir=b.get("dir", DEFAULT_BUILD_DIR),
 		ip_repo=b.get("ip_repo", DEFAULT_BUILD_IP_REPO),
 		bd_dir=b.get("bd_dir", DEFAULT_BUILD_BD_DIR),
