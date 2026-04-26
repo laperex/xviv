@@ -26,7 +26,11 @@ def get_bd_core_dict(cfg: ProjectConfig, bd_name: str) -> list[dict]:
 
 		for key, val in components_dict.items():
 			if isinstance(val, dict):
-				_recursive_find(val.get('components', {}))
+				_components = val.get('components', None)
+				if _components is not None:
+					_recursive_find(_components)
+
+					return
 
 				if 'vlnv' in val.keys():
 					vlnv = val['vlnv']
