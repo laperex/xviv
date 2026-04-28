@@ -6,6 +6,7 @@ import typing
 
 from xviv.catalog.catalog import get_catalog
 from xviv.config.model import ProjectConfig
+from xviv.parsers.bd_file import get_bd_core_dict
 
 logger = logging.getLogger(__name__)
 
@@ -89,6 +90,7 @@ def generate_config_tcl(
 		'set xviv_bd_name       ""',
 		'set xviv_bd_hooks      ""',
 		'set xviv_bd_state_tcl  ""',
+		'set xviv_bd_leaf_ooc_synth_dir  ""'
 	]
 
 	# ---- Core variables (defaults empty) --------------------------------------------------------------------------------
@@ -139,10 +141,13 @@ def generate_config_tcl(
 
 		rtl = [wrap_file, bd_file]
 
+		bd_leaf_ooc_synth_dir = cfg.get_bd_ooc_targets_dir(bd_name)
+
 		lines += [
-			f'set xviv_bd_name       "{bd.name}"',
-			f'set xviv_bd_hooks      "{bd_hooks}"',
-			f'set xviv_bd_state_tcl  "{bd.state_tcl}"'
+			f'set xviv_bd_name                "{bd.name}"',
+			f'set xviv_bd_hooks               "{bd_hooks}"',
+			f'set xviv_bd_state_tcl           "{bd.state_tcl}"',
+			f'set xviv_bd_leaf_ooc_synth_dir  "{bd_leaf_ooc_synth_dir}"'
 		]
 	elif core_name is not None:
 		catalog = get_catalog(cfg.vivado.path, [cfg.ip_repo])

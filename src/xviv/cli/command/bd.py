@@ -2,11 +2,12 @@ from functools import partial
 import json
 import logging
 import os
+from pathlib import Path
 import sys
 import typing
 from xviv.catalog.catalog import get_catalog
 from xviv.config.model import ProjectConfig
-from xviv.config.tcl import generate_config_tcl
+from xviv.config.tcl import _tcl_list, generate_config_tcl
 from xviv.functions.ip import cmd_ip_create
 from xviv.generator.hooks import generate_bd_hooks
 from xviv.parsers.bd_file import get_bd_core_dict
@@ -89,40 +90,69 @@ def cmd_bd_generate(cfg: ProjectConfig, bd_name: str):
 # synth --bd <bd_name> [--ooc-run]
 # -----------------------------------------------------------------------------
 def cmd_bd_synth(cfg: ProjectConfig, bd_name: str, ooc_run: typing.Optional[bool]):
-	# _, _, tag = _git_sha_tag()
+	def _is_stale(target_dir: Path, xci_path: Path, xci_name: str) -> bool:
+		dcp  = target_dir / f"{xci_name}.dcp"
+		stub = target_dir / f"{xci_name}.v"
 
-	# config_tcl = generate_config_tcl(cfg, bd_name=bd_name)
+		if not dcp.exists() or not stub.exists():
+			logger.info(f"[is_stale] {xci_name}: output missing, rebuild needed")
+			return True
 
-	# vivado.run_vivado(
-	# 	cfg, find_vivado_script(), "synthesis",
-	# 	[f"{bd_name}_wrapper", tag],
-	# 	config_tcl,
-	# )
-	# _, _, tag = _git_sha_tag()
+		xci_mtime  = xci_path.stat().st_mtime
+		dcp_mtime  = dcp.stat().st_mtime
+		stub_mtime = stub.stat().st_mtime
+
+		if xci_mtime > dcp_mtime or xci_mtime > stub_mtime:
+			logger.info(f"[is_stale] {xci_name}: xci newer than outputs, rebuild needed")
+			return True
+
+		logger.info(f"[is_stale] {xci_name}: up to date, skipping")
+		return False
 
 	config_tcl = generate_config_tcl(cfg, bd_name=bd_name)
 
 	components = get_bd_core_dict(cfg, bd_name)
 
-	cfg.vivado.mode = 'batch'
-
 	if components:
+		bd_xci_name_list = [i['xci_name'] for i in components]
+		bd_xci_path_list = [i['xci_path'] for i in components]
+		bd_inst_hier_path_list = [i['inst_hier_path'] for i in components]
+		
+		config_tcl += "\n".join(
+			[
+				f'set xviv_bd_xci_name_list		  {_tcl_list(bd_xci_name_list)}',
+				f'set xviv_bd_xci_path_list		  {_tcl_list(bd_xci_path_list)}',
+				f'set xviv_bd_inst_hier_path_list {_tcl_list(bd_inst_hier_path_list)}',
+			]
+		)
+
 		max_workers = 15
 
-		target_dir = cfg.get_bd_ooc_targets_dir_path(bd_name)
+		cfg.vivado.mode = 'batch'
 
 		run_parallel(
 			[
 				(
 					partial(vivado.run_vivado,
 						cfg, find_vivado_script(), "standalone_synthesis",
-						[ c['vlnv'], c['xci_name'], c['xci_path'], c['inst_hier_path'], target_dir ],
+						[ f"{i}" ],
 						config_tcl,
-						c['xci_name'],
+						val['xci_name'],
 						cfg.build_dir
 					),
-					f"vivado.run_vivado - [ {c['vlnv']}, {c['xci_name']}, {c['xci_path']}, {c['inst_hier_path']} ]"
-				) for c in components
+					f"vivado.run_vivado - [ {val['xci_name']} ]"
+				) for i, val in enumerate(components)
+				if _is_stale(Path(cfg.get_bd_ooc_targets_dir(bd_name)), Path(val['xci_path']), val['xci_name'])
 			],
 			max_workers=max_workers
 		)
+
+	cfg.vivado.mode = 'batch'
+
+	_, _, tag = _git_sha_tag()
+
+	vivado.run_vivado(
+		cfg, find_vivado_script(), "synthesis",
+		[f"{bd_name}_wrapper", tag],
+		config_tcl,
+	)

@@ -1,222 +1,292 @@
+
 proc git_diff_to_file {outfile} {
-    set diff ""
-    catch {exec git diff HEAD} diff
+	set diff ""
+	catch {exec git diff HEAD} diff
 
-    set fh [open $outfile w]
-    puts -nonewline $fh $diff
-    close $fh
+	set fh [open $outfile w]
+	puts -nonewline $fh $diff
+	close $fh
 
-    return [string length $diff]
+	return [string length $diff]
+}
+
+
+proc cmd_bd_read_ooc_stubs {} {
+	global xviv_bd_xci_name_list xviv_bd_xci_path_list xviv_bd_name xviv_bd_inst_hier_path_list xviv_bd_leaf_ooc_synth_dir
+	
+	if { ![xviv_require_vars_optional xviv_bd_xci_name_list xviv_bd_xci_path_list xviv_bd_name xviv_bd_inst_hier_path_list xviv_bd_leaf_ooc_synth_dir] } {
+		return
+	}
+	
+	set n [llength $xviv_bd_xci_name_list]
+
+	puts "list_len $n"
+
+	for { set i 0 } { $i < $n } { incr i } {
+		set xci_name  [lindex $xviv_bd_xci_name_list     $i]
+		set hier_path "$xviv_bd_name/[lindex $xviv_bd_inst_hier_path_list $i]"
+		set dcp_file  "$xviv_bd_leaf_ooc_synth_dir/${xci_name}.dcp"
+		set stub_file "$xviv_bd_leaf_ooc_synth_dir/${xci_name}.v"
+
+		puts "xci_name:\t$xci_name"
+		puts "hier_path:\t$hier_path"
+		puts "dcp_file:\t$dcp_file"
+		puts "stub_file:\t$stub_file"
+
+		if { ![file exists $dcp_file] || ![file exists $stub_file] } {
+			xviv_die "OOC outputs missing for $xci_name — run synth-standalone first"
+		}
+
+		puts "\[cmd_bd_read_ooc_stubs\] loading $stub_file"
+		add_files -norecurse $stub_file
+		set_property USED_IN {synthesis implementation out_of_context} [get_files $stub_file]
+	}
+}
+	
+proc cmd_bd_read_ooc_checkpoints {} {
+	global xviv_bd_xci_name_list xviv_bd_xci_path_list xviv_bd_inst_hier_path_list xviv_bd_leaf_ooc_synth_dir
+	
+	if { ![xviv_require_vars_optional xviv_bd_xci_name_list xviv_bd_xci_path_list xviv_bd_inst_hier_path_list xviv_bd_leaf_ooc_synth_dir] } {
+		return
+	}
+	
+	set bd_cell [get_cells -filter {IS_PRIMITIVE == 0 && PARENT == ""}]
+
+	set n [llength $xviv_bd_xci_name_list]
+	for { set i 0 } { $i < $n } { incr i } {
+		set xci_name  [lindex $xviv_bd_xci_name_list     $i]
+		set hier_path "$bd_cell/[lindex $xviv_bd_inst_hier_path_list $i]"
+		set dcp_file  "$xviv_bd_leaf_ooc_synth_dir/${xci_name}.dcp"
+		set stub_file "$xviv_bd_leaf_ooc_synth_dir/${xci_name}.v"
+
+		if { ![file exists $dcp_file] || ![file exists $stub_file] } {
+			xviv_die "OOC outputs missing for $xci_name — run synth-standalone first"
+		}
+
+		puts "\[cmd_bd_read_ooc_checkpoints\] loading $xci_name @ $hier_path"
+		# add_files -norecurse $stub_file
+		# set_property USED_IN {synthesis implementation out_of_context} [get_files $stub_file]
+		read_checkpoint -cell $hier_path $dcp_file
+	}
+	
+	# exit 0
 }
 
 # =============================================================================
 # Command: synthesis <top_module> <sha_tag>
 # =============================================================================
 proc cmd_synthesis {top_module sha_tag} {
-    global xviv_bd_dir xviv_build_dir xviv_synth_hooks xviv_fpga_part
-    global xviv_synth_report_synth xviv_synth_report_place
-    global xviv_synth_report_route xviv_synth_generate_netlist xviv_iso_timestamp
+	global xviv_bd_dir xviv_build_dir xviv_synth_hooks xviv_fpga_part
+	global xviv_synth_report_synth xviv_synth_report_place
+	global xviv_synth_report_route xviv_synth_generate_netlist xviv_iso_timestamp
+	
+	global xviv_bd_xci_name_list xviv_bd_xci_path_list xviv_bd_leaf_ooc_synth_dir
+	global xviv_bd_inst_hier_path_list
 
-    # ------------------------------------------------------------------
-    # CONFIGURATION VARIABLES (Mapped from SynthConfig dataclass)
-    # ------------------------------------------------------------------
-    # Global Settings
-    # set max_threads         8
-    set incr_synth_fallback "continue"  ;# values: continue | terminate
+	# ------------------------------------------------------------------
+	# CONFIGURATION VARIABLES (Mapped from SynthConfig dataclass)
+	# ------------------------------------------------------------------
+	# Global Settings
+	# set max_threads         8
+	set incr_synth_fallback "continue"  ;# values: continue | terminate
 
-    # Flow Toggles
-    set incremental_synth   1           ;# 1 = true, 0 = false
-    set incremental_impl    1           ;# 1 = true, 0 = false
+	# Flow Toggles
+	set incremental_synth   1           ;# 1 = true, 0 = false
+	set incremental_impl    1           ;# 1 = true, 0 = false
 
-    # Synthesis Options
-    set synth_directive     "default"
-    set flatten_hierarchy   "rebuilt"
-    set fsm_extraction      "auto"
+	# Synthesis Options
+	set synth_directive     "default"
+	set flatten_hierarchy   "rebuilt"
+	set fsm_extraction      "auto"
 
-    # Logic Optimization Options
-    set run_opt_design      1
-    set opt_directive       "default"
+	# Logic Optimization Options
+	set run_opt_design      1
+	set opt_directive       "default"
 
-    # Placement Options
-    set place_directive     "default"
+	# Placement Options
+	set place_directive     "default"
 
-    # Physical Optimization Options
-    set run_phys_opt        0
-    set phys_opt_directive  "default"
+	# Physical Optimization Options
+	set run_phys_opt        0
+	set phys_opt_directive  "default"
 
-    # Routing Options
-    set route_directive     "default"
+	# Routing Options
+	set route_directive     "default"
 
-    # Bitstream Options
-    set usr_access_override ""
-    # ------------------------------------------------------------------
+	# Bitstream Options
+	set usr_access_override ""
+	# ------------------------------------------------------------------
 
-    # Apply global thread limit
-    # set_param general.maxThreads $max_threads
+	# Apply global thread limit
+	# set_param general.maxThreads $max_threads
 
-    set dirty     0
-    set sha_short $sha_tag
-    if {[string match "*_dirty" $sha_tag]} {
-        set dirty 1
-        set sha_short [string range $sha_tag 0 end-6]
-    }
+	set dirty     0
+	set sha_short $sha_tag
+	if {[string match "*_dirty" $sha_tag]} {
+		set dirty 1
+		set sha_short [string range $sha_tag 0 end-6]
+	}
 
-    set out_dir     "$xviv_build_dir/synth/$top_module"
+	set out_dir     "$xviv_build_dir/synth/$top_module"
 	set run_dir     "$out_dir/runs/$sha_short"
-    set report_dir  "$run_dir/reports"
-    set netlist_dir "$run_dir/netlists"
+	set report_dir  "$run_dir/reports"
+	set netlist_dir "$run_dir/netlists"
 
-    # Determine final USR_ACCESS value
-    if {$usr_access_override ne ""} {
-        set usr_access_val $usr_access_override
-    } else {
-        set usr_access_val [format "%s%07s" $dirty $sha_short]
-    }
+	# Determine final USR_ACCESS value
+	if {$usr_access_override ne ""} {
+		set usr_access_val $usr_access_override
+	} else {
+		set usr_access_val [format "%s%07s" $dirty $sha_short]
+	}
 
-    file mkdir $out_dir
+	file mkdir $out_dir
 
-    foreach stub {
-        synth_pre synth_post place_post route_post bitstream_post
-    } { xviv_stub $stub }
+	foreach stub {
+		synth_pre synth_post place_post route_post bitstream_post
+	} { xviv_stub $stub }
 
-    xviv_source_hooks xviv_synth_hooks
-    xviv_create_project "in_memory_project"
+	xviv_source_hooks xviv_synth_hooks
+	xviv_create_project "in_memory_project"
 
-    xviv_add_rtl_sources
+	xviv_add_rtl_sources
 	xviv_add_xdc_sources
 
-    # ------------------------------------------------------------------
-    # Synthesis
-    # ------------------------------------------------------------------
-    synth_pre
-    
-    # Configure Incremental Synthesis Fallback Behavior
-    if {$incr_synth_fallback eq "terminate"} {
-        # set_param config_implementation {autoIncr.Synth.RejectBehavior Terminate}
-    } else {
-        # set_param config_implementation {autoIncr.Synth.RejectBehavior Default}
-    }
+	# ------------------------------------------------------------------
+	# Synthesis
+	# ------------------------------------------------------------------
+	synth_pre
+	
+	# # Configure Incremental Synthesis Fallback Behavior
+	if {$incr_synth_fallback eq "terminate"} {
+	    # set_param config_implementation {autoIncr.Synth.RejectBehavior Terminate}
+	} else {
+	    # set_param config_implementation {autoIncr.Synth.RejectBehavior Default}
+	}
 
-    if {$incremental_synth} {
-        set reference_post_synth_dcp "$out_dir/post_synth.dcp"
-        if {[file exists $reference_post_synth_dcp]} {
-            xviv_stage "Applying Incremental Synthesis Reference"
-            read_checkpoint -incremental $reference_post_synth_dcp
-        } else {
-            puts "INFO: No reference post_synth DCP found at $reference_post_synth_dcp. Running standard Synthesis."
-        }
-    }
+	if {$incremental_synth} {
+	    set reference_post_synth_dcp "$out_dir/post_synth.dcp"
+	    if {[file exists $reference_post_synth_dcp]} {
+	        xviv_stage "Applying Incremental Synthesis Reference"
+	        read_checkpoint -incremental $reference_post_synth_dcp
+	    } else {
+	        puts "INFO: No reference post_synth DCP found at $reference_post_synth_dcp. Running standard Synthesis."
+	    }
+	}
+	
+	cmd_bd_read_ooc_stubs
 
-    xviv_stage "Synthesis - $top_module  (sha: $sha_tag)"
+	xviv_stage "Synthesis - $top_module  (sha: $sha_tag)"
 
-    synth_design -name synth_${top_module} -top $top_module \
-                 -directive $synth_directive \
-                 -flatten_hierarchy $flatten_hierarchy \
-                 -fsm_extraction $fsm_extraction
+	synth_design -name synth_${top_module} -top $top_module \
+				 -directive $synth_directive \
+				 -flatten_hierarchy $flatten_hierarchy \
+				 -fsm_extraction $fsm_extraction
+	
+	cmd_bd_read_ooc_checkpoints
 
-    # ------------------------------------------------------------------
-    # Logic Optimization
-    # NOTE: Per Vivado Critical Warning [Project 1-948], opt_design 
-    # must be run BEFORE read_checkpoint -incremental in non-project flow.
-    # ------------------------------------------------------------------
-    if {$run_opt_design} {
-        xviv_stage "Logic Optimization"
-        opt_design -directive $opt_directive
-    }
+	# ------------------------------------------------------------------
+	# Logic Optimization
+	# NOTE: Per Vivado Critical Warning [Project 1-948], opt_design 
+	# must be run BEFORE read_checkpoint -incremental in non-project flow.
+	# ------------------------------------------------------------------
+	if {$run_opt_design} {
+		xviv_stage "Logic Optimization"
+		opt_design -directive $opt_directive
+	}
 
-    write_checkpoint -force "$out_dir/post_synth.dcp"
+	write_checkpoint -force "$out_dir/post_synth.dcp"
 
-    if {$xviv_synth_report_synth} {
-        file mkdir $report_dir
-        xviv_stage "Post-synthesis reports"
-        report_timing_summary -file "$report_dir/post_synth_timing_summary.rpt"
-        report_utilization    -file "$report_dir/post_synth_util.rpt"
-        
-        if {$incremental_synth} {
-            report_incremental_reuse -file "$report_dir/post_synth_incremental_reuse.rpt"
-        }
-    }
-    if {$xviv_synth_generate_netlist} {
-        file mkdir $netlist_dir
-        write_verilog -force -mode funcsim                "$netlist_dir/post_synth_functional.v"
-        write_verilog -force -mode timesim -sdf_anno true "$netlist_dir/post_synth_timing.v"
-    }
+	if {$xviv_synth_report_synth} {
+		file mkdir $report_dir
+		xviv_stage "Post-synthesis reports"
+		report_timing_summary -file "$report_dir/post_synth_timing_summary.rpt"
+		report_utilization    -file "$report_dir/post_synth_util.rpt"
+		
+		if {$incremental_synth} {
+			report_incremental_reuse -file "$report_dir/post_synth_incremental_reuse.rpt"
+		}
+	}
+	if {$xviv_synth_generate_netlist} {
+		file mkdir $netlist_dir
+		write_verilog -force -mode funcsim                "$netlist_dir/post_synth_functional.v"
+		write_verilog -force -mode timesim -sdf_anno true "$netlist_dir/post_synth_timing.v"
+	}
 
-    synth_post
+	synth_post
 
-    # ------------------------------------------------------------------
-    # Incremental Implementation Setup
-    # ------------------------------------------------------------------
-    if {$incremental_impl} {
-        set reference_post_route_dcp "$out_dir/post_route.dcp"
+	# ------------------------------------------------------------------
+	# Incremental Implementation Setup
+	# ------------------------------------------------------------------
+	if {$incremental_impl} {
+	    set reference_post_route_dcp "$out_dir/post_route.dcp"
 
-        if {[file exists $reference_post_route_dcp]} {
-            xviv_stage "Applying Incremental Implementation Reference"
-            read_checkpoint -incremental $reference_post_route_dcp
-        } else {
-            puts "INFO: No reference post_route DCP found at $reference_post_route_dcp. Running standard Implementation."
-        }
-    }
+	    if {[file exists $reference_post_route_dcp]} {
+	        xviv_stage "Applying Incremental Implementation Reference"
+	        read_checkpoint -incremental $reference_post_route_dcp
+	    } else {
+	        puts "INFO: No reference post_route DCP found at $reference_post_route_dcp. Running standard Implementation."
+	    }
+	}
 
-    # ------------------------------------------------------------------
-    # Placement
-    # ------------------------------------------------------------------
-    xviv_stage "Placement"
-    
-    place_design -directive $place_directive
-    write_checkpoint -force "$out_dir/post_place.dcp"
+	# ------------------------------------------------------------------
+	# Placement
+	# ------------------------------------------------------------------
+	xviv_stage "Placement"
+	
+	place_design -directive $place_directive
+	write_checkpoint -force "$out_dir/post_place.dcp"
 
-    if {$xviv_synth_report_place} {
-        file mkdir $report_dir
-        xviv_stage "Post-placement reports"
-        report_io                        -file "$report_dir/post_place_io.rpt"
-        report_clock_utilization         -file "$report_dir/post_place_clock_util.rpt"
-        report_utilization -hierarchical -file "$report_dir/post_place_util_hier.rpt"
-    }
+	if {$xviv_synth_report_place} {
+		file mkdir $report_dir
+		xviv_stage "Post-placement reports"
+		report_io                        -file "$report_dir/post_place_io.rpt"
+		report_clock_utilization         -file "$report_dir/post_place_clock_util.rpt"
+		report_utilization -hierarchical -file "$report_dir/post_place_util_hier.rpt"
+	}
 
-    place_post
+	place_post
 
-    # ------------------------------------------------------------------
-    # Physical Optimization
-    # ------------------------------------------------------------------
-    if {$run_phys_opt} {
-        xviv_stage "Physical Optimization"
-        phys_opt_design -directive $phys_opt_directive
-    }
+	# ------------------------------------------------------------------
+	# Physical Optimization
+	# ------------------------------------------------------------------
+	if {$run_phys_opt} {
+		xviv_stage "Physical Optimization"
+		phys_opt_design -directive $phys_opt_directive
+	}
 
-    # ------------------------------------------------------------------
-    # Routing
-    # ------------------------------------------------------------------
-    xviv_stage "Routing"
-    
-    route_design -directive $route_directive
-    write_checkpoint -force "$out_dir/post_route.dcp"
+	# ------------------------------------------------------------------
+	# Routing
+	# ------------------------------------------------------------------
+	xviv_stage "Routing"
+	
+	route_design -directive $route_directive
+	write_checkpoint -force "$out_dir/post_route.dcp"
 
-    if {$xviv_synth_report_route} {
-        file mkdir $report_dir
-        xviv_stage "Post-routing reports"
-        report_drc            -file "$report_dir/post_route_drc.rpt"
-        report_methodology    -file "$report_dir/post_route_methodology.rpt"
-        report_power          -file "$report_dir/post_route_power.rpt"
-        report_route_status   -file "$report_dir/post_route_status.rpt"
-        report_timing_summary -max_paths 10 -report_unconstrained -warn_on_violation -file "$report_dir/post_route_timing_summary.rpt"
-        
-        if {$incremental_impl} {
-            report_incremental_reuse -file "$report_dir/post_impl_incremental_reuse.rpt"
-        }
-    }
-    if {$xviv_synth_generate_netlist} {
-        file mkdir $netlist_dir
-        write_verilog -force -mode funcsim                "$netlist_dir/post_impl_functional.v"
-        write_verilog -force -mode timesim -sdf_anno true "$netlist_dir/post_impl_timing.v"
-    }
+	if {$xviv_synth_report_route} {
+		file mkdir $report_dir
+		xviv_stage "Post-routing reports"
+		report_drc            -file "$report_dir/post_route_drc.rpt"
+		report_methodology    -file "$report_dir/post_route_methodology.rpt"
+		report_power          -file "$report_dir/post_route_power.rpt"
+		report_route_status   -file "$report_dir/post_route_status.rpt"
+		report_timing_summary -max_paths 10 -report_unconstrained -warn_on_violation -file "$report_dir/post_route_timing_summary.rpt"
+		
+		if {$incremental_impl} {
+			report_incremental_reuse -file "$report_dir/post_impl_incremental_reuse.rpt"
+		}
+	}
+	if {$xviv_synth_generate_netlist} {
+		file mkdir $netlist_dir
+		write_verilog -force -mode funcsim                "$netlist_dir/post_impl_functional.v"
+		write_verilog -force -mode timesim -sdf_anno true "$netlist_dir/post_impl_timing.v"
+	}
 
-    route_post
+	route_post
 
-    # ------------------------------------------------------------------
-    # USR_ACCESS & Bitstream Generation
-    # ------------------------------------------------------------------
-    # set stem      "${top_module}"    ;# bare filename stem, no path
+	# ------------------------------------------------------------------
+	# USR_ACCESS & Bitstream Generation
+	# ------------------------------------------------------------------
+	# set stem      "${top_module}"    ;# bare filename stem, no path
 	file mkdir $run_dir
 	set patch_file ""
 
@@ -231,28 +301,29 @@ proc cmd_synthesis {top_module sha_tag} {
 	}
 	
 
+
 	xviv_stage "Generating bitstream"
 
 	write_bitstream   -force                      "$run_dir/${top_module}.bit"
 	write_hw_platform -fixed -include_bit -force  "$run_dir/${top_module}.xsa"
 
-    bitstream_post
+	bitstream_post
 
-    # ------------------------------------------------------------------
-    # Build manifest
-    # ------------------------------------------------------------------
-    xviv_write_manifest "$run_dir/build.json"               \
-        vivado_version  [version -short]                    \
-        part            $xviv_fpga_part                     \
-        top             $top_module                         \
-        sha_tag         $sha_tag                            \
-        sha_short       $sha_short                          \
-        dirty           [expr {$dirty ? "true" : "false"}]  \
-        mode            "global"                            \
-        diff            $patch_file      \
-        bitstream       "$run_dir/${top_module}.bit"        \
-        xsa             "$run_dir/${top_module}.xsa"        \
-        elapsed         [xviv_elapsed]                      \
+	# ------------------------------------------------------------------
+	# Build manifest
+	# ------------------------------------------------------------------
+	xviv_write_manifest "$run_dir/build.json"               \
+		vivado_version  [version -short]                    \
+		part            $xviv_fpga_part                     \
+		top             $top_module                         \
+		sha_tag         $sha_tag                            \
+		sha_short       $sha_short                          \
+		dirty           [expr {$dirty ? "true" : "false"}]  \
+		mode            "global"                            \
+		diff            $patch_file      \
+		bitstream       "$run_dir/${top_module}.bit"        \
+		xsa             "$run_dir/${top_module}.xsa"        \
+		elapsed         [xviv_elapsed]                      \
 		timestamp       $xviv_iso_timestamp
 
 	if { $sha_tag ne "" } {
@@ -264,5 +335,5 @@ proc cmd_synthesis {top_module sha_tag} {
 		xviv_update_symlink "$out_dir/build.json"   "$run_dir/build.json"
 	}
 
-    puts "INFO: Build complete - [xviv_elapsed]"
+	puts "INFO: Build complete - [xviv_elapsed]"
 }

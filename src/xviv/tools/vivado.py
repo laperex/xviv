@@ -59,10 +59,10 @@ def run_vivado_xelab(cfg: ProjectConfig, target_dir: str, top: str, timescale: s
 
 
 def run_vivado_xsim(
-		cfg: ProjectConfig,
-		target_dir: str,
-		top: str,
-		config_tcl_content: str,
+	cfg: ProjectConfig,
+	target_dir: str,
+	top: str,
+	config_tcl_content: str,
 ) -> None:
 	xsim_bin = os.path.join(cfg.vivado.path, "bin", "xsim")
 
@@ -89,21 +89,20 @@ def run_vivado_xsim(
 	finally:
 		os.unlink(config_tcl_path)
 
-
 def run_vivado(
-		cfg: ProjectConfig,
-		tcl_script: str,
-		command: str,
-		extra_args: list[str],
-		config_tcl_content: str,
-		label: str = 'vivado',
-		log_dir: typing.Optional[str] = None
+	cfg: ProjectConfig,
+	tcl_script: str,
+	command: str,
+	extra_args: list[str],
+	config_tcl_content: str,
+	label: typing.Optional[str] = None,
+	log_dir: typing.Optional[str] = None,
 ) -> None:
 	vivado_bin = os.path.join(cfg.vivado.path, "bin", "vivado")
-	job_log = logger.getChild(label)
+	job_log = logger.getChild(label) if label else logger
 
 	with tempfile.NamedTemporaryFile(
-			mode="w", suffix="_config.tcl", delete=False, prefix="xviv_"
+		mode="w", suffix="_config.tcl", delete=False, prefix="xviv_"
 	) as tmp:
 		tmp.write(config_tcl_content)
 		config_tcl_path = tmp.name
@@ -111,19 +110,27 @@ def run_vivado(
 	try:
 		cmd = [
 			vivado_bin,
-			"-mode",    cfg.vivado.mode,
+			"-mode",      cfg.vivado.mode,
 			"-nolog", "-nojournal", "-notrace", "-quiet",
-			"-source",  tcl_script,
-			"-tclargs", command, config_tcl_path,
+			"-source",    tcl_script,
+			"-tclargs",   command, config_tcl_path,
 			*extra_args,
 		]
 		job_log.info("Running: %s", " ".join(cmd))
 
+		if cfg.vivado.mode == "tcl":
+			# interactive — connect directly to terminal, no log capture
+			result = subprocess.run(cmd)
+			if result.returncode != 0:
+				job_log.error("Vivado exited with code %d", result.returncode)
+				raise subprocess.CalledProcessError(result.returncode, cmd)
+			return
+
 		log_path = Path(log_dir) / f"{label}.log" if log_dir else None
 		if log_path:
 			log_path.parent.mkdir(parents=True, exist_ok=True)
-
 		log_file = log_path.open("w") if log_path else None
+
 		try:
 			with subprocess.Popen(
 				cmd,
@@ -146,5 +153,6 @@ def run_vivado(
 		if proc.returncode != 0:
 			job_log.error("Vivado exited with code %d", proc.returncode)
 			raise subprocess.CalledProcessError(proc.returncode, cmd)
+
 	finally:
 		os.unlink(config_tcl_path)

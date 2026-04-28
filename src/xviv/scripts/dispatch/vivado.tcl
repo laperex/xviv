@@ -99,6 +99,15 @@ proc xviv_require_vars {args} {
     }
 }
 
+proc xviv_require_vars_optional {args} {
+    foreach v $args {
+        if {![info exists ::$v] || [set ::$v] eq ""} {
+            return 0
+        }
+    }
+    return 1
+}
+
 # ---------------------------------------------------------------------------
 # Stopwatch helpers.
 #
@@ -250,7 +259,7 @@ switch -- $_cmd {
 	create_core { cmd_create_core [lindex $::argv 2] }
     edit_core   { cmd_edit_core [lindex $::argv 2] }
 
-    standalone_synthesis   { cmd_synthesis_standalone [lindex $::argv 2] [lindex $::argv 3] [lindex $::argv 4] [lindex $::argv 5] [lindex $::argv 6] }
+    standalone_synthesis   { cmd_synthesis_standalone [lindex $::argv 2] }
 
 	synthesis   {
         if {$::argc < 3} {

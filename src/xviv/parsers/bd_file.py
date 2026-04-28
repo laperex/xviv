@@ -27,17 +27,16 @@ def get_bd_core_dict(cfg: ProjectConfig, bd_name: str) -> list[dict]:
 		for key, val in components_dict.items():
 			if isinstance(val, dict):
 				_components = val.get('components', None)
+
 				if _components is not None:
 					_recursive_find(_components)
 
-					return
-
-				if 'vlnv' in val.keys():
+				if 'vlnv' in val.keys() and not _components:
 					vlnv = val['vlnv']
 					xci_name = val['xci_name']
 					xci_path = val['xci_path']
 					inst_hier_path = val['inst_hier_path']
-					
+
 					if xci_path:
 						xci_path = os.path.join(bd_dir, xci_path)
 
@@ -47,7 +46,7 @@ def get_bd_core_dict(cfg: ProjectConfig, bd_name: str) -> list[dict]:
 						'xci_path': xci_path,
 						'inst_hier_path': inst_hier_path,
 					})
-
+	
 	_recursive_find(bd_dict)
 
 	return resolved_components

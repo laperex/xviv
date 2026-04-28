@@ -401,7 +401,7 @@ class ProjectConfig:
 	def get_dcp_path(self, top: str, dcp_name: str) -> str:
 		return os.path.abspath(os.path.join(self.build_dir, "synth", top, f"{dcp_name}.dcp"))
 
-	def get_bd_ooc_targets_dir_path(self, bd_name: str) -> str:
+	def get_bd_ooc_targets_dir(self, bd_name: str) -> str:
 		return os.path.abspath(os.path.join(self.build_dir, 'synth_ooc', 'bd', bd_name))
 
 	def get_control_fifo_path(self, top: str) -> str:
