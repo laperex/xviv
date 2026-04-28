@@ -1,23 +1,22 @@
 import logging
 import os
-from pathlib import Path
 import subprocess
 import sys
 import tempfile
 import typing
+from pathlib import Path
 
 from xviv.config.model import ProjectConfig
-
 
 logger = logging.getLogger(__name__)
 
 
-def run_vivado_xvlog(cfg: ProjectConfig, target_dir: str, fileset: list[str], xsim_lib: str) -> None:
+def run_vivado_xvlog(
+	cfg: ProjectConfig, target_dir: str, fileset: list[str], xsim_lib: str
+) -> None:
 	xvlog_bin = os.path.join(cfg.vivado.path, "bin", "xvlog")
-	
-	extra_files = [
-		os.path.join(cfg.vivado.path, "data/verilog/src/glbl.v")
-	]
+
+	extra_files = [os.path.join(cfg.vivado.path, "data/verilog/src/glbl.v")]
 
 	cmd = [xvlog_bin, "-sv", "-incr", "-work", xsim_lib, *fileset, *extra_files]
 	logger.info("Running: %s", " ".join(cmd))
@@ -29,7 +28,14 @@ def run_vivado_xvlog(cfg: ProjectConfig, target_dir: str, fileset: list[str], xs
 		sys.exit(e.returncode)
 
 
-def run_vivado_xelab(cfg: ProjectConfig, target_dir: str, top: str, timescale: str, xsim_lib: str, run_all=False) -> None:
+def run_vivado_xelab(
+	cfg: ProjectConfig,
+	target_dir: str,
+	top: str,
+	timescale: str,
+	xsim_lib: str,
+	run_all=False,
+) -> None:
 	xelab_bin = os.path.join(cfg.vivado.path, "bin", "xelab")
 
 	cmd = [
@@ -47,7 +53,7 @@ def run_vivado_xelab(cfg: ProjectConfig, target_dir: str, top: str, timescale: s
 	]
 
 	if run_all:
-		cmd.append('-R')
+		cmd.append("-R")
 
 	logger.info("Running: %s", " ".join(cmd))
 	os.makedirs(target_dir, exist_ok=True)
@@ -68,16 +74,19 @@ def run_vivado_xsim(
 
 	try:
 		with tempfile.NamedTemporaryFile(
-				mode="w", suffix="_sim_config.tcl", delete=False, prefix="xviv_"
+			mode="w", suffix="_sim_config.tcl", delete=False, prefix="xviv_"
 		) as tmp:
 			tmp.write(config_tcl_content)
 			config_tcl_path = tmp.name
 
 		cmd = [
 			xsim_bin,
-			"--stats", top,
-			"--wdb", os.path.join(target_dir, f"{top}.wdb"),
-			"-t", config_tcl_path,
+			"--stats",
+			top,
+			"--wdb",
+			os.path.join(target_dir, f"{top}.wdb"),
+			"-t",
+			config_tcl_path,
 		]
 		logger.info("Running: %s", " ".join(cmd))
 		os.makedirs(target_dir, exist_ok=True)
@@ -88,6 +97,7 @@ def run_vivado_xsim(
 			sys.exit(e.returncode)
 	finally:
 		os.unlink(config_tcl_path)
+
 
 def run_vivado(
 	cfg: ProjectConfig,

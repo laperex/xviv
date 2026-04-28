@@ -3,9 +3,12 @@ import json
 import os
 import subprocess
 import sys
+
 import tomllib
+
 from xviv.catalog.catalog import get_catalog
 from xviv.config import model
+
 
 def resolve_config_completer(prefix, parsed_args, **kwargs) -> str:
 	return resolve_config(getattr(parsed_args, "config", ""))
