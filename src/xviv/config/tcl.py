@@ -6,7 +6,7 @@ import typing
 
 from xviv.catalog.catalog import get_catalog
 from xviv.config.model import ProjectConfig
-from xviv.parsers.bd_file import get_bd_core_dict
+from xviv.parsers.bd_json import get_bd_core_dict
 
 logger = logging.getLogger(__name__)
 
@@ -38,9 +38,9 @@ def generate_config_tcl(
 	# ---- resolve FPGA target (entry-level fpga = '<name>' override) ------------------
 	fpga_ref: str = ""
 	if bd_name:
-		fpga_ref = cfg.get_bd(bd_name).fpga
+		fpga_ref = cfg.get_bd(bd_name).fpga_ref
 	elif top_name:
-		fpga_ref = cfg.get_synth(top_name=top_name).fpga
+		fpga_ref = cfg.get_synth(top_name=top_name).fpga_ref
 
 	fpga = cfg.resolve_fpga(fpga_ref or None)
 	logger.debug("FPGA target: %s  part=%s", fpga_ref or "<default>", fpga.part)
@@ -216,7 +216,7 @@ def generate_config_tcl(
 	# ]
 
 	# logger.info("\n".join(overview_lines))
-	
+
 	lines += [
 		f"set xviv_iso_timestamp {datetime.now(timezone.utc).isoformat()}"
 	]
@@ -229,3 +229,170 @@ def _tcl_list(items: list[str]) -> str:
 		return "[list]"
 	return "[list " + " ".join(f'"{i}"' for i in items) + "]"
 
+# proc xviv_create_project {name} {
+#     global xviv_fpga_part xviv_board_part xviv_board_repo xviv_ip_repo
+
+#     # get_parts returns an empty list for unknown part strings.
+#     # This is the earliest point we can catch a wrong part number.
+#     if {[llength [get_parts $xviv_fpga_part]] == 0} {
+#         xviv_die "FPGA part '$xviv_fpga_part' is not in the installed Vivado part catalog. Check [fpga] part in project.toml."
+#     }
+
+#     create_project -part $xviv_fpga_part -in_memory $name
+
+#     if {[info exists xviv_board_part] && $xviv_board_part ne ""} {
+#         if {[info exists xviv_board_repo] && $xviv_board_repo ne ""} {
+#             set_param board.repoPaths [list $xviv_board_repo]
+#         }
+#         set_property board_part $xviv_board_part [current_project]
+#     }
+
+#     set_property ip_repo_paths [list $xviv_ip_repo] [current_project]
+#     update_ip_catalog -rebuild
+# }
+
+
+class GenerateConfigTclBuilder:
+	def __init__(self, cfg: ProjectConfig):
+		self._cfg = cfg
+		self.lines: list[str] = []
+
+		self._inmemory_project_name = "xviv_in_memory"
+
+		self.curent_project: typing.Optional[str] = None
+		
+		self.flag_override_bd_save_state_tcl = False
+
+		self.fpga_part = ""
+
+		self._init_max_threads()
+
+	def _push(self, text: str):
+		self.lines += [text]
+
+
+	def _init_max_threads(self):
+		self._push(f"set_param general.maxThreads {self._cfg.vivado.max_threads}")
+
+	def _source(self, filename: str):
+		self._push(f"source {filename}")
+	
+	def _start_gui(self):
+		self._push("start_gui")
+
+	def _create_project_inmemory(self, fpga_ref: typing.Optional[str] = None):
+		#* resolves fpga part from fpga_ref
+		#* set board_repo and board_part
+		
+		if self.curent_project is not None:
+			return
+
+		fpga = self._cfg.resolve_fpga(fpga_ref)
+
+		if fpga.board_repo:
+			self._push(f'set_param board.repoPaths { _tcl_list([fpga.board_repo]) }]')
+
+		self._push(f"create_project -in_memory {self._inmemory_project_name}" + f" -part {fpga.part} " if fpga.part else "")
+
+		if fpga.board_part:
+			self._push(f"set_property board_part {fpga.board_part} [current_project]")
+
+		# TODO: Throw Error when no board and fpga part is selected.
+
+		self.curent_project = self._inmemory_project_name
+
+	def _add_file(self, file: str, *, fileset: typing.Optional[str] = None, norecurse=False, scan_for_includes: bool = False):
+		params: list[str] = []
+
+		if scan_for_includes:
+			params.append("-scan_for_includes")
+		if fileset:
+			params.append(f"-fileset {fileset}")
+		if norecurse:
+			params.append("-norecurse")
+
+		self._push(f"add_files {file} {' '.join(params)}")
+
+	def _override(self, call, *, pre_call = "", post_call = "", rename_prefix="_xviv_"):
+		self._push(f'''
+proc override_{call} {{}} {{
+	rename {call} {rename_prefix}{call}
+
+	proc {call} {{args}} {{
+{pre_call}
+		{rename_prefix}{call} {{*}}$args
+{post_call}
+	}}
+}}
+''')
+
+	def _override_bd_save_state_tcl(self, bd_name: str, bd_state_tcl_file: str):
+		if not bd_state_tcl_file:
+			sys.exit("ERROR: bd_state_tcl_file is required")
+		
+
+		# os.makedirs(os.path.dirname(bd_state_tcl_file), exist_ok=True)
+		self.flag_override_bd_save_state_tcl = True
+
+		self._override("save_bd_design", post_call=rf'''
+		set path "{bd_state_tcl_file}"
+		set prefix "#{bd_name}\n\n"
+
+		file mkdir [file dirname $path]
+
+		write_bd_tcl -force -no_project_wrapper $path
+
+		set f [open $path r]
+		set data [read $f]
+		close $f
+
+		set start [string first "set bCheckIPsPassed" $data]
+		set end [string first "save_bd_design" $data]
+
+		if {{$start == -1 || $end == -1}} {{
+			error "Could not find expected markers in state BD TCL: $path\n\
+				'set bCheckIPsPassed' found: [expr {{$start != -1}}]\n\
+				'save_bd_design'      found: [expr {{$end != -1}}]"
+		}}
+
+		set f [open $path w]
+		puts $f [join $prefix "\n"]
+		puts $f ""
+		puts $f [string range $data $start [expr {{$end - 1}}]]
+		close $f
+		''')
+
+	def _bd_save_design(self):
+		self._push("save_bd_design")
+
+	def _bd_validate_design(self):
+		self._push("validate_bd_design")
+
+	def _bd_refresh_addresses(self):
+		self._push("delete_bd_objs [get_bd_addr_segs] [get_bd_addr_segs -excluded]")
+		self._push("assign_bd_address")
+
+	def create_bd(self, bd_name: str) -> None:
+		bd_cfg = self._cfg.get_bd(bd_name)
+		self._create_project_inmemory(bd_cfg.fpga_ref)
+
+		# TODO: add a new flag --import=true flag to make this if explicit
+		if os.path.exists(bd_cfg.state_tcl):
+			self._push('set parentCell ""')
+			
+			self._source(bd_cfg.state_tcl)
+
+			self._bd_refresh_addresses()
+			self._bd_validate_design()
+			self._bd_save_design()
+			
+			# self.cmd_generate_bd
+		else:
+			self._override_bd_save_state_tcl(bd_name, bd_cfg.state_tcl)
+			
+			self._start_gui()
+
+	# def generate_bd(self):
+
+	def build(self):
+		return '\n'.join(self.lines) + '\n'

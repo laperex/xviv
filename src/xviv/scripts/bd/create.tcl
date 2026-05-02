@@ -2,24 +2,24 @@
 # Command: create_bd
 # =============================================================================
 proc cmd_create_bd {} {
-    global xviv_bd_name xviv_bd_dir xviv_bd_state_tcl
+	global xviv_bd_name xviv_bd_dir xviv_bd_state_tcl
 
-    xviv_require_vars xviv_bd_name xviv_bd_dir xviv_bd_state_tcl
+	xviv_require_vars xviv_bd_name xviv_bd_dir xviv_bd_state_tcl
 
 	puts "INFO: Create Block Design"
 	puts "INFO:   Name : $xviv_bd_name"
 	puts "INFO:   Dir  : $xviv_bd_dir"
 
-    file mkdir $xviv_bd_dir
+	file mkdir $xviv_bd_dir
 	set bd_subdir [file join $xviv_bd_dir $xviv_bd_name]
-    if {[file exists $bd_subdir]} {
-        puts "WARNING: Removing existing BD directory - $bd_subdir"
-        file delete -force $bd_subdir
-    }
+	if {[file exists $bd_subdir]} {
+		puts "WARNING: Removing existing BD directory - $bd_subdir"
+		file delete -force $bd_subdir
+	}
 
-    xviv_create_project "in_memory_project"
+	xviv_create_project "in_memory_project"
 
-    set bd_file [create_bd_design -dir $xviv_bd_dir $xviv_bd_name]
+	set bd_file [create_bd_design -dir $xviv_bd_dir $xviv_bd_name]
 	puts "INFO:   BD   : $bd_file"
 
 	if {[file exists $xviv_bd_state_tcl]} {
@@ -27,7 +27,7 @@ proc cmd_create_bd {} {
 
 		set parentCell ""
 
-    	source $xviv_bd_state_tcl
+		source $xviv_bd_state_tcl
 
 		xviv_refresh_bd_addresses
 		validate_bd_design

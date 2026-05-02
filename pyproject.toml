@@ -8,7 +8,7 @@ dynamic = ["version"]
 description = "FPGA project controller for Vivado"
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = ["pyslang", "argcomplete", "toml", "argparse"]
+dependencies = ["pyslang", "argcomplete", "toml", "argparse", "pytest"]
 classifiers = [
 	"Development Status :: 3 - Alpha",
 	"Intended Audience :: Developers",
@@ -37,3 +37,7 @@ xviv_wrapper = "xviv.generator.wrapper:main"
 
 [tool.hatchling.build.targets.wheel]
 packages = ["src/xviv"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

@@ -149,7 +149,7 @@ proc xviv_create_project {name} {
 
     if {[info exists xviv_board_part] && $xviv_board_part ne ""} {
         if {[info exists xviv_board_repo] && $xviv_board_repo ne ""} {
-            set_param board.repoPaths [list $xviv_board_repo]
+            # set_param board.repoPaths [list $xviv_board_repo]
         }
         set_property board_part $xviv_board_part [current_project]
     }

@@ -85,7 +85,7 @@ class BdConfig:
 	name:       str
 	hooks:      str       = ""
 	state_tcl:  str       = ""
-	fpga:       str       = ""
+	fpga_ref:       str       = ""
 	vlnv_list:  list[str] = dataclasses.field(default_factory=list)
 
 	def __post_init__(self) -> None:
@@ -93,6 +93,9 @@ class BdConfig:
 			self.hooks = f"scripts/bd/{self.name}_hooks.tcl"
 		if not self.state_tcl:
 			self.state_tcl = f"scripts/bd/state/{self.name}.tcl"
+
+		self.state_tcl = os.path.abspath(self.state_tcl)
+
 		if os.path.exists(self.state_tcl):
 			with open(self.state_tcl, 'rt') as f:
 				self.vlnv_list = self._resolve_vlnv_list(f.read())
@@ -123,7 +126,7 @@ class SynthConfig:
 	rtl:              list[str] = dataclasses.field(default_factory=list)
 	xdc:              list[str] = dataclasses.field(default_factory=list)
 	xdc_ooc:          list[str] = dataclasses.field(default_factory=list)
-	fpga:             str       = ""
+	fpga_ref:             str       = ""
 	report_synth:     bool      = False
 	report_place:     bool      = False
 	report_route:     bool      = False
@@ -526,7 +529,7 @@ def _parse_bds(raw: dict) -> list[BdConfig]:
 			state_tcl=b.get("state_tcl", ""),
 			# xdc=b.get("xdc", []),
 			# xdc_ooc=b.get("xdc_ooc", []),
-			fpga=b.get("fpga", ""),
+			fpga_ref=b.get("fpga", ""),
 		)
 		for b in raw.get("bd", [])
 	]
@@ -551,7 +554,7 @@ def _parse_synths(raw: dict) -> list[SynthConfig]:
 			rtl=s.get("rtl", []),
 			xdc=s.get("xdc", []),
 			xdc_ooc=s.get("xdc_ooc", []),
-			fpga=s.get("fpga", ""),
+			fpga_ref=s.get("fpga", ""),
 			report_synth=s.get("report_synth", False),
 			report_place=s.get("report_place", False),
 			report_route=s.get("report_route", False),

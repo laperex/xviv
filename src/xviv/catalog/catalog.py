@@ -7,7 +7,7 @@ from typing import Iterator
 import typing
 
 from xviv.catalog.model import CoreEntry
-from xviv.catalog.parsers import load_ip_repo, parse_vv_index
+from xviv.parsers.ip_xml import parse_component_xml, parse_vv_index
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +31,7 @@ class Catalog:
 		xml_path = os.path.join(vivado_path, "data", "ip", "vv_index.xml")
 		self._cores.update(parse_vv_index(xml_path))
 		for repo in ip_repos:
-			merged = load_ip_repo(repo)
+			merged = _load_ip_repo(repo)
 			if merged:
 				logger.debug("ip_repo %s: loaded %d cores", repo, len(merged))
 			self._cores.update(merged)
@@ -127,3 +127,20 @@ def get_catalog(vivado_path: str, ip_repos: list[str] | None = None) -> Catalog:
 	if key not in _CACHE:
 		_CACHE[key] = Catalog(vivado_path, ip_repos)
 	return _CACHE[key]
+
+
+def _load_ip_repo(ip_repo_path: str) -> dict[str, CoreEntry]:
+	"""Scan a directory of IP cores, each containing a component.xml."""
+	catalog: dict[str, CoreEntry] = {}
+	if not os.path.isdir(ip_repo_path):
+		return catalog
+	for entry in os.scandir(ip_repo_path):
+		if not entry.is_dir():
+			continue
+		component_xml = os.path.join(entry.path, "component.xml")
+		if not os.path.isfile(component_xml):
+			continue
+		core = parse_component_xml(component_xml)
+		if core:
+			catalog[core.vlnv] = core
+	return catalog
