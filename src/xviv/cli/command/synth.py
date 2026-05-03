@@ -2,7 +2,7 @@ import argparse
 
 from xviv.cli.command.base import Command
 from xviv.cli.completers import target_group, c_top_synth
-from xviv.cli.command.bd    import cmd_bd_synth
+from xviv.functions.bd    import cmd_bd_synth
 from xviv.functions.ip    import cmd_ip_synth
 from xviv.functions.synthesis import cmd_top_synth
 

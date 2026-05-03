@@ -517,6 +517,12 @@ class ConfigTclBuilder:
 			"}"
 		)
 
+	def _bd_load(self, bd_name: str):
+		if self.current_bd != bd_name:
+			self._read_bd(bd_file)
+			self._open_bd_design(bd_file)
+
+			self.current_bd = bd_name
 
 	def _write_sim_fileset(self, core_name: str, filename: str):
 		self._push(
@@ -628,6 +634,8 @@ class ConfigTclBuilder:
 	def create_core(self, core_name: str, nogui = True) -> typing.Self:
 		core_cfg = self._cfg.get_core(core_name)
 
+		# tcl begin
+
 		self._create_project(None)
 		self._create_core(core_name, dir=self._cfg.core_dir, vlnv=self._cfg.get_catalog().lookup(core_cfg.vlnv).vlnv)
 
@@ -639,10 +647,10 @@ class ConfigTclBuilder:
 		return self
 
 	def generate_core(self, core_name: str) -> typing.Self:
-		# core_cfg = self._cfg.get_core(core_name)
-
 		xci_file = os.path.join(self._cfg.core_dir, core_name, f"{core_name}.xci")
 		sim_fileset_path = os.path.join(self._cfg.core_dir, core_name, f'{core_name}.sim.f')
+
+		# tcl begin
 
 		self._create_project(None)
 
@@ -660,10 +668,9 @@ class ConfigTclBuilder:
 		return self
 
 	def edit_core(self, core_name: str, nogui=False) -> typing.Self:
-		# core_cfg = self._cfg.get_core(core_name)
-
 		xci_file = os.path.join(self._cfg.core_dir, core_name, f"{core_name}.xci")
-		sim_fileset_path = os.path.join(self._cfg.core_dir, core_name, f'{core_name}.sim.f')
+
+		# tcl begin
 
 		self._create_project(None)
 

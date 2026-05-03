@@ -1,7 +1,7 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import partial
 
-from xviv.cli.command.bd import cmd_bd_create
+from xviv.functions.bd import cmd_bd_create
 from xviv.config.model import ProjectConfig
 from xviv.functions.core import cmd_core_create
 from xviv.functions.ip import cmd_ip_create

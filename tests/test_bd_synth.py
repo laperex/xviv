@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from xviv.cli.command.bd import cmd_bd_synth
+from xviv.functions.bd import cmd_bd_synth
 from xviv.config.model import (
     BdConfig, BuildConfig, FpgaConfig, ProjectConfig,
     VitisConfig, VivadoConfig,

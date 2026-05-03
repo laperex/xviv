@@ -2,7 +2,7 @@ import argparse
 
 from xviv.cli.command.base import Command
 from xviv.cli.completers import arg, target_group, c_core
-from xviv.cli.command.bd   import cmd_bd_edit
+from xviv.functions.bd   import cmd_bd_edit
 from xviv.functions.core import cmd_core_edit
 from xviv.functions.ip   import cmd_ip_edit
 

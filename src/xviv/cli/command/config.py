@@ -3,7 +3,7 @@ import sys
 
 from xviv.cli.command.base import Command
 from xviv.cli.completers import target_group, c_top_synth
-from xviv.cli.command.bd import cmd_bd_config
+from xviv.functions.bd import cmd_bd_config
 from xviv.functions.ip import cmd_ip_config
 from xviv.functions.synthesis import cmd_synth_config
 

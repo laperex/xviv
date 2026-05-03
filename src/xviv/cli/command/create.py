@@ -3,7 +3,7 @@ import sys
 
 from xviv.cli.command.base import Command
 from xviv.cli.completers import arg, c_ip, c_bd, c_app, c_platform, c_core, c_core_instance
-from xviv.cli.command.bd   import cmd_bd_create
+from xviv.functions.bd   import cmd_bd_create
 from xviv.functions.all import cmd_all_create
 from xviv.functions.core import cmd_core_create
 from xviv.functions.ip   import cmd_ip_create

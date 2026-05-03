@@ -2,7 +2,7 @@ import argparse
 
 from xviv.cli.command.base import Command
 from xviv.cli.completers import arg, c_bd
-from xviv.cli.command.bd import cmd_bd_generate
+from xviv.functions.bd import cmd_bd_generate
 
 
 class GenerateCommand(Command):
