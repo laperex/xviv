@@ -129,13 +129,13 @@ def cmd_bd_synth(cfg: ProjectConfig, bd_name: str, ooc_run: typing.Optional[bool
 	if components:
 		bd_xci_name_list = [i['xci_name'] for i in components]
 		bd_xci_path_list = [i['xci_path'] for i in components]
-		bd_inst_hier_path_list = [i['inst_hier_path'] for i in components]
-		
+		# bd_inst_hier_path_list = [i['inst_hier_path'] for i in components]
+	
 		config_tcl += "\n".join(
 			[
 				f'set xviv_bd_xci_name_list		  {_tcl_list(bd_xci_name_list)}',
 				f'set xviv_bd_xci_path_list		  {_tcl_list(bd_xci_path_list)}',
-				f'set xviv_bd_inst_hier_path_list {_tcl_list(bd_inst_hier_path_list)}',
+				# f'set xviv_bd_inst_hier_path_list {_tcl_list(bd_inst_hier_path_list)}',
 			]
 		)
 

@@ -25,13 +25,13 @@ proc cmd_edit_core { gui } {
 
 	if { $gui } {
 		set current_ip [get_ips $xviv_core_name]
-		set config_list [start_ip_gui -ip $current_ip]
+		set config_list [start_ip_gui -ip [get_ips $xviv_core_name]]
 
 		puts "INFO:   Changes : [expr {[llength $config_list] / 2}]"
 		foreach {key val} $config_list {
 			xviv_assert {[llength $val] == 1} "Expected single-element value for CONFIG.$key, got: $val"
 			puts "INFO:   CONFIG.$key = [lindex $val 0]"
-			set_property CONFIG.$key [lindex $val 0] $current_ip
+			set_property CONFIG.$key [lindex $val 0] [get_ips $xviv_core_name]
 		}
 
 		cmd_generate_core

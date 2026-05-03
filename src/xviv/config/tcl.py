@@ -7,7 +7,7 @@ import sys
 import typing
 
 from xviv.catalog.catalog import get_catalog
-from xviv.config.model import ProjectConfig
+from xviv.config.model import CoreConfig, ProjectConfig
 from xviv.parsers.bd_json import get_bd_core_dict
 
 logger = logging.getLogger(__name__)
@@ -261,6 +261,7 @@ class ConfigTclBuilder:
 
 		self.current_project: typing.Optional[str] = None
 		self.current_bd: typing.Optional[str] = None
+		self.current_core: typing.Optional[str] = None
 
 		self.flag_override_bd_save_state_tcl = False
 		self.flag_proc_save_bd_tcl = False
@@ -325,17 +326,45 @@ class ConfigTclBuilder:
 		self.current_project = name
 
 
-	def _create_bd_design(self, bd_name, *, dir: typing.Optional[str] = None) -> None:
+	def _create_bd_design(self, bd_name, *,
+		dir: str
+	) -> None:
 		if self.current_bd == bd_name:
 			sys.exit(f"ERROR: Attempt to recreate BD: {bd_name}")
-		
+
 		params = filter(None, [
-			f"-dir {dir}" if dir else None
+			f"-dir {dir}"
 		])
 
 		self._push(f"create_bd_design {' '.join(params)} {bd_name}")
 
 		self.current_bd = bd_name
+
+
+	def _create_core(self, core_name, *,
+		dir: str,
+		vlnv: typing.Optional[str] = None,
+	) -> None:
+		if self.current_core == core_name:
+			sys.exit(f"ERROR: attempt to recreate core: {core_name}")
+
+		params = filter(None, [
+			f"-dir \"{dir}\"",
+			f"-vlnv {vlnv}"             if vlnv else None,
+			f"-module_name {core_name}" if core_name else None,
+		])
+
+		core_subdir = os.path.join(dir, core_name)
+
+		if os.path.isdir(core_subdir):
+			self._push(f"file delete -force \"{core_subdir}\"")
+
+		if not os.path.isdir(dir):
+			self._push(f"file mkdir \"{core_subdir}\"")
+
+		self._push(f"create_ip {' '.join(params)}")
+
+		self.current_core = core_name
 
 
 	def _add_file(self, file: str, *, fileset: typing.Optional[str] = None, norecurse=False, scan_for_includes: bool = False):
@@ -372,7 +401,7 @@ class ConfigTclBuilder:
 
 		self._push(f'generate_target {' '.join(targets)} [get_files "{files}"]')
 
-	
+
 	def _synth_design(self, prefix: str, top: str, *,
 		mode: typing.Optional[str] = None,
 		directive: typing.Optional[str] = None,
@@ -489,6 +518,15 @@ class ConfigTclBuilder:
 		)
 
 
+	def _write_sim_fileset(self, core_name: str, filename: str):
+		self._push(
+			f"set fd [open \"{filename}\" w]\n"
+			f"foreach f [get_files -of_objects [get_ips {core_name}] -filter {{USED_IN =~ \"*simulation*\"}}] {{\n"
+			"	puts $fd [file normalize $f]\n"
+			"}\n"
+			"close $fd\n"
+		)
+
 	# ------------------------------------------------------
 	# functions
 	# ------------------------------------------------------
@@ -540,6 +578,8 @@ class ConfigTclBuilder:
 			self._read_bd(bd_file)
 			self._open_bd_design(bd_file)
 
+			self.current_bd = bd_name
+
 		self._override_save_bd_design(bd_name, bd_cfg.state_tcl)
 
 		if not os.path.exists(bd_cfg.state_tcl):
@@ -576,6 +616,8 @@ class ConfigTclBuilder:
 			self._read_bd(bd_file)
 			self._open_bd_design(bd_file)
 
+			self.current_bd = bd_name
+
 		self._bd_upgrade_ip_cells()
 		self._generate_target(bd_file)
 
@@ -583,9 +625,85 @@ class ConfigTclBuilder:
 
 		return self
 
+	def create_core(self, core_name: str, nogui = True) -> typing.Self:
+		core_cfg = self._cfg.get_core(core_name)
+
+		self._create_project(None)
+		self._create_core(core_name, dir=self._cfg.core_dir, vlnv=self._cfg.get_catalog().lookup(core_cfg.vlnv).vlnv)
+
+		self._run_tcl = True
+
+		if nogui:
+			self.generate_core(core_name)
+
+		return self
+
+	def generate_core(self, core_name: str) -> typing.Self:
+		# core_cfg = self._cfg.get_core(core_name)
+
+		xci_file = os.path.join(self._cfg.core_dir, core_name, f"{core_name}.xci")
+		sim_fileset_path = os.path.join(self._cfg.core_dir, core_name, f'{core_name}.sim.f')
+
+		self._create_project(None)
+
+		if self.current_core != core_name:
+			self._read_ip(xci_file)
+
+			self.current_core = core_name
+
+		self._generate_target(xci_file, reset=False)
+
+		# self._write_sim_fileset(core_name, sim_fileset_path)
+
+		self._run_tcl = True
+
+		return self
+
+	def edit_core(self, core_name: str, nogui=False) -> typing.Self:
+		# core_cfg = self._cfg.get_core(core_name)
+
+		xci_file = os.path.join(self._cfg.core_dir, core_name, f"{core_name}.xci")
+		sim_fileset_path = os.path.join(self._cfg.core_dir, core_name, f'{core_name}.sim.f')
+
+		self._create_project(None)
+
+		if self.current_core != core_name:
+			self._read_ip(xci_file)
+
+			self.current_core = core_name
+
+		if not nogui:
+			self._push(
+				f'foreach {{key val}} [start_ip_gui -ip [get_ips {core_name}]] {{\n'
+				'	puts "INFO: CONFIG.$key = [lindex $val 0]"\n'
+				f'	set_property CONFIG.$key [lindex $val 0] [get_ips {core_name}]\n'
+				'}'
+			)
+
+			self.generate_core(core_name)
+
+		self._run_tcl = True
+
+		return self
 
 	def synthesis_standalone(self, target_dir: str, xci_name: str, xci_path: str):
-		pass
+		dcp_file = os.path.join(target_dir, f"{xci_name}.dcp")
+		stub_file = os.path.join(target_dir, f"{xci_name}.v")
+
+		self._create_project(None)
+
+		if os.path.exists(dcp_file) or os.path.exists(stub_file):
+			pass
+
+		self._push(f"set_property TOP {xci_name} [current_fileset]")
+		self._update_compile_order(fileset='sources_1')
+		# set_property TOP $xci_name [current_fileset]
+		# update_compile_order -fileset sources_1
+		# file mkdir $target_dir
+		# synth_design -mode out_of_context -top $xci_name -name "ooc_$xci_name"
+		# write_checkpoint -force $dcp_path
+		# write_verilog -force -mode synth_stub $stub_path
+
 
 
 	def build(self) -> typing.Optional[str]:

@@ -30,14 +30,15 @@ proc cmd_generate_core {} {
     generate_target all [get_files $xci_file]
 
 	set out_file [file normalize "[file dirname $xci_file]/${xviv_core_name}.sim.f"]
+
 	set fd [open $out_file w]
 	foreach f [get_files \
 			-of_objects [get_ips $xviv_core_name] \
 			-filter {USED_IN =~ "*simulation*"}] {
 		puts $fd [file normalize $f]
 	}
-
 	close $fd
+
 	puts "INFO: Wrote sim fileset $out_file"
 	puts "INFO: Generate Core Complete - [xviv_elapsed]"
 }

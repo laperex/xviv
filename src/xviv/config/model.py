@@ -352,6 +352,9 @@ class ProjectConfig:
 
 		return s
 
+	def get_catalog(self):
+		return get_catalog(self.vivado.path, [self.ip_repo])
+
 	def get_simulation(self, top_name: str) -> SimulationConfig:
 		p = next((p for p in self.simulations if p.top == top_name), None)
 		if p is None:

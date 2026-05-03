@@ -1,44 +1,49 @@
 
 
 import typing
+
 from xviv.catalog.catalog import get_catalog
 from xviv.config.model import ProjectConfig
-from xviv.config.tcl import generate_config_tcl
+from xviv.config.tcl import ConfigTclBuilder
 from xviv.tools import vivado
-from xviv.tools.util import find_vivado_script
 
 # -----------------------------------------------------------------------------
 # create  --core <core_id> --vlnv <vlnv_id>
 # -----------------------------------------------------------------------------
-def cmd_core_create(cfg: ProjectConfig, core_name: typing.Optional[str], core_vlnv: typing.Optional[str], edit: bool = False):
-	config_tcl = generate_config_tcl(cfg, core_name=core_name, core_vlnv=core_vlnv)
+def cmd_core_create(cfg: ProjectConfig, core_name: str, core_vlnv: typing.Optional[str], edit: bool = False):
+	config = (
+		ConfigTclBuilder(cfg)
+		.create_core(core_name)
+		.build()
+	)
 
-	# cfg.vivado.mode = 'tcl'
-
-	vivado.run_vivado(cfg, find_vivado_script(), "create_core", [str(int(edit))], config_tcl)
+	vivado.run_vivado(cfg, config_tcl=config)
 
 # -----------------------------------------------------------------------------
 # edit --core <core_id>
 # -----------------------------------------------------------------------------
-def cmd_core_edit(cfg: ProjectConfig, core_name: typing.Optional[str], nogui: bool = False):
-	config_tcl = generate_config_tcl(cfg, core_name=core_name)
+def cmd_core_edit(cfg: ProjectConfig, core_name: str, nogui: bool = False):
+	config = (
+		ConfigTclBuilder(cfg)
+		.edit_core(core_name, nogui=nogui)
+		.build()
+	)
 
 	if nogui:
 		cfg.vivado.mode = 'tcl'
 
-	vivado.run_vivado(cfg, find_vivado_script(), "edit_core", [str(int(not nogui))], config_tcl)
+	vivado.run_vivado(cfg, config_tcl=config)
 
 # -----------------------------------------------------------------------------
 # search --query <query>
 # -----------------------------------------------------------------------------
 def cmd_search_core(cfg: ProjectConfig, query: str) -> None:
-	catalog = get_catalog(cfg.vivado.path, [cfg.ip_repo])
+	catalog = cfg.get_catalog()
 
 	needle = query.lower()
 	matches = [
 		entry for entry in sorted(catalog.values(), key=lambda e: e.vlnv)
-		if not entry.hidden
-		and (
+		if not entry.hidden and (
 			needle in entry.vlnv.lower()
 			or needle in entry.display_name.lower()
 			or needle in entry.name.lower()

@@ -42,7 +42,7 @@ class CreateCommand(Command):
 		elif args.bd:
 			cmd_bd_create(cfg, args.bd)
 		elif args.core is not None:
-			cmd_core_create(cfg, args.core, args.vlnv, args.edit)
+			cmd_core_create(cfg, args.core or "", args.vlnv, args.edit)
 		elif args.app:
 			cmd_app_create(cfg, args.app, args.platform, args.template)
 		elif args.platform:
