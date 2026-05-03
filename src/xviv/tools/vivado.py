@@ -101,29 +101,36 @@ def run_vivado_xsim(
 
 def run_vivado(
 	cfg: ProjectConfig,
-	tcl_script: str,
-	command: str,
-	extra_args: list[str],
-	config_tcl_content: str,
+	config_tcl: typing.Optional[str],
+	extra_args: list[str] = [],
 	label: typing.Optional[str] = None,
 	log_dir: typing.Optional[str] = None,
 ) -> None:
 	vivado_bin = os.path.join(cfg.vivado.path, "bin", "vivado")
 	job_log = logger.getChild(label) if label else logger
 
-	with tempfile.NamedTemporaryFile(
-		mode="w", suffix="_config.tcl", delete=False, prefix="xviv_"
-	) as tmp:
-		tmp.write(config_tcl_content)
-		config_tcl_path = tmp.name
+	# with tempfile.NamedTemporaryFile(
+	# 	mode="w", suffix="_config.tcl", delete=False, prefix="xviv_"
+	# ) as tmp:
+	# 	tmp.write(config_tcl)
+	# 	config_tcl_path = tmp.name
+	
+	if config_tcl is None:
+		return None
+
+	config_tcl_path = os.path.join(cfg.build_dir, "xviv_config.tcl")
+	
+	with open(config_tcl_path, 'w') as f:
+		f.write(config_tcl)
+	
+	# raise Exception
 
 	try:
 		cmd = [
 			vivado_bin,
-			"-mode",      cfg.vivado.mode,
+			"-mode", cfg.vivado.mode,
 			"-nolog", "-nojournal", "-notrace", "-quiet",
-			"-source",    tcl_script,
-			"-tclargs",   command, config_tcl_path,
+			"-source", config_tcl_path,
 			*extra_args,
 		]
 		job_log.info("Running: %s", " ".join(cmd))

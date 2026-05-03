@@ -7,7 +7,7 @@ import sys
 import typing
 from xviv.catalog.catalog import get_catalog
 from xviv.config.model import ProjectConfig
-from xviv.config.tcl import GenerateConfigTclBuilder, _tcl_list, generate_config_tcl
+from xviv.config.tcl import ConfigTclBuilder, _tcl_list, generate_config_tcl
 from xviv.functions.ip import cmd_ip_create
 from xviv.generator.hooks import generate_bd_hooks
 from xviv.parsers.bd_json import get_bd_core_dict
@@ -23,12 +23,11 @@ logger = logging.getLogger(__name__)
 # create --bd <bd_name>
 # -----------------------------------------------------------------------------
 def cmd_bd_create(cfg: ProjectConfig, bd_name: str):
-	# config_tcl = generate_config_tcl(cfg, bd_name=bd_name)
-	
-	gen_cfg = GenerateConfigTclBuilder(cfg)
-	gen_cfg.create_bd(bd_name)
-	
-	config_tcl = gen_cfg.build()
+	config = (
+		ConfigTclBuilder(cfg)
+		.create_bd(bd_name)
+		.build()
+	)
 
 	# bd_cfg = cfg.get_bd(bd_name)
 
@@ -61,19 +60,23 @@ def cmd_bd_create(cfg: ProjectConfig, bd_name: str):
 	# else:
 	# 	logger.info("Unable to Determine IP depenedency for BD. Running Manual BD Create flow")
 
-	vivado.run_vivado(cfg, find_vivado_script(), "create_bd", [], config_tcl)
+	vivado.run_vivado(cfg, config_tcl=config)
 
 
 # -----------------------------------------------------------------------------
 # edit --bd <bd_name>
 # -----------------------------------------------------------------------------
 def cmd_bd_edit(cfg: ProjectConfig, bd_name: str, nogui: bool = False):
-	config_tcl = generate_config_tcl(cfg, bd_name=bd_name)
+	config = (
+		ConfigTclBuilder(cfg)
+		.edit_bd(bd_name, nogui=nogui)
+		.build()
+	)
 
 	if nogui:
-		cfg.vivado.mode = "tcl"
+		cfg.vivado.mode = 'tcl'
 
-	vivado.run_vivado(cfg, find_vivado_script(), "edit_bd", [str(int(not nogui))], config_tcl)
+	vivado.run_vivado(cfg, config_tcl=config)
 
 
 # -----------------------------------------------------------------------------
@@ -87,8 +90,13 @@ def cmd_bd_config(cfg: ProjectConfig, bd_name: str, exist_ok=False):
 # generate --bd <bd_name>
 # -----------------------------------------------------------------------------
 def cmd_bd_generate(cfg: ProjectConfig, bd_name: str):
-	config_tcl = generate_config_tcl(cfg, bd_name=bd_name)
-	vivado.run_vivado(cfg, find_vivado_script(), "generate_bd", [], config_tcl)
+	config = (
+		ConfigTclBuilder(cfg)
+		.generate_bd(bd_name)
+		.build()
+	)
+
+	vivado.run_vivado(cfg, config_tcl=config)
 
 
 # -----------------------------------------------------------------------------

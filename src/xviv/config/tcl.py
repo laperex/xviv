@@ -1,6 +1,8 @@
 from datetime import datetime, timezone
 import logging
 import os
+from pathlib import Path
+import shutil
 import sys
 import typing
 
@@ -252,115 +254,219 @@ def _tcl_list(items: list[str]) -> str:
 # }
 
 
-class GenerateConfigTclBuilder:
+class ConfigTclBuilder:
 	def __init__(self, cfg: ProjectConfig):
 		self._cfg = cfg
 		self.lines: list[str] = []
 
-		self._inmemory_project_name = "xviv_in_memory"
+		self.current_project: typing.Optional[str] = None
+		self.current_bd: typing.Optional[str] = None
 
-		self.curent_project: typing.Optional[str] = None
-		
 		self.flag_override_bd_save_state_tcl = False
+		self.flag_proc_save_bd_tcl = False
 
-		self.fpga_part = ""
+		self._run_tcl = False
 
-		self._init_max_threads()
+		self._initialize()
+
 
 	def _push(self, text: str):
 		self.lines += [text]
+
+	def _info(self, text: str, severity: str = 'XVIV_INFO'):
+		self._push(f"puts \"{severity}: {text}\"")
+
+	def _initialize(self):
+		self._init_max_threads()
 
 
 	def _init_max_threads(self):
 		self._push(f"set_param general.maxThreads {self._cfg.vivado.max_threads}")
 
+
 	def _source(self, filename: str):
 		self._push(f"source {filename}")
-	
+
+
 	def _start_gui(self):
 		self._push("start_gui")
 
-	def _create_project_inmemory(self, fpga_ref: typing.Optional[str] = None):
+
+	def _update_ip_catalog(self, *, rebuild: typing.Optional[bool] = False):
+		params = filter(None, [
+			"-rebuild" if rebuild else None
+		])
+
+		self._push(f"update_ip_catalog {' '.join(params)}")
+
+
+	def _create_project(self, fpga_ref: typing.Optional[str] = None, name = "xviv_in_memory"):
 		#* resolves fpga part from fpga_ref
 		#* set board_repo and board_part
-		
-		if self.curent_project is not None:
+
+		if self.current_project is not None:
 			return
 
 		fpga = self._cfg.resolve_fpga(fpga_ref)
 
 		if fpga.board_repo:
-			self._push(f'set_param board.repoPaths { _tcl_list([fpga.board_repo]) }]')
+			self._push(f'set_param board.repoPaths { _tcl_list([fpga.board_repo]) }')
 
-		self._push(f"create_project -in_memory {self._inmemory_project_name}" + f" -part {fpga.part} " if fpga.part else "")
+		self._push(f"create_project -in_memory {name}" + f" -part {fpga.part} " if fpga.part else "")
 
 		if fpga.board_part:
 			self._push(f"set_property board_part {fpga.board_part} [current_project]")
 
 		# TODO: Throw Error when no board and fpga part is selected.
 
-		self.curent_project = self._inmemory_project_name
+		if self._cfg.ip_repo:
+			self._push(f'set_property ip_repo_paths {_tcl_list([self._cfg.ip_repo])} [current_project]')
+
+		self.current_project = name
+
+
+	def _create_bd_design(self, bd_name, *, dir: typing.Optional[str] = None) -> None:
+		if self.current_bd == bd_name:
+			sys.exit(f"ERROR: Attempt to recreate BD: {bd_name}")
+		
+		params = filter(None, [
+			f"-dir {dir}" if dir else None
+		])
+
+		self._push(f"create_bd_design {' '.join(params)} {bd_name}")
+
+		self.current_bd = bd_name
+
 
 	def _add_file(self, file: str, *, fileset: typing.Optional[str] = None, norecurse=False, scan_for_includes: bool = False):
-		params: list[str] = []
+		params = filter(None, [
+			"-scan_for_includes"  if scan_for_includes else None,
+			f"-fileset {fileset}" if fileset else None,
+			"-norecurse"          if norecurse else None,
+		])
+		self._push(f"add_files {' '.join(params)} {file}")
 
-		if scan_for_includes:
-			params.append("-scan_for_includes")
-		if fileset:
-			params.append(f"-fileset {fileset}")
-		if norecurse:
-			params.append("-norecurse")
 
-		self._push(f"add_files {file} {' '.join(params)}")
+	def _update_compile_order(self, *, fileset: typing.Optional[str] = None):
+		params = filter(None, [
+			f"-fileset {fileset}" if fileset else None,
+		])
+		self._push(f"update_compile_order {' '.join(params)}")
 
+
+	def _open_bd_design(self, bd_file):
+		self._push(f'open_bd_design "{bd_file}"')
+
+
+	def _read_bd(self, filename):
+		self._push(f'read_bd "{filename}"')
+
+
+	def _read_ip(self, filename):
+		self._push(f'read_ip "{filename}"')
+
+
+	def _generate_target(self, files: str, *, targets=["all"], reset=True):
+		if reset:
+			self._push(f'reset_target {' '.join(targets)} [get_files "{files}"]')
+
+		self._push(f'generate_target {' '.join(targets)} [get_files "{files}"]')
+
+	
+	def _synth_design(self, prefix: str, top: str, *,
+		mode: typing.Optional[str] = None,
+		directive: typing.Optional[str] = None,
+		flatten_hierarchy: typing.Optional[str] = None,
+		fsm_extraction: typing.Optional[str] = None
+	):
+		params = filter(None, [
+			f"-mode {mode}"                           if mode else None,
+			f"-directive {directive}"                 if directive else None,
+			f"-flatten_hierarchy {flatten_hierarchy}" if flatten_hierarchy else None,
+			f"-fsm_extraction {fsm_extraction}"       if fsm_extraction else None,
+			f"-top {top}",
+			f"-name {prefix}_{top}",
+		])
+		self._push(f"synth_design {' '.join(params)}")
+
+	# ------------------------------------------------------
+	# PROCS
+	# ------------------------------------------------------
+	def _proc(self, name, args = "", comm = ""):
+		self._push(f'proc {name} {{{args}}} {{\n{comm}\n}}')
+
+
+	def _proc_bd_save_tcl(self):
+		if self.flag_proc_save_bd_tcl:
+			return
+
+		self.flag_proc_save_bd_tcl = True
+
+		self._proc("bd_save_tcl", "path prefix",
+		"	file mkdir [file dirname $path]\n"
+
+		"	write_bd_tcl -force -no_project_wrapper $path\n"
+
+		"	set f [open $path r]\n"
+		"	set data [read $f]\n"
+		"	close $f\n"
+
+		"	set start [string first \"set bCheckIPsPassed\" $data]\n"
+		"	set end [string first \"save_bd_design\" $data]\n"
+
+		"	if {$start == -1 || $end == -1} {\n"
+		"		error \"Could not find expected markers in state BD TCL\"\n"
+		"	}\n"
+
+		"	set f [open $path w]\n"
+		"	puts $f [join $prefix \"\\n\"]\n"
+		"	puts $f \"\"\n"
+		"	puts $f [string range $data $start [expr {$end - 1}]]\n"
+		"	close $f\n"
+		)
+
+	def _v_call_bd_save_tcl(self, bd_name: str, bd_state_tcl_file: str) -> str:
+		return rf'bd_save_tcl "{bd_state_tcl_file}" "#{bd_name}\n\n"'
+
+	# ------------------------------------------------------
+	# OVERRIDES
+	# ------------------------------------------------------
 	def _override(self, call, *, pre_call = "", post_call = "", rename_prefix="_xviv_"):
-		self._push(f'''
-proc override_{call} {{}} {{
-	rename {call} {rename_prefix}{call}
+		self._push(
+			f"rename {call} {rename_prefix}{call}\n"
+			f"proc {call} {{args}} " + "{"
+		)
 
-	proc {call} {{args}} {{
-{pre_call}
-		{rename_prefix}{call} {{*}}$args
-{post_call}
-	}}
-}}
-''')
+		if pre_call:
+			self._push(f"	{pre_call}")
 
-	def _override_bd_save_state_tcl(self, bd_name: str, bd_state_tcl_file: str):
+		self._push(f"	{rename_prefix}{call} {{*}}$args")
+
+		if post_call:
+			self._push(f"	{post_call}")
+
+		self._push("}")
+
+	def _override_save_bd_design(self, bd_name: str, bd_state_tcl_file: str):
+		if self.flag_override_bd_save_state_tcl:
+			return
+
 		if not bd_state_tcl_file:
 			sys.exit("ERROR: bd_state_tcl_file is required")
-		
 
-		# os.makedirs(os.path.dirname(bd_state_tcl_file), exist_ok=True)
 		self.flag_override_bd_save_state_tcl = True
 
-		self._override("save_bd_design", post_call=rf'''
-		set path "{bd_state_tcl_file}"
-		set prefix "#{bd_name}\n\n"
+		self._proc_bd_save_tcl()
+		self._override("save_bd_design", post_call=self._v_call_bd_save_tcl(bd_name, bd_state_tcl_file))
 
-		file mkdir [file dirname $path]
 
-		write_bd_tcl -force -no_project_wrapper $path
+	# ------------------------------------------------------
+	# BD Functions
+	# ------------------------------------------------------
+	def _bd_save_tcl(self, bd_name, bd_state_tcl_file: str):
+		self._override_save_bd_design(bd_name, bd_state_tcl_file)
 
-		set f [open $path r]
-		set data [read $f]
-		close $f
-
-		set start [string first "set bCheckIPsPassed" $data]
-		set end [string first "save_bd_design" $data]
-
-		if {{$start == -1 || $end == -1}} {{
-			error "Could not find expected markers in state BD TCL: $path\n\
-				'set bCheckIPsPassed' found: [expr {{$start != -1}}]\n\
-				'save_bd_design'      found: [expr {{$end != -1}}]"
-		}}
-
-		set f [open $path w]
-		puts $f [join $prefix "\n"]
-		puts $f ""
-		puts $f [string range $data $start [expr {{$end - 1}}]]
-		close $f
-		''')
+		self._push(self._v_call_bd_save_tcl(bd_name, bd_state_tcl_file))
 
 	def _bd_save_design(self):
 		self._push("save_bd_design")
@@ -372,27 +478,118 @@ proc override_{call} {{}} {{
 		self._push("delete_bd_objs [get_bd_addr_segs] [get_bd_addr_segs -excluded]")
 		self._push("assign_bd_address")
 
-	def create_bd(self, bd_name: str) -> None:
+	def _bd_upgrade_ip_cells(self):
+		self._push(
+			"set stale_cells [get_bd_cells -hierarchical -filter {TYPE == ip}]\n"
+			"if {[llength $stale_cells] > 0} {\n"
+			"	if {[catch {upgrade_ip $stale_cells} err]} {\n"
+			"		puts \"IP upgrade failed during generate_bd: $err\";\n"
+			"	}\n"
+			"}"
+		)
+
+
+	# ------------------------------------------------------
+	# functions
+	# ------------------------------------------------------
+	def create_bd(self, bd_name: str, generate=True) -> typing.Self:
 		bd_cfg = self._cfg.get_bd(bd_name)
-		self._create_project_inmemory(bd_cfg.fpga_ref)
+		bd_subdir = os.path.join(self._cfg.bd_dir, bd_name)
+
+		# tcl begin
+
+		self._create_project(bd_cfg.fpga_ref)
+
+		self._push(f"file delete -force \"{bd_subdir}\"")
+
+		self._create_bd_design(bd_name, dir=self._cfg.bd_dir)
 
 		# TODO: add a new flag --import=true flag to make this if explicit
 		if os.path.exists(bd_cfg.state_tcl):
 			self._push('set parentCell ""')
-			
-			self._source(bd_cfg.state_tcl)
 
+			self._source(bd_cfg.state_tcl)
 			self._bd_refresh_addresses()
 			self._bd_validate_design()
 			self._bd_save_design()
-			
-			# self.cmd_generate_bd
+
+			if generate:
+				self.generate_bd(bd_name, bd_file_exist_check=False, force=True)
 		else:
-			self._override_bd_save_state_tcl(bd_name, bd_cfg.state_tcl)
-			
+			self._override_save_bd_design(bd_name, bd_cfg.state_tcl)
+
 			self._start_gui()
 
-	# def generate_bd(self):
+		self._run_tcl = True
 
-	def build(self):
-		return '\n'.join(self.lines) + '\n'
+		return self
+
+
+	def edit_bd(self, bd_name: str, nogui=False) -> typing.Self:
+		bd_cfg = self._cfg.get_bd(bd_name)
+		bd_file = os.path.join(self._cfg.bd_dir, bd_name, f"{bd_name}.bd")
+
+		if not os.path.exists(bd_file):
+			sys.exit(f"ERROR: BD File does not exist at path: {bd_file}")
+
+		# tcl begin
+
+		self._create_project(bd_cfg.fpga_ref)
+
+		if self.current_bd != bd_name:
+			self._read_bd(bd_file)
+			self._open_bd_design(bd_file)
+
+		self._override_save_bd_design(bd_name, bd_cfg.state_tcl)
+
+		if not os.path.exists(bd_cfg.state_tcl):
+			self._bd_save_tcl(bd_name, bd_cfg.state_tcl)
+
+		if not nogui:
+			self._start_gui()
+
+		self._run_tcl = True
+
+		return self
+
+
+	def generate_bd(self, bd_name: str, bd_file_exist_check: bool = True, force: bool = False) -> typing.Self:
+		bd_cfg = self._cfg.get_bd(bd_name)
+
+		bd_file = os.path.join(self._cfg.bd_dir, bd_name, f"{bd_name}.bd")
+		bd_wrapper = os.path.join(self._cfg.bd_dir, bd_name, 'hdl', f"{bd_name}_wrapper.v")
+
+		if bd_file_exist_check and not os.path.exists(bd_file):
+			sys.exit(f"ERROR: BD File does not exist at path: {bd_file}")
+
+		if not force and os.path.exists(bd_wrapper) and os.path.exists(bd_file):
+			if os.path.getmtime(bd_wrapper) > os.path.getmtime(bd_file):
+				logger.info("INFO: Output products are up to date")
+
+				return self
+
+		# tcl begin
+
+		self._create_project(bd_cfg.fpga_ref)
+
+		if self.current_bd is not bd_name:
+			self._read_bd(bd_file)
+			self._open_bd_design(bd_file)
+
+		self._bd_upgrade_ip_cells()
+		self._generate_target(bd_file)
+
+		self._run_tcl = True
+
+		return self
+
+
+	def synthesis_standalone(self, target_dir: str, xci_name: str, xci_path: str):
+		pass
+
+
+	def build(self) -> typing.Optional[str]:
+		if self._run_tcl:
+			return '\n'.join(self.lines) + '\n'
+
+		return None

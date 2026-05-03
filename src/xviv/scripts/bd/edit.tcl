@@ -37,7 +37,7 @@ proc cmd_edit_bd { gui } {
 	override_save_bd_design
 	save_bd_design
 
-	override_bd_exit
+	# override_bd_exit
 
 	if { $gui } {
     	start_gui
