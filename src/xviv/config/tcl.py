@@ -572,7 +572,7 @@ class ConfigTclBuilder:
 
 		self._create_project(bd_cfg.fpga_ref)
 
-		if self.current_bd is not bd_name:
+		if self.current_bd != bd_name:
 			self._read_bd(bd_file)
 			self._open_bd_design(bd_file)
 
