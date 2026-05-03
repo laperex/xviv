@@ -123,6 +123,9 @@ def run_vivado(
 	with open(config_tcl_path, 'w') as f:
 		f.write(config_tcl)
 	
+	print(config_tcl_path)
+
+	exit(-1)	
 	# raise Exception
 
 	try:

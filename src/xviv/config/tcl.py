@@ -285,28 +285,12 @@ class ConfigTclBuilder:
 		self._push(f"set_param general.maxThreads {self._cfg.vivado.max_threads}")
 
 
-	def _source(self, filename: str):
-		self._push(f"source {filename}")
-
-
-	def _start_gui(self):
-		self._push("start_gui")
-
-
-	def _update_ip_catalog(self, *, rebuild: typing.Optional[bool] = False):
-		params = filter(None, [
-			"-rebuild" if rebuild else None
-		])
-
-		self._push(f"update_ip_catalog {' '.join(params)}")
-
 
 	def _create_project(self, fpga_ref: typing.Optional[str] = None, name = "xviv_in_memory"):
 		#* resolves fpga part from fpga_ref
 		#* set board_repo and board_part
-
-		if self.current_project is not None:
-			return
+		if self.current_project == name:
+			sys.exit(f"ERROR: Attempt to recreate project: {name}")
 
 		fpga = self._cfg.resolve_fpga(fpga_ref)
 
@@ -316,12 +300,12 @@ class ConfigTclBuilder:
 		self._push(f"create_project -in_memory {name}" + f" -part {fpga.part} " if fpga.part else "")
 
 		if fpga.board_part:
-			self._push(f"set_property board_part {fpga.board_part} [current_project]")
+			self._set_property_current_project('board_part', fpga.board_part)
 
 		# TODO: Throw Error when no board and fpga part is selected.
 
 		if self._cfg.ip_repo:
-			self._push(f'set_property ip_repo_paths {_tcl_list([self._cfg.ip_repo])} [current_project]')
+			self._set_property_current_project('ip_repo_paths', _tcl_list([self._cfg.ip_repo]))
 
 		self.current_project = name
 
@@ -333,8 +317,13 @@ class ConfigTclBuilder:
 			sys.exit(f"ERROR: Attempt to recreate BD: {bd_name}")
 
 		params = filter(None, [
-			f"-dir {dir}"
+			f"-dir \"{dir}\""
 		])
+
+		bd_subdir = os.path.join(dir, bd_name)
+
+		if os.path.isdir(bd_subdir):
+			self._push(f"file delete -force \"{bd_subdir}\"")
 
 		self._push(f"create_bd_design {' '.join(params)} {bd_name}")
 
@@ -343,7 +332,7 @@ class ConfigTclBuilder:
 
 	def _create_core(self, core_name, *,
 		dir: str,
-		vlnv: typing.Optional[str] = None,
+		vlnv: str
 	) -> None:
 		if self.current_core == core_name:
 			sys.exit(f"ERROR: attempt to recreate core: {core_name}")
@@ -367,7 +356,53 @@ class ConfigTclBuilder:
 		self.current_core = core_name
 
 
-	def _add_file(self, file: str, *, fileset: typing.Optional[str] = None, norecurse=False, scan_for_includes: bool = False):
+	# source any tcl file
+	def _source(self, filename: str):
+		self._push(f"source \"{filename}\"")
+
+
+	# start_gui: open project vivado gui
+	def _start_gui(self):
+		self._push("start_gui")
+
+
+	# update_ip_catalog
+	def _update_ip_catalog(self, *,
+		rebuild: bool = False
+	):
+		params = filter(None, [
+			"-rebuild" if rebuild else None
+		])
+
+		self._push(f"update_ip_catalog {' '.join(params)}")
+
+
+	# update_compile_order
+	def _update_compile_order(self, *,
+		fileset: typing.Optional[str] = None
+	):
+		params = filter(None, [
+			f"-fileset {fileset}" if fileset else None,
+		])
+		self._push(f"update_compile_order {' '.join(params)}")
+
+
+	# read_bd
+	def _read_bd(self, filename):
+		self._push(f'read_bd "{filename}"')
+
+
+	# read_ip
+	def _read_ip(self, filename):
+		self._push(f'read_ip "{filename}"')
+
+
+	# add_files
+	def _add_files(self, file: str, *,
+		norecurse=False,
+		scan_for_includes: bool = False,
+		fileset: typing.Optional[str] = None,
+	):
 		params = filter(None, [
 			"-scan_for_includes"  if scan_for_includes else None,
 			f"-fileset {fileset}" if fileset else None,
@@ -376,33 +411,146 @@ class ConfigTclBuilder:
 		self._push(f"add_files {' '.join(params)} {file}")
 
 
-	def _update_compile_order(self, *, fileset: typing.Optional[str] = None):
-		params = filter(None, [
-			f"-fileset {fileset}" if fileset else None,
-		])
-		self._push(f"update_compile_order {' '.join(params)}")
+	# set_property
+	def _set_property(self, name: str, val: str, context: str):
+		self._push(f'set_property {name} {val} {context}')
+
+	def _set_property_get_files(self, name: str, val: str, file: str):
+		self._set_property(name, val, f'[get_files "{file}"]')
+
+	def _set_property_current_design(self, name: str, val: str):
+		self._set_property(name, val, '[current_design]')
+
+	def _set_property_current_project(self, name: str, val: str):
+		self._set_property(name, val, '[current_project]')
+
+	def _set_property_current_fileset(self, name: str, val: str):
+		self._set_property(name, val, '[current_fileset]')
 
 
+	# open bd design
 	def _open_bd_design(self, bd_file):
 		self._push(f'open_bd_design "{bd_file}"')
 
 
-	def _read_bd(self, filename):
-		self._push(f'read_bd "{filename}"')
-
-
-	def _read_ip(self, filename):
-		self._push(f'read_ip "{filename}"')
-
-
-	def _generate_target(self, files: str, *, targets=["all"], reset=True):
+	# generate_target
+	def _generate_target_get_files(self, file: str, *,
+		target="all",
+		quiet=False,
+		reset=True
+	):
 		if reset:
-			self._push(f'reset_target {' '.join(targets)} [get_files "{files}"]')
+			self._push(f'reset_target {target} [get_files "{file}"]')
 
-		self._push(f'generate_target {' '.join(targets)} [get_files "{files}"]')
+		params = filter(None, [
+			"-quiet" if quiet else None,
+		])
+		self._push(f'generate_target {target} {' '.join(params)} [get_files "{file}"]')
 
 
-	def _synth_design(self, prefix: str, top: str, *,
+	# write_checkpoint
+	def _write_checkpoint(self, filepath, *,
+		force: bool = False
+	):
+		params = filter(None, [
+			"-force" if force else None,
+		])
+		self._push(f"write_checkpoint {' '.join(params)} {filepath}")
+
+
+	# read_checkpoint
+	def _read_checkpoint(self, filepath, *,
+		incremental: bool = False,
+		cell: typing.Optional[str] = None
+	):
+		params = filter(None, [
+			"-incremental"  if incremental else None,
+			f"-cell {cell}" if cell else None,
+		])
+		self._push(f"read_checkpoint {' '.join(params)} {filepath}")
+
+
+	# write_verilog
+	def _write_verilog(self, filepath, *,
+		mode: str,
+		force: bool = False,
+		sdf_anno: typing.Optional[bool] = None
+	):
+		params = filter(None, [
+			"-force"                             if force else None,
+			f"-mode {mode}"                      if mode else None,
+			f"-sdf_anno {str(sdf_anno).lower()}" if sdf_anno is not None else None,
+		])
+		self._push(f"write_verilog {' '.join(params)} {filepath}")
+
+
+	# write_verilog
+	def _write_bitstream(self, filepath, *,
+		force: bool = False,
+	):
+		params = filter(None, [
+			"-force" if force else None,
+		])
+		self._push(f"write_verilog {' '.join(params)} {filepath}")
+
+
+	# write_hw_platform
+	def _write_hw_platform(self, filepath, *,
+		force: bool = False,
+		fixed: bool = False,
+		include_bit: bool = False
+	):
+		params = filter(None, [
+			"-force"       if force else None,
+			"-fixed"       if fixed else None,
+			"-include_bit" if include_bit else None,
+		])
+		self._push(f"write_verilog {' '.join(params)} {filepath}")
+
+
+	# opt_design
+	def _opt_design(self, *,
+		directive: typing.Optional[str]
+	):
+		params = filter(None, [
+			f"-directive {directive}" if directive else None,
+		])
+		self._push(f"opt_design {' '.join(params)}")
+
+
+	# phys_opt_design
+	def _phys_opt_design(self, *,
+		directive: typing.Optional[str]
+	):
+		params = filter(None, [
+			f"-directive {directive}" if directive else None,
+		])
+		self._push(f"phys_opt_design {' '.join(params)}")
+
+
+	# place_design
+	def _place_design(self, *,
+		directive: typing.Optional[str]
+	):
+		params = filter(None, [
+			f"-directive {directive}" if directive else None,
+		])
+		self._push(f"place_design {' '.join(params)}")
+
+
+	# route_design
+	def _route_design(self, *,
+		directive: typing.Optional[str]
+	):
+		params = filter(None, [
+			f"-directive {directive}" if directive else None,
+		])
+		self._push(f"route_design {' '.join(params)}")
+
+
+	# synth_design
+	def _synth_design(self, prefix: str, *,
+		top: str,
 		mode: typing.Optional[str] = None,
 		directive: typing.Optional[str] = None,
 		flatten_hierarchy: typing.Optional[str] = None,
@@ -418,11 +566,49 @@ class ConfigTclBuilder:
 		])
 		self._push(f"synth_design {' '.join(params)}")
 
+
+	# report
+	def _report(self, report_type, *,
+		dir: str,
+		max_paths: typing.Optional[int] = None,
+		report_unconstrained: typing.Optional[bool] = None,
+		warn_on_violation: typing.Optional[bool] = None
+	):
+		params = filter(None, [
+			f"-max_paths {max_paths}"                       if max_paths else None,
+			f"-report_unconstrained {report_unconstrained}" if report_unconstrained else None,
+			f"-warn_on_violation {warn_on_violation}"       if warn_on_violation else None,
+			f"-file {os.path.join(dir, report_type)}"       if dir else None,
+		])
+		
+		self._push(f"report_{report_type} {' '.join(params)}")
+		
+
 	# ------------------------------------------------------
 	# PROCS
 	# ------------------------------------------------------
 	def _proc(self, name, args = "", comm = ""):
 		self._push(f'proc {name} {{{args}}} {{\n{comm}\n}}')
+
+
+	# ------------------------------------------------------
+	# OVERRIDES
+	# ------------------------------------------------------
+	def _override(self, call, *, pre_call = "", post_call = "", rename_prefix="_xviv_"):
+		self._push(
+			f"rename {call} {rename_prefix}{call}\n"
+			f"proc {call} {{args}} " + "{"
+		)
+
+		if pre_call:
+			self._push(f"	{pre_call}")
+
+		self._push(f"	{rename_prefix}{call} {{*}}$args")
+
+		if post_call:
+			self._push(f"	{post_call}")
+
+		self._push("}")
 
 
 	def _proc_bd_save_tcl(self):
@@ -457,24 +643,6 @@ class ConfigTclBuilder:
 	def _v_call_bd_save_tcl(self, bd_name: str, bd_state_tcl_file: str) -> str:
 		return rf'bd_save_tcl "{bd_state_tcl_file}" "#{bd_name}\n\n"'
 
-	# ------------------------------------------------------
-	# OVERRIDES
-	# ------------------------------------------------------
-	def _override(self, call, *, pre_call = "", post_call = "", rename_prefix="_xviv_"):
-		self._push(
-			f"rename {call} {rename_prefix}{call}\n"
-			f"proc {call} {{args}} " + "{"
-		)
-
-		if pre_call:
-			self._push(f"	{pre_call}")
-
-		self._push(f"	{rename_prefix}{call} {{*}}$args")
-
-		if post_call:
-			self._push(f"	{post_call}")
-
-		self._push("}")
 
 	def _override_save_bd_design(self, bd_name: str, bd_state_tcl_file: str):
 		if self.flag_override_bd_save_state_tcl:
@@ -493,14 +661,14 @@ class ConfigTclBuilder:
 	# BD Functions
 	# ------------------------------------------------------
 	def _bd_save_tcl(self, bd_name, bd_state_tcl_file: str):
-		self._override_save_bd_design(bd_name, bd_state_tcl_file)
+		self._proc_bd_save_tcl()
 
 		self._push(self._v_call_bd_save_tcl(bd_name, bd_state_tcl_file))
 
-	def _bd_save_design(self):
+	def _save_bd_design(self):
 		self._push("save_bd_design")
 
-	def _bd_validate_design(self):
+	def _validate_bd_design(self):
 		self._push("validate_bd_design")
 
 	def _bd_refresh_addresses(self):
@@ -517,12 +685,12 @@ class ConfigTclBuilder:
 			"}"
 		)
 
-	def _bd_load(self, bd_name: str):
-		if self.current_bd != bd_name:
-			self._read_bd(bd_file)
-			self._open_bd_design(bd_file)
+	# def _bd_load(self, bd_name: str):
+	# 	if self.current_bd != bd_name:
+	# 		self._read_bd(bd_file)
+	# 		self._open_bd_design(bd_file)
 
-			self.current_bd = bd_name
+	# 		self.current_bd = bd_name
 
 	def _write_sim_fileset(self, core_name: str, filename: str):
 		self._push(
@@ -554,8 +722,8 @@ class ConfigTclBuilder:
 
 			self._source(bd_cfg.state_tcl)
 			self._bd_refresh_addresses()
-			self._bd_validate_design()
-			self._bd_save_design()
+			self._validate_bd_design()
+			self._save_bd_design()
 
 			if generate:
 				self.generate_bd(bd_name, bd_file_exist_check=False, force=True)
@@ -578,7 +746,8 @@ class ConfigTclBuilder:
 
 		# tcl begin
 
-		self._create_project(bd_cfg.fpga_ref)
+		if self.current_project is None:
+			self._create_project(bd_cfg.fpga_ref)
 
 		if self.current_bd != bd_name:
 			self._read_bd(bd_file)
@@ -616,7 +785,8 @@ class ConfigTclBuilder:
 
 		# tcl begin
 
-		self._create_project(bd_cfg.fpga_ref)
+		if self.current_project is None:
+			self._create_project(bd_cfg.fpga_ref)
 
 		if self.current_bd != bd_name:
 			self._read_bd(bd_file)
@@ -625,7 +795,7 @@ class ConfigTclBuilder:
 			self.current_bd = bd_name
 
 		self._bd_upgrade_ip_cells()
-		self._generate_target(bd_file)
+		self._generate_target_get_files(bd_file)
 
 		self._run_tcl = True
 
@@ -636,7 +806,9 @@ class ConfigTclBuilder:
 
 		# tcl begin
 
-		self._create_project(None)
+		if self.current_project is None:
+			self._create_project(None)
+
 		self._create_core(core_name, dir=self._cfg.core_dir, vlnv=self._cfg.get_catalog().lookup(core_cfg.vlnv).vlnv)
 
 		self._run_tcl = True
@@ -652,14 +824,15 @@ class ConfigTclBuilder:
 
 		# tcl begin
 
-		self._create_project(None)
+		if self.current_project is None:
+			self._create_project(None)
 
 		if self.current_core != core_name:
 			self._read_ip(xci_file)
 
 			self.current_core = core_name
 
-		self._generate_target(xci_file, reset=False)
+		self._generate_target_get_files(xci_file, reset=False)
 
 		# self._write_sim_fileset(core_name, sim_fileset_path)
 
@@ -672,7 +845,8 @@ class ConfigTclBuilder:
 
 		# tcl begin
 
-		self._create_project(None)
+		if self.current_project is None:
+			self._create_project(None)
 
 		if self.current_core != core_name:
 			self._read_ip(xci_file)
@@ -693,17 +867,28 @@ class ConfigTclBuilder:
 
 		return self
 
-	def synthesis_standalone(self, target_dir: str, xci_name: str, xci_path: str):
-		dcp_file = os.path.join(target_dir, f"{xci_name}.dcp")
-		stub_file = os.path.join(target_dir, f"{xci_name}.v")
+	def synth_core(self, core_name: str, xci_file: str, target_dir: typing.Optional[str]=None, out_of_context=True):
+		if target_dir is None:
+			return None
 
-		self._create_project(None)
+		dcp_file = os.path.join(target_dir, f"{core_name}.dcp")
+		stub_file = os.path.join(target_dir, f"{core_name}.v")
+
+		if self.current_project is None:
+			self._create_project(None)
+
+		if self.current_core != core_name:
+			self._read_ip(xci_file)
+
+			self.current_core = core_name
+		
+			
 
 		if os.path.exists(dcp_file) or os.path.exists(stub_file):
 			pass
 
-		self._push(f"set_property TOP {xci_name} [current_fileset]")
-		self._update_compile_order(fileset='sources_1')
+		# self._push(f"set_property TOP {xci_name} [current_fileset]")
+		# self._update_compile_order(fileset='sources_1')
 		# set_property TOP $xci_name [current_fileset]
 		# update_compile_order -fileset sources_1
 		# file mkdir $target_dir

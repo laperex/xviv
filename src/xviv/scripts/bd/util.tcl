@@ -1,5 +1,14 @@
-proc strip_bd_tcl {path prefix} {
-    set f [open $path r]
+proc save_bd_tcl {} {
+	global xviv_bd_state_tcl xviv_bd_name
+
+	file mkdir [file dirname $xviv_bd_state_tcl]
+
+	write_bd_tcl -force -no_project_wrapper $xviv_bd_state_tcl
+	
+	set path $xviv_bd_state_tcl
+	set prefix "#${xviv_bd_name}\n\n"
+
+	set f [open $path r]
     set data [read $f]
     close $f
 
@@ -7,9 +16,7 @@ proc strip_bd_tcl {path prefix} {
     set end   [string first "save_bd_design" $data]
 
     if {$start == -1 || $end == -1} {
-        error "Could not find expected markers in state BD TCL: $path\n\
-            'set bCheckIPsPassed' found: [expr {$start != -1}]\n\
-            'save_bd_design'      found: [expr {$end != -1}]"
+        error "Could not find expected markers in state BD TCL"
     }
 
     set f [open $path w]
@@ -19,23 +26,16 @@ proc strip_bd_tcl {path prefix} {
     close $f
 }
 
-proc save_bd_tcl {} {
-	global xviv_bd_state_tcl xviv_bd_name
+rename save_bd_design _xviv_save_bd_design
 
-	file mkdir [file dirname $xviv_bd_state_tcl]
+proc save_bd_design {args} {
+	_xviv_save_bd_design {*}$args
 
-	write_bd_tcl -force -no_project_wrapper $xviv_bd_state_tcl
-	strip_bd_tcl $xviv_bd_state_tcl "#${xviv_bd_name}\n\n"
+	save_bd_tcl
 }
 
-proc override_save_bd_design {} {
-	rename save_bd_design _xviv_save_bd_design
-	proc save_bd_design {args} {
-		_xviv_save_bd_design {*}$args
-
-		save_bd_tcl
-	}
-}
+# proc override_save_bd_design {} {
+# }
 
 proc override_bd_exit {} {
 	rename exit _xviv_exit
