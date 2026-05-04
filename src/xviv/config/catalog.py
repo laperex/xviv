@@ -3,20 +3,15 @@ from __future__ import annotations
 from collections.abc import ValuesView
 import logging
 import os
+import sys
 from typing import Iterator
 import typing
 
-from xviv.catalog.model import CoreEntry
-from xviv.parsers.ip_xml import parse_component_xml, parse_vv_index
+from xviv.config.model import CoreEntry
+from xviv.parsers import vv_index_xml
+from xviv.parsers import component_xml
 
 logger = logging.getLogger(__name__)
-
-
-class CoreNotFound(KeyError):
-	def __init__(self, id: str) -> None:
-		self.id = id
-		super().__init__(f"Unable to resolve core: {id!r}")
-
 
 class Catalog:
 	def __init__(self, vivado_path: str, ip_repos: list[str] | None = None) -> None:
@@ -29,7 +24,7 @@ class Catalog:
 
 	def _load(self, vivado_path: str, ip_repos: list[str]) -> None:
 		xml_path = os.path.join(vivado_path, "data", "ip", "vv_index.xml")
-		self._cores.update(parse_vv_index(xml_path))
+		self._cores.update(vv_index_xml.parser(xml_path))
 		for repo in ip_repos:
 			merged = _load_ip_repo(repo)
 			if merged:
@@ -62,8 +57,8 @@ class Catalog:
 
 		if entry:
 			return entry
-		
-		raise CoreNotFound(id)
+
+		sys.exit(f"ERROR: Unable to resolve core: {id!r}")
 
 	def lookup_none(self, id: str) -> typing.Optional[CoreEntry]:
 		entry = self._cores.get(id)
@@ -77,7 +72,7 @@ class Catalog:
 			return matches[0]
 		if len(matches) > 1:
 			candidates = ", ".join(e.vlnv for e in matches[:5])
-			raise CoreNotFound(f"{id!r} is ambiguous: {candidates}...")
+			sys.exit(f"ERROR: Unable to resolve core: {id!r} is ambiguous: {candidates}...")
 
 		return None
 
@@ -124,23 +119,30 @@ _CACHE: dict[tuple[str, tuple[str, ...]], Catalog] = {}
 
 def get_catalog(vivado_path: str, ip_repos: list[str] | None = None) -> Catalog:
 	key = (vivado_path, tuple(sorted(ip_repos or [])))
+
 	if key not in _CACHE:
 		_CACHE[key] = Catalog(vivado_path, ip_repos)
+
 	return _CACHE[key]
 
 
 def _load_ip_repo(ip_repo_path: str) -> dict[str, CoreEntry]:
-	"""Scan a directory of IP cores, each containing a component.xml."""
 	catalog: dict[str, CoreEntry] = {}
+
 	if not os.path.isdir(ip_repo_path):
 		return catalog
+
 	for entry in os.scandir(ip_repo_path):
 		if not entry.is_dir():
 			continue
-		component_xml = os.path.join(entry.path, "component.xml")
-		if not os.path.isfile(component_xml):
+		component_xml_file = os.path.join(entry.path, "component.xml")
+
+		if not os.path.isfile(component_xml_file):
 			continue
-		core = parse_component_xml(component_xml)
+
+		core = component_xml.parser(component_xml_file)
+
 		if core:
 			catalog[core.vlnv] = core
+
 	return catalog

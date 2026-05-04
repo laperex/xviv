@@ -73,10 +73,10 @@ def cmd_app_create(
 	logger.info("Creating app '%s' from template '%s'", app_name, template)
 	logger.info("  App dir : %s", app_out_dir)
 
-	xsct.run_xsct(
-		# cfg, find_xsct_script(),
-		["create_app", xsa, plat.cpu, plat.os, template, app_out_dir],
-	)
+	# xsct.run_xsct(
+	# 	# cfg, find_xsct_script(),
+	# 	["create_app", xsa, plat.cpu, plat.os, template, app_out_dir],
+	# )
 
 	if not os.path.isdir(src_dir):
 		logger.warning("src_dir not found, creating %s", src_dir)

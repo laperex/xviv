@@ -4,10 +4,11 @@ import glob
 import logging
 import os
 import re
+import shutil
 import sys
 import typing
 
-from xviv.catalog.catalog import get_catalog
+from xviv.config.catalog import get_catalog
 from xviv.utils.tools import find_vitis_dir_path, find_vivado_dir_path
 from xviv.utils.fs import resolve_globs
 
@@ -460,6 +461,46 @@ class ProjectConfig:
 		sys.exit(
 			f"ERROR: Platform '{name}' must specify either 'xsa' or 'synth_top' in project.toml."
 		)
+
+@dataclasses.dataclass(frozen=True)
+class CoreEntry:
+	vlnv:                 str
+	vendor:               str
+	library:              str
+	name:                 str
+	version:              str
+	display_name:         str
+	description:          str
+	hidden:               bool
+	board_dependent:      bool
+	ipi_only:             bool
+	unsupported_families: frozenset[str]
+	upgrades_from:        tuple[str, ...]
+
+	@property
+	def short_desc(self) -> str:
+		desc_max = shutil.get_terminal_size().columns // 2
+		text = " ".join(self.description.split())
+		if len(text) > desc_max:
+			text = text[:desc_max - 1] + "..."
+		return text
+
+	@property
+	def completion_description(self) -> str:
+		parts = [self.display_name, f"[{self.vendor}/{self.library}]"]
+		flags: list[str] = []
+		if self.hidden:
+			flags.append("⚠ internal subcore")
+		if self.board_dependent:
+			flags.append("⚠ board-dependent")
+		if self.ipi_only:
+			flags.append("⚠ IPI-only")
+		if flags:
+			parts.append("  ".join(flags))
+		elif self.short_desc:
+			parts.append(self.short_desc)
+		return "  ".join(parts)
+
 
 
 def _parse_fpga(raw: dict) -> tuple[str, dict[str, FpgaConfig]]:

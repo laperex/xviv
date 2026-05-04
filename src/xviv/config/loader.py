@@ -6,7 +6,7 @@ import sys
 
 import tomllib
 
-from xviv.catalog.catalog import get_catalog
+from xviv.config.catalog import get_catalog
 from xviv.config import model
 
 

@@ -2,7 +2,7 @@
 
 import typing
 
-from xviv.catalog.catalog import get_catalog
+from xviv.config.catalog import get_catalog
 from xviv.config.model import ProjectConfig
 from xviv.generator.tcl.commands import ConfigTclCommands
 from xviv.tools import vivado

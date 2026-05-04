@@ -22,11 +22,11 @@ def cmd_top_synth(cfg: ProjectConfig, top_name: str):
 
 	# config_tcl = generate_config_tcl(cfg, top_name=top_name)
 
-	vivado.run_vivado(
-		# cfg, find_vivado_script(), "synthesis",
-		[top_name, tag],
-		config_tcl,
-	)
+	# vivado.run_vivado(
+	# 	# cfg, find_vivado_script(), "synthesis",
+	# 	[top_name, tag],
+	# 	config_tcl,
+	# )
 
 
 # -----------------------------------------------------------------------------

@@ -127,13 +127,13 @@ def cmd_bd_synth(cfg: ProjectConfig, bd_name: str, ooc_run: typing.Optional[bool
 		bd_xci_path_list = [i['xci_path'] for i in components]
 		# bd_inst_hier_path_list = [i['inst_hier_path'] for i in components]
 	
-		config_tcl += "\n".join(
-			[
-				f'set xviv_bd_xci_name_list		  {_tcl_list(bd_xci_name_list)}',
-				f'set xviv_bd_xci_path_list		  {_tcl_list(bd_xci_path_list)}',
-				# f'set xviv_bd_inst_hier_path_list {_tcl_list(bd_inst_hier_path_list)}',
-			]
-		)
+		# config_tcl += "\n".join(
+		# 	# [
+		# 	# 	f'set xviv_bd_xci_name_list		  {_tcl_list(bd_xci_name_list)}',
+		# 	# 	f'set xviv_bd_xci_path_list		  {_tcl_list(bd_xci_path_list)}',
+		# 	# 	# f'set xviv_bd_inst_hier_path_list {_tcl_list(bd_inst_hier_path_list)}',
+		# 	# ]
+		# )
 
 		max_workers = 15
 
@@ -144,10 +144,10 @@ def cmd_bd_synth(cfg: ProjectConfig, bd_name: str, ooc_run: typing.Optional[bool
 				(
 					partial(vivado.run_vivado,
 						# cfg, find_vivado_script(), "standalone_synthesis",
-						[ f"{i}" ],
-						config_tcl,
-						val['xci_name'],
-						cfg.build_dir
+						# [ f"{i}" ],
+						# config_tcl,
+						# val['xci_name'],
+						# cfg.build_dir
 					),
 					f"vivado.run_vivado - [ {val['xci_name']} ]"
 				) for i, val in enumerate(components)
@@ -160,8 +160,8 @@ def cmd_bd_synth(cfg: ProjectConfig, bd_name: str, ooc_run: typing.Optional[bool
 
 	_, _, tag = _git_sha_tag()
 
-	vivado.run_vivado(
-		# cfg, find_vivado_script(), "synthesis",
-		[f"{bd_name}_wrapper", tag],
-		config_tcl,
-	)
+	# vivado.run_vivado(
+	# 	# cfg, find_vivado_script(), "synthesis",
+	# 	# [f"{bd_name}_wrapper", tag],
+	# 	# config_tcl,
+	# )
