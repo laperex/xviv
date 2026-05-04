@@ -2,7 +2,7 @@ import os
 import sys
 import typing
 from xviv.tools import vivado
-from xviv.config.model import ProjectConfig
+from xviv.config.project import ProjectConfig
 # from xviv.config.tcl import generate_config_tcl
 from xviv.generator.hooks import generate_ip_hooks
 from xviv.generator.wrapper import xviv_wrap_top

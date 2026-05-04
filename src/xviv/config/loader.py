@@ -6,8 +6,8 @@ import sys
 
 import tomllib
 
-from xviv.config.catalog import get_catalog
 from xviv.config import model
+from xviv.config.project import ProjectConfig
 
 
 def resolve_config_completer(prefix, parsed_args, **kwargs) -> str:
@@ -21,7 +21,7 @@ def resolve_config(explicit: str) -> str:
 			return candidate
 	sys.exit("ERROR: neither project.cue nor project.toml found in current directory.")
 
-def load_config(path: str) -> model.ProjectConfig:
+def load_config(path: str) -> ProjectConfig:
 	"""
 	Parse project.toml and return a fully validated model.ProjectConfig.
 	This is the only function that reads the raw TOML dict.
@@ -66,7 +66,7 @@ def load_config(path: str) -> model.ProjectConfig:
 			"  [fpga.<name>] part = '...' (named target, select with  fpga = '<name>')"
 		)
 	
-	cfg = model.ProjectConfig(
+	cfg = ProjectConfig(
 		base_dir     = base_dir,
 		fpga_default_ref = fpga_default_ref,
 		fpga_named   = fpga_named,

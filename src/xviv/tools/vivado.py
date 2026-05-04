@@ -6,7 +6,7 @@ import tempfile
 import typing
 from pathlib import Path
 
-from xviv.config.model import ProjectConfig
+from xviv.config.project import ProjectConfig
 
 logger = logging.getLogger(__name__)
 

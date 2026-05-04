@@ -2,7 +2,7 @@ import logging
 import os
 import subprocess
 import typing
-from xviv.config.model import ProjectConfig
+from xviv.config.project import ProjectConfig
 from xviv.tools import vivado
 from xviv.utils.fifo import _ensure_fifo, _fifo_send
 

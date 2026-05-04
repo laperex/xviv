@@ -1,5 +1,5 @@
 import typing
-from xviv.config.model import ProjectConfig
+from xviv.config.project import ProjectConfig
 # from xviv.config.tcl import generate_config_tcl
 from xviv.generator.hooks import generate_synth_hooks
 from xviv.tools import vivado

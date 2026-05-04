@@ -3,7 +3,7 @@ import os
 import sys
 import typing
 
-from xviv.config.model import ProjectConfig
+from xviv.config.project import ProjectConfig
 
 
 logger = logging.getLogger(__name__)

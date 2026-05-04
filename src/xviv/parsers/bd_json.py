@@ -1,7 +1,7 @@
 import json
 import os
 import sys
-from xviv.config.model import ProjectConfig
+from xviv.config.project import ProjectConfig
 
 
 def get_bd_core_dict(cfg: ProjectConfig, bd_name: str) -> list[dict]:

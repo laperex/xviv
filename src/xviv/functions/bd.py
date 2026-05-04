@@ -2,7 +2,7 @@ from functools import partial
 import logging
 from pathlib import Path
 import typing
-from xviv.config.model import ProjectConfig
+from xviv.config.project import ProjectConfig
 # from xviv.config.tcl import ConfigTclCommands, _tcl_list, generate_config_tcl
 from xviv.generator.tcl.commands import ConfigTclCommands
 from xviv.generator.hooks import generate_bd_hooks

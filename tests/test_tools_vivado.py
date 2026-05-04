@@ -3,7 +3,8 @@
 import subprocess
 import pytest
 from unittest.mock import patch, MagicMock, mock_open
-from xviv.config.model import ProjectConfig, VivadoConfig, VitisConfig, FpgaConfig, BuildConfig
+from xviv.config.model import VivadoConfig, VitisConfig, FpgaConfig, BuildConfig
+from xviv.config.project import ProjectConfig
 from xviv.tools.vivado import run_vivado
 
 
