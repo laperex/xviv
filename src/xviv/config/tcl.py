@@ -689,7 +689,7 @@ class ConfigTclBuilder:
 
 
 	# open bd design
-	def _open_bd_design(self, bd_file):
+	def _open_bd_design(self, bd_file: str):
 		self._push(f'open_bd_design "{bd_file}"')
 
 
@@ -709,7 +709,7 @@ class ConfigTclBuilder:
 
 
 	# write_checkpoint
-	def _write_checkpoint(self, filepath, *,
+	def _write_checkpoint(self, filepath: str, *,
 		force: bool = False
 	):
 		params = filter(None, [
@@ -719,7 +719,7 @@ class ConfigTclBuilder:
 
 
 	# read_checkpoint
-	def _read_checkpoint(self, filepath, *,
+	def _read_checkpoint(self, filepath: str, *,
 		incremental: bool = False,
 		cell: typing.Optional[str] = None
 	):
@@ -730,8 +730,13 @@ class ConfigTclBuilder:
 		self._push(f"read_checkpoint {' '.join(params)} {filepath}")
 
 
+	# open_checkpoint
+	def _open_checkpoint(self, filepath: str):
+		self._push(f"open_checkpoint {filepath}")
+
+
 	# write_verilog
-	def _write_verilog(self, filepath, *,
+	def _write_verilog(self, filepath: str, *,
 		mode: str,
 		force: bool = False,
 		sdf_anno: typing.Optional[bool] = None
@@ -745,7 +750,7 @@ class ConfigTclBuilder:
 
 
 	# write_verilog
-	def _write_bitstream(self, filepath, *,
+	def _write_bitstream(self, filepath: str, *,
 		force: bool = False,
 	):
 		params = filter(None, [
@@ -755,7 +760,7 @@ class ConfigTclBuilder:
 
 
 	# write_hw_platform
-	def _write_hw_platform(self, filepath, *,
+	def _write_hw_platform(self, filepath: str, *,
 		force: bool = False,
 		fixed: bool = False,
 		include_bit: bool = False
@@ -828,7 +833,7 @@ class ConfigTclBuilder:
 
 
 	# report
-	def _report(self, report_type, *,
+	def _report(self, report_type: str, *,
 		dir: str,
 		max_paths: typing.Optional[int] = None,
 		report_unconstrained: typing.Optional[bool] = None,
@@ -852,15 +857,13 @@ class ConfigTclBuilder:
 		self._push("validate_bd_design")
 
 
-	def _proc(self, name, args, comm):
+	def _proc(self, name: str, args: str, comm = None):
 		child = type(self)(self._cfg).__inherit(self)
 		comm(child)
 		self._push(f'proc {name} {{{args}}} {{\n{ child.build() }}}')
 
 
-	def _override(self,
-		call,
-		*,
+	def _override(self, call, *,
 		pre_call = None,
 		post_call = None,
 		rename_prefix: str = "_xviv_",
