@@ -267,12 +267,30 @@ class ConfigTclBuilder:
 		self.flag_proc_save_bd_tcl = False
 
 		self._run_tcl = False
+		self.root = True
+		
+		self.indent = 0
 
 		self._initialize()
 
+	def _proc_inherit(self, i: typing.Self) -> typing.Self:
+		self.current_project = i.current_project
+		self.current_bd = i.current_bd
+		self.current_core = i.current_core
+		self.flag_override_bd_save_state_tcl = i.flag_override_bd_save_state_tcl
+		self.flag_proc_save_bd_tcl = i.flag_proc_save_bd_tcl
+
+		self.lines = []
+		self._run_tcl = True
+
+		self.root = False
+		
+		self.indent = i.indent + 1
+
+		return self
 
 	def _push(self, text: str):
-		self.lines += [text]
+		self.lines += [('\t' * self.indent) + text]
 
 	def _info(self, text: str, severity: str = 'XVIV_INFO'):
 		self._push(f"puts \"{severity}: {text}\"")
@@ -283,7 +301,6 @@ class ConfigTclBuilder:
 
 	def _init_max_threads(self):
 		self._push(f"set_param general.maxThreads {self._cfg.vivado.max_threads}")
-
 
 
 	def _create_project(self, fpga_ref: typing.Optional[str] = None, name = "xviv_in_memory"):
@@ -491,7 +508,7 @@ class ConfigTclBuilder:
 		params = filter(None, [
 			"-force" if force else None,
 		])
-		self._push(f"write_verilog {' '.join(params)} {filepath}")
+		self._push(f"write_bistream {' '.join(params)} {filepath}")
 
 
 	# write_hw_platform
@@ -505,12 +522,12 @@ class ConfigTclBuilder:
 			"-fixed"       if fixed else None,
 			"-include_bit" if include_bit else None,
 		])
-		self._push(f"write_verilog {' '.join(params)} {filepath}")
+		self._push(f"write_hw_platform {' '.join(params)} {filepath}")
 
 
 	# opt_design
 	def _opt_design(self, *,
-		directive: typing.Optional[str]
+		directive: typing.Optional[str] = None
 	):
 		params = filter(None, [
 			f"-directive {directive}" if directive else None,
@@ -520,7 +537,7 @@ class ConfigTclBuilder:
 
 	# phys_opt_design
 	def _phys_opt_design(self, *,
-		directive: typing.Optional[str]
+		directive: typing.Optional[str] = None
 	):
 		params = filter(None, [
 			f"-directive {directive}" if directive else None,
@@ -530,7 +547,7 @@ class ConfigTclBuilder:
 
 	# place_design
 	def _place_design(self, *,
-		directive: typing.Optional[str]
+		directive: typing.Optional[str] = None
 	):
 		params = filter(None, [
 			f"-directive {directive}" if directive else None,
@@ -540,7 +557,7 @@ class ConfigTclBuilder:
 
 	# route_design
 	def _route_design(self, *,
-		directive: typing.Optional[str]
+		directive: typing.Optional[str] = None
 	):
 		params = filter(None, [
 			f"-directive {directive}" if directive else None,
@@ -584,65 +601,60 @@ class ConfigTclBuilder:
 		self._push(f"report_{report_type} {' '.join(params)}")
 		
 
+
+	def _save_bd_design(self):
+		self._push("save_bd_design")
+
+	def _validate_bd_design(self):
+		self._push("validate_bd_design")
+
+
 	# ------------------------------------------------------
 	# PROCS
 	# ------------------------------------------------------
-	def _proc(self, name, args = "", comm = ""):
-		self._push(f'proc {name} {{{args}}} {{\n{comm}\n}}')
-
+	def _proc(self, name, args, comm):
+		child = ConfigTclBuilder(self._cfg)._proc_inherit(self)
+		comm(child)
+		self._push(f'proc {name} {{{args}}} {{\n{ child.build() }}}')
 
 	# ------------------------------------------------------
 	# OVERRIDES
 	# ------------------------------------------------------
-	def _override(self, call, *, pre_call = "", post_call = "", rename_prefix="_xviv_"):
+	def _override(self,
+		call,
+		*,
+		pre_call = None,
+		post_call = None,
+		rename_prefix: str = "_xviv_",
+	):
 		self._push(
 			f"rename {call} {rename_prefix}{call}\n"
 			f"proc {call} {{args}} " + "{"
 		)
 
 		if pre_call:
-			self._push(f"	{pre_call}")
+			child = ConfigTclBuilder(self._cfg)._proc_inherit(self)
+			pre_call(child)
+			self._push(f"{child.build()}".rstrip())
 
 		self._push(f"	{rename_prefix}{call} {{*}}$args")
 
 		if post_call:
-			self._push(f"	{post_call}")
+			child = ConfigTclBuilder(self._cfg)._proc_inherit(self)
+			post_call(child)
+			self._push(f"{child.build()}".rstrip())
 
 		self._push("}")
 
 
-	def _proc_bd_save_tcl(self):
-		if self.flag_proc_save_bd_tcl:
-			return
 
-		self.flag_proc_save_bd_tcl = True
+	def build(self) -> typing.Optional[str]:
+		if self._run_tcl:
+			return '\n'.join(self.lines) + '\n'
 
-		self._proc("bd_save_tcl", "path prefix",
-		"	file mkdir [file dirname $path]\n"
-
-		"	write_bd_tcl -force -no_project_wrapper $path\n"
-
-		"	set f [open $path r]\n"
-		"	set data [read $f]\n"
-		"	close $f\n"
-
-		"	set start [string first \"set bCheckIPsPassed\" $data]\n"
-		"	set end [string first \"save_bd_design\" $data]\n"
-
-		"	if {$start == -1 || $end == -1} {\n"
-		"		error \"Could not find expected markers in state BD TCL\"\n"
-		"	}\n"
-
-		"	set f [open $path w]\n"
-		"	puts $f [join $prefix \"\\n\"]\n"
-		"	puts $f \"\"\n"
-		"	puts $f [string range $data $start [expr {$end - 1}]]\n"
-		"	close $f\n"
-		)
-
-	def _v_call_bd_save_tcl(self, bd_name: str, bd_state_tcl_file: str) -> str:
-		return rf'bd_save_tcl "{bd_state_tcl_file}" "#{bd_name}\n\n"'
-
+		return None
+	
+	# I WANT EVERYTHING UNDER THIS TO BE IN A SEPERATE CLASS. HOW ? with minimal changes. use inheritance or smth
 
 	def _override_save_bd_design(self, bd_name: str, bd_state_tcl_file: str):
 		if self.flag_override_bd_save_state_tcl:
@@ -654,22 +666,51 @@ class ConfigTclBuilder:
 		self.flag_override_bd_save_state_tcl = True
 
 		self._proc_bd_save_tcl()
-		self._override("save_bd_design", post_call=self._v_call_bd_save_tcl(bd_name, bd_state_tcl_file))
+		self._override("save_bd_design", post_call=lambda x: x._call_bd_save_tcl(bd_name, bd_state_tcl_file))
+
+
+	def _proc_bd_save_tcl(self):
+		if self.flag_proc_save_bd_tcl:
+			return
+
+		self.flag_proc_save_bd_tcl = True
+
+		def __bd_save_tcl(x: typing.Self):
+			x._push(
+				"file mkdir [file dirname $path]\n"
+
+				"\twrite_bd_tcl -force -no_project_wrapper $path\n"
+
+				"\tset f [open $path r]\n"
+				"\tset data [read $f]\n"
+				"\tclose $f\n"
+
+				"\tset start [string first \"set bCheckIPsPassed\" $data]\n"
+				"\tset end [string first \"save_bd_design\" $data]\n"
+
+				"\tif {$start == -1 || $end == -1} {\n"
+				"\t	error \"Could not find expected markers in state BD TCL\"\n"
+				"\t}\n"
+
+				"\tset f [open $path w]\n"
+				"\tputs $f [join $prefix \"\\n\"]\n"
+				"\tputs $f \"\"\n"
+				"\tputs $f [string range $data $start [expr {$end - 1}]]\n"
+				"\tclose $f"
+			)
+
+		self._proc("bd_save_tcl", "path prefix", __bd_save_tcl)
+
+
+	def _call_bd_save_tcl(self, bd_name, bd_state_tcl_file: str):
+		self._proc_bd_save_tcl()
+
+		self._push(rf'bd_save_tcl "{bd_state_tcl_file}" "#{bd_name}\n\n"')
 
 
 	# ------------------------------------------------------
 	# BD Functions
 	# ------------------------------------------------------
-	def _bd_save_tcl(self, bd_name, bd_state_tcl_file: str):
-		self._proc_bd_save_tcl()
-
-		self._push(self._v_call_bd_save_tcl(bd_name, bd_state_tcl_file))
-
-	def _save_bd_design(self):
-		self._push("save_bd_design")
-
-	def _validate_bd_design(self):
-		self._push("validate_bd_design")
 
 	def _bd_refresh_addresses(self):
 		self._push("delete_bd_objs [get_bd_addr_segs] [get_bd_addr_segs -excluded]")
@@ -684,13 +725,6 @@ class ConfigTclBuilder:
 			"	}\n"
 			"}"
 		)
-
-	# def _bd_load(self, bd_name: str):
-	# 	if self.current_bd != bd_name:
-	# 		self._read_bd(bd_file)
-	# 		self._open_bd_design(bd_file)
-
-	# 		self.current_bd = bd_name
 
 	def _write_sim_fileset(self, core_name: str, filename: str):
 		self._push(
@@ -755,10 +789,11 @@ class ConfigTclBuilder:
 
 			self.current_bd = bd_name
 
+		# if not os.path.exists(bd_cfg.state_tcl):
+		# 	self._bd_save_tcl(bd_name, bd_cfg.state_tcl)
 		self._override_save_bd_design(bd_name, bd_cfg.state_tcl)
 
-		if not os.path.exists(bd_cfg.state_tcl):
-			self._bd_save_tcl(bd_name, bd_cfg.state_tcl)
+		self._call_bd_save_tcl(bd_name, bd_cfg.state_tcl)
 
 		if not nogui:
 			self._start_gui()
@@ -896,10 +931,3 @@ class ConfigTclBuilder:
 		# write_checkpoint -force $dcp_path
 		# write_verilog -force -mode synth_stub $stub_path
 
-
-
-	def build(self) -> typing.Optional[str]:
-		if self._run_tcl:
-			return '\n'.join(self.lines) + '\n'
-
-		return None
