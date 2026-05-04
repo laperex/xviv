@@ -6,7 +6,7 @@ import shutil
 
 from xviv.config.loader import resolve_config_completer, load_config
 from xviv.catalog.catalog import Catalog, get_catalog
-from xviv.tools.util import find_vivado_dir_path
+from xviv.utils.tools import find_vivado_dir_path
 
 logger = logging.getLogger(__name__)
 

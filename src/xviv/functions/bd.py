@@ -4,11 +4,11 @@ from pathlib import Path
 import typing
 from xviv.config.model import ProjectConfig
 # from xviv.config.tcl import ConfigTclCommands, _tcl_list, generate_config_tcl
-from xviv.config.tcl import ConfigTclCommands
+from xviv.generator.tcl.commands import ConfigTclCommands
 from xviv.generator.hooks import generate_bd_hooks
 from xviv.parsers.bd_json import get_bd_core_dict
 from xviv.tools import vivado
-from xviv.tools.util import find_vivado_script
+# from xviv.tools.util import find_vivado_script
 from xviv.utils.git import _git_sha_tag
 from xviv.utils.parallel import run_parallel
 
@@ -143,7 +143,7 @@ def cmd_bd_synth(cfg: ProjectConfig, bd_name: str, ooc_run: typing.Optional[bool
 			[
 				(
 					partial(vivado.run_vivado,
-						cfg, find_vivado_script(), "standalone_synthesis",
+						# cfg, find_vivado_script(), "standalone_synthesis",
 						[ f"{i}" ],
 						config_tcl,
 						val['xci_name'],
@@ -161,7 +161,7 @@ def cmd_bd_synth(cfg: ProjectConfig, bd_name: str, ooc_run: typing.Optional[bool
 	_, _, tag = _git_sha_tag()
 
 	vivado.run_vivado(
-		cfg, find_vivado_script(), "synthesis",
+		# cfg, find_vivado_script(), "synthesis",
 		[f"{bd_name}_wrapper", tag],
 		config_tcl,
 	)

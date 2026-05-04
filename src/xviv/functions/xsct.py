@@ -8,7 +8,7 @@ import typing
 
 from xviv.config.model import ProjectConfig
 from xviv.tools import xsct
-from xviv.tools.util import find_xsct_script
+# from xviv.tools.util import find_xsct_script
 from xviv.utils.fs import resolve_globs
 
 
@@ -35,7 +35,7 @@ def cmd_platform_create(cfg: ProjectConfig, platform_name: str):
 	logger.info("  OS     : %s", plat.os)
 	logger.info("  BSP dir: %s", bsp)
 
-	xsct.run_xsct(cfg, find_xsct_script(), ["create_platform", xsa, plat.cpu, plat.os, bsp])
+	# xsct.run_xsct(cfg, find_xsct_script(), ["create_platform", xsa, plat.cpu, plat.os, bsp])
 
 
 # -----------------------------------------------------------------------------
@@ -74,7 +74,7 @@ def cmd_app_create(
 	logger.info("  App dir : %s", app_out_dir)
 
 	xsct.run_xsct(
-		cfg, find_xsct_script(),
+		# cfg, find_xsct_script(),
 		["create_app", xsa, plat.cpu, plat.os, template, app_out_dir],
 	)
 
@@ -191,7 +191,7 @@ def cmd_program(
 		logger.info("  ELF       : %s", elf_path)
 	logger.info("  hw_server : %s", server)
 
-	xsct.run_xsct(cfg, find_xsct_script(), ["program", bitstream_path, elf_path, server])
+	# xsct.run_xsct(cfg, find_xsct_script(), ["program", bitstream_path, elf_path, server])
 
 
 # -----------------------------------------------------------------------------
@@ -202,10 +202,10 @@ def cmd_processor(cfg: ProjectConfig, reset: typing.Optional[bool], status: typi
 
 	if reset:
 		logger.info("Resetting embedded processor via JTAG (%s)", server)
-		xsct.run_xsct(cfg, find_xsct_script(), ["processor_reset", server])
+		# xsct.run_xsct(cfg, find_xsct_script(), ["processor_reset", server])
 
-	elif status:
-		xsct.run_xsct(cfg, find_xsct_script(), ["processor_status", server])
+	# elif status:
+		# xsct.run_xsct(cfg, find_xsct_script(), ["processor_status", server])
 
 
 # ---------------------------------------------------------------------------

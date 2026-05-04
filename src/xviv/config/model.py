@@ -8,7 +8,7 @@ import sys
 import typing
 
 from xviv.catalog.catalog import get_catalog
-from xviv.tools.util import find_vitis_dir_path, find_vivado_dir_path
+from xviv.utils.tools import find_vitis_dir_path, find_vivado_dir_path
 from xviv.utils.fs import resolve_globs
 
 logger = logging.getLogger(__name__)

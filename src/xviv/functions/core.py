@@ -4,7 +4,7 @@ import typing
 
 from xviv.catalog.catalog import get_catalog
 from xviv.config.model import ProjectConfig
-from xviv.config.tcl import ConfigTclBuilder
+from xviv.generator.tcl.commands import ConfigTclCommands
 from xviv.tools import vivado
 
 # -----------------------------------------------------------------------------
@@ -12,7 +12,7 @@ from xviv.tools import vivado
 # -----------------------------------------------------------------------------
 def cmd_core_create(cfg: ProjectConfig, core_name: str, core_vlnv: typing.Optional[str], edit: bool = False):
 	config = (
-		ConfigTclBuilder(cfg)
+		ConfigTclCommands(cfg)
 		.create_core(core_name)
 		.build()
 	)
@@ -24,7 +24,7 @@ def cmd_core_create(cfg: ProjectConfig, core_name: str, core_vlnv: typing.Option
 # -----------------------------------------------------------------------------
 def cmd_core_edit(cfg: ProjectConfig, core_name: str, nogui: bool = False):
 	config = (
-		ConfigTclBuilder(cfg)
+		ConfigTclCommands(cfg)
 		.edit_core(core_name, nogui=nogui)
 		.build()
 	)
