@@ -1,6 +1,6 @@
 import typing
 from xviv.config.model import ProjectConfig
-from xviv.config.tcl import generate_config_tcl
+# from xviv.config.tcl import generate_config_tcl
 from xviv.generator.hooks import generate_synth_hooks
 from xviv.tools import vivado
 from xviv.tools.util import find_vivado_script
@@ -20,7 +20,7 @@ def cmd_synth_config(cfg: ProjectConfig, top_name: typing.Optional[str], bd_name
 def cmd_top_synth(cfg: ProjectConfig, top_name: str):
 	_, _, tag = _git_sha_tag()
 
-	config_tcl = generate_config_tcl(cfg, top_name=top_name)
+	# config_tcl = generate_config_tcl(cfg, top_name=top_name)
 
 	vivado.run_vivado(
 		cfg, find_vivado_script(), "synthesis",
@@ -33,7 +33,7 @@ def cmd_top_synth(cfg: ProjectConfig, top_name: str):
 # open --dcp <dcp_name> --top <top_name>
 # -----------------------------------------------------------------------------
 def cmd_dcp_open(cfg: ProjectConfig, dcp_name: str, top_name: typing.Optional[str], bd_name: typing.Optional[str], nogui: bool = False):
-	config_tcl = generate_config_tcl(cfg, top_name=top_name, bd_name=bd_name)
+	# config_tcl = generate_config_tcl(cfg, top_name=top_name, bd_name=bd_name)
 
 	dcp_path   = cfg.get_dcp_path(top_name or f"{bd_name}_wrapper", dcp_name)
 

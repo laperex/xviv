@@ -3,7 +3,7 @@ import sys
 import typing
 from xviv.tools import vivado
 from xviv.config.model import ProjectConfig
-from xviv.config.tcl import generate_config_tcl
+# from xviv.config.tcl import generate_config_tcl
 from xviv.generator.hooks import generate_ip_hooks
 from xviv.generator.wrapper import xviv_wrap_top
 from xviv.tools.util import find_vivado_script
@@ -28,18 +28,18 @@ def cmd_ip_create(cfg: ProjectConfig, ip_name: typing.Optional[str] = None, ip_v
 		if ip_wrapper_file not in ip_rtl_files:
 			ip_rtl_files.append(ip_wrapper_file)
 
-		# Mutate the dataclass so generate_config_tcl picks up the wrapper top/rtl.
+		# # Mutate the dataclass so generate_config_tcl picks up the wrapper top/rtl.
 		ip.top = f"{ip_top}_wrapper"
 		ip.rtl = ip_rtl_files   # absolute paths are glob-safe on POSIX
 
-	config_tcl = generate_config_tcl(cfg, ip_name=ip.name)
+	# config_tcl = generate_config_tcl(cfg, ip_name=ip.name)
 	vivado.run_vivado(cfg, find_vivado_script(), "create_ip", [], config_tcl)
 
 # -----------------------------------------------------------------------------
 # edit --ip <ip_name>
 # -----------------------------------------------------------------------------
 def cmd_ip_edit(cfg: ProjectConfig, ip_name: str, nogui: bool = False):
-	config_tcl = generate_config_tcl(cfg, ip_name=ip_name)
+	# config_tcl = generate_config_tcl(cfg, ip_name=ip_name)
 
 	if nogui:
 		cfg.vivado.mode = "tcl"

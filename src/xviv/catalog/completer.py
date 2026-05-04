@@ -20,8 +20,7 @@ def _build_catalog(prefix, parsed_args) -> Catalog:
 	try:
 		cfg = load_config(os.path.abspath(resolve_config_completer(prefix, parsed_args)))
 		
-		if cfg.ip_repo:
-			ip_repos = [cfg.ip_repo]
+		ip_repos = cfg.get_ip_repos()
 	except Exception as exc:
 		logger.debug("ip_repo scan skipped: %s", exc)
 	return get_catalog(vivado_path, ip_repos)

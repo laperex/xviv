@@ -52,7 +52,6 @@ class VitisConfig:
 @dataclasses.dataclass
 class BuildConfig:
 	dir:         str = DEFAULT_BUILD_DIR
-	ip_repo:     str = DEFAULT_BUILD_IP_REPO
 	bd_dir:      str = DEFAULT_BUILD_BD_DIR
 	wrapper_dir: str = DEFAULT_BUILD_WRAPPER_DIR
 	core_dir:    str = DEFAULT_BUILD_CORE_DIR
@@ -65,6 +64,7 @@ class IpConfig:
 	vendor:         str       = "user.org"
 	library:        str       = "user"
 	version:        str       = "1.0"
+	repo:           str       = DEFAULT_BUILD_IP_REPO
 	top:            str       = ""
 	rtl:            list[str] = dataclasses.field(default_factory=list)
 	hooks:          str       = ""
@@ -269,10 +269,6 @@ class ProjectConfig:
 		return os.path.join(self.base_dir, self.build.dir)
 
 	@property
-	def ip_repo(self) -> str:
-		return os.path.join(self.base_dir, self.build.ip_repo)
-
-	@property
 	def core_dir(self) -> str:
 		return os.path.join(self.base_dir, self.build.core_dir)
 
@@ -283,6 +279,15 @@ class ProjectConfig:
 	@property
 	def wrapper_dir(self) -> str:
 		return os.path.join(self.base_dir, self.build.wrapper_dir)
+
+	def get_ip_repos(self) -> list[str]:
+		repo_list = []
+
+		for i in self.ips:
+			if i.repo not in repo_list:
+				repo_list.append(i.repo)
+
+		return repo_list
 
 	# ---- lookup helpers --------------------------------------------------------------------------------------------------------
 
@@ -353,7 +358,7 @@ class ProjectConfig:
 		return s
 
 	def get_catalog(self):
-		return get_catalog(self.vivado.path, [self.ip_repo])
+		return get_catalog(self.vivado.path, self.get_ip_repos())
 
 	def get_simulation(self, top_name: str) -> SimulationConfig:
 		p = next((p for p in self.simulations if p.top == top_name), None)
@@ -498,7 +503,6 @@ def _parse_build(raw: dict) -> BuildConfig:
 	return BuildConfig(
 		max_parallel_jobs=b.get("max_parallel_jobs", 10),
 		dir=b.get("dir", DEFAULT_BUILD_DIR),
-		ip_repo=b.get("ip_repo", DEFAULT_BUILD_IP_REPO),
 		bd_dir=b.get("bd_dir", DEFAULT_BUILD_BD_DIR),
 		core_dir=b.get("core_dir", DEFAULT_BUILD_CORE_DIR),
 		wrapper_dir=b.get("wrapper_dir", DEFAULT_BUILD_WRAPPER_DIR),
@@ -515,6 +519,7 @@ def _parse_ips(raw: dict) -> list[IpConfig]:
 			top=i.get("top", ""),
 			rtl=i.get("rtl", []),
 			hooks=i.get("hooks", ""),
+			repo=i.get("repo", DEFAULT_BUILD_IP_REPO),
 			# xdc=i.get("xdc", []),
 			# xdc_ooc=i.get("xdc_ooc", []),
 			# fpga=i.get("fpga", ""),

@@ -7,7 +7,8 @@ import sys
 import typing
 from xviv.catalog.catalog import get_catalog
 from xviv.config.model import ProjectConfig
-from xviv.config.tcl import ConfigTclCommands, _tcl_list, generate_config_tcl
+# from xviv.config.tcl import ConfigTclCommands, _tcl_list, generate_config_tcl
+from xviv.config.tcl import ConfigTclCommands
 from xviv.functions.ip import cmd_ip_create
 from xviv.generator.hooks import generate_bd_hooks
 from xviv.parsers.bd_json import get_bd_core_dict
@@ -31,7 +32,7 @@ def cmd_bd_create(cfg: ProjectConfig, bd_name: str):
 
 	# bd_cfg = cfg.get_bd(bd_name)
 
-	# catalog = get_catalog(cfg.vivado.path, [ cfg.ip_repo ])
+	# catalog = cfg.get_catalog()
 
 	# required_ips = bd_cfg.vlnv_list
 	
@@ -122,7 +123,7 @@ def cmd_bd_synth(cfg: ProjectConfig, bd_name: str, ooc_run: typing.Optional[bool
 		logger.info(f"[is_stale] {xci_name}: up to date, skipping")
 		return False
 
-	config_tcl = generate_config_tcl(cfg, bd_name=bd_name)
+	# config_tcl = generate_config_tcl(cfg, bd_name=bd_name)
 
 	components = get_bd_core_dict(cfg, bd_name)
 
