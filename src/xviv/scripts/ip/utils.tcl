@@ -26,6 +26,7 @@ proc _xviv_ip_scaffold {ip_id ip_vid ip_dir proj_root} {
     current_project "edit_$ip_vid"
 }
 
+# done
 # Stage 2: remove the boilerplate AXI-Lite interface and the stub Verilog
 # files that Vivado's peripheral generator always emits.
 proc _xviv_ip_strip_scaffold {} {
@@ -42,17 +43,23 @@ proc _xviv_ip_strip_scaffold {} {
     }
 }
 
+# done
 # Stage 3: infer standard AXI-Stream and AXI-MM interfaces, then call the
 # user hook for any additional custom inference.
 proc _xviv_ip_infer_interfaces {} {
     puts "INFO: Inferring AXI-Stream interfaces"
+#
     ipx::infer_bus_interfaces \
         xilinx.com:interface:axis_rtl:1.0  [ipx::current_core]
     puts "INFO: Inferring AXI-MM interfaces"
+
+#
     ipx::infer_bus_interfaces \
         xilinx.com:interface:aximm_rtl:1.0 [ipx::current_core]
 
     ipx_infer_bus_interfaces
+
+#
     update_compile_order -fileset sources_1
 }
 
@@ -92,9 +99,7 @@ proc _xviv_ip_wire_memory_maps {} {
 
         if {$ifc_intf eq "slave" && [string match *axi_lite* $ifc_mode]} {
             ipx::add_memory_map "$ifc_name" [ipx::current_core]
-            set ab [ipx::add_address_block "${ifc_name}_reg" \
-                [ipx::get_memory_maps "$ifc_name" \
-                    -of_objects [ipx::current_core]]]
+            set ab [ipx::add_address_block "${ifc_name}_reg" [ipx::get_memory_maps "$ifc_name" -of_objects [ipx::current_core]]]
             ipx::add_address_block_parameter OFFSET_BASE_PARAM $ab
             ipx::add_address_block_parameter OFFSET_HIGH_PARAM $ab
             set_property usage register $ab
