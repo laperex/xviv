@@ -125,7 +125,7 @@ def run_vivado(
 	
 	print(config_tcl_path)
 
-	exit(-1)	
+	# exit(-1)	
 	# raise Exception
 
 	try:

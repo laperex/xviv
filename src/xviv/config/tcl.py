@@ -263,11 +263,6 @@ class ConfigTclBuilder:
 		self.current_bd: typing.Optional[str] = None
 		self.current_core: typing.Optional[str] = None
 
-		# self.flag_override_bd_save_state_tcl = False
-		# self.flag_proc_save_bd_tcl = False
-
-		self._run_tcl = False
-
 		self.__lines: list[str] = []
 		self.__flags: set[str] = set()
 		self.__root = True
@@ -283,15 +278,26 @@ class ConfigTclBuilder:
 		self.__root = False
 		self.__indent = i.__indent + 1
 
-		self._run_tcl = True
-
 		return self
+
+
+	def build(self) -> typing.Optional[str]:
+		if len(self.__lines):
+			return '\n'.join(self.__lines) + '\n'
+
+		return None
+
+	def _clear(self) -> None:
+		self.__lines = []
+
 
 	def _push(self, text: str):
 		self.__lines += [('\t' * self.__indent) + text]
 
-	def _info(self, text: str, severity: str = 'XVIV_INFO'):
+
+	def _logging(self, text: str, severity: str = 'XVIV_INFO'):
 		self._push(f"puts \"{severity}: {text}\"")
+
 
 	def _create_project(self, fpga_ref: typing.Optional[str] = None, name = "xviv_in_memory"):
 		#* resolves fpga part from fpga_ref
@@ -636,18 +642,12 @@ class ConfigTclBuilder:
 
 		self._push("}")
 
-	def build(self) -> typing.Optional[str]:
-		if self._run_tcl:
-			return '\n'.join(self.__lines) + '\n'
-
-		return None
-
 	@staticmethod
 	def _fn_def(fn):
 		@functools.wraps(fn)
 		def wrapper(self, *args, **kwargs):
 			if fn.__name__ in self.__flags:
-				logger.warning(f"{fn.__name__} already called - skipping")
+				logger.warning(f"{fn.__name__} already defined - skipping")
 				return
 			self.__flags.add(fn.__name__)
 			return fn(self, *args, **kwargs)
@@ -756,7 +756,6 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 			self._start_gui()
 
-		self._run_tcl = True
 
 		return self
 
@@ -788,7 +787,6 @@ class ConfigTclCommands(ConfigTclBuilder):
 		if not nogui:
 			self._start_gui()
 
-		self._run_tcl = True
 
 		return self
 
@@ -822,9 +820,9 @@ class ConfigTclCommands(ConfigTclBuilder):
 		self._bd_upgrade_ip_cells()
 		self._generate_target_get_files(bd_file)
 
-		self._run_tcl = True
 
 		return self
+
 
 	def create_core(self, core_name: str, nogui = True) -> typing.Self:
 		core_cfg = self._cfg.get_core(core_name)
@@ -836,12 +834,12 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 		self._create_core(core_name, dir=self._cfg.core_dir, vlnv=self._cfg.get_catalog().lookup(core_cfg.vlnv).vlnv)
 
-		self._run_tcl = True
 
 		if nogui:
 			self.generate_core(core_name)
 
 		return self
+
 
 	def generate_core(self, core_name: str) -> typing.Self:
 		xci_file = os.path.join(self._cfg.core_dir, core_name, f"{core_name}.xci")
@@ -861,9 +859,8 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 		# self._write_sim_fileset(core_name, sim_fileset_path)
 
-		self._run_tcl = True
-
 		return self
+
 
 	def edit_core(self, core_name: str, nogui=False) -> typing.Self:
 		xci_file = os.path.join(self._cfg.core_dir, core_name, f"{core_name}.xci")
@@ -888,9 +885,8 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 			self.generate_core(core_name)
 
-		self._run_tcl = True
-
 		return self
+
 
 	def synth_core(self, core_name: str, xci_file: str, target_dir: typing.Optional[str]=None, out_of_context=True):
 		if target_dir is None:
@@ -906,8 +902,6 @@ class ConfigTclCommands(ConfigTclBuilder):
 			self._read_ip(xci_file)
 
 			self.current_core = core_name
-		
-			
 
 		if os.path.exists(dcp_file) or os.path.exists(stub_file):
 			pass
