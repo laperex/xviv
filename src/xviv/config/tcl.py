@@ -325,6 +325,14 @@ class ConfigTclBuilder:
 		self.current_project = name
 
 
+	def _current_project(self, name: str):
+		self._push(f"current_project \"{name}\"")
+
+
+	def _close_project(self):
+		self._push("close_project")
+
+
 	def _create_bd_design(self, bd_name, *,
 		dir: str
 	) -> None:
@@ -592,14 +600,6 @@ class ConfigTclBuilder:
 
 	def _ipx__merge_project_changes_ipx__current_core(self, name: str):
 		self._ipx__merge_project_changes(name, '[ipx::current_core]')
-
-
-	def _current_project(self, name: str):
-		self._push(f"current_project \"{name}\"")
-
-
-	def _close_project(self):
-		self._push("close_project")
 
 
 	# source any tcl file
