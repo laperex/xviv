@@ -1,15 +1,10 @@
 from functools import partial
-import json
 import logging
-import os
 from pathlib import Path
-import sys
 import typing
-from xviv.catalog.catalog import get_catalog
 from xviv.config.model import ProjectConfig
 # from xviv.config.tcl import ConfigTclCommands, _tcl_list, generate_config_tcl
 from xviv.config.tcl import ConfigTclCommands
-from xviv.functions.ip import cmd_ip_create
 from xviv.generator.hooks import generate_bd_hooks
 from xviv.parsers.bd_json import get_bd_core_dict
 from xviv.tools import vivado

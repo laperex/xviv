@@ -72,6 +72,8 @@ class IpConfig:
 	vlnv:			str       = ""
 
 	def __post_init__(self) -> None:
+		self.repo = os.path.abspath(self.repo)
+
 		if not self.top:
 			self.top = self.name
 		if not self.hooks:
