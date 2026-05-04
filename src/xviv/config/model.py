@@ -40,7 +40,7 @@ class FpgaConfig:
 class VivadoConfig:
 	path:        str = DEFAULT_VIVADO_PATH
 	mode:        str = "batch"
-	max_threads: int = 8
+	max_threads: int = 10
 	hw_server:   str = "localhost:3121"
 
 

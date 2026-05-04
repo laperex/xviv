@@ -7,7 +7,7 @@ import sys
 import typing
 from xviv.catalog.catalog import get_catalog
 from xviv.config.model import ProjectConfig
-from xviv.config.tcl import ConfigTclBuilder, _tcl_list, generate_config_tcl
+from xviv.config.tcl import ConfigTclCommands, _tcl_list, generate_config_tcl
 from xviv.functions.ip import cmd_ip_create
 from xviv.generator.hooks import generate_bd_hooks
 from xviv.parsers.bd_json import get_bd_core_dict
@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 # -----------------------------------------------------------------------------
 def cmd_bd_create(cfg: ProjectConfig, bd_name: str):
 	config = (
-		ConfigTclBuilder(cfg)
+		ConfigTclCommands(cfg)
 		.create_bd(bd_name)
 		.build()
 	)
@@ -68,7 +68,7 @@ def cmd_bd_create(cfg: ProjectConfig, bd_name: str):
 # -----------------------------------------------------------------------------
 def cmd_bd_edit(cfg: ProjectConfig, bd_name: str, nogui: bool = False):
 	config = (
-		ConfigTclBuilder(cfg)
+		ConfigTclCommands(cfg)
 		.edit_bd(bd_name, nogui=nogui)
 		.build()
 	)
@@ -91,7 +91,7 @@ def cmd_bd_config(cfg: ProjectConfig, bd_name: str, exist_ok=False):
 # -----------------------------------------------------------------------------
 def cmd_bd_generate(cfg: ProjectConfig, bd_name: str):
 	config = (
-		ConfigTclBuilder(cfg)
+		ConfigTclCommands(cfg)
 		.generate_bd(bd_name)
 		.build()
 	)

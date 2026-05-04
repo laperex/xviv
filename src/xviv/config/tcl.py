@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import functools
 import logging
 import os
 from pathlib import Path
@@ -257,51 +258,40 @@ def _tcl_list(items: list[str]) -> str:
 class ConfigTclBuilder:
 	def __init__(self, cfg: ProjectConfig):
 		self._cfg = cfg
-		self.lines: list[str] = []
 
 		self.current_project: typing.Optional[str] = None
 		self.current_bd: typing.Optional[str] = None
 		self.current_core: typing.Optional[str] = None
 
-		self.flag_override_bd_save_state_tcl = False
-		self.flag_proc_save_bd_tcl = False
+		# self.flag_override_bd_save_state_tcl = False
+		# self.flag_proc_save_bd_tcl = False
 
 		self._run_tcl = False
-		self.root = True
-		
-		self.indent = 0
 
-		self._initialize()
+		self.__lines: list[str] = []
+		self.__flags: set[str] = set()
+		self.__root = True
+		self.__indent = 0
 
-	def _proc_inherit(self, i: typing.Self) -> typing.Self:
+	def __inherit(self, i: typing.Self) -> typing.Self:
 		self.current_project = i.current_project
 		self.current_bd = i.current_bd
 		self.current_core = i.current_core
-		self.flag_override_bd_save_state_tcl = i.flag_override_bd_save_state_tcl
-		self.flag_proc_save_bd_tcl = i.flag_proc_save_bd_tcl
 
-		self.lines = []
+		self.__lines = []
+		self.__flags = set(i.__flags)
+		self.__root = False
+		self.__indent = i.__indent + 1
+
 		self._run_tcl = True
-
-		self.root = False
-		
-		self.indent = i.indent + 1
 
 		return self
 
 	def _push(self, text: str):
-		self.lines += [('\t' * self.indent) + text]
+		self.__lines += [('\t' * self.__indent) + text]
 
 	def _info(self, text: str, severity: str = 'XVIV_INFO'):
 		self._push(f"puts \"{severity}: {text}\"")
-
-	def _initialize(self):
-		self._init_max_threads()
-
-
-	def _init_max_threads(self):
-		self._push(f"set_param general.maxThreads {self._cfg.vivado.max_threads}")
-
 
 	def _create_project(self, fpga_ref: typing.Optional[str] = None, name = "xviv_in_memory"):
 		#* resolves fpga part from fpga_ref
@@ -310,6 +300,8 @@ class ConfigTclBuilder:
 			sys.exit(f"ERROR: Attempt to recreate project: {name}")
 
 		fpga = self._cfg.resolve_fpga(fpga_ref)
+		
+		self._set_param('general.maxThreads', str(self._cfg.vivado.max_threads))
 
 		if fpga.board_repo:
 			self._push(f'set_param board.repoPaths { _tcl_list([fpga.board_repo]) }')
@@ -427,6 +419,9 @@ class ConfigTclBuilder:
 		])
 		self._push(f"add_files {' '.join(params)} {file}")
 
+	# set_param
+	def _set_param(self, name: str, val: str):
+		self._push(f'set_param {name} {val}')
 
 	# set_property
 	def _set_property(self, name: str, val: str, context: str):
@@ -601,25 +596,20 @@ class ConfigTclBuilder:
 		self._push(f"report_{report_type} {' '.join(params)}")
 		
 
-
 	def _save_bd_design(self):
 		self._push("save_bd_design")
+
 
 	def _validate_bd_design(self):
 		self._push("validate_bd_design")
 
 
-	# ------------------------------------------------------
-	# PROCS
-	# ------------------------------------------------------
 	def _proc(self, name, args, comm):
-		child = ConfigTclBuilder(self._cfg)._proc_inherit(self)
+		child = type(self)(self._cfg).__inherit(self)
 		comm(child)
 		self._push(f'proc {name} {{{args}}} {{\n{ child.build() }}}')
 
-	# ------------------------------------------------------
-	# OVERRIDES
-	# ------------------------------------------------------
+
 	def _override(self,
 		call,
 		*,
@@ -633,48 +623,48 @@ class ConfigTclBuilder:
 		)
 
 		if pre_call:
-			child = ConfigTclBuilder(self._cfg)._proc_inherit(self)
+			child = type(self)(self._cfg).__inherit(self)
 			pre_call(child)
 			self._push(f"{child.build()}".rstrip())
 
 		self._push(f"	{rename_prefix}{call} {{*}}$args")
 
 		if post_call:
-			child = ConfigTclBuilder(self._cfg)._proc_inherit(self)
+			child = type(self)(self._cfg).__inherit(self)
 			post_call(child)
 			self._push(f"{child.build()}".rstrip())
 
 		self._push("}")
 
-
-
 	def build(self) -> typing.Optional[str]:
 		if self._run_tcl:
-			return '\n'.join(self.lines) + '\n'
+			return '\n'.join(self.__lines) + '\n'
 
 		return None
-	
-	# I WANT EVERYTHING UNDER THIS TO BE IN A SEPERATE CLASS. HOW ? with minimal changes. use inheritance or smth
 
+	@staticmethod
+	def _fn_def(fn):
+		@functools.wraps(fn)
+		def wrapper(self, *args, **kwargs):
+			if fn.__name__ in self.__flags:
+				logger.warning(f"{fn.__name__} already called - skipping")
+				return
+			self.__flags.add(fn.__name__)
+			return fn(self, *args, **kwargs)
+		return wrapper
+
+class ConfigTclCommands(ConfigTclBuilder):
+	@ConfigTclBuilder._fn_def
 	def _override_save_bd_design(self, bd_name: str, bd_state_tcl_file: str):
-		if self.flag_override_bd_save_state_tcl:
-			return
-
 		if not bd_state_tcl_file:
 			sys.exit("ERROR: bd_state_tcl_file is required")
-
-		self.flag_override_bd_save_state_tcl = True
 
 		self._proc_bd_save_tcl()
 		self._override("save_bd_design", post_call=lambda x: x._call_bd_save_tcl(bd_name, bd_state_tcl_file))
 
 
+	@ConfigTclBuilder._fn_def
 	def _proc_bd_save_tcl(self):
-		if self.flag_proc_save_bd_tcl:
-			return
-
-		self.flag_proc_save_bd_tcl = True
-
 		def __bd_save_tcl(x: typing.Self):
 			x._push(
 				"file mkdir [file dirname $path]\n"
