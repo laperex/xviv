@@ -1,22 +1,8 @@
 import argparse
 import argcomplete
 import os
-import sys
 
-from xviv.cli.command.base import Command
-from xviv.cli.command.create import CreateCommand
-from xviv.cli.command.search import SearchCommand
-from xviv.cli.command.edit import EditCommand
-from xviv.cli.command.config import ConfigCommand
-from xviv.cli.command.generate import GenerateCommand
-from xviv.cli.command.synth import SynthCommand
-from xviv.cli.command.open import OpenCommand
-from xviv.cli.command.elaborate import ElaborateCommand
-from xviv.cli.command.simulate import SimulateCommand
-from xviv.cli.command.reload import ReloadCommand
-from xviv.cli.command.build import BuildCommand
-from xviv.cli.command.program import ProgramCommand
-from xviv.cli.command.processor import ProcessorCommand
+from xviv.cli.commands import Command, CreateCommand, SearchCommand, EditCommand, ConfigCommand, GenerateCommand, SynthCommand, OpenCommand, ElaborateCommand, SimulateCommand, ReloadCommand, BuildCommand, ProgramCommand, ProcessorCommand
 from xviv.config.loader import load_config, resolve_config
 from xviv.utils.log import _setup_logging
 

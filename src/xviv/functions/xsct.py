@@ -7,7 +7,6 @@ import sys
 import typing
 
 from xviv.config.project import ProjectConfig
-from xviv.tools import xsct
 # from xviv.tools.util import find_xsct_script
 from xviv.utils.fs import resolve_globs
 

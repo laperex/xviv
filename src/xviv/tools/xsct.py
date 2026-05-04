@@ -1,8 +1,6 @@
 import logging
 import os
 import subprocess
-import sys
-import typing
 
 from xviv.config.project import ProjectConfig
 

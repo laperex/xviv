@@ -82,7 +82,7 @@ def core_instance_completer(prefix: str, parsed_args, **kwargs) -> dict[str, str
 			cfg = load_config(os.path.abspath(resolve_config_completer(prefix, parsed_args)))
 			
 			ip_repos = cfg.get_ip_repos()
-		except Exception as exc:
+		except Exception:
 			pass
 		return get_catalog(vivado_path, ip_repos)
 
@@ -124,7 +124,7 @@ def core_instance_completer(prefix: str, parsed_args, **kwargs) -> dict[str, str
 			else:
 				completions[vlnv] = desc
 		return completions
-	except Exception as exc:
+	except Exception:
 		# logger.debug("_core_instance_completer failed: %s", exc)
 		return {}
 

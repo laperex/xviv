@@ -2,7 +2,6 @@ import typing
 from xviv.config.project import ProjectConfig
 # from xviv.config.tcl import generate_config_tcl
 from xviv.generator.hooks import generate_synth_hooks
-from xviv.tools import vivado
 # from xviv.tools.util import find_vivado_script
 from xviv.utils.git import _git_sha_tag
 

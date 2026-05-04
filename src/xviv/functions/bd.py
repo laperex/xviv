@@ -3,12 +3,10 @@ import logging
 from pathlib import Path
 import typing
 from xviv.config.project import ProjectConfig
-# from xviv.config.tcl import ConfigTclCommands, _tcl_list, generate_config_tcl
 from xviv.generator.tcl.commands import ConfigTclCommands
 from xviv.generator.hooks import generate_bd_hooks
 from xviv.parsers.bd_json import get_bd_core_dict
 from xviv.tools import vivado
-# from xviv.tools.util import find_vivado_script
 from xviv.utils.git import _git_sha_tag
 from xviv.utils.parallel import run_parallel
 

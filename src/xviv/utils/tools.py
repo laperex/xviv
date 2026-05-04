@@ -1,4 +1,3 @@
-import importlib.resources
 import os
 import shutil
 import subprocess
