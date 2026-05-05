@@ -492,12 +492,12 @@ class ConfigTclBuilder:
 	def _write_verilog(self, filepath: str, *,
 		mode: str,
 		force: bool = False,
-		sdf_anno: typing.Optional[bool] = None
+		sdf_anno: bool = False
 	):
 		params = filter(None, [
 			"-force"                             if force else None,
 			f"-mode {mode}"                      if mode else None,
-			f"-sdf_anno {str(sdf_anno).lower()}" if sdf_anno is not None else None,
+			f"-sdf_anno {str(sdf_anno).lower()}" if sdf_anno else None,
 		])
 		self._push(f"write_verilog {' '.join(params)} {filepath}")
 
@@ -531,7 +531,7 @@ class ConfigTclBuilder:
 		directive: typing.Optional[str] = None
 	):
 		params = filter(None, [
-			f"-directive {directive}" if directive else None,
+			f"-directive \"{directive}\"" if directive else None,
 		])
 		self._push(f"opt_design {' '.join(params)}")
 
@@ -541,7 +541,7 @@ class ConfigTclBuilder:
 		directive: typing.Optional[str] = None
 	):
 		params = filter(None, [
-			f"-directive {directive}" if directive else None,
+			f"-directive \"{directive}\"" if directive else None,
 		])
 		self._push(f"phys_opt_design {' '.join(params)}")
 
@@ -551,7 +551,7 @@ class ConfigTclBuilder:
 		directive: typing.Optional[str] = None
 	):
 		params = filter(None, [
-			f"-directive {directive}" if directive else None,
+			f"-directive \"{directive}\"" if directive else None,
 		])
 		self._push(f"place_design {' '.join(params)}")
 
@@ -561,14 +561,14 @@ class ConfigTclBuilder:
 		directive: typing.Optional[str] = None
 	):
 		params = filter(None, [
-			f"-directive {directive}" if directive else None,
+			f"-directive \"{directive}\"" if directive else None,
 		])
 		self._push(f"route_design {' '.join(params)}")
 
 
 	# synth_design
-	def _synth_design(self, prefix: str, *,
-		top: str,
+	def _synth_design(self, top: str, *,
+		prefix: str = 'synth',
 		mode: typing.Optional[str] = None,
 		directive: typing.Optional[str] = None,
 		flatten_hierarchy: typing.Optional[str] = None,
@@ -576,7 +576,7 @@ class ConfigTclBuilder:
 	):
 		params = filter(None, [
 			f"-mode {mode}"                           if mode else None,
-			f"-directive {directive}"                 if directive else None,
+			f"-directive \"{directive}\""             if directive else None,
 			f"-flatten_hierarchy {flatten_hierarchy}" if flatten_hierarchy else None,
 			f"-fsm_extraction {fsm_extraction}"       if fsm_extraction else None,
 			f"-top {top}",
@@ -587,16 +587,18 @@ class ConfigTclBuilder:
 
 	# report
 	def _report(self, report_type: str, *,
-		dir: str,
+		file: str,
 		max_paths: typing.Optional[int] = None,
-		report_unconstrained: typing.Optional[bool] = None,
-		warn_on_violation: typing.Optional[bool] = None
+		report_unconstrained: bool = False,
+		warn_on_violation: bool = False,
+		hierarchical: bool = False
 	):
 		params = filter(None, [
-			f"-max_paths {max_paths}"                       if max_paths else None,
-			f"-report_unconstrained {report_unconstrained}" if report_unconstrained else None,
-			f"-warn_on_violation {warn_on_violation}"       if warn_on_violation else None,
-			f"-file {os.path.join(dir, report_type)}"       if dir else None,
+			f"-file {file}",
+			f"-max_paths {max_paths}" if max_paths else None,
+			"-report_unconstrained"   if report_unconstrained else None,
+			"-warn_on_violation"      if warn_on_violation else None,
+			"-hierarchical"           if hierarchical else None,
 		])
 		
 		self._push(f"report_{report_type} {' '.join(params)}")

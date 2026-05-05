@@ -173,6 +173,8 @@ proc cmd_synthesis {top_module sha_tag} {
 	    }
 	}
 	
+	#
+	
 	cmd_bd_read_ooc_stubs
 
 	xviv_stage "Synthesis - $top_module  (sha: $sha_tag)"
@@ -181,7 +183,9 @@ proc cmd_synthesis {top_module sha_tag} {
 				 -directive $synth_directive \
 				 -flatten_hierarchy $flatten_hierarchy \
 				 -fsm_extraction $fsm_extraction
-	
+
+#
+
 	cmd_bd_read_ooc_checkpoints
 
 	# ------------------------------------------------------------------
@@ -194,6 +198,7 @@ proc cmd_synthesis {top_module sha_tag} {
 		opt_design -directive $opt_directive
 	}
 
+#
 	write_checkpoint -force "$out_dir/post_synth.dcp"
 
 	if {$xviv_synth_report_synth} {
@@ -337,18 +342,3 @@ proc cmd_synthesis {top_module sha_tag} {
 
 	puts "INFO: Build complete - [xviv_elapsed]"
 }
-
-
-
-timing_summary -file "$report_dir/post_synth_timing_summary.rpt"
-utilization -file "$report_dir/post_synth_util.rpt"
-incremental_reuse -file "$report_dir/post_synth_incremental_reuse.rpt"
-io -file "$report_dir/post_place_io.rpt"
-clock_utilization -file "$report_dir/post_place_clock_util.rpt"
-utilization -hierarchical -file "$report_dir/post_place_util_hier.rpt"
-drc -file "$report_dir/post_route_drc.rpt"
-methodology -file "$report_dir/post_route_methodology.rpt"
-power -file "$report_dir/post_route_power.rpt"
-route_status -file "$report_dir/post_route_status.rpt"
-timing_summary -max_paths 10 -report_unconstrained -warn_on_violation -file "$report_dir/post_route_timing_summary.rpt"
-incremental_reuse -file "$report_dir/post_impl_incremental_reuse.rpt"

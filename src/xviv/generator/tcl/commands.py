@@ -261,21 +261,162 @@ class ConfigTclCommands(ConfigTclBuilder):
 	# 		pass
 
 
-	def synthesis(self, top: str, srcs: list[str], constrs: str):
+	def synthesis(self, top: str, srcs: list[str], constrs: str, *,
+		synth_incremental: bool = False,
+
+		synth_directive: str = 'default',
+		synth_flatten_hierarchy: str = 'rebuilt',
+		synth_fsm_extraction: str = 'auto',
+
+		synth_report_timing_summary_file: str | None = None,
+		synth_report_utilization_file: str | None = None,
+		synth_report_incremental_reuse_file: str | None = None,
+
+		synth_dcp_file: str | None = None,
+		synth_functional_netlist_file: str | None = None,
+		synth_timing_netlist_file: str | None = None,
+
+
+		run_opt: bool = False,
+		opt_directive: str = 'default',
+
+
+		impl_incremental: bool = False,
+
+		place_directive: str = 'default',
+		place_dcp_file: str | None = None,
+
+
+		run_phys_opt: bool = False,
+		phys_opt_directive: str = 'default',
+
+
+		route_directive: str = 'default',
+		route_dcp_file: str | None = None,
+
+		route_report_drc_file: str | None = None,
+		route_report_methodology_file: str | None = None,
+		route_report_power_file: str | None = None,
+		route_report_route_status_file: str | None = None,
+		route_report_timing_summary_file: str | None = None,
+
+		impl_report_incremental_reuse_file: str | None = None,
+
+		impl_functional_netlist_file: str | None = None,
+		impl_timing_netlist_file: str | None = None,
+
+
+		usr_access_value: int | None = None,
+
+		bitstream_file: str | None = None,
+
+		hw_platform_xsa_file: str | None = None,
+	):
+		def _incremental(stage: str, dcp_file: str | None):
+			if dcp_file:
+				if not os.path.exists(dcp_file):
+					logger.info(f'dcp does not exist at: {dcp_file}\nskipping incremental {stage}')
+				else:
+					self._read_checkpoint(dcp_file, incremental=True)
+
 		# tcl begin
 		if self.current_project is None:
 			self._create_project(None)
 
-		# add sources
-		for src_file in srcs:
-			self._add_files(src_file, fileset='sources_1', scan_for_includes=True)
+		constr_fileset = 'constrs_1'
+		source_fileset = 'sources_1'
 
-		for constr_file in constrs:
-			self._add_files(constr_file, fileset='constrs_1')
+		#* sources
+		for s in srcs:
+			self._add_files(s, fileset=source_fileset, scan_for_includes=True)
 
-		self._update_compile_order(fileset='constrs_1')
-		self._update_compile_order(fileset='sources_1')
-		
-		
+		for c in constrs:
+			self._add_files(c, fileset=constr_fileset)
 
-		
+		self._update_compile_order(fileset=constr_fileset)
+		self._update_compile_order(fileset=source_fileset)
+
+		#* synth_design
+		if synth_incremental:
+			_incremental('synthesis', dcp_file=synth_dcp_file)
+
+		self._synth_design(
+			top=top,
+			directive=synth_directive,
+			flatten_hierarchy=synth_flatten_hierarchy,
+			fsm_extraction=synth_fsm_extraction
+		)
+
+		if synth_dcp_file:
+			self._write_checkpoint(synth_dcp_file, force=True)
+
+		if synth_report_timing_summary_file:
+			self._report('timing_summary', file=synth_report_timing_summary_file)
+		if synth_report_utilization_file:
+			self._report('utilization', file=synth_report_utilization_file, hierarchical=True)
+		if synth_report_incremental_reuse_file:
+			self._report('incremental_reuse', file=synth_report_incremental_reuse_file)
+
+		if synth_functional_netlist_file:
+			self._write_verilog(synth_functional_netlist_file, mode='funcsim', force=True)
+		if synth_timing_netlist_file:
+			self._write_verilog(synth_timing_netlist_file, mode='timesim', force=True, sdf_anno=True)
+
+
+		# opt_design
+		if run_opt:
+			self._opt_design(directive=opt_directive)
+
+
+		if impl_incremental:
+			_incremental('implementation', dcp_file=route_dcp_file)
+
+		#* place_design
+		self._place_design(directive=place_directive)
+
+		if place_dcp_file:
+			self._write_checkpoint(place_dcp_file, force=True)
+
+
+		# phys_opt
+		if run_phys_opt:
+			self._phys_opt_design(directive=phys_opt_directive)
+
+
+		#* route_design
+		self._route_design(directive=route_directive)
+
+		if route_dcp_file:
+			self._write_checkpoint(route_dcp_file, force=True)
+
+		if route_report_drc_file:
+			self._report('drc', file=route_report_drc_file)
+		if route_report_methodology_file:
+			self._report('methodology', file=route_report_methodology_file)
+		if route_report_power_file:
+			self._report('power', file=route_report_power_file)
+		if route_report_route_status_file:
+			self._report('route_status', file=route_report_route_status_file)
+		if route_report_timing_summary_file:
+			self._report('timing_summary', file=route_report_timing_summary_file)
+		if impl_report_incremental_reuse_file:
+			self._report('incremental_reuse', file=impl_report_incremental_reuse_file)
+
+		if impl_functional_netlist_file:
+			self._write_verilog(impl_functional_netlist_file, mode='funcsim', force=True)
+		if impl_timing_netlist_file:
+			self._write_verilog(impl_timing_netlist_file, mode='timesim', force=True, sdf_anno=True)
+
+
+		# set usr_access_value
+		if usr_access_value:
+			self._set_property_current_design('BITSTREAM.CONFIG.USR_ACCESS', f'0x{usr_access_value}')
+
+		# bitstream
+		if bitstream_file:
+			self._write_bitstream(bitstream_file, force=True)
+
+		# hw_platform
+		if hw_platform_xsa_file:
+			self._write_hw_platform(hw_platform_xsa_file, force=True, include_bit=True, fixed=True)
+
