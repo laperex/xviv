@@ -157,7 +157,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 		if bd_file_exist_check and not os.path.exists(bd_file):
 			sys.exit(f"ERROR: BD File does not exist at path: {bd_file}")
 
-		if is_stale(bd_file, bd_wrapper):
+		if not is_stale(bd_file, bd_wrapper):
 			logger.info("INFO: Output products are up to date")
 			return self
 
@@ -174,7 +174,6 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 		self._bd_upgrade_ip_cells()
 		self._generate_target_get_files(bd_file)
-
 
 		return self
 
@@ -276,5 +275,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 		self._update_compile_order(fileset='constrs_1')
 		self._update_compile_order(fileset='sources_1')
+		
+		
 
 		
