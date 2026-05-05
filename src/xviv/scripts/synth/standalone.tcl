@@ -26,6 +26,6 @@ proc cmd_synthesis_standalone { index } {
     update_compile_order -fileset sources_1
     file mkdir $target_dir
     synth_design -mode out_of_context -top $xci_name -name "ooc_$xci_name"
-    write_checkpoint -force $dcp_path
-    write_verilog    -force -mode synth_stub $stub_path
+    # write_checkpoint -force $dcp_path
+    # write_verilog    -force -mode synth_stub $stub_path
 }

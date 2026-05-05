@@ -6,7 +6,7 @@ import os
 import sys
 import typing
 from xviv.config.catalog import get_catalog
-from xviv.config.model import AppConfig, BdConfig, BuildConfig, CoreConfig, FpgaConfig, IpConfig, PlatformConfig, SimulationConfig, SynthConfig, VitisConfig, VivadoConfig
+from xviv.config.model import AppConfig, BdConfig, CoreConfig, FpgaConfig, IpConfig, PlatformConfig, SimulationConfig, SynthConfig, VitisConfig, VivadoConfig
 from xviv.utils.fs import resolve_globs
 
 logger = logging.getLogger(__name__)
@@ -18,14 +18,11 @@ logger = logging.getLogger(__name__)
 class ProjectConfig:
 	base_dir: str
 
-	# fpga_default: typing.Optional[FpgaConfig]
 	fpga_default_ref: str
 	fpga_named:   dict[str, FpgaConfig]
 
 	vivado:  VivadoConfig
 	vitis:   VitisConfig
-	build:   BuildConfig
-	# sources: SourcesConfig
 
 	ips:         list[IpConfig]
 	bds:         list[BdConfig]
@@ -35,23 +32,27 @@ class ProjectConfig:
 	cores: 		 list[CoreConfig]
 	simulations: list[SimulationConfig]
 
-	# ---- resolved absolute path properties ----------------------------------------------------------------
 
 	@property
 	def build_dir(self) -> str:
-		return os.path.join(self.base_dir, self.build.dir)
+		return os.path.abspath(os.path.join(self.base_dir, 'build'))
 
 	@property
 	def core_dir(self) -> str:
-		return os.path.join(self.base_dir, self.build.core_dir)
+		return os.path.join(self.build_dir, 'core')
 
 	@property
 	def bd_dir(self) -> str:
-		return os.path.join(self.base_dir, self.build.bd_dir)
+		return os.path.join(self.build_dir, 'bd')
 
 	@property
 	def wrapper_dir(self) -> str:
-		return os.path.join(self.base_dir, self.build.wrapper_dir)
+		return os.path.join(self.build_dir, 'wrapper')
+
+	@property
+	def synth_dir(self) -> str:
+		return os.path.join(self.build_dir, 'synth')
+
 
 	def get_ip_repos(self) -> list[str]:
 		repo_list = []

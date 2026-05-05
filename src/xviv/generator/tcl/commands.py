@@ -179,6 +179,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 
 	def create_core(self, core_name: str, nogui = True) -> typing.Self:
+		xci_file = os.path.join(self._cfg.core_dir, core_name, f"{core_name}.xci")
 		core_cfg = self._cfg.get_core(core_name)
 
 		# tcl begin
@@ -190,28 +191,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 
 		if nogui:
-			self.generate_core(core_name)
-
-		return self
-
-
-	def generate_core(self, core_name: str) -> typing.Self:
-		xci_file = os.path.join(self._cfg.core_dir, core_name, f"{core_name}.xci")
-		# sim_fileset_path = os.path.join(self._cfg.core_dir, core_name, f'{core_name}.sim.f')
-
-		# tcl begin
-
-		if self.current_project is None:
-			self._create_project(None)
-
-		if self.current_core != core_name:
-			self._read_ip(xci_file)
-
-			self.current_core = core_name
-
-		self._generate_target_get_files(xci_file, reset=False)
-
-		# self._write_sim_fileset(core_name, sim_fileset_path)
+			self._generate_xci(xci_file)
 
 		return self
 
@@ -237,34 +217,57 @@ class ConfigTclCommands(ConfigTclBuilder):
 				'}'
 			)
 
-			self.generate_core(core_name)
+			self._generate_xci(core_name)
 
 		return self
 
 
-	# def synth_core(self, core_name: str, xci_file: str, target_dir: typing.Optional[str]=None, out_of_context=True):
-	# 	if target_dir is None:
-	# 		return None
+	def _generate_xci(self, xci_file: str) -> typing.Self:
+		# if not is_stale(bd_file, bd_wrapper):
+		# 	logger.info("INFO: Output products are up to date")
+		# 	return self
+		
+		if not self.current_project:
+			sys.exit(f'ERROR: current_project: {None}')
 
-	# 	dcp_file = os.path.join(target_dir, f"{core_name}.dcp")
-	# 	stub_file = os.path.join(target_dir, f"{core_name}.v")
+		self._read_ip(xci_file)
 
-	# 	if self.current_project is None:
-	# 		self._create_project(None)
+		self._generate_target_get_files(xci_file, reset=False)
 
-	# 	if self.current_core != core_name:
-	# 		self._read_ip(xci_file)
-
-	# 		self.current_core = core_name
-
-	# 	if os.path.exists(dcp_file) or os.path.exists(stub_file):
-	# 		pass
+		return self
 
 
-	def synthesis(self, top: str, srcs: list[str], constrs: str, *,
+	def synth_xci_out_of_context(self, xci_name: str, xci_file: str, *,
+		dcp_file: str | None = None,
+		stub_file: str | None = None
+	) -> typing.Self:
+		if not os.path.exists(xci_file):
+			sys.exit(f'ERROR: xci_file does not exist: {xci_file}')
+
+		if self.current_project is None:
+			self._create_project(None)
+		
+		self._read_ip(xci_file)
+
+		self._generate_xci(xci_file)
+		
+		self.synthesis(xci_name,
+			run_synth=True,
+			synth_mode='out_of_context',
+			synth_dcp_file=dcp_file,
+			synth_stub_file=stub_file
+		)
+		
+		return self
+
+
+	def synthesis(self, top: str, *,
 		synth_incremental: bool = False,
 
+		#* synth
+		run_synth: bool = False,
 		synth_directive: str = 'default',
+		synth_mode: str = 'default',
 		synth_flatten_hierarchy: str = 'rebuilt',
 		synth_fsm_extraction: str = 'auto',
 
@@ -273,24 +276,31 @@ class ConfigTclCommands(ConfigTclBuilder):
 		synth_report_incremental_reuse_file: str | None = None,
 
 		synth_dcp_file: str | None = None,
+		synth_stub_file: str | None = None,
 		synth_functional_netlist_file: str | None = None,
 		synth_timing_netlist_file: str | None = None,
 
 
+		#+ opt
 		run_opt: bool = False,
 		opt_directive: str = 'default',
 
 
 		impl_incremental: bool = False,
 
+		#* place
+		run_place: bool = False,
 		place_directive: str = 'default',
 		place_dcp_file: str | None = None,
 
 
+		#+ phys_opt
 		run_phys_opt: bool = False,
 		phys_opt_directive: str = 'default',
 
 
+		#* route
+		run_route: bool = False,
 		route_directive: str = 'default',
 		route_dcp_file: str | None = None,
 
@@ -323,29 +333,18 @@ class ConfigTclCommands(ConfigTclBuilder):
 		if self.current_project is None:
 			self._create_project(None)
 
-		constr_fileset = 'constrs_1'
-		source_fileset = 'sources_1'
-
-		#* sources
-		for s in srcs:
-			self._add_files(s, fileset=source_fileset, scan_for_includes=True)
-
-		for c in constrs:
-			self._add_files(c, fileset=constr_fileset)
-
-		self._update_compile_order(fileset=constr_fileset)
-		self._update_compile_order(fileset=source_fileset)
-
 		#* synth_design
 		if synth_incremental:
 			_incremental('synthesis', dcp_file=synth_dcp_file)
 
-		self._synth_design(
-			top=top,
-			directive=synth_directive,
-			flatten_hierarchy=synth_flatten_hierarchy,
-			fsm_extraction=synth_fsm_extraction
-		)
+		if run_synth:
+			self._synth_design(
+				top=top,
+				mode=synth_mode,
+				directive=synth_directive,
+				flatten_hierarchy=synth_flatten_hierarchy,
+				fsm_extraction=synth_fsm_extraction
+			)
 
 		if synth_dcp_file:
 			self._write_checkpoint(synth_dcp_file, force=True)
@@ -361,7 +360,8 @@ class ConfigTclCommands(ConfigTclBuilder):
 			self._write_verilog(synth_functional_netlist_file, mode='funcsim', force=True)
 		if synth_timing_netlist_file:
 			self._write_verilog(synth_timing_netlist_file, mode='timesim', force=True, sdf_anno=True)
-
+		if synth_stub_file:
+			self._write_verilog(synth_stub_file, mode='synth_stub', force=True)
 
 		# opt_design
 		if run_opt:
@@ -372,7 +372,8 @@ class ConfigTclCommands(ConfigTclBuilder):
 			_incremental('implementation', dcp_file=route_dcp_file)
 
 		#* place_design
-		self._place_design(directive=place_directive)
+		if run_place:
+			self._place_design(directive=place_directive)
 
 		if place_dcp_file:
 			self._write_checkpoint(place_dcp_file, force=True)
@@ -384,7 +385,8 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 
 		#* route_design
-		self._route_design(directive=route_directive)
+		if run_route:
+			self._route_design(directive=route_directive)
 
 		if route_dcp_file:
 			self._write_checkpoint(route_dcp_file, force=True)

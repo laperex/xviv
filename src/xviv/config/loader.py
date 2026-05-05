@@ -72,7 +72,7 @@ def load_config(path: str) -> ProjectConfig:
 		fpga_named   = fpga_named,
 		vivado       = model._parse_vivado(raw),
 		vitis        = model._parse_vitis(raw),
-		build        = model._parse_build(raw),
+		# build        = model._parse_build(raw),
 		ips          = model._parse_ips(raw),
 		bds          = model._parse_bds(raw),
 		cores        = model._parse_cores(raw),

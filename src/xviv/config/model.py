@@ -12,13 +12,14 @@ logger = logging.getLogger(__name__)
 # Constants
 # =============================================================================
 
-DEFAULT_VIVADO_PATH    = "/opt/Xilinx/Vivado/2024.1"
-DEFAULT_VITIS_PATH     = "/opt/Xilinx/Vitis/2024.1"
-DEFAULT_BUILD_DIR      = "build"
+# DEFAULT_VIVADO_PATH    = "/opt/Xilinx/Vivado/2024.1"
+# DEFAULT_VITIS_PATH     = "/opt/Xilinx/Vitis/2024.1"
+# DEFAULT_BUILD_DIR      = "build"
 DEFAULT_BUILD_IP_REPO  = "build/ip"
-DEFAULT_BUILD_BD_DIR   = "build/bd"
-DEFAULT_BUILD_CORE_DIR = "build/core"
-DEFAULT_BUILD_WRAPPER_DIR = "build/wrapper"
+# DEFAULT_BUILD_BD_DIR   = "build/bd"
+# DEFAULT_BUILD_SYNTH_DIR   = "build/synth"
+# DEFAULT_BUILD_CORE_DIR = "build/core"
+# DEFAULT_BUILD_WRAPPER_DIR = "build/wrapper"
 
 # =============================================================================
 # Schema  -  one dataclass per TOML section
@@ -33,7 +34,7 @@ class FpgaConfig:
 
 @dataclasses.dataclass
 class VivadoConfig:
-	path:        str = DEFAULT_VIVADO_PATH
+	path:        str
 	mode:        str = "batch"
 	max_threads: int = 10
 	hw_server:   str = "localhost:3121"
@@ -41,25 +42,26 @@ class VivadoConfig:
 
 @dataclasses.dataclass
 class VitisConfig:
-	path: str = DEFAULT_VITIS_PATH
+	path: str
 
 
-@dataclasses.dataclass
-class BuildConfig:
-	dir:         str = DEFAULT_BUILD_DIR
-	bd_dir:      str = DEFAULT_BUILD_BD_DIR
-	wrapper_dir: str = DEFAULT_BUILD_WRAPPER_DIR
-	core_dir:    str = DEFAULT_BUILD_CORE_DIR
-	max_parallel_jobs: int = 4
+# @dataclasses.dataclass
+# class BuildConfig:
+# 	dir:         str = DEFAULT_BUILD_DIR
+# 	bd_dir:      str = DEFAULT_BUILD_BD_DIR
+# 	wrapper_dir: str = DEFAULT_BUILD_WRAPPER_DIR
+# 	synth_dir:   str = DEFAULT_BUILD_SYNTH_DIR
+# 	core_dir:    str = DEFAULT_BUILD_CORE_DIR
+# 	max_parallel_jobs: int = 4
 
 
 @dataclasses.dataclass
 class IpConfig:
 	name:           str
+	repo:           str
 	vendor:         str       = "user.org"
 	library:        str       = "user"
 	version:        str       = "1.0"
-	repo:           str       = DEFAULT_BUILD_IP_REPO
 	top:            str       = ""
 	rtl:            list[str] = dataclasses.field(default_factory=list)
 	hooks:          str       = ""
@@ -304,15 +306,16 @@ def _parse_vitis(raw: dict) -> VitisConfig:
 def _parse_parallel(raw: dict) -> int:
 	return raw.get('max_parallel_jobs', 4)
 
-def _parse_build(raw: dict) -> BuildConfig:
-	b = raw.get("build", {})
-	return BuildConfig(
-		max_parallel_jobs=b.get("max_parallel_jobs", 10),
-		dir=b.get("dir", DEFAULT_BUILD_DIR),
-		bd_dir=b.get("bd_dir", DEFAULT_BUILD_BD_DIR),
-		core_dir=b.get("core_dir", DEFAULT_BUILD_CORE_DIR),
-		wrapper_dir=b.get("wrapper_dir", DEFAULT_BUILD_WRAPPER_DIR),
-	)
+# def _parse_build(raw: dict) -> BuildConfig:
+# 	b = raw.get("build", {})
+# 	return BuildConfig(
+# 		max_parallel_jobs=b.get("max_parallel_jobs", 10),
+# 		dir=b.get("dir", DEFAULT_BUILD_DIR),
+# 		bd_dir=b.get("bd_dir", DEFAULT_BUILD_BD_DIR),
+# 		core_dir=b.get("core_dir", DEFAULT_BUILD_CORE_DIR),
+# 		wrapper_dir=b.get("wrapper_dir", DEFAULT_BUILD_WRAPPER_DIR),
+# 		synth_dir=b.get("synth_dir", DEFAULT_BUILD_SYNTH_DIR),
+# 	)
 
 
 def _parse_ips(raw: dict) -> list[IpConfig]:

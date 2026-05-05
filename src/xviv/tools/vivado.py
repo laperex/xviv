@@ -105,6 +105,7 @@ def run_vivado(
 	extra_args: list[str] = [],
 	label: typing.Optional[str] = None,
 	log_dir: typing.Optional[str] = None,
+	dry_run: bool = False 
 ) -> None:
 	vivado_bin = os.path.join(cfg.vivado.path, "bin", "vivado")
 	job_log = logger.getChild(label) if label else logger
@@ -122,11 +123,9 @@ def run_vivado(
 	
 	with open(config_tcl_path, 'w') as f:
 		f.write(config_tcl)
-	
-	print(config_tcl_path)
 
-	# exit(-1)	
-	# raise Exception
+	# if dry_run:
+	# 	return None
 
 	try:
 		cmd = [

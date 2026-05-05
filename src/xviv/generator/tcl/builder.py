@@ -22,6 +22,9 @@ class ConfigTclBuilder:
 		self.__root = True
 		self.__indent = 0
 
+		self.__read_bd_list: list[str] = []
+		self.__read_ip_list: list[str] = []
+
 	def __inherit(self, i: typing.Self) -> typing.Self:
 		self.current_project = i.current_project
 		self.current_bd = i.current_bd
@@ -237,7 +240,7 @@ class ConfigTclBuilder:
 			f"-upgrade {str(upgrade).lower()}"
 		])
 
-		self._push(f"ipx::edit_ip_in_project {' '.join(params)} {component_xml_file}")
+		self._push(f"ipx::edit_ip_in_project {' '.join(params)} \"{component_xml_file}\"")
 
 	
 	def _ipx__get_user_parameters(self, *,
@@ -391,13 +394,27 @@ class ConfigTclBuilder:
 
 
 	# read_bd
-	def _read_bd(self, filename):
-		self._push(f'read_bd "{filename}"')
+	def _read_bd(self, file) -> bool:
+		if file in self.__read_bd_list:
+			logger.warning(f'skipping read_bd for already loaded file: {file}')
+			return False
+
+		self.__read_bd_list.append(file)
+		self._push(f"read_bd \"{file}\"")
+		
+		return True
 
 
 	# read_ip
-	def _read_ip(self, filename):
-		self._push(f'read_ip "{filename}"')
+	def _read_ip(self, file) -> bool:
+		if file in self.__read_ip_list:
+			logger.warning(f'skipping read_ip for already loaded file: {file}')
+			return False
+
+		self.__read_ip_list.append(file)
+		self._push(f"read_ip \"{file}\"")
+		
+		return True
 
 
 	# add_files
@@ -405,18 +422,24 @@ class ConfigTclBuilder:
 		norecurse = False,
 		scan_for_includes: bool = False,
 		fileset: typing.Optional[str] = None,
-	):
+	) -> bool:
+		if file in self.__read_bd_list:
+			logger.warning(f'skipping add_files for already loaded file: {file}')
+			return False
+
 		params = filter(None, [
 			"-scan_for_includes"  if scan_for_includes else None,
 			f"-fileset {fileset}" if fileset else None,
 			"-norecurse"          if norecurse else None,
 		])
-		self._push(f"add_files {' '.join(params)} {file}")
+		self._push(f"add_files {' '.join(params)} \"{file}\"")
+
+		return True
 
 
 	# remove_files
 	def remove_files(self, file: str):
-		self._push(f"remove_files {file}")
+		self._push(f"remove_files \"{file}\"")
 
 
 	# set_param
@@ -429,21 +452,21 @@ class ConfigTclBuilder:
 		self._push(f'set_property {name} {val} {context}')
 
 	def _set_property_get_files(self, name: str, val: str, file: str):
-		self._set_property(name, val, f'[get_files "{file}"]')
+		self._set_property(name, val, f"[get_files \"{file}\"]")
 
 	def _set_property_current_design(self, name: str, val: str):
-		self._set_property(name, val, '[current_design]')
+		self._set_property(name, val, "[current_design]")
 
 	def _set_property_current_project(self, name: str, val: str):
-		self._set_property(name, val, '[current_project]')
+		self._set_property(name, val, "[current_project]")
 
 	def _set_property_current_fileset(self, name: str, val: str):
-		self._set_property(name, val, '[current_fileset]')
+		self._set_property(name, val, "[current_fileset]")
 
 
 	# open bd design
-	def _open_bd_design(self, bd_file: str):
-		self._push(f'open_bd_design "{bd_file}"')
+	def _open_bd_design(self, file: str):
+		self._push(f"open_bd_design \"{file}\"")
 
 
 	# generate_target
@@ -453,26 +476,26 @@ class ConfigTclBuilder:
 		reset=True
 	):
 		if reset:
-			self._push(f'reset_target {target} [get_files "{file}"]')
+			self._push(f"reset_target {target} [get_files \"{file}\"]")
 
 		params = filter(None, [
 			"-quiet" if quiet else None,
 		])
-		self._push(f'generate_target {target} {' '.join(params)} [get_files "{file}"]')
+		self._push(f"generate_target {target} {' '.join(params)} [get_files \"{file}\"]")
 
 
 	# write_checkpoint
-	def _write_checkpoint(self, filepath: str, *,
+	def _write_checkpoint(self, file: str, *,
 		force: bool = False
 	):
 		params = filter(None, [
 			"-force" if force else None,
 		])
-		self._push(f"write_checkpoint {' '.join(params)} {filepath}")
+		self._push(f"write_checkpoint {' '.join(params)} \"{file}\"")
 
 
 	# read_checkpoint
-	def _read_checkpoint(self, filepath: str, *,
+	def _read_checkpoint(self, file: str, *,
 		incremental: bool = False,
 		cell: typing.Optional[str] = None
 	):
@@ -480,16 +503,16 @@ class ConfigTclBuilder:
 			"-incremental"  if incremental else None,
 			f"-cell {cell}" if cell else None,
 		])
-		self._push(f"read_checkpoint {' '.join(params)} {filepath}")
+		self._push(f"read_checkpoint {' '.join(params)} \"{file}\"")
 
 
 	# open_checkpoint
-	def _open_checkpoint(self, filepath: str):
-		self._push(f"open_checkpoint {filepath}")
+	def _open_checkpoint(self, file: str):
+		self._push(f"open_checkpoint \"{file}\"")
 
 
 	# write_verilog
-	def _write_verilog(self, filepath: str, *,
+	def _write_verilog(self, file: str, *,
 		mode: str,
 		force: bool = False,
 		sdf_anno: bool = False
@@ -499,21 +522,21 @@ class ConfigTclBuilder:
 			f"-mode {mode}"                      if mode else None,
 			f"-sdf_anno {str(sdf_anno).lower()}" if sdf_anno else None,
 		])
-		self._push(f"write_verilog {' '.join(params)} {filepath}")
+		self._push(f"write_verilog {' '.join(params)} \"{file}\"")
 
 
 	# write_verilog
-	def _write_bitstream(self, filepath: str, *,
+	def _write_bitstream(self, file: str, *,
 		force: bool = False,
 	):
 		params = filter(None, [
 			"-force" if force else None,
 		])
-		self._push(f"write_bistream {' '.join(params)} {filepath}")
+		self._push(f"write_bistream {' '.join(params)} \"{file}\"")
 
 
 	# write_hw_platform
-	def _write_hw_platform(self, filepath: str, *,
+	def _write_hw_platform(self, file: str, *,
 		force: bool = False,
 		fixed: bool = False,
 		include_bit: bool = False
@@ -523,7 +546,7 @@ class ConfigTclBuilder:
 			"-fixed"       if fixed else None,
 			"-include_bit" if include_bit else None,
 		])
-		self._push(f"write_hw_platform {' '.join(params)} {filepath}")
+		self._push(f"write_hw_platform {' '.join(params)} \"{file}\"")
 
 
 	# opt_design
@@ -594,7 +617,7 @@ class ConfigTclBuilder:
 		hierarchical: bool = False
 	):
 		params = filter(None, [
-			f"-file {file}",
+			f"-file \"{file}\"",
 			f"-max_paths {max_paths}" if max_paths else None,
 			"-report_unconstrained"   if report_unconstrained else None,
 			"-warn_on_violation"      if warn_on_violation else None,

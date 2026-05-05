@@ -43,7 +43,7 @@ def get_bd_core_dict(cfg: ProjectConfig, bd_name: str) -> list[dict]:
 					resolved_components.append({
 						'vlnv': vlnv,
 						'xci_name': xci_name,
-						'xci_path': xci_path,
+						'xci_file': xci_path,
 						'inst_hier_path': inst_hier_path,
 					})
 	
