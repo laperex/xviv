@@ -13,12 +13,15 @@ def resolve_globs(patterns: list[str], base: str) -> list[str]:
 		files.extend(os.path.abspath(h) for h in hits if os.path.isfile(h))
 	return files
 
-def is_stale(srcfile: str, dstfile: str) -> bool:
+def is_stale(srcfile: str, dstfile: str, exit_on_fail=True) -> bool:
 	if not os.path.exists(dstfile):
-		return False
+		return True
 
 	if not os.path.exists(srcfile):
-		sys.exit(f"[stale_checker] ERROR: the path {srcfile} does not exist!")
+		if exit_on_fail:
+			sys.exit(f"[stale_checker] ERROR: the path {srcfile} does not exist!")
+		else:
+			return True
 
 	if os.path.getmtime(srcfile) > os.path.getmtime(dstfile):
 		logger.info(f"[stale_checker] {srcfile}: {dstfile} newer than outputs, rebuild needed")

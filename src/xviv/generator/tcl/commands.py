@@ -4,6 +4,7 @@ import sys
 import typing
 
 from xviv.generator.tcl.builder import ConfigTclBuilder
+from xviv.utils.fs import is_stale
 
 
 logger = logging.getLogger(__name__)
@@ -156,11 +157,9 @@ class ConfigTclCommands(ConfigTclBuilder):
 		if bd_file_exist_check and not os.path.exists(bd_file):
 			sys.exit(f"ERROR: BD File does not exist at path: {bd_file}")
 
-		if not force and os.path.exists(bd_wrapper) and os.path.exists(bd_file):
-			if os.path.getmtime(bd_wrapper) > os.path.getmtime(bd_file):
-				logger.info("INFO: Output products are up to date")
-
-				return self
+		if is_stale(bd_file, bd_wrapper):
+			logger.info("INFO: Output products are up to date")
+			return self
 
 		# tcl begin
 
@@ -199,7 +198,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 	def generate_core(self, core_name: str) -> typing.Self:
 		xci_file = os.path.join(self._cfg.core_dir, core_name, f"{core_name}.xci")
-		sim_fileset_path = os.path.join(self._cfg.core_dir, core_name, f'{core_name}.sim.f')
+		# sim_fileset_path = os.path.join(self._cfg.core_dir, core_name, f'{core_name}.sim.f')
 
 		# tcl begin
 
@@ -244,30 +243,38 @@ class ConfigTclCommands(ConfigTclBuilder):
 		return self
 
 
-	def synth_core(self, core_name: str, xci_file: str, target_dir: typing.Optional[str]=None, out_of_context=True):
-		if target_dir is None:
-			return None
+	# def synth_core(self, core_name: str, xci_file: str, target_dir: typing.Optional[str]=None, out_of_context=True):
+	# 	if target_dir is None:
+	# 		return None
 
-		dcp_file = os.path.join(target_dir, f"{core_name}.dcp")
-		stub_file = os.path.join(target_dir, f"{core_name}.v")
+	# 	dcp_file = os.path.join(target_dir, f"{core_name}.dcp")
+	# 	stub_file = os.path.join(target_dir, f"{core_name}.v")
 
+	# 	if self.current_project is None:
+	# 		self._create_project(None)
+
+	# 	if self.current_core != core_name:
+	# 		self._read_ip(xci_file)
+
+	# 		self.current_core = core_name
+
+	# 	if os.path.exists(dcp_file) or os.path.exists(stub_file):
+	# 		pass
+
+
+	def synthesis(self, top: str, srcs: list[str], constrs: str):
+		# tcl begin
 		if self.current_project is None:
 			self._create_project(None)
 
-		if self.current_core != core_name:
-			self._read_ip(xci_file)
+		# add sources
+		for src_file in srcs:
+			self._add_files(src_file, fileset='sources_1', scan_for_includes=True)
 
-			self.current_core = core_name
+		for constr_file in constrs:
+			self._add_files(constr_file, fileset='constrs_1')
 
-		if os.path.exists(dcp_file) or os.path.exists(stub_file):
-			pass
+		self._update_compile_order(fileset='constrs_1')
+		self._update_compile_order(fileset='sources_1')
 
-		# self._push(f"set_property TOP {xci_name} [current_fileset]")
-		# self._update_compile_order(fileset='sources_1')
-		# set_property TOP $xci_name [current_fileset]
-		# update_compile_order -fileset sources_1
-		# file mkdir $target_dir
-		# synth_design -mode out_of_context -top $xci_name -name "ooc_$xci_name"
-		# write_checkpoint -force $dcp_path
-		# write_verilog -force -mode synth_stub $stub_path
-
+		

@@ -120,80 +120,70 @@ class SynthConfig:
 	ip:               str
 	bd:               str
 	hooks:            str       = ""
-	rtl:              list[str] = dataclasses.field(default_factory=list)
-	xdc:              list[str] = dataclasses.field(default_factory=list)
-	xdc_ooc:          list[str] = dataclasses.field(default_factory=list)
-	fpga_ref:             str       = ""
-	report_synth:     bool      = False
-	report_place:     bool      = False
-	report_route:     bool      = False
-	generate_netlist: bool      = False
-	out_of_context:   bool      = False
+	fpga_ref:         str       = ""
 
-	# =========================================================================
-	# GLOBAL SETTINGS
-	# =========================================================================
-	# Caps the number of CPU threads Vivado will use (1-32)
-	max_threads: int = 8
+	srcs:             list[str] = dataclasses.field(default_factory=list)
+	constrs:          list[str] = dataclasses.field(default_factory=list)
 
-	# autoIncr.Synth.RejectBehavior when incremental synthesis criteria isn't met
-	# values: continue (switch to default full synthesis) | terminate (stop build)
-	incr_synth_fallback: str = "continue"
+	# xdc_ooc:          list[str] = dataclasses.field(default_factory=list)
 
-	# =========================================================================
-	# SYNTHESIS (synth_design)
-	# =========================================================================
-	# values: default | RuntimeOptimized | AreaOptimized_high | AreaOptimized_medium
-	#         PerformanceOptimized | AlternateRoutability | AreaMapLargeShiftRegToBRAM
-	synth_directive: str = "default"
+	# report_synth:     bool      = False
+	# report_place:     bool      = False
+	# report_route:     bool      = False
+	# generate_netlist: bool      = False
+	# out_of_context:   bool      = False
 
-	# values: rebuilt | full | none
-	flatten_hierarchy: str = "rebuilt"
+	# max_threads: int = 8
+	# incr_synth_fallback: str = "continue"
+	# synth_directive: str = "default"
 
-	# values: auto | one_hot | sequential | johnson | gray | off
-	fsm_extraction: str = "auto"
+	# # values: rebuilt | full | none
+	# flatten_hierarchy: str = "rebuilt"
 
-	# =========================================================================
-	# LOGIC OPTIMIZATION (opt_design)
-	# Note: Must be True if using an incremental implementation reference!
-	# =========================================================================
-	run_opt_design: bool = True
+	# # values: auto | one_hot | sequential | johnson | gray | off
+	# fsm_extraction: str = "auto"
 
-	# values: default | Explore | ExploreArea | ExploreSequentialArea
-	#         AddRemap | ExploreWithRemap | RuntimeOptimized | NoBramPowerOpt
-	opt_directive: str = "default"
+	# # =========================================================================
+	# # LOGIC OPTIMIZATION (opt_design)
+	# # Note: Must be True if using an incremental implementation reference!
+	# # =========================================================================
+	# run_opt_design: bool = True
 
-	# =========================================================================
-	# PLACEMENT (place_design)
-	# =========================================================================
-	# values: default | Explore | WLDrivenBlockPlacement | Quick | RuntimeOptimized
-	#         ExtraNetDelay_high | ExtraNetDelay_medium | ExtraNetDelay_low
-	#         SpreadLogic_high | SpreadLogic_medium | SpreadLogic_low
-	#         AltSpreadLogic_high | AltSpreadLogic_medium | AltSpreadLogic_low
-	place_directive: str = "default"
+	# # values: default | Explore | ExploreArea | ExploreSequentialArea
+	# #         AddRemap | ExploreWithRemap | RuntimeOptimized | NoBramPowerOpt
+	# opt_directive: str = "default"
 
-	# =========================================================================
-	# PHYSICAL OPTIMIZATION (phys_opt_design)
-	# =========================================================================
-	run_phys_opt: bool = False
+	# # =========================================================================
+	# # PLACEMENT (place_design)
+	# # =========================================================================
+	# # values: default | Explore | WLDrivenBlockPlacement | Quick | RuntimeOptimized
+	# #         ExtraNetDelay_high | ExtraNetDelay_medium | ExtraNetDelay_low
+	# #         SpreadLogic_high | SpreadLogic_medium | SpreadLogic_low
+	# #         AltSpreadLogic_high | AltSpreadLogic_medium | AltSpreadLogic_low
+	# place_directive: str = "default"
 
-	# values: default | Explore | AggressiveExplore | AlternateReplication
-	#         AggressiveFanoutOpt | AlternateFlowWithRetiming | AddRetime
-	phys_opt_directive: str = "default"
+	# # =========================================================================
+	# # PHYSICAL OPTIMIZATION (phys_opt_design)
+	# # =========================================================================
+	# run_phys_opt: bool = False
 
-	# =========================================================================
-	# ROUTING (route_design)
-	# =========================================================================
-	# values: default | Explore | MoreGlobalIterations | HigherDelayCost
-	#         AdvancedSkewModeling | NoTimingRelaxation | RuntimeOptimized | Quick
-	route_directive: str = "default"
+	# # values: default | Explore | AggressiveExplore | AlternateReplication
+	# #         AggressiveFanoutOpt | AlternateFlowWithRetiming | AddRetime
+	# phys_opt_directive: str = "default"
 
-	# =========================================================================
-	# BITSTREAM GENERATION
-	# =========================================================================
-	# 32-bit hex string to embed via JTAG (e.g., "DEADBEEF").
-	# If left empty, xviv automatically injects the git SHA.
-	usr_access: str = ""
+	# # =========================================================================
+	# # ROUTING (route_design)
+	# # =========================================================================
+	# # values: default | Explore | MoreGlobalIterations | HigherDelayCost
+	# #         AdvancedSkewModeling | NoTimingRelaxation | RuntimeOptimized | Quick
+	# route_directive: str = "default"
+
+	# # =========================================================================
+	# # BITSTREAM GENERATION
+	# # =========================================================================
+	# # 32-bit hex string to embed via JTAG (e.g., "DEADBEEF").
+	# # If left empty, xviv automatically injects the git SHA.
+	# usr_access: str = ""
 
 	def __post_init__(self) -> None:
 		if not self.hooks:
@@ -337,7 +327,7 @@ def _parse_ips(raw: dict) -> list[IpConfig]:
 			hooks=i.get("hooks", ""),
 			repo=i.get("repo", DEFAULT_BUILD_IP_REPO),
 			# xdc=i.get("xdc", []),
-			# xdc_ooc=i.get("xdc_ooc", []),
+			# # # xdc_ooc=i.get("xdc_ooc", []),
 			# fpga=i.get("fpga", ""),
 			create_wrapper=i.get("create_wrapper", False),
 		)
@@ -352,7 +342,7 @@ def _parse_bds(raw: dict) -> list[BdConfig]:
 			hooks=b.get("hooks", ""),
 			state_tcl=b.get("state_tcl", ""),
 			# xdc=b.get("xdc", []),
-			# xdc_ooc=b.get("xdc_ooc", []),
+			# # # xdc_ooc=b.get("xdc_ooc", []),
 			fpga_ref=b.get("fpga", ""),
 		)
 		for b in raw.get("bd", [])
@@ -375,15 +365,15 @@ def _parse_synths(raw: dict) -> list[SynthConfig]:
 			ip=s.get("ip", ""),
 			bd=s.get("bd", ""),
 			hooks=s.get("hooks", ""),
-			rtl=s.get("rtl", []),
-			xdc=s.get("xdc", []),
-			xdc_ooc=s.get("xdc_ooc", []),
+			srcs=s.get("rtl", []),
+			constrs=s.get("xdc", []),
+			# # xdc_ooc=s.get("xdc_ooc", []),
 			fpga_ref=s.get("fpga", ""),
-			report_synth=s.get("report_synth", False),
-			report_place=s.get("report_place", False),
-			report_route=s.get("report_route", False),
-			generate_netlist=s.get("generate_netlist", False),
-			out_of_context=s.get("out_of_context", False),
+			# report_synth=s.get("report_synth", False),
+			# report_place=s.get("report_place", False),
+			# report_route=s.get("report_route", False),
+			# generate_netlist=s.get("generate_netlist", False),
+			# out_of_context=s.get("out_of_context", False),
 		)
 		for s in raw.get("synthesis", [])
 	]
