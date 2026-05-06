@@ -27,7 +27,7 @@ def cmd_core_edit(cfg: XvivConfig, core_name: str, nogui: bool = False):
 	)
 
 	if nogui:
-		cfg.vivado.mode = 'tcl'
+		cfg.get_vivado().mode = 'tcl'
 
 	vivado.run_vivado(cfg, config_tcl=config)
 

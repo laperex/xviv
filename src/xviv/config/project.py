@@ -27,9 +27,11 @@ class XvivConfig:
 			if os.path.isdir(path):
 				self.board_repo_list.append(path)
 
+		ip_repo_list.append(self._get_ip_repo_default)
+
 		self.ip_repo_list: list[str] = []
 		for path in ip_repo_list:
-			if os.path.isdir(path):
+			if os.path.isdir(path) and path not in self.ip_repo_list:
 				self.ip_repo_list.append(path)
 
 		# lists
@@ -49,18 +51,32 @@ class XvivConfig:
 		self._vivado_cfg: VivadoConfig | None = None
 		self._vitis_cfg: VitisConfig | None = None
 
-		self._catalog: Catalog | None = None
+		self._catalog_cfg: Catalog | None = None
 
 
 	def get_catalog(self) -> Catalog:
-		if self._catalog:
-			return self._catalog
+		if self._catalog_cfg:
+			return self._catalog_cfg
 
 		#! UninitializedCoreCatalog
 		sys.exit('ERROR: Catalog is not initialized')
 
+	def get_vivado(self) -> VivadoConfig:
+		if self._vivado_cfg:
+			return self._vivado_cfg
 
-	def vivado_cfg(self,
+		#! UninitializedVivadoCfg
+		sys.exit('ERROR: VivadoConfig is not initialized')
+
+	def get_vitis(self) -> VitisConfig:
+		if self._vitis_cfg:
+			return self._vitis_cfg
+
+		#! UninitializedVitisCfg
+		sys.exit('ERROR: VitisConfig is not initialized')
+
+
+	def add_vivado_cfg(self,
 		path: str,
 		mode: str = 'batch',
 		max_threads: int = 10,
@@ -81,7 +97,7 @@ class XvivConfig:
 			hw_server=hw_server
 		)
 
-		self._catalog = Catalog(
+		self._catalog_cfg = Catalog(
 			vivado_path=path,
 			ip_repos=self.ip_repo_list
 		)
@@ -89,7 +105,7 @@ class XvivConfig:
 		return self
 
 
-	def vitis_cfg(self,
+	def add_vitis_cfg(self,
 		path: str,
 	) -> typing.Self:
 		if self._vitis_cfg is not None:
@@ -124,10 +140,11 @@ class XvivConfig:
 			vlnv = f"{vendor}:{library}:{name}:{version}"
 
 		if repo is None:
-			repo = self.__path_from_build_dir('ip')
+			repo = self._get_ip_repo_default
 
-		if os.path.exists(repo):
-			os.makedirs(repo, exist_ok=True)
+		if repo not in self.ip_repo_list:
+			if os.path.isdir(repo):
+				self.ip_repo_list.append(repo)
 
 		if top is None:
 			logger.warning(f'top unspecified for ip_cfg: {name} - defaulting to {name}')
@@ -147,17 +164,21 @@ class XvivConfig:
 
 		return self
 
+	@property
+	def _get_ip_repo_default(self) -> str:
+		return self.__path_from_build_dir('ip')
+
 	def _get_ip_cfg_optional(self, name: str) -> IpConfig | None:
 		return next((i for i in self._ip_list if i.name == name), None)
-	
+
 	def get_ip(self, name: str) -> IpConfig:
 		ip = self._get_ip_cfg_optional(name)
 
 		if ip is None:
+			#! IpCfg - IpCfgDoesNotExist
 			sys.exit(f'ERROR: IP does not exist for: {name}')
 
 		return ip
-			
 
 
 	def add_wrapper_cfg(self, *,
@@ -186,7 +207,7 @@ class XvivConfig:
 
 		if wrapper_file is None:
 			# TODO: default ip wrapper file
-			wrapper_file = self.wrapper_dir / f"{ip_cfg.top}_wrapper.v"
+			wrapper_file = os.path.join(self.wrapper_dir, f"{ip_cfg.top}_wrapper.v")
 
 		self._wrapper_list.append(
 			WrapperConfig(
@@ -205,6 +226,7 @@ class XvivConfig:
 		wrapper = self._get_wrapper_cfg_optional(name)
 
 		if wrapper is None:
+			#! wrapperCfg - wrapperCfgDoesNotExist
 			sys.exit(f'ERROR: wrapper does not exist for: {name}')
 
 		return wrapper
@@ -239,12 +261,19 @@ class XvivConfig:
 
 	@property
 	def _get_fpga_cfg_default(self) -> FpgaConfig:
+		if not self._fpga_list:
+			sys.exit('ERROR: No Fpga specified in config')
+
 		return self._fpga_list[0]
 
-	def get_fpga(self, name: str) -> FpgaConfig:
+	def get_fpga(self, name: str | None) -> FpgaConfig:
+		if name is None:
+			return self._get_fpga_cfg_default
+
 		fpga = self._get_fpga_cfg_optional(name)
 
 		if fpga is None:
+			#! FpgaCfg - FpgaCfgDoesNotExist
 			sys.exit(f'ERROR: Fpga does not exist for: {name}')
 
 		return fpga
@@ -270,14 +299,17 @@ class XvivConfig:
 			sys.exit(f'ERROR: for BD entry with name: {name} - invalid fpga: {fpga_ref}')
 
 		if save_tcl_file is None:
-			save_tcl_file = self.scripts_dir / f'{name}.tcl'
+			save_tcl_file = os.path.join(self.scripts_dir, f'{name}.tcl')
 
 		self._bd_list.append(
 			BdConfig(
 				name=name,
 				save_tcl_file=save_tcl_file,
 				vlnv_list=self._get_bd_cfg_vlnv_list(save_tcl_file),
-				fpga_ref=fpga_ref
+				fpga_ref=fpga_ref,
+
+				# TODO
+				core_list=[]
 			)
 		)
 
@@ -301,11 +333,12 @@ class XvivConfig:
 					]
 
 		return []
-	
+
 	def get_bd(self, name: str) -> BdConfig:
 		bd = self._get_bd_cfg_optional(name)
 
 		if bd is None:
+			#! BDCfg - BDCfgDoesNotExist
 			sys.exit(f'ERROR: BD does not exist for: {name}')
 
 		return bd
@@ -341,6 +374,7 @@ class XvivConfig:
 		design = self._get_design_cfg_optional(name)
 
 		if design is None:
+			#! DesignCfg - DesignCfgDoesNotExist
 			sys.exit(f'ERROR: Design does not exist for: {name}')
 
 		return design
@@ -358,7 +392,7 @@ class XvivConfig:
 			sys.exit(f'ERROR: core entry with name: {name} already exists')
 
 		if xci_file is None:
-			xci_file = self.core_dir / name / f'{name}.xci'
+			xci_file = os.path.join(self.core_dir, name, f'{name}.xci')
 
 		if fpga_ref is None:
 			fpga_ref = self._get_fpga_cfg_default.name
@@ -382,6 +416,7 @@ class XvivConfig:
 		core = self._get_core_cfg_optional(name)
 
 		if core is None:
+			#! CoreCfg - CoreCfgDoesNotExist
 			sys.exit(f'ERROR: Core does not exist for: {name}')
 
 		return core
@@ -404,10 +439,15 @@ class XvivConfig:
 			#! SynthCfg - MultipleIdSpecified
 			sys.exit(f'ERROR: multiple ids specified: {' '.join(available_ids)}')
 
+		if self._get_synth_cfg_optional(design_name=design_name, core_name=core_name, bd_name=bd_name) is not None:
+			#! SynthCfg - SynthCfgAlreadyExists
+			sys.exit(f'ERROR: SynthConfig Already Exists for id: {available_ids}')
+
 		if bd_name:
 			bd_cfg = self._get_bd_cfg_optional(bd_name)
 			if bd_cfg is None:
 				#! SynthCfg - MultipleIdSpecified
+				#! SynthCfgCfg - SynthCfgCfgDoesNotExist
 				sys.exit(f'ERROR: SynthCfg - BD does not exist for name: {bd_name}')
 
 			if fpga_ref is None:
@@ -446,7 +486,7 @@ class XvivConfig:
 	) -> SynthConfig | None:
 		return next((i for i in self._synth_list if (i.bd_name == bd_name) or (i.design_name == design_name) or (i.core_name == core_name)), None)
 
-	def get_synth(self, 
+	def get_synth(self,
 		design_name: str | None = None,
 		core_name: str | None = None,
 		bd_name: str | None = None
@@ -458,17 +498,22 @@ class XvivConfig:
 		)
 
 		if synth is None:
+			#! SynthCfg - SynthCfgDoesNotExist
 			sys.exit(f'ERROR: Synth does not exist for: [{design_name or ''}{core_name or ''}{bd_name or ''}]')
 
 		return synth
 
-
 	# helpers
+
 	def __path_from_build_dir(self, path: str):
 		return os.path.join(self.work_dir, path)
 
 	def __path_from_base_dir(self, path: str):
 		return os.path.join(self.base_dir, path)
+
+	# @property
+	# def build_dir(self):
+	# 	return self.work_dir
 
 	@property
 	def wrapper_dir(self):
@@ -477,7 +522,7 @@ class XvivConfig:
 	@property
 	def core_dir(self):
 		return self.__path_from_build_dir('core')
-	
+
 	@property
 	def bd_dir(self):
 		return self.__path_from_build_dir('bd')
@@ -485,88 +530,3 @@ class XvivConfig:
 	@property
 	def scripts_dir(self):
 		return self.__path_from_base_dir(os.path.join('scripts', 'xviv'))
-
-	# build_dir: str
-
-	# fpga_named:   dict[str, FpgaConfig]
-
-	# vivado:  VivadoConfig
-	# vitis:   VitisConfig
-
-	# ips:         list[IpConfig]
-	# bds:         list[BdConfig]
-	# cores: 		 list[CoreConfig]
-	# synths:      list[SynthConfig]
-	# platforms:   list[PlatformConfig]
-	# apps:        list[AppConfig]
-	# simulations: list[SimulationConfig]
-
-	# def set_build_dir(self, build_dir: str):
-	# 	if os.path.isdir(build_dir):
-	# 		os.makedirs(build_dir, exist_ok=True)
-
-	# 	self.build_dir = os.path.abspath(build_dir)
-
-
-	# @property
-	# def core_dir(self) -> str:
-	# 	return os.path.join(self.build_dir, 'core')
-
-	# @property
-	# def bd_dir(self) -> str:
-	# 	return os.path.join(self.build_dir, 'bd')
-
-	# @property
-	# def wrapper_dir(self) -> str:
-	# 	return os.path.join(self.build_dir, 'wrapper')
-
-	# @property
-	# def synth_dir(self) -> str:
-	# 	return os.path.join(self.build_dir, 'synth')
-
-
-	# def get_ip_repos(self) -> list[str]:
-	# 	repo_list = []
-
-	# 	for i in self.ips:
-	# 		if i.repo not in repo_list:
-	# 			repo_list.append(i.repo)
-
-	# 	return repo_list
-
-	# # ---- lookup helpers --------------------------------------------------------------------------------------------------------
-	# def get_ip(self, name: str) -> IpConfig:
-	# 	ip = next((i for i in self.ips if i.name == name), None)
-	# 	if ip is None:
-	# 		sys.exit(
-	# 			f"ERROR: IP '{name}' not found in [[ip]] entries.\n"
-	# 			f"  Available: {[i.name for i in self.ips]}"
-	# 		)
-	# 	return ip
-
-	# def get_ip_by_vlnv(self, vlnv: str) -> IpConfig:
-	# 	ip = next((i for i in self.ips if vlnv in i.vlnv), None)
-	# 	if ip is None:
-	# 		sys.exit(
-	# 			f"ERROR: IP matching vlnv: '{vlnv}' not found in [[ip]] entries.\n"
-	# 			f"  Available: {[i.name for i in self.ips]}"
-	# 		)
-	# 	return ip
-
-	# def get_bd(self, name: str) -> BdConfig:
-	# 	bd = next((b for b in self.bds if b.name == name), None)
-	# 	if bd is None:
-	# 		sys.exit(
-	# 			f"ERROR: BD '{name}' not found in [[bd]] entries.\n"
-	# 			f"  Available: {[b.name for b in self.bds]}"
-	# 		)
-	# 	return bd
-
-	# def get_core(self, name: str) -> CoreConfig:
-	# 	core = next((b for b in self.cores if b.name == name), None)
-	# 	if core is None:
-	# 		sys.exit(
-	# 			f"ERROR: Core '{name}' not found in [[core]] entries.\n"
-	# 			f"  Available: {[b.name for b in self.cores]}"
-	# 		)
-	# 	return core

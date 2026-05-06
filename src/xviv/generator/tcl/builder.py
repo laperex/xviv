@@ -57,26 +57,26 @@ class ConfigTclBuilder:
 
 
 	def _create_project(self, fpga_ref: typing.Optional[str] = None, name = "xviv_in_memory"):
-		#* resolves fpga part from fpga_ref
 		#* set board_repo and board_part
 		if self.current_project == name:
+			#! TCLCreateProject - ProjectExistsError
 			sys.exit(f"ERROR: Attempt to recreate project: {name}")
 
-		fpga = self._cfg.resolve_fpga(fpga_ref)
-		
-		self._set_param('general.maxThreads', str(self._cfg.vivado.max_threads))
+		fpga = self._cfg.get_fpga(fpga_ref)
 
-		if fpga.board_repo:
-			self._push(f'set_param board.repoPaths { _tcl_list([fpga.board_repo]) }')
+		self._set_param('general.maxThreads', str(self._cfg.get_vivado().max_threads))
 
-		self._push(f"create_project -in_memory {name}" + f" -part {fpga.part} " if fpga.part else "")
+		if self._cfg.board_repo_list:
+			self._push(f'set_param board.repoPaths { _tcl_list(self._cfg.board_repo_list) }')
+
+		self._push(f"create_project -in_memory {name}" + f" -part {fpga.fpga_part} " if fpga.fpga_part else "")
 
 		if fpga.board_part:
 			self._set_property_current_project('board_part', fpga.board_part)
 
 		# TODO: Throw Error when no board and fpga part is selected.
-
-		self._set_property_current_project('ip_repo_paths', _tcl_list(self._cfg.get_ip_repos()))
+		if self._cfg.ip_repo_list:
+			self._set_property_current_project('ip_repo_paths', _tcl_list(self._cfg.ip_repo_list))
 
 		self.current_project = name
 
@@ -93,6 +93,7 @@ class ConfigTclBuilder:
 		dir: str
 	) -> None:
 		if self.current_bd == bd_name:
+			#! TCLCreateBd - BdExistsError
 			sys.exit(f"ERROR: Attempt to recreate BD: {bd_name}")
 
 		params = filter(None, [
@@ -114,6 +115,7 @@ class ConfigTclBuilder:
 		vlnv: str
 	) -> None:
 		if self.current_core == core_name:
+			#! TCLCreateCore - CoreExistsError
 			sys.exit(f"ERROR: attempt to recreate core: {core_name}")
 
 		params = filter(None, [

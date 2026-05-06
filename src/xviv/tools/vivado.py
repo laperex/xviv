@@ -14,9 +14,9 @@ logger = logging.getLogger(__name__)
 def run_vivado_xvlog(
 	cfg: XvivConfig, target_dir: str, fileset: list[str], xsim_lib: str
 ) -> None:
-	xvlog_bin = os.path.join(cfg.vivado.path, "bin", "xvlog")
+	xvlog_bin = os.path.join(cfg.get_vivado().path, "bin", "xvlog")
 
-	extra_files = [os.path.join(cfg.vivado.path, "data/verilog/src/glbl.v")]
+	extra_files = [os.path.join(cfg.get_vivado().path, "data/verilog/src/glbl.v")]
 
 	cmd = [xvlog_bin, "-sv", "-incr", "-work", xsim_lib, *fileset, *extra_files]
 	logger.info("Running: %s", " ".join(cmd))
@@ -36,7 +36,7 @@ def run_vivado_xelab(
 	xsim_lib: str,
 	run_all=False,
 ) -> None:
-	xelab_bin = os.path.join(cfg.vivado.path, "bin", "xelab")
+	xelab_bin = os.path.join(cfg.get_vivado().path, "bin", "xelab")
 
 	cmd = [
 		xelab_bin,
@@ -70,7 +70,7 @@ def run_vivado_xsim(
 	top: str,
 	config_tcl_content: str,
 ) -> None:
-	xsim_bin = os.path.join(cfg.vivado.path, "bin", "xsim")
+	xsim_bin = os.path.join(cfg.get_vivado().path, "bin", "xsim")
 
 	try:
 		with tempfile.NamedTemporaryFile(
@@ -107,7 +107,7 @@ def run_vivado(
 	log_dir: typing.Optional[str] = None,
 	dry_run: bool = False 
 ) -> None:
-	vivado_bin = os.path.join(cfg.vivado.path, "bin", "vivado")
+	vivado_bin = os.path.join(cfg.get_vivado().path, "bin", "vivado")
 	job_log = logger.getChild(label) if label else logger
 
 	# with tempfile.NamedTemporaryFile(
@@ -119,25 +119,25 @@ def run_vivado(
 	if config_tcl is None:
 		return None
 
-	config_tcl_path = os.path.join(cfg.build_dir, "xviv_config.tcl")
+	config_tcl_path = os.path.join(cfg.work_dir, "xviv_config.tcl")
 	
 	with open(config_tcl_path, 'w') as f:
 		f.write(config_tcl)
 
-	# if dry_run:
-	# 	return None
+	if dry_run:
+		return None
 
 	try:
 		cmd = [
 			vivado_bin,
-			"-mode", cfg.vivado.mode,
+			"-mode", cfg.get_vivado().mode,
 			"-nolog", "-nojournal", "-notrace", "-quiet",
 			"-source", config_tcl_path,
 			*extra_args,
 		]
 		job_log.info("Running: %s", " ".join(cmd))
 
-		if cfg.vivado.mode == "tcl":
+		if cfg.get_vivado().mode == "tcl":
 			# interactive — connect directly to terminal, no log capture
 			result = subprocess.run(cmd)
 			if result.returncode != 0:

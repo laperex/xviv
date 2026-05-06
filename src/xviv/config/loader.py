@@ -23,72 +23,75 @@ def resolve_config(explicit: str) -> str:
 	sys.exit("ERROR: neither project.cue nor project.toml found in current directory.")
 
 def load_config(path: str) -> XvivConfig:
-	# path = os.path.abspath(path)
-	# if not os.path.isfile(path):
-	# 	sys.exit(f"ERROR: Config file not found - {path}")
-
-	# ext = os.path.splitext(path)[1].lower()
-
-	# if ext == ".toml":
-	# 	with open(path, "rb") as fh:
-	# 		raw = tomllib.load(fh)
-
-	# elif ext == ".cue":
-	# 	try:
-	# 		result = subprocess.run(
-	# 			["cue", "export", path, "--out", "json"],
-	# 			capture_output=True,
-	# 			text=True,
-	# 			check=True
-	# 		)
-	# 		raw = json.loads(result.stdout)
-	# 	except subprocess.CalledProcessError as e:
-	# 		sys.exit(f"ERROR: CUE validation failed in {path}:\n{e.stderr}")
-	# 	except FileNotFoundError:
-	# 		sys.exit("ERROR: 'cue' CLI not found. Please install it: https://cuelang.org/docs/install/")
-	# 	except json.JSONDecodeError as e:
-	# 		sys.exit(f"ERROR: Failed to parse CUE JSON output:\n{e}")
-
-	# else:
-	# 	sys.exit(f"ERROR: Unsupported configuration format '{ext}'. Must be .toml or .cue")
-
-	# base_dir = os.path.dirname(path)
-
-	# fpga_default_ref, fpga_named = model._parse_fpga(raw)
-
-	# if fpga_default_ref is None and not fpga_named:
-	# 	sys.exit(
-	# 		"ERROR: project.toml must define at least one FPGA target:\n"
-	# 		"  [fpga] default = '...'        (default target)\n"
-	# 		"  [fpga.<name>] part = '...' (named target, select with  fpga = '<name>')"
-	# 	)
-	
-	# cfg = ProjectConfig(
-	# 	base_dir     = base_dir,
-	# 	fpga_default_ref = fpga_default_ref,
-	# 	fpga_named   = fpga_named,
-	# 	vivado       = model._parse_vivado(raw),
-	# 	vitis        = model._parse_vitis(raw),
-	# 	# build        = model._parse_build(raw),
-	# 	ips          = model._parse_ips(raw),
-	# 	bds          = model._parse_bds(raw),
-	# 	cores        = model._parse_cores(raw),
-	# 	synths       = model._parse_synths(raw),
-	# 	simulations  = model._parse_simulations(raw),
-	# 	platforms    = model._parse_platforms(raw),
-	# 	apps         = model._parse_apps(raw),
-	# )
-
-	cfg = (
+	return (
 		XvivConfig(path, 'build', [
-			"/home/laperex/Programming/Vivado/vivado-boards/new/board_files"
+			'/home/laperex/Programming/Vivado/vivado-boards/new/board_files'
 		])
-		.vivado_cfg(
+		.add_vivado_cfg(
 			path=find_vivado_dir_path()
 		)
+
+		.add_fpga_cfg(
+			name='pynq',
+			fpga_part = "xc7z020clg400-1",
+			board_part = "tul.com.tw:pynq-z2:part0:1.0"
+		)
+		.add_fpga_cfg(
+			name = 'custom',
+			fpga_part = "xc7a200tfbg484-1"
+		)
+		
 		.add_ip_cfg(
-			name='ip_inrange_stream',
+			name = 'ip_inrange',
+			vendor = 'laperex.org',
+			library = 'custom_axi_ip',
+			version = '1.0',
+
+			sources = [
+				'srcs/rtl/axi_types.sv',
+				'srcs/rtl/axi_lite_slave.sv',
+
+				'srcs/rtl/cv_types.sv',
+				'srcs/rtl/cv_inrange.sv',
+
+				'srcs/rtl/ip_inrange.sv'
+			]
+		)
+		.add_ip_cfg(
+			name = 'ip_rgb_to_hsv',
+			vendor = 'laperex.org',
+			library = 'custom_axi_ip',
+			version = '1.0',
+
+			sources = [
+				'srcs/rtl/axi_types.sv',
+				'srcs/rtl/axi_lite_slave.sv',
+
+				'srcs/rtl/cv_types.sv',
+				'srcs/rtl/cv_rgb_to_hsv.sv',
+
+				'srcs/rtl/ip_rgb_to_hsv.sv'
+			]
+		)
+		
+		.add_core_cfg(
+			name = 'clk_wiz',
+			vlnv = 'clk_wiz:6.0'
+		)
+		.add_core_cfg(
+			name = 'ip_inrange',
+			vlnv = 'ip_inrange:1.0'
+		)
+		
+		.add_bd_cfg(
+			name = 'bd_image_processing'
+		)
+		.add_bd_cfg(
+			name = 'bd_blaze_test',
+			fpga_ref = 'custom'
+		)
+
+		.add_synth_cfg(
+			bd_name = 'bd_blaze_test'
 		)
 	)
-
-	return cfg

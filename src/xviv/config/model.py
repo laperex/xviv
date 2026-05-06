@@ -9,9 +9,16 @@ class VivadoConfig:
 	max_threads: int
 	hw_server:   str
 
+	# vivado_bin: str | None
+	# xvlog_bin: str | None
+	# xelab_bin: str | None
+	# xsim_bin: str | None
+
 @dataclasses.dataclass
 class VitisConfig:
 	path: str
+
+	# xsct_bin: str | None
 
 @dataclasses.dataclass
 class IpConfig:
@@ -63,6 +70,7 @@ class BdConfig:
 	save_tcl_file: str
 	vlnv_list:     list[str]
 	fpga_ref:      str
+	core_list:     list[BdCoreConfig]
 
 
 @dataclasses.dataclass
