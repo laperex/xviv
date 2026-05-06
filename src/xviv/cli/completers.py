@@ -21,7 +21,7 @@ import shutil
 
 from xviv.config.catalog import Catalog, get_catalog
 from xviv.config.loader import resolve_config_completer, load_config
-from xviv.utils.tools import find_vivado_dir_path
+# from xviv.utils.tools import find_vivado_dir_path
 
 
 # ---------------------------------------------------------------------------
@@ -74,18 +74,6 @@ def core_instance_completer(prefix: str, parsed_args, **kwargs) -> dict[str, str
 	def _term_width() -> int:
 		return shutil.get_terminal_size().columns * 2
 
-	def _build_catalog(prefix, parsed_args) -> Catalog:
-		vivado_path = find_vivado_dir_path()
-		ip_repos: list[str] = []
-		
-		try:
-			cfg = load_config(os.path.abspath(resolve_config_completer(prefix, parsed_args)))
-			
-			ip_repos = cfg.get_ip_repos()
-		except Exception:
-			pass
-		return get_catalog(vivado_path, ip_repos)
-
 	def _fmt_instance_desc(vlnv: str, entry) -> str:
 		parts = [vlnv, entry.display_name]
 		flags = []
@@ -111,7 +99,7 @@ def core_instance_completer(prefix: str, parsed_args, **kwargs) -> dict[str, str
 		tokens = comp_line[:comp_point].split()
 		real_prefix = tokens[-1] if tokens else prefix
 
-		catalog = _build_catalog(prefix, parsed_args)
+		catalog = load_config(resolve_config_completer(prefix, parsed_args)).get_catalog()
 
 		completions: dict[str, str] = {}
 

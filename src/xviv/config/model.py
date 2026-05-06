@@ -1,23 +1,13 @@
 import dataclasses
-import logging
-import os
-import re
 import shutil
-
-from xviv.utils.tools import find_vitis_dir_path, find_vivado_dir_path
-
-logger = logging.getLogger(__name__)
-
-
-DEFAULT_BUILD_IP_REPO  = "build/ip"
 
 
 @dataclasses.dataclass
 class VivadoConfig:
 	path:        str
-	mode:        str = "batch"
-	max_threads: int = 10
-	hw_server:   str = "localhost:3121"
+	mode:        str
+	max_threads: int
+	hw_server:   str
 
 @dataclasses.dataclass
 class VitisConfig:
@@ -57,12 +47,10 @@ class DesignConfig:
 
 @dataclasses.dataclass
 class CoreConfig:
-	name:      str
-	vlnv:      str
-	xci_file:  str
-	# dcp_file:  str
-	# stub_file: str
-	fpga_ref:  str
+	name:     str
+	vlnv:     str
+	xci_file: str
+	fpga_ref: str
 
 @dataclasses.dataclass
 class BdCoreConfig(CoreConfig):

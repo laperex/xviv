@@ -8,6 +8,7 @@ import tomllib
 
 from xviv.config import model
 from xviv.config.project import XvivConfig
+from xviv.utils.tools import find_vivado_dir_path
 
 
 def resolve_config_completer(prefix, parsed_args, **kwargs) -> str:
@@ -82,6 +83,9 @@ def load_config(path: str) -> XvivConfig:
 		XvivConfig(path, 'build', [
 			"/home/laperex/Programming/Vivado/vivado-boards/new/board_files"
 		])
+		.vivado_cfg(
+			path=find_vivado_dir_path()
+		)
 		.add_ip_cfg(
 			name='ip_inrange_stream',
 		)

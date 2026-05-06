@@ -6,7 +6,7 @@ import os
 import re
 import sys
 import typing
-from xviv.config.catalog import get_catalog
+from xviv.config.catalog import Catalog, get_catalog
 from xviv.config.model import AppConfig, BdConfig, CoreConfig, DesignConfig, FpgaConfig, IpConfig, PlatformConfig, SimulationConfig, SynthConfig, VitisConfig, VivadoConfig, WrapperConfig
 from xviv.utils.fs import resolve_globs
 
@@ -16,10 +16,9 @@ logger = logging.getLogger(__name__)
 # ProjectConfig  -  root object; all callers work with this
 # =====================================
 class XvivConfig:
-	def __init__(self, base_dir: str, work_dir: str, board_repo_list: list[str] = [], ip_repo_list: list[str] = []):
-		self.base_dir = os.path.abspath(base_dir)
+	def __init__(self, config_file_path: str, work_dir: str, board_repo_list: list[str] = [], ip_repo_list: list[str] = []):
+		self.base_dir = os.path.abspath(os.path.dirname(config_file_path))
 		self.work_dir = os.path.join(self.base_dir, work_dir)
-
 
 		os.makedirs(self.work_dir, exist_ok=True)
 
@@ -47,6 +46,62 @@ class XvivConfig:
 
 		self._synth_list: list[SynthConfig] = []
 
+		self._vivado_cfg: VivadoConfig | None = None
+		self._vitis_cfg: VitisConfig | None = None
+
+		self._catalog: Catalog | None = None
+
+
+	def get_catalog(self) -> Catalog:
+		if self._catalog:
+			return self._catalog
+
+		#! UninitializedCoreCatalog
+		sys.exit('ERROR: Catalog is not initialized')
+
+
+	def vivado_cfg(self,
+		path: str,
+		mode: str = 'batch',
+		max_threads: int = 10,
+		hw_server: str = 'localhost:3121'
+	) -> typing.Self:
+		if self._vivado_cfg is not None:
+			#! VivadoCfg - VivadoCfgAlreadySpecified
+			sys.exit('ERROR: Vivado Config Already Specified')
+
+		if not os.path.exists(path):
+			#! VivadoCfg - InvalidPath
+			sys.exit(f'ERROR: Invadlid Vivado Path: {path}')
+
+		self._vivado_cfg = VivadoConfig(
+			path=path,
+			mode=mode,
+			max_threads=max_threads,
+			hw_server=hw_server
+		)
+
+		self._catalog = Catalog(
+			vivado_path=path,
+			ip_repos=self.ip_repo_list
+		)
+
+		return self
+
+
+	def vitis_cfg(self,
+		path: str,
+	) -> typing.Self:
+		if self._vitis_cfg is not None:
+			#! VitisCfg - VitisCfgAlreadySpecified
+			sys.exit('ERROR: Vitis Config Already Specified')
+
+		if not os.path.exists(path):
+			#! VitisCfg - InvalidPath
+			sys.exit(f'ERROR: Invadlid Vitis Path: {path}')
+
+		return self
+
 
 	def add_ip_cfg(self, name: str, *,
 		vendor: str = 'xviv.org',
@@ -69,7 +124,7 @@ class XvivConfig:
 			vlnv = f"{vendor}:{library}:{name}:{version}"
 
 		if repo is None:
-			repo = self._path_from_build_dir('ip')
+			repo = self.__path_from_build_dir('ip')
 
 		if os.path.exists(repo):
 			os.makedirs(repo, exist_ok=True)
@@ -92,8 +147,17 @@ class XvivConfig:
 
 		return self
 
-	def _get_ip_cfg_optional(self, name) -> IpConfig | None:
+	def _get_ip_cfg_optional(self, name: str) -> IpConfig | None:
 		return next((i for i in self._ip_list if i.name == name), None)
+	
+	def get_ip(self, name: str) -> IpConfig:
+		ip = self._get_ip_cfg_optional(name)
+
+		if ip is None:
+			sys.exit(f'ERROR: IP does not exist for: {name}')
+
+		return ip
+			
 
 
 	def add_wrapper_cfg(self, *,
@@ -134,8 +198,16 @@ class XvivConfig:
 
 		return self
 
-	def _get_wrapper_cfg_optional(self, name) -> WrapperConfig | None:
+	def _get_wrapper_cfg_optional(self, name: str) -> WrapperConfig | None:
 		return next((i for i in self._wrapper_list if i.ip_name == name), None)
+
+	def get_wrapper(self, name: str) -> WrapperConfig:
+		wrapper = self._get_wrapper_cfg_optional(name)
+
+		if wrapper is None:
+			sys.exit(f'ERROR: wrapper does not exist for: {name}')
+
+		return wrapper
 
 
 	def add_fpga_cfg(self, name: str, *,
@@ -162,12 +234,20 @@ class XvivConfig:
 
 		return self
 
-	def _get_fpga_cfg_optional(self, name) -> FpgaConfig | None:
+	def _get_fpga_cfg_optional(self, name: str) -> FpgaConfig | None:
 		return next((i for i in self._fpga_list if i.name == name), None)
 
 	@property
 	def _get_fpga_cfg_default(self) -> FpgaConfig:
 		return self._fpga_list[0]
+
+	def get_fpga(self, name: str) -> FpgaConfig:
+		fpga = self._get_fpga_cfg_optional(name)
+
+		if fpga is None:
+			sys.exit(f'ERROR: Fpga does not exist for: {name}')
+
+		return fpga
 
 
 	def add_bd_cfg(self, name: str, *,
@@ -203,7 +283,7 @@ class XvivConfig:
 
 		return self
 
-	def _get_bd_cfg_optional(self, name) -> BdConfig | None:
+	def _get_bd_cfg_optional(self, name: str) -> BdConfig | None:
 		return next((i for i in self._bd_list if i.name == name), None)
 
 	def _get_bd_cfg_vlnv_list(self, file: str) -> list[str]:
@@ -221,13 +301,22 @@ class XvivConfig:
 					]
 
 		return []
+	
+	def get_bd(self, name: str) -> BdConfig:
+		bd = self._get_bd_cfg_optional(name)
+
+		if bd is None:
+			sys.exit(f'ERROR: BD does not exist for: {name}')
+
+		return bd
+
 
 	def add_design_cfg(self, name: str, *,
 		sources: list[str],
 		top: str | None = None,
 	) -> typing.Self:
 		# TODO: throw error for invalid name ''
-		
+
 		if self._get_design_cfg_optional(name) is not None:
 			#! DesignCfg - DesignCfgAlreadyExists
 			sys.exit(f'ERROR: design entry with name: {name} already exists')
@@ -245,27 +334,32 @@ class XvivConfig:
 
 		return self
 
-	def _get_design_cfg_optional(self, name) -> DesignConfig | None:
+	def _get_design_cfg_optional(self, name: str) -> DesignConfig | None:
 		return next((i for i in self._design_list if i.name == name), None)
+
+	def get_design(self, name: str) -> DesignConfig:
+		design = self._get_design_cfg_optional(name)
+
+		if design is None:
+			sys.exit(f'ERROR: Design does not exist for: {name}')
+
+		return design
 
 
 	def add_core_cfg(self, name: str, *,
 		vlnv: str,
 		xci_file: str | None = None,
-		# dcp_file: str | None = None,
-		# stub_file: str | None = None,
 		fpga_ref: str | None = None,
 	) -> typing.Self:
 		# TODO: throw error for invalid name ''
-		
+
 		if self._get_core_cfg_optional(name) is not None:
 			#! CoreCfg - CoreCfgAlreadyExists
 			sys.exit(f'ERROR: core entry with name: {name} already exists')
 
 		if xci_file is None:
 			xci_file = self.core_dir / name / f'{name}.xci'
-		
-		
+
 		if fpga_ref is None:
 			fpga_ref = self._get_fpga_cfg_default.name
 			logger.warning(f'for Core entry with name: {name} - fpga is unspecified - using default: {fpga_ref}')
@@ -281,8 +375,16 @@ class XvivConfig:
 
 		return self
 
-	def _get_core_cfg_optional(self, name) -> CoreConfig | None:
+	def _get_core_cfg_optional(self, name: str) -> CoreConfig | None:
 		return next((i for i in self._core_list if i.name == name), None)
+
+	def get_core(self, name: str) -> CoreConfig:
+		core = self._get_core_cfg_optional(name)
+
+		if core is None:
+			sys.exit(f'ERROR: Core does not exist for: {name}')
+
+		return core
 
 
 	def add_synth_cfg(self, *,
@@ -337,25 +439,52 @@ class XvivConfig:
 
 		return self
 
+	def _get_synth_cfg_optional(self,
+		design_name: str | None = None,
+		core_name: str | None = None,
+		bd_name: str | None = None
+	) -> SynthConfig | None:
+		return next((i for i in self._synth_list if (i.bd_name == bd_name) or (i.design_name == design_name) or (i.core_name == core_name)), None)
+
+	def get_synth(self, 
+		design_name: str | None = None,
+		core_name: str | None = None,
+		bd_name: str | None = None
+	) -> SynthConfig:
+		synth = self._get_synth_cfg_optional(
+			design_name=design_name,
+			core_name=core_name,
+			bd_name=bd_name,
+		)
+
+		if synth is None:
+			sys.exit(f'ERROR: Synth does not exist for: [{design_name or ''}{core_name or ''}{bd_name or ''}]')
+
+		return synth
+
 
 	# helpers
-	def _path_from_build_dir(self, path: str):
+	def __path_from_build_dir(self, path: str):
 		return os.path.join(self.work_dir, path)
 
-	def _path_from_base_dir(self, path: str):
+	def __path_from_base_dir(self, path: str):
 		return os.path.join(self.base_dir, path)
 
 	@property
 	def wrapper_dir(self):
-		return self._path_from_build_dir('wrapper')
-	
+		return self.__path_from_build_dir('wrapper')
+
 	@property
 	def core_dir(self):
-		return self._path_from_build_dir('core')
+		return self.__path_from_build_dir('core')
+	
+	@property
+	def bd_dir(self):
+		return self.__path_from_build_dir('bd')
 
 	@property
 	def scripts_dir(self):
-		return self._path_from_base_dir(os.path.join('scripts', 'xviv'))
+		return self.__path_from_base_dir(os.path.join('scripts', 'xviv'))
 
 	# build_dir: str
 

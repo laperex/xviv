@@ -98,10 +98,10 @@ class ConfigTclCommands(ConfigTclBuilder):
 		self._create_bd_design(bd_name, dir=self._cfg.bd_dir)
 
 		# TODO: add a new flag --import=true flag to make this if explicit
-		if os.path.exists(bd_cfg.state_tcl):
+		if os.path.exists(bd_cfg.save_tcl_file):
 			self._push('set parentCell ""')
 
-			self._source(bd_cfg.state_tcl)
+			self._source(bd_cfg.save_tcl_file)
 			self._bd_refresh_addresses()
 			self._validate_bd_design()
 			self._save_bd_design()
@@ -109,7 +109,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 			if generate:
 				self.generate_bd(bd_name, bd_file_exist_check=False, force=True)
 		else:
-			self._override_save_bd_design(bd_name, bd_cfg.state_tcl)
+			self._override_save_bd_design(bd_name, bd_cfg.save_tcl_file)
 
 			self._start_gui()
 
@@ -135,11 +135,11 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 			self.current_bd = bd_name
 
-		# if not os.path.exists(bd_cfg.state_tcl):
-		# 	self._bd_save_tcl(bd_name, bd_cfg.state_tcl)
-		self._override_save_bd_design(bd_name, bd_cfg.state_tcl)
+		# if not os.path.exists(bd_cfg.save_tcl_file):
+		# 	self._bd_save_tcl(bd_name, bd_cfg.save_tcl_file)
+		self._override_save_bd_design(bd_name, bd_cfg.save_tcl_file)
 
-		self._call_bd_save_tcl(bd_name, bd_cfg.state_tcl)
+		self._call_bd_save_tcl(bd_name, bd_cfg.save_tcl_file)
 
 		if not nogui:
 			self._start_gui()
@@ -179,7 +179,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 
 	def create_core(self, core_name: str, nogui = True) -> typing.Self:
-		xci_file = os.path.join(self._cfg.core_dir, core_name, f"{core_name}.xci")
+		# xci_file = os.path.join(self._cfg.core_dir, core_name, f"{core_name}.xci")
 		core_cfg = self._cfg.get_core(core_name)
 
 		# tcl begin
@@ -187,11 +187,11 @@ class ConfigTclCommands(ConfigTclBuilder):
 		if self.current_project is None:
 			self._create_project(None)
 
-		self._create_core(core_name, dir=self._cfg.core_dir, vlnv=self._cfg.get_catalog().lookup(core_cfg.vlnv).vlnv)
+		self._create_core(core_name, dir=self._cfg.core_dir, vlnv=core_cfg.vlnv)
 
 
 		if nogui:
-			self._generate_xci(xci_file)
+			self._generate_xci(core_cfg.xci_file)
 
 		return self
 

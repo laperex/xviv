@@ -11,7 +11,7 @@ from xviv.tools.vivado import run_vivado
 @pytest.fixture
 def cfg(tmp_path):
     return XvivConfig(
-        base_dir=str(tmp_path),
+        config_file_path=str(tmp_path),
         fpga_default_ref="dev",
         fpga_named={"dev": FpgaConfig(fpga_part="xc7z020clg400-1")},
         vivado=VivadoConfig(path="/opt/vivado", mode="batch"),

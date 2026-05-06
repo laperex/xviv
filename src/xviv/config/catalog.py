@@ -83,24 +83,20 @@ class Catalog:
 	# Filtered views
 	# ------------------------------------------------------------------
 
-	def user_visible(self) -> list[CatalogCoreEntry]:
-		return [e for e in self._cores.values() if not e.hidden]
+	# def user_visible(self) -> list[CatalogCoreEntry]:
+	# 	return [e for e in self._cores.values() if not e.hidden]
 
-	def search(
-		self,
-		prefix: str,
-		*,
+	def search(self, prefix: str, *,
 		include_hidden: bool = False,
 	) -> list[CatalogCoreEntry]:
 		needle = prefix.lower()
 		return [
 			e for e in self._cores.values()
-			if (include_hidden or not e.hidden)
-			and (
-				needle in e.vlnv.lower()
-				or needle in e.display_name.lower()
-				or needle in e.description.lower()
-			)
+				if (include_hidden or not e.hidden) and (
+					needle in e.vlnv.lower()
+					or needle in e.display_name.lower()
+					or needle in e.description.lower()
+				)
 		]
 
 	def items(self) -> Iterator[tuple[str, CatalogCoreEntry]]:
