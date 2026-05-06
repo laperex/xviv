@@ -22,12 +22,13 @@ class VitisConfig:
 
 @dataclasses.dataclass
 class IpConfig:
-	name:    str
-	repo:    str
-	top:     str
 	vendor:  str
 	library: str
+	name:    str
 	version: str
+	vlnv:    str
+	repo:    str
+	top:     str
 	sources: list[str]
 
 @dataclasses.dataclass

@@ -147,17 +147,18 @@ class XvivConfig:
 				self.ip_repo_list.append(repo)
 
 		if top is None:
-			logger.warning(f'top unspecified for ip_cfg: {name} - defaulting to {name}')
+			logger.warning(f'Top unspecified for ip_cfg: {name} - defaulting to {name}')
 			top = name
 
 		self._ip_list.append(
 			IpConfig(
-				name=name,
-				repo=repo,
-				top=top,
 				vendor=vendor,
 				library=library,
+				name=name,
 				version=version,
+				vlnv=vlnv,
+				repo=repo,
+				top=top,
 				sources=sources
 			)
 		)
@@ -292,7 +293,7 @@ class XvivConfig:
 
 		if fpga_ref is None:
 			fpga_ref = self._get_fpga_cfg_default.name
-			logger.warning(f'for BD entry with name: {name} - fpga is unspecified - using default: {fpga_ref}')
+			logger.warning(f'For BD entry with name: {name} - fpga is unspecified - using default: {fpga_ref}')
 
 		if self._get_fpga_cfg_optional(fpga_ref) is None:
 			#! BdCfg - BdCfgAlreadyExists
@@ -396,7 +397,12 @@ class XvivConfig:
 
 		if fpga_ref is None:
 			fpga_ref = self._get_fpga_cfg_default.name
-			logger.warning(f'for Core entry with name: {name} - fpga is unspecified - using default: {fpga_ref}')
+			logger.warning(f'For Core entry with name: {name} - fpga is unspecified - using default: {fpga_ref}')
+
+		prev_vlnv = vlnv
+		vlnv = self._resolve_vlnv(vlnv)
+		if prev_vlnv != vlnv:
+			logger.warning(f'For Core entry with name: {name} - vlnv resolved to: {vlnv}')
 
 		self._core_list.append(
 			CoreConfig(
@@ -530,3 +536,15 @@ class XvivConfig:
 	@property
 	def scripts_dir(self):
 		return self.__path_from_base_dir(os.path.join('scripts', 'xviv'))
+
+	def _resolve_vlnv(self, vlnv: str) -> str:
+		for i in self._ip_list:
+			if vlnv in i.vlnv:
+				return i.vlnv
+		
+		entry = self.get_catalog().lookup_optional(vlnv)
+		if entry is not None:
+			return entry.vlnv
+		
+		#! ResolveVLNVFailure
+		sys.exit(f'ERROR: unable to resolve VLNV from {vlnv}')

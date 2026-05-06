@@ -52,15 +52,15 @@ class Catalog:
 	def get(self, vlnv: str) -> CatalogCoreEntry | None:
 		return self._cores.get(vlnv)
 
-	def lookup(self, id: str) -> CatalogCoreEntry:
-		entry = self.lookup_none(id)
+	# def lookup(self, id: str) -> CatalogCoreEntry:
+	# 	entry = self.lookup_none(id)
 
-		if entry:
-			return entry
+	# 	if entry:
+	# 		return entry
 
-		sys.exit(f"ERROR: Unable to resolve core: {id!r}")
+	# 	sys.exit(f"ERROR: Unable to resolve core: {id!r}")
 
-	def lookup_none(self, id: str) -> typing.Optional[CatalogCoreEntry]:
+	def lookup_optional(self, id: str) -> typing.Optional[CatalogCoreEntry]:
 		entry = self._cores.get(id)
 		if entry is not None:
 			return entry

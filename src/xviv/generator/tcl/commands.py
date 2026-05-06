@@ -197,7 +197,8 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 
 	def edit_core(self, core_name: str, nogui=False) -> typing.Self:
-		xci_file = os.path.join(self._cfg.core_dir, core_name, f"{core_name}.xci")
+		core_cfg = self._cfg.get_core(core_name)
+		# xci_file = os.path.join(self._cfg.core_dir, core_name, f"{core_name}.xci")
 
 		# tcl begin
 
@@ -205,7 +206,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 			self._create_project(None)
 
 		if self.current_core != core_name:
-			self._read_ip(xci_file)
+			self._read_ip(core_cfg.xci_file)
 
 			self.current_core = core_name
 
@@ -217,7 +218,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 				'}'
 			)
 
-			self._generate_xci(core_name)
+			self._generate_xci(core_cfg.xci_file)
 
 		return self
 
