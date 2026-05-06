@@ -6,7 +6,7 @@ import subprocess
 import sys
 import typing
 
-from xviv.config.project import ProjectConfig
+from xviv.config.project import XvivConfig
 # from xviv.tools.util import find_xsct_script
 from xviv.utils.fs import resolve_globs
 
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 # -----------------------------------------------------------------------------
 # create --platform <platform_name>
 # -----------------------------------------------------------------------------
-def cmd_platform_create(cfg: ProjectConfig, platform_name: str):
+def cmd_platform_create(cfg: XvivConfig, platform_name: str):
 	plat = cfg.get_platform(platform_name)
 
 	xsa, _ = cfg.get_platform_paths(platform_name)
@@ -41,7 +41,7 @@ def cmd_platform_create(cfg: ProjectConfig, platform_name: str):
 # create --app <app_name> [--platform <platform_name>] [--template <template>]
 # -----------------------------------------------------------------------------
 def cmd_app_create(
-	cfg: ProjectConfig,
+	cfg: XvivConfig,
 	app_name: str,
 	platform_name: typing.Optional[str],
 	template_name: typing.Optional[str],
@@ -86,7 +86,7 @@ def cmd_app_create(
 # -----------------------------------------------------------------------------
 # build --platform <platform_name>
 # -----------------------------------------------------------------------------
-def cmd_platform_build(cfg: ProjectConfig, platform_name: str):
+def cmd_platform_build(cfg: XvivConfig, platform_name: str):
 	bsp = cfg.get_platform_dir(platform_name)
 
 	if not os.path.isdir(bsp):
@@ -108,7 +108,7 @@ def cmd_platform_build(cfg: ProjectConfig, platform_name: str):
 # -----------------------------------------------------------------------------
 # build --app <app_name> [--info]
 # -----------------------------------------------------------------------------
-def cmd_app_build(cfg: ProjectConfig, app_name: str, info: typing.Optional[bool]):
+def cmd_app_build(cfg: XvivConfig, app_name: str, info: typing.Optional[bool]):
 	app      = cfg.get_app(app_name)
 	plat     = cfg.get_platform(app.platform)
 
@@ -151,7 +151,7 @@ def cmd_app_build(cfg: ProjectConfig, app_name: str, info: typing.Optional[bool]
 # program [--app | --platform | --elf | --bitstream]
 # -----------------------------------------------------------------------------
 def cmd_program(
-	cfg: ProjectConfig,
+	cfg: XvivConfig,
 	app_name:      typing.Optional[str],
 	platform_name: typing.Optional[str],
 	elf:           typing.Optional[str],
@@ -196,7 +196,7 @@ def cmd_program(
 # -----------------------------------------------------------------------------
 # processor --reset | --status
 # -----------------------------------------------------------------------------
-def cmd_processor(cfg: ProjectConfig, reset: typing.Optional[bool], status: typing.Optional[bool]):
+def cmd_processor(cfg: XvivConfig, reset: typing.Optional[bool], status: typing.Optional[bool]):
 	server = cfg.vivado.hw_server
 
 	if reset:
@@ -212,7 +212,7 @@ def cmd_processor(cfg: ProjectConfig, reset: typing.Optional[bool], status: typi
 # ---------------------------------------------------------------------------
 
 
-def _find_elf(cfg: ProjectConfig, app_name: str) -> str:
+def _find_elf(cfg: XvivConfig, app_name: str) -> str:
     app_out_dir = cfg.get_app_dir(app_name)
 
     candidates = [
@@ -232,7 +232,7 @@ def _find_elf(cfg: ProjectConfig, app_name: str) -> str:
     return hits[0]
 
 
-def _mb_tool(cfg: ProjectConfig, tool: str) -> str:
+def _mb_tool(cfg: XvivConfig, tool: str) -> str:
     return os.path.join(
         cfg.vivado.path, "gnu", "microblaze", "lin", "bin",
         f"microblaze-xilinx-elf-{tool}",

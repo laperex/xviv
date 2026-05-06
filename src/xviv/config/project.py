@@ -13,222 +13,185 @@ logger = logging.getLogger(__name__)
 
 # =============================================================================
 # ProjectConfig  -  root object; all callers work with this
-# =============================================================================
-@dataclasses.dataclass
-class ProjectConfig:
-	base_dir: str
+# =====================================
+class XvivConfig:
+	def __init__(self, work_dir: str, board_repo_list: list[str] = []):
+		self.work_dir = os.path.abspath(work_dir)
 
-	fpga_default_ref: str
-	fpga_named:   dict[str, FpgaConfig]
+		self.board_repo_list: list[str] = []
+		
+		os.makedirs(self.work_dir, exist_ok=True)
+		
+		for path in board_repo_list:
+			if os.path.isdir(path):
+				self.board_repo_list.append(path)
 
-	vivado:  VivadoConfig
-	vitis:   VitisConfig
-
-	ips:         list[IpConfig]
-	bds:         list[BdConfig]
-	synths:      list[SynthConfig]
-	platforms:   list[PlatformConfig]
-	apps:        list[AppConfig]
-	cores: 		 list[CoreConfig]
-	simulations: list[SimulationConfig]
+		# lists
+		self._ip_list: list[IpConfig] = []
 
 
-	@property
-	def build_dir(self) -> str:
-		return os.path.abspath(os.path.join(self.base_dir, 'build'))
+	def add_ip_cfg(self, name: str, *,
+		vendor: str = 'xviv.org',
+		library: str = 'xviv',
+		version: str = '1.0',
 
-	@property
-	def core_dir(self) -> str:
-		return os.path.join(self.build_dir, 'core')
+		top: str | None = None, 
+		sources: list[str] = [],
 
-	@property
-	def bd_dir(self) -> str:
-		return os.path.join(self.build_dir, 'bd')
+		vlnv: str | None = None,
+		repo: str | None = None,
+	) -> typing.Self:
+		if vlnv is None:
+			vlnv = f"{vendor}:{library}:{name}:{version}"
 
-	@property
-	def wrapper_dir(self) -> str:
-		return os.path.join(self.build_dir, 'wrapper')
+		if repo is None:
+			repo = self._path_from_build_dir('ip')
 
-	@property
-	def synth_dir(self) -> str:
-		return os.path.join(self.build_dir, 'synth')
+		if os.path.exists(repo):
+			os.makedirs(repo, exist_ok=True)
+		
+		if top is None:
+			logger.warning(f'top unspecified for ip_cfg: {name} - defaulting to {name}')
+			top = name
 
+		if self.get_ip_cfg(name) is not None:
+			#! IpCfg - IpCfgAlreadyExistsError
+			sys.exit(f'ERROR: IP entry with name: {name} already exists')
 
-	def get_ip_repos(self) -> list[str]:
-		repo_list = []
-
-		for i in self.ips:
-			if i.repo not in repo_list:
-				repo_list.append(i.repo)
-
-		return repo_list
-
-	# ---- lookup helpers --------------------------------------------------------------------------------------------------------
-
-	def get_ip(self, name: str) -> IpConfig:
-		ip = next((i for i in self.ips if i.name == name), None)
-		if ip is None:
-			sys.exit(
-				f"ERROR: IP '{name}' not found in [[ip]] entries.\n"
-				f"  Available: {[i.name for i in self.ips]}"
+		self._ip_list.append(
+			IpConfig(
+				name=name,
+				repo=repo,
+				top=top,
+				vendor=vendor,
+				library=library,
+				version=version,
+				sources=sources
 			)
-		return ip
-
-	def get_ip_by_vlnv(self, vlnv: str) -> IpConfig:
-		ip = next((i for i in self.ips if vlnv in i.vlnv), None)
-		if ip is None:
-			sys.exit(
-				f"ERROR: IP matching vlnv: '{vlnv}' not found in [[ip]] entries.\n"
-				f"  Available: {[i.name for i in self.ips]}"
-			)
-		return ip
-
-	def get_bd(self, name: str) -> BdConfig:
-		bd = next((b for b in self.bds if b.name == name), None)
-		if bd is None:
-			sys.exit(
-				f"ERROR: BD '{name}' not found in [[bd]] entries.\n"
-				f"  Available: {[b.name for b in self.bds]}"
-			)
-		return bd
-
-	def get_core(self, name: str) -> CoreConfig:
-		core = next((b for b in self.cores if b.name == name), None)
-		if core is None:
-			sys.exit(
-				f"ERROR: Core '{name}' not found in [[core]] entries.\n"
-				f"  Available: {[b.name for b in self.cores]}"
-			)
-		return core
-
-	def get_synth(self, *, top_name: typing.Optional[str] = None, bd_name: typing.Optional[str] = None, ip_name: typing.Optional[str] = None) -> SynthConfig:
-		s = next(
-			(
-				s for s in self.synths
-				if (top_name is not None and s.top == top_name) or
-				(ip_name is not None and s.ip == ip_name) or
-				(bd_name is not None and s.bd == bd_name)
-			),
-			None
 		)
 
-		if bd_name:
-			self.get_bd(bd_name)
-		elif ip_name:
-			self.get_ip(ip_name)
+		return self
 
-		# Handle the failure cases
-		if s is None:
-			# If 'top_name' was provided and we failed to find it, throw the error
-			if top_name is not None:
-				avail_tops = [s.top for s in self.synths if s.top is not None]
-				sys.exit(
-					f"ERROR: Synthesis top '{top_name}' not found in [[synthesis]] entries.\n"
-					f"  Available tops: {avail_tops}"
-				)
+	def get_ip_cfg(self, name) -> IpConfig | None:
+		return next((i for i in self._ip_list if i.name == name), None)
 
-			return SynthConfig(top="", ip=ip_name or "", bd=bd_name or "")
 
-		return s
+	def add_wrapper_cfg(self, *,
+		ip_name: str,
+		sources: list[str],
+		wrapper_file: str | None = None
+	) -> typing.Self:
+		if not sources:
+			#! WrapperCfg - UnspecifiedSourcesError
+			sys.exit(f'ERROR: sources not specified, empty: {sources}')
 
-	def get_catalog(self):
-		return get_catalog(self.vivado.path, self.get_ip_repos())
+		for i in sources:
+			if not os.path.exists(i):
+				#! WrapperCfg - SourceMissingError
+				sys.exit(f'ERROR: required source does not exist: {i}')
 
-	def get_simulation(self, top_name: str) -> SimulationConfig:
-		p = next((p for p in self.simulations if p.top == top_name), None)
-		if p is None:
-			sys.exit(
-				f"ERROR: simulation '{top_name}' not found in [[simulation]] entries.\n"
-				f"  Available: {[p.top for p in self.simulations]}"
-			)
-		return p
+		ip_cfg = self.get_ip_cfg(ip_name)
 
-	def get_platform(self, name: str) -> PlatformConfig:
-		p = next((p for p in self.platforms if p.name == name), None)
-		if p is None:
-			sys.exit(
-				f"ERROR: Platform '{name}' not found in [[platform]] entries.\n"
-				f"  Available: {[p.name for p in self.platforms]}"
-			)
-		return p
+		if ip_cfg is None:
+			#! WrapperCfg - IpMissingError
+			sys.exit(f'ERROR: IP entry with name: {ip_name} does not exist')
 
-	def get_app(self, name: str) -> AppConfig:
-		a = next((a for a in self.apps if a.name == name), None)
-		if a is None:
-			sys.exit(
-				f"ERROR: App '{name}' not found in [[app]] entries.\n"
-				f"  Available: {[a.name for a in self.apps]}"
-			)
-		return a
+		if wrapper_file is None:
+			wrapper_file = self.wrapper_dir() / f"{ip_cfg.top}_wrapper.v"
 
-	def resolve_fpga(self, ref: typing.Optional[str] = None) -> FpgaConfig:
-		ref = ref or self.fpga_default_ref
+		return self
 
-		if ref:
-			fpga = self.fpga_named.get(ref)
-			if fpga is None:
-				sys.exit(
-					f"ERROR: FPGA target '{ref}' not found in [fpga.*] tables.\n"
-					f"  Available: {list(self.fpga_named.keys())}"
-				)
-			return fpga
 
-		return list(self.fpga_named.values())[0]
+	def _path_from_build_dir(self, path: str):
+		return os.path.join(self.work_dir, path)
 
-	# ---- path helpers ------------------------------------------------------------------------------------------------------------
 
-	def abs_path(self, rel: str) -> str:
-		return os.path.abspath(os.path.join(self.base_dir, rel))
+	@property
+	def wrapper_dir(self):
+		return self._path_from_build_dir('wrapper')
+	
+	
+	# build_dir: str
 
-	def resolve_globs(self, patterns: list[str]) -> list[str]:
-		return resolve_globs(patterns, self.base_dir)
+	# fpga_named:   dict[str, FpgaConfig]
 
-	def get_dcp_path(self, top: str, dcp_name: str) -> str:
-		return os.path.abspath(os.path.join(self.build_dir, "synth", top, f"{dcp_name}.dcp"))
+	# vivado:  VivadoConfig
+	# vitis:   VitisConfig
 
-	def get_bd_ooc_targets_dir(self, bd_name: str) -> str:
-		return os.path.abspath(os.path.join(self.build_dir, 'synth_ooc', 'bd', bd_name))
+	# ips:         list[IpConfig]
+	# bds:         list[BdConfig]
+	# cores: 		 list[CoreConfig]
+	# synths:      list[SynthConfig]
+	# platforms:   list[PlatformConfig]
+	# apps:        list[AppConfig]
+	# simulations: list[SimulationConfig]
 
-	def get_control_fifo_path(self, top: str) -> str:
-		return os.path.join(self.build_dir, "xviv", top, "control.fifo")
+	# def set_build_dir(self, build_dir: str):
+	# 	if os.path.isdir(build_dir):
+	# 		os.makedirs(build_dir, exist_ok=True)
 
-	def get_xlib_work_dir(self, top: str) -> str:
-		return os.path.join(self.build_dir, "elab", top)
+	# 	self.build_dir = os.path.abspath(build_dir)
 
-	def get_platform_dir(self, name: str) -> str:
-		return os.path.join(self.build_dir, "bsp", name)
 
-	def get_app_dir(self, name: str) -> str:
-		app_dir = os.path.join(self.build_dir, "app", name)
-		if not os.path.isdir(app_dir):
-			sys.exit(
-				f"ERROR: App directory not found: {app_dir}\n"
-				f"  Run: xviv create --app {name}"
-			)
-		return app_dir
+	# @property
+	# def core_dir(self) -> str:
+	# 	return os.path.join(self.build_dir, 'core')
 
-	def get_platform_paths(self, name: str) -> tuple[str, str]:
-		"""Return (xsa_path, bitstream_path) for a platform."""
-		plat = self.get_platform(name)
+	# @property
+	# def bd_dir(self) -> str:
+	# 	return os.path.join(self.build_dir, 'bd')
 
-		if plat.xsa:
-			xsa = self.abs_path(plat.xsa)
-			stem = os.path.splitext(xsa)[0]
-			bit = stem + ".bit"
-			if not os.path.exists(bit):
-				candidates = sorted(glob.glob(os.path.join(os.path.dirname(xsa), "*.bit")))
-				if candidates:
-					bit = candidates[0]
-					logger.debug("Bitstream resolved via glob: %s", bit)
-			return xsa, bit
+	# @property
+	# def wrapper_dir(self) -> str:
+	# 	return os.path.join(self.build_dir, 'wrapper')
 
-		if plat.synth_top:
-			synth_dir = os.path.join(self.build_dir, "synth", plat.synth_top)
-			return (
-				os.path.join(synth_dir, f"{plat.synth_top}.xsa"),
-				os.path.join(synth_dir, f"{plat.synth_top}.bit"),
-			)
+	# @property
+	# def synth_dir(self) -> str:
+	# 	return os.path.join(self.build_dir, 'synth')
 
-		sys.exit(
-			f"ERROR: Platform '{name}' must specify either 'xsa' or 'synth_top' in project.toml."
-		)
+
+	# def get_ip_repos(self) -> list[str]:
+	# 	repo_list = []
+
+	# 	for i in self.ips:
+	# 		if i.repo not in repo_list:
+	# 			repo_list.append(i.repo)
+
+	# 	return repo_list
+
+	# # ---- lookup helpers --------------------------------------------------------------------------------------------------------
+	# def get_ip(self, name: str) -> IpConfig:
+	# 	ip = next((i for i in self.ips if i.name == name), None)
+	# 	if ip is None:
+	# 		sys.exit(
+	# 			f"ERROR: IP '{name}' not found in [[ip]] entries.\n"
+	# 			f"  Available: {[i.name for i in self.ips]}"
+	# 		)
+	# 	return ip
+
+	# def get_ip_by_vlnv(self, vlnv: str) -> IpConfig:
+	# 	ip = next((i for i in self.ips if vlnv in i.vlnv), None)
+	# 	if ip is None:
+	# 		sys.exit(
+	# 			f"ERROR: IP matching vlnv: '{vlnv}' not found in [[ip]] entries.\n"
+	# 			f"  Available: {[i.name for i in self.ips]}"
+	# 		)
+	# 	return ip
+
+	# def get_bd(self, name: str) -> BdConfig:
+	# 	bd = next((b for b in self.bds if b.name == name), None)
+	# 	if bd is None:
+	# 		sys.exit(
+	# 			f"ERROR: BD '{name}' not found in [[bd]] entries.\n"
+	# 			f"  Available: {[b.name for b in self.bds]}"
+	# 		)
+	# 	return bd
+
+	# def get_core(self, name: str) -> CoreConfig:
+	# 	core = next((b for b in self.cores if b.name == name), None)
+	# 	if core is None:
+	# 		sys.exit(
+	# 			f"ERROR: Core '{name}' not found in [[core]] entries.\n"
+	# 			f"  Available: {[b.name for b in self.cores]}"
+	# 		)
+	# 	return core

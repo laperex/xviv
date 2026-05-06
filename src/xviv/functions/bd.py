@@ -3,7 +3,7 @@ import logging
 import os
 from pathlib import Path
 import typing
-from xviv.config.project import ProjectConfig
+from xviv.config.project import XvivConfig
 from xviv.generator.tcl.commands import ConfigTclCommands
 from xviv.generator.hooks import generate_bd_hooks
 from xviv.parsers.bd_json import get_bd_core_dict
@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 # -----------------------------------------------------------------------------
 # create --bd <bd_name>
 # -----------------------------------------------------------------------------
-def cmd_bd_create(cfg: ProjectConfig, bd_name: str):
+def cmd_bd_create(cfg: XvivConfig, bd_name: str):
 	config = (
 		ConfigTclCommands(cfg)
 		.create_bd(bd_name)
@@ -61,7 +61,7 @@ def cmd_bd_create(cfg: ProjectConfig, bd_name: str):
 # -----------------------------------------------------------------------------
 # edit --bd <bd_name>
 # -----------------------------------------------------------------------------
-def cmd_bd_edit(cfg: ProjectConfig, bd_name: str, nogui: bool = False):
+def cmd_bd_edit(cfg: XvivConfig, bd_name: str, nogui: bool = False):
 	config = (
 		ConfigTclCommands(cfg)
 		.edit_bd(bd_name, nogui=nogui)
@@ -77,14 +77,14 @@ def cmd_bd_edit(cfg: ProjectConfig, bd_name: str, nogui: bool = False):
 # -----------------------------------------------------------------------------
 # config --bd <bd_name>
 # -----------------------------------------------------------------------------
-def cmd_bd_config(cfg: ProjectConfig, bd_name: str, exist_ok=False):
+def cmd_bd_config(cfg: XvivConfig, bd_name: str, exist_ok=False):
 	generate_bd_hooks(cfg, bd_name, exist_ok=exist_ok)
 
 
 # -----------------------------------------------------------------------------
 # generate --bd <bd_name>
 # -----------------------------------------------------------------------------
-def cmd_bd_generate(cfg: ProjectConfig, bd_name: str):
+def cmd_bd_generate(cfg: XvivConfig, bd_name: str):
 	config = (
 		ConfigTclCommands(cfg)
 		.generate_bd(bd_name)
@@ -97,7 +97,7 @@ def cmd_bd_generate(cfg: ProjectConfig, bd_name: str):
 # -----------------------------------------------------------------------------
 # synth --bd <bd_name> [--ooc-run]
 # -----------------------------------------------------------------------------
-def cmd_bd_synth(cfg: ProjectConfig, bd_name: str, ooc_run: typing.Optional[bool]):
+def cmd_bd_synth(cfg: XvivConfig, bd_name: str, ooc_run: typing.Optional[bool]):
 	components = get_bd_core_dict(cfg, bd_name)
 
 	xci_name = components[0]['xci_name']

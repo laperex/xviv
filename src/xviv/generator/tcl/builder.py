@@ -4,13 +4,13 @@ import os
 import sys
 import typing
 
-from xviv.config.project import ProjectConfig
+from xviv.config.project import XvivConfig
 
 logger = logging.getLogger(__name__)
 
 
 class ConfigTclBuilder:
-	def __init__(self, cfg: ProjectConfig):
+	def __init__(self, cfg: XvivConfig):
 		self._cfg = cfg
 
 		self.current_project: typing.Optional[str] = None

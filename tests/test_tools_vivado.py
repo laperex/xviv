@@ -4,13 +4,13 @@ import subprocess
 import pytest
 from unittest.mock import patch, MagicMock, mock_open
 from xviv.config.model import VivadoConfig, VitisConfig, FpgaConfig, BuildConfig
-from xviv.config.project import ProjectConfig
+from xviv.config.project import XvivConfig
 from xviv.tools.vivado import run_vivado
 
 
 @pytest.fixture
 def cfg(tmp_path):
-    return ProjectConfig(
+    return XvivConfig(
         base_dir=str(tmp_path),
         fpga_default_ref="dev",
         fpga_named={"dev": FpgaConfig(part="xc7z020clg400-1")},

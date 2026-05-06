@@ -2,7 +2,7 @@ import logging
 import os
 import subprocess
 import typing
-from xviv.config.project import ProjectConfig
+from xviv.config.project import XvivConfig
 from xviv.tools import vivado
 from xviv.utils.fifo import _ensure_fifo, _fifo_send
 
@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 # -----------------------------------------------------------------------------
 # elaborate --top <top_name> [--run <time>]
 # -----------------------------------------------------------------------------
-def cmd_top_elaborate(cfg: ProjectConfig, top_name: str, run: typing.Optional[str]):
+def cmd_top_elaborate(cfg: XvivConfig, top_name: str, run: typing.Optional[str]):
 	xlib_work_dir = cfg.get_xlib_work_dir(top_name)
 	sim_files     = cfg.resolve_globs(cfg.get_simulation(top_name=top_name).rtl)
 
@@ -29,7 +29,7 @@ def cmd_top_elaborate(cfg: ProjectConfig, top_name: str, run: typing.Optional[st
 # -----------------------------------------------------------------------------
 # simulate --top <top_name> [--run <time>]
 # -----------------------------------------------------------------------------
-def cmd_top_simulate(cfg: ProjectConfig, top_name: str, run: str = "all"):
+def cmd_top_simulate(cfg: XvivConfig, top_name: str, run: str = "all"):
 	xlib_work_dir = cfg.get_xlib_work_dir(top_name)
 
 	x_simulate_tcl = f"""
@@ -93,7 +93,7 @@ puts "xviv: FIFO ready at $xviv_fifo_path"
 # -----------------------------------------------------------------------------
 # open --wdb --top <top_name>
 # -----------------------------------------------------------------------------
-def cmd_wdb_open(cfg: ProjectConfig, top_name: str, nogui: bool = False):
+def cmd_wdb_open(cfg: XvivConfig, top_name: str, nogui: bool = False):
 	xsim_bin = os.path.join(cfg.vivado.path, "bin", "xsim")
 	xlib_work_dir = cfg.get_xlib_work_dir(top_name)
 
@@ -120,7 +120,7 @@ def cmd_wdb_open(cfg: ProjectConfig, top_name: str, nogui: bool = False):
 # -----------------------------------------------------------------------------
 # reload --wdb --top <top_name>
 # -----------------------------------------------------------------------------
-def cmd_wdb_reload(cfg: ProjectConfig, top_name: str):
+def cmd_wdb_reload(cfg: XvivConfig, top_name: str):
 	path = cfg.get_control_fifo_path(top_name)
 	cmd = (
 		"after 300 {"

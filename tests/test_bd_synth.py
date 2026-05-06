@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from xviv.config.project import ProjectConfig
+from xviv.config.project import XvivConfig
 from xviv.functions.bd import cmd_bd_synth
 from xviv.config.model import (
     BdConfig, BuildConfig, FpgaConfig,
@@ -20,8 +20,8 @@ from xviv.config.model import (
 # ---------------------------------------------------------------------------
 
 @pytest.fixture()
-def cfg(tmp_path: Path) -> ProjectConfig:
-    return ProjectConfig(
+def cfg(tmp_path: Path) -> XvivConfig:
+    return XvivConfig(
         base_dir         = str(tmp_path),
         fpga_default_ref = "default",
         fpga_named       = {"default": FpgaConfig(part="xc7z020clg400-1")},
@@ -91,13 +91,13 @@ def _make_fake_popen(returncode: int = 0):
 class TestCmdBdSynthBoundaryPatch:
 
     def test_run_vivado_called_for_each_stale_component(
-        self, cfg: ProjectConfig
+        self, cfg: XvivConfig
     ) -> None:
         with patch("xviv.tools.vivado.subprocess.Popen", side_effect=_make_fake_popen()):
             cmd_bd_synth(cfg, "my_bd", ooc_run=False)
 
     def test_standalone_synthesis_dispatched(
-        self, cfg: ProjectConfig
+        self, cfg: XvivConfig
     ) -> None:
         calls: list[list[str]] = []
 
@@ -112,7 +112,7 @@ class TestCmdBdSynthBoundaryPatch:
         assert "standalone_synthesis" in all_args
 
     def test_final_synthesis_dispatched(
-        self, cfg: ProjectConfig
+        self, cfg: XvivConfig
     ) -> None:
         calls: list[list[str]] = []
 
@@ -127,7 +127,7 @@ class TestCmdBdSynthBoundaryPatch:
         assert "synthesis" in all_args
 
     def test_standalone_synthesis_before_final_synthesis(
-        self, cfg: ProjectConfig
+        self, cfg: XvivConfig
     ) -> None:
         calls: list[list[str]] = []
 
@@ -145,7 +145,7 @@ class TestCmdBdSynthBoundaryPatch:
         assert standalone_idx < synthesis_idx
 
     def test_vivado_binary_used_in_command(
-        self, cfg: ProjectConfig
+        self, cfg: XvivConfig
     ) -> None:
         calls: list[list[str]] = []
 
@@ -159,7 +159,7 @@ class TestCmdBdSynthBoundaryPatch:
         assert all("vivado" in c[0] for c in calls)
 
     def test_batch_mode_flag_in_command(
-        self, cfg: ProjectConfig
+        self, cfg: XvivConfig
     ) -> None:
         calls: list[list[str]] = []
 
@@ -176,7 +176,7 @@ class TestCmdBdSynthBoundaryPatch:
             assert cmd[mode_idx + 1] == "batch"
 
     def test_vivado_failure_propagates(
-        self, cfg: ProjectConfig
+        self, cfg: XvivConfig
     ) -> None:
         with patch(
             "xviv.tools.vivado.subprocess.Popen",
@@ -186,7 +186,7 @@ class TestCmdBdSynthBoundaryPatch:
                 cmd_bd_synth(cfg, "my_bd", ooc_run=False)
 
     def test_empty_component_list_skips_standalone(
-        self, cfg: ProjectConfig
+        self, cfg: XvivConfig
     ) -> None:
         calls: list[list[str]] = []
 
@@ -205,7 +205,7 @@ class TestCmdBdSynthBoundaryPatch:
         assert any("synthesis" in c for c in flat)
 
     def test_no_vivado_call_when_outputs_up_to_date(
-        self, cfg: ProjectConfig, tmp_path: Path
+        self, cfg: XvivConfig, tmp_path: Path
     ) -> None:
         ooc_dir = Path(cfg.get_bd_ooc_targets_dir("my_bd"))
         ooc_dir.mkdir(parents=True)
@@ -231,7 +231,7 @@ class TestCmdBdSynthBoundaryPatch:
         assert any("synthesis" in c for c in flat)
 
     def test_dirty_sha_forwarded_to_synthesis(
-        self, cfg: ProjectConfig
+        self, cfg: XvivConfig
     ) -> None:
         calls: list[list[str]] = []
 
@@ -257,7 +257,7 @@ class TestCmdBdSynthBoundaryPatch:
         assert "dirty" in synth_cmd
 
     def test_xci_name_present_in_config_tcl(
-        self, cfg: ProjectConfig
+        self, cfg: XvivConfig
     ) -> None:
         tcl_contents: list[str] = []
 

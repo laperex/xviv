@@ -2,7 +2,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import partial
 
 from xviv.functions.bd import cmd_bd_create
-from xviv.config.project import ProjectConfig
+from xviv.config.project import XvivConfig
 from xviv.functions.core import cmd_core_create
 from xviv.functions.ip import cmd_ip_create
 from xviv.utils.parallel import run_parallel
@@ -10,7 +10,7 @@ from xviv.utils.parallel import run_parallel
 # -----------------------------------------------------------------------------
 # create --all
 # -----------------------------------------------------------------------------
-def cmd_all_create(cfg: ProjectConfig):
+def cmd_all_create(cfg: XvivConfig):
 	ip_vlnvs = {ip.vlnv for ip in cfg.ips}
 
 	independent_cores = [c for c in cfg.cores if c.vlnv not in ip_vlnvs]

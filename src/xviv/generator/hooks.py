@@ -3,13 +3,13 @@ import os
 import sys
 import typing
 
-from xviv.config.project import ProjectConfig
+from xviv.config.project import XvivConfig
 
 
 logger = logging.getLogger(__name__)
 
 
-def generate_ip_hooks(cfg: ProjectConfig, ip_name: str, exist_ok: bool = False) -> typing.Optional[str]:
+def generate_ip_hooks(cfg: XvivConfig, ip_name: str, exist_ok: bool = False) -> typing.Optional[str]:
 	ip = cfg.get_ip(ip_name)
 
 	hooks_path = cfg.abs_path(ip.hooks)
@@ -67,7 +67,7 @@ proc ipx_add_memory_map {{}} {{
 	return hooks_path
 
 
-def generate_bd_hooks(cfg: ProjectConfig, bd_name: str, exist_ok: bool = False) -> typing.Optional[str]:
+def generate_bd_hooks(cfg: XvivConfig, bd_name: str, exist_ok: bool = False) -> typing.Optional[str]:
 	bd = cfg.get_bd(bd_name)
 
 	hooks_path = cfg.abs_path(bd.hooks)
@@ -95,7 +95,7 @@ proc bd_design_config {{ parentCell }} {{
 	return hooks_path
 
 
-def generate_synth_hooks(cfg: ProjectConfig, *, top_name: typing.Optional[str] = None, bd_name: typing.Optional[str] = None, ip_name: typing.Optional[str] = None) -> None:
+def generate_synth_hooks(cfg: XvivConfig, *, top_name: typing.Optional[str] = None, bd_name: typing.Optional[str] = None, ip_name: typing.Optional[str] = None) -> None:
 	synth = cfg.get_synth(top_name=top_name, bd_name=bd_name, ip_name=ip_name)
 
 	hooks_path = cfg.abs_path(synth.hooks)

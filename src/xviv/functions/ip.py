@@ -1,7 +1,7 @@
 import os
 import sys
 import typing
-from xviv.config.project import ProjectConfig
+from xviv.config.project import XvivConfig
 # from xviv.config.tcl import generate_config_tcl
 from xviv.generator.hooks import generate_ip_hooks
 from xviv.generator.wrapper import xviv_wrap_top
@@ -11,7 +11,7 @@ from xviv.generator.wrapper import xviv_wrap_top
 # -----------------------------------------------------------------------------
 # create --ip <ip_name>
 # -----------------------------------------------------------------------------
-def cmd_ip_create(cfg: ProjectConfig, ip_name: typing.Optional[str] = None, ip_vlnv: typing.Optional[str] = None):
+def cmd_ip_create(cfg: XvivConfig, ip_name: typing.Optional[str] = None, ip_vlnv: typing.Optional[str] = None):
 	ip = cfg.get_ip(ip_name) if ip_name else cfg.get_ip_by_vlnv(ip_vlnv) if ip_vlnv else None
 	
 	if ip is None:
@@ -37,7 +37,7 @@ def cmd_ip_create(cfg: ProjectConfig, ip_name: typing.Optional[str] = None, ip_v
 # -----------------------------------------------------------------------------
 # edit --ip <ip_name>
 # -----------------------------------------------------------------------------
-def cmd_ip_edit(cfg: ProjectConfig, ip_name: str, nogui: bool = False):
+def cmd_ip_edit(cfg: XvivConfig, ip_name: str, nogui: bool = False):
 	# config_tcl = generate_config_tcl(cfg, ip_name=ip_name)
 
 	if nogui:
@@ -49,11 +49,11 @@ def cmd_ip_edit(cfg: ProjectConfig, ip_name: str, nogui: bool = False):
 # -----------------------------------------------------------------------------
 # config --ip <ip_name>
 # -----------------------------------------------------------------------------
-def cmd_ip_config(cfg: ProjectConfig, ip_name: str):
+def cmd_ip_config(cfg: XvivConfig, ip_name: str):
 	generate_ip_hooks(cfg, ip_name)
 
 # -----------------------------------------------------------------------------
 # synth --ip <ip_name>
 # -----------------------------------------------------------------------------
-def cmd_ip_synth(cfg: ProjectConfig, ip_name: str):
+def cmd_ip_synth(cfg: XvivConfig, ip_name: str):
 	pass

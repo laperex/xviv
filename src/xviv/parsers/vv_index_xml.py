@@ -4,12 +4,12 @@ import logging
 import os
 import xml.etree.ElementTree as ET
 
-from xviv.config.model import CoreEntry
+from xviv.config.model import CatalogCoreEntry
 
 logger = logging.getLogger(__name__)
 
 
-def parser(xml_path: str) -> dict[str, CoreEntry]:
+def parser(xml_path: str) -> dict[str, CatalogCoreEntry]:
 	if not os.path.isfile(xml_path):
 		logger.debug("vv_index.xml not found at %s", xml_path)
 		return {}
@@ -21,7 +21,7 @@ def parser(xml_path: str) -> dict[str, CoreEntry]:
 		return {}
 
 	root = tree.getroot()
-	catalog: dict[str, CoreEntry] = {}
+	catalog: dict[str, CatalogCoreEntry] = {}
 
 	for ip_el in root.findall("IP"):
 		vlnv_el = ip_el.find("VLNV")
@@ -62,7 +62,7 @@ def parser(xml_path: str) -> dict[str, CoreEntry]:
 			if u.get("value")
 		)
 
-		catalog[vlnv] = CoreEntry(
+		catalog[vlnv] = CatalogCoreEntry(
 			vlnv                 = vlnv,
 			vendor               = vendor,
 			library              = library,

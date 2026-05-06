@@ -7,7 +7,7 @@ import sys
 from typing import Iterator
 import typing
 
-from xviv.config.model import CoreEntry
+from xviv.config.model import CatalogCoreEntry
 from xviv.parsers import vv_index_xml
 from xviv.parsers import component_xml
 
@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 class Catalog:
 	def __init__(self, vivado_path: str, ip_repos: list[str] | None = None) -> None:
-		self._cores: dict[str, CoreEntry] = {}
+		self._cores: dict[str, CatalogCoreEntry] = {}
 		self._load(vivado_path, ip_repos or [])
 
 	# ------------------------------------------------------------------
@@ -39,7 +39,7 @@ class Catalog:
 	def __len__(self) -> int:
 		return len(self._cores)
 
-	def __iter__(self) -> Iterator[CoreEntry]:
+	def __iter__(self) -> Iterator[CatalogCoreEntry]:
 		return iter(self._cores.values())
 
 	def __contains__(self, vlnv: str) -> bool:
@@ -49,10 +49,10 @@ class Catalog:
 	# Lookups
 	# ------------------------------------------------------------------
 
-	def get(self, vlnv: str) -> CoreEntry | None:
+	def get(self, vlnv: str) -> CatalogCoreEntry | None:
 		return self._cores.get(vlnv)
 
-	def lookup(self, id: str) -> CoreEntry:
+	def lookup(self, id: str) -> CatalogCoreEntry:
 		entry = self.lookup_none(id)
 
 		if entry:
@@ -60,7 +60,7 @@ class Catalog:
 
 		sys.exit(f"ERROR: Unable to resolve core: {id!r}")
 
-	def lookup_none(self, id: str) -> typing.Optional[CoreEntry]:
+	def lookup_none(self, id: str) -> typing.Optional[CatalogCoreEntry]:
 		entry = self._cores.get(id)
 		if entry is not None:
 			return entry
@@ -76,14 +76,14 @@ class Catalog:
 
 		return None
 
-	def find_by_name(self, ip_name: str) -> list[CoreEntry]:
+	def find_by_name(self, ip_name: str) -> list[CatalogCoreEntry]:
 		return [e for e in self._cores.values() if e.name == ip_name]
 
 	# ------------------------------------------------------------------
 	# Filtered views
 	# ------------------------------------------------------------------
 
-	def user_visible(self) -> list[CoreEntry]:
+	def user_visible(self) -> list[CatalogCoreEntry]:
 		return [e for e in self._cores.values() if not e.hidden]
 
 	def search(
@@ -91,7 +91,7 @@ class Catalog:
 		prefix: str,
 		*,
 		include_hidden: bool = False,
-	) -> list[CoreEntry]:
+	) -> list[CatalogCoreEntry]:
 		needle = prefix.lower()
 		return [
 			e for e in self._cores.values()
@@ -103,10 +103,10 @@ class Catalog:
 			)
 		]
 
-	def items(self) -> Iterator[tuple[str, CoreEntry]]:
+	def items(self) -> Iterator[tuple[str, CatalogCoreEntry]]:
 		return iter(self._cores.items())
 
-	def values(self) -> ValuesView[CoreEntry]:
+	def values(self) -> ValuesView[CatalogCoreEntry]:
 		return self._cores.values()
 
 
@@ -126,8 +126,8 @@ def get_catalog(vivado_path: str, ip_repos: list[str] | None = None) -> Catalog:
 	return _CACHE[key]
 
 
-def _load_ip_repo(ip_repo_path: str) -> dict[str, CoreEntry]:
-	catalog: dict[str, CoreEntry] = {}
+def _load_ip_repo(ip_repo_path: str) -> dict[str, CatalogCoreEntry]:
+	catalog: dict[str, CatalogCoreEntry] = {}
 
 	if not os.path.isdir(ip_repo_path):
 		return catalog

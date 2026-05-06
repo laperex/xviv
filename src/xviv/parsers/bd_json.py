@@ -1,10 +1,10 @@
 import json
 import os
 import sys
-from xviv.config.project import ProjectConfig
+from xviv.config.project import XvivConfig
 
 
-def get_bd_core_dict(cfg: ProjectConfig, bd_name: str) -> list[dict]:
+def get_bd_core_dict(cfg: XvivConfig, bd_name: str) -> list[dict]:
 	bd_dir = os.path.join(cfg.bd_dir, bd_name)
 	bd_file = os.path.join(bd_dir, f"{bd_name}.bd")
 	bd_dict = {}

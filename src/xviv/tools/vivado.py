@@ -6,13 +6,13 @@ import tempfile
 import typing
 from pathlib import Path
 
-from xviv.config.project import ProjectConfig
+from xviv.config.project import XvivConfig
 
 logger = logging.getLogger(__name__)
 
 
 def run_vivado_xvlog(
-	cfg: ProjectConfig, target_dir: str, fileset: list[str], xsim_lib: str
+	cfg: XvivConfig, target_dir: str, fileset: list[str], xsim_lib: str
 ) -> None:
 	xvlog_bin = os.path.join(cfg.vivado.path, "bin", "xvlog")
 
@@ -29,7 +29,7 @@ def run_vivado_xvlog(
 
 
 def run_vivado_xelab(
-	cfg: ProjectConfig,
+	cfg: XvivConfig,
 	target_dir: str,
 	top: str,
 	timescale: str,
@@ -65,7 +65,7 @@ def run_vivado_xelab(
 
 
 def run_vivado_xsim(
-	cfg: ProjectConfig,
+	cfg: XvivConfig,
 	target_dir: str,
 	top: str,
 	config_tcl_content: str,
@@ -100,7 +100,7 @@ def run_vivado_xsim(
 
 
 def run_vivado(
-	cfg: ProjectConfig,
+	cfg: XvivConfig,
 	config_tcl: typing.Optional[str],
 	extra_args: list[str] = [],
 	label: typing.Optional[str] = None,

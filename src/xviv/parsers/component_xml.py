@@ -2,7 +2,7 @@ import logging
 import xml.etree.ElementTree as ET
 from typing import Optional
 
-from xviv.config.model import CoreEntry
+from xviv.config.model import CatalogCoreEntry
 
 
 logger = logging.getLogger(__name__)
@@ -12,7 +12,7 @@ _SPIRIT_NS = "http://www.spiritconsortium.org/XMLSchema/SPIRIT/1685-2009"
 _XILINX_NS = "http://www.xilinx.com"
 
 
-def parser(xml_path: str) -> Optional[CoreEntry]:
+def parser(xml_path: str) -> Optional[CatalogCoreEntry]:
 	try:
 		root = ET.parse(xml_path).getroot()
 
@@ -41,7 +41,7 @@ def parser(xml_path: str) -> Optional[CoreEntry]:
 			else name
 		)
 
-		return CoreEntry(
+		return CatalogCoreEntry(
 			vlnv=vlnv, vendor=vendor, library=library,
 			name=name, version=version,
 			display_name=display_name,
