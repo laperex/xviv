@@ -6,7 +6,7 @@ import os
 import sys
 import typing
 from xviv.config.catalog import get_catalog
-from xviv.config.model import AppConfig, BdConfig, CoreConfig, FpgaConfig, IpConfig, PlatformConfig, SimulationConfig, SynthConfig, VitisConfig, VivadoConfig
+from xviv.config.model import AppConfig, BdConfig, CoreConfig, FpgaConfig, IpConfig, PlatformConfig, SimulationConfig, SynthConfig, VitisConfig, VivadoConfig, WrapperConfig
 from xviv.utils.fs import resolve_globs
 
 logger = logging.getLogger(__name__)
@@ -28,6 +28,8 @@ class XvivConfig:
 
 		# lists
 		self._ip_list: list[IpConfig] = []
+		self._bd_list: list[BdConfig] = []
+		self._wrapper_list: list[WrapperConfig] = []
 
 
 	def add_ip_cfg(self, name: str, *,
@@ -49,12 +51,12 @@ class XvivConfig:
 
 		if os.path.exists(repo):
 			os.makedirs(repo, exist_ok=True)
-		
+
 		if top is None:
 			logger.warning(f'top unspecified for ip_cfg: {name} - defaulting to {name}')
 			top = name
 
-		if self.get_ip_cfg(name) is not None:
+		if self._get_ip_cfg_optional(name) is not None:
 			#! IpCfg - IpCfgAlreadyExistsError
 			sys.exit(f'ERROR: IP entry with name: {name} already exists')
 
@@ -72,7 +74,7 @@ class XvivConfig:
 
 		return self
 
-	def get_ip_cfg(self, name) -> IpConfig | None:
+	def _get_ip_cfg_optional(self, name) -> IpConfig | None:
 		return next((i for i in self._ip_list if i.name == name), None)
 
 
@@ -90,16 +92,33 @@ class XvivConfig:
 				#! WrapperCfg - SourceMissingError
 				sys.exit(f'ERROR: required source does not exist: {i}')
 
-		ip_cfg = self.get_ip_cfg(ip_name)
+		ip_cfg = self._get_ip_cfg_optional(ip_name)
 
 		if ip_cfg is None:
-			#! WrapperCfg - IpMissingError
+			#! WrapperCfg - IpCfgMissingError
 			sys.exit(f'ERROR: IP entry with name: {ip_name} does not exist')
 
 		if wrapper_file is None:
+			# TODO: default ip wrapper file
 			wrapper_file = self.wrapper_dir() / f"{ip_cfg.top}_wrapper.v"
 
+		if self._get_wrapper_cfg_optional(ip_name) is not None:
+			#! WrapperCfg - WrapperCfgAlreadyExistsForIpError
+			sys.exit(f'ERROR: Wrapper entry with name: {ip_name} already exists')
+
+
+		self._wrapper_list.append(
+			WrapperConfig(
+				ip_name=ip_name,
+				wrapper_file=wrapper_file,
+				sources=sources
+			)
+		)
+
 		return self
+
+	def _get_wrapper_cfg_optional(self, name) -> WrapperConfig | None:
+		return next((i for i in self._wrapper_list if i.ip_name == name), None)
 
 
 	def _path_from_build_dir(self, path: str):
