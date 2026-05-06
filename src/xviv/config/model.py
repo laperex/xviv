@@ -11,12 +11,6 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_BUILD_IP_REPO  = "build/ip"
 
-@dataclasses.dataclass
-class FpgaConfig:
-	part:       str
-	board_part: str = ""
-	board_repo: str = ""
-
 
 @dataclasses.dataclass
 class VivadoConfig:
@@ -24,7 +18,6 @@ class VivadoConfig:
 	mode:        str = "batch"
 	max_threads: int = 10
 	hw_server:   str = "localhost:3121"
-
 
 @dataclasses.dataclass
 class VitisConfig:
@@ -48,77 +41,57 @@ class WrapperConfig:
 
 
 @dataclasses.dataclass
-class BdConfig:
-	name:       str
-	hooks:      str       = ""
-	state_tcl:  str       = ""
-	fpga_ref:       str       = ""
-	vlnv_list:  list[str] = dataclasses.field(default_factory=list)
+class FpgaConfig:
+	name: str
+	fpga_part:  str | None
+	board_part: str | None
 
-	def __post_init__(self) -> None:
-		if not self.hooks:
-			self.hooks = f"scripts/bd/{self.name}_hooks.tcl"
-		if not self.state_tcl:
-			self.state_tcl = f"scripts/bd/state/{self.name}.tcl"
-
-		self.state_tcl = os.path.abspath(self.state_tcl)
-
-		if os.path.exists(self.state_tcl):
-			with open(self.state_tcl, 'rt') as f:
-				self.vlnv_list = self._resolve_vlnv_list(f.read())
-
-				logger.info(f"Retrieved VLNV's of Reuired IP's for BD {self.name} from {self.state_tcl}\n\t{self.vlnv_list}")
-
-	def _resolve_vlnv_list(self, text) -> list[str]:
-		match = re.search(r'set\s+list_check_ips\s+"(.*?)"', text, re.DOTALL)
-
-		if match:
-			raw = match.group(1)
-
-			return [
-				ip for ip in [
-					line.strip().rstrip("\\").strip() for line in raw.splitlines()
-				] if ip
-			]
-
-		return []
 
 
 @dataclasses.dataclass
-class SynthConfig:
-	top:              str
-	ip:               str
-	bd:               str
-	hooks:            str       = ""
-	fpga_ref:         str       = ""
+class DesignConfig:
+	name:    str
+	top:     str
+	sources: list[str]
 
-	srcs:             list[str] = dataclasses.field(default_factory=list)
-	constrs:          list[str] = dataclasses.field(default_factory=list)
-
-	def __post_init__(self) -> None:
-		if not self.hooks:
-			self.hooks = f"scripts/synth/{self.ip or self.bd or self.top}.tcl"
-
-@dataclasses.dataclass
-class SimulationConfig:
-	top:       str
-	rtl:       list[str] = dataclasses.field(default_factory=list)
 
 @dataclasses.dataclass
 class CoreConfig:
-	name:       str
-	vlnv:       str
-	xci_file:   str
-	dcp_file:   str
-	stub_file:  str
-
-	def __post_init__(self) -> None:
-		pass
-
+	name:      str
+	vlnv:      str
+	xci_file:  str
+	# dcp_file:  str
+	# stub_file: str
+	fpga_ref:  str
 
 @dataclasses.dataclass
 class BdCoreConfig(CoreConfig):
 	inst_hier_path: str
+
+
+@dataclasses.dataclass
+class BdConfig:
+	name:          str
+	save_tcl_file: str
+	vlnv_list:     list[str]
+	fpga_ref:      str
+
+
+@dataclasses.dataclass
+class SynthConfig:
+	design_name: str | None
+	core_name:   str | None
+	bd_name:     str | None
+
+	fpga_ref:    str
+	constraints: list[str]
+
+
+@dataclasses.dataclass
+class SimulationConfig:
+	top: str
+	sources: list[str]
+	backend: str
 
 
 @dataclasses.dataclass
@@ -161,14 +134,17 @@ class CatalogCoreEntry:
 	def short_desc(self) -> str:
 		desc_max = shutil.get_terminal_size().columns // 2
 		text = " ".join(self.description.split())
+
 		if len(text) > desc_max:
 			text = text[:desc_max - 1] + "..."
+
 		return text
 
 	@property
 	def completion_description(self) -> str:
 		parts = [self.display_name, f"[{self.vendor}/{self.library}]"]
 		flags: list[str] = []
+		
 		if self.hidden:
 			flags.append("⚠ internal subcore")
 		if self.board_dependent:
@@ -179,5 +155,6 @@ class CatalogCoreEntry:
 			parts.append("  ".join(flags))
 		elif self.short_desc:
 			parts.append(self.short_desc)
+		
 		return "  ".join(parts)
 

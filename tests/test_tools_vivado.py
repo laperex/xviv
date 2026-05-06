@@ -13,7 +13,7 @@ def cfg(tmp_path):
     return XvivConfig(
         base_dir=str(tmp_path),
         fpga_default_ref="dev",
-        fpga_named={"dev": FpgaConfig(part="xc7z020clg400-1")},
+        fpga_named={"dev": FpgaConfig(fpga_part="xc7z020clg400-1")},
         vivado=VivadoConfig(path="/opt/vivado", mode="batch"),
         vitis=VitisConfig(),
         build=BuildConfig(),

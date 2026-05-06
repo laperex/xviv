@@ -79,12 +79,11 @@ def load_config(path: str) -> XvivConfig:
 	# )
 
 	cfg = (
-		XvivConfig('build', [
+		XvivConfig(path, 'build', [
 			"/home/laperex/Programming/Vivado/vivado-boards/new/board_files"
 		])
 		.add_ip_cfg(
 			name='ip_inrange_stream',
-			create_wrapper=True
 		)
 	)
 

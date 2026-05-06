@@ -24,7 +24,7 @@ def cfg(tmp_path: Path) -> XvivConfig:
     return XvivConfig(
         base_dir         = str(tmp_path),
         fpga_default_ref = "default",
-        fpga_named       = {"default": FpgaConfig(part="xc7z020clg400-1")},
+        fpga_named       = {"default": FpgaConfig(fpga_part="xc7z020clg400-1")},
         vivado           = VivadoConfig(path="/opt/Xilinx/Vivado/2024.1", mode="batch"),
         vitis            = VitisConfig(path="/opt/Xilinx/Vitis/2024.1"),
         build            = BuildConfig(),
