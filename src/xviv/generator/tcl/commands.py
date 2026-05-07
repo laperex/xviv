@@ -98,10 +98,10 @@ class ConfigTclCommands(ConfigTclBuilder):
 		self._create_bd_design(bd_name, dir=self._cfg.bd_dir)
 
 		# TODO: add a new flag --import=true flag to make this if explicit
-		if os.path.exists(bd_cfg.save_tcl_file):
+		if os.path.exists(bd_cfg.save_file):
 			self._push('set parentCell ""')
 
-			self._source(bd_cfg.save_tcl_file)
+			self._source(bd_cfg.save_file)
 			self._bd_refresh_addresses()
 			self._validate_bd_design()
 			self._save_bd_design()
@@ -109,7 +109,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 			if generate:
 				self.generate_bd(bd_name, bd_file_exist_check=False, force=True)
 		else:
-			self._override_save_bd_design(bd_name, bd_cfg.save_tcl_file)
+			self._override_save_bd_design(bd_name, bd_cfg.save_file)
 
 			self._start_gui()
 
@@ -137,9 +137,9 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 		# if not os.path.exists(bd_cfg.save_tcl_file):
 		# 	self._bd_save_tcl(bd_name, bd_cfg.save_tcl_file)
-		self._override_save_bd_design(bd_name, bd_cfg.save_tcl_file)
+		self._override_save_bd_design(bd_name, bd_cfg.save_file)
 
-		self._call_bd_save_tcl(bd_name, bd_cfg.save_tcl_file)
+		self._call_bd_save_tcl(bd_name, bd_cfg.save_file)
 
 		if not nogui:
 			self._start_gui()

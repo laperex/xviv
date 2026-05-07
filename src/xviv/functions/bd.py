@@ -6,7 +6,7 @@ import typing
 from xviv.config.project import XvivConfig
 from xviv.generator.tcl.commands import ConfigTclCommands
 from xviv.generator.hooks import generate_bd_hooks
-from xviv.parsers.bd_json import get_bd_core_dict
+from xviv.parsers.bd_json import get_bd_core_list
 from xviv.tools import vivado
 from xviv.utils.git import _git_sha_tag
 from xviv.utils.parallel import run_parallel
@@ -98,10 +98,8 @@ def cmd_bd_generate(cfg: XvivConfig, bd_name: str):
 # synth --bd <bd_name> [--ooc-run]
 # -----------------------------------------------------------------------------
 def cmd_bd_synth(cfg: XvivConfig, bd_name: str, ooc_run: typing.Optional[bool]):
-	components = get_bd_core_dict(cfg, bd_name)
-
-	xci_name = components[0]['xci_name']
-	xci_file = components[0]['xci_file']
+	xci_name = cfg.get_bd(bd_name).core_list[0].name
+	xci_file = cfg.get_bd(bd_name).core_list[0].xci_file
 
 	dcp_file = os.path.join(cfg.synth_dir, f'{xci_name}.dcp')
 	stub_file = os.path.join(cfg.synth_dir, f'{xci_name}.v')
@@ -118,7 +116,7 @@ def cmd_bd_synth(cfg: XvivConfig, bd_name: str, ooc_run: typing.Optional[bool]):
 
 	vivado.run_vivado(cfg, config_tcl=config, dry_run=True)
 
-	print(components[0])
+	# print(components[0])
 
 	# def _is_stale(target_dir: Path, xci_path: Path, xci_name: str) -> bool:
 	# 	dcp  = target_dir / f"{xci_name}.dcp"

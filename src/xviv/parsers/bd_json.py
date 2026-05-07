@@ -1,14 +1,11 @@
 import json
 import os
 import sys
-from xviv.config.project import XvivConfig
+from xviv.config.model import BdCoreConfig
 
 
-def get_bd_core_dict(cfg: XvivConfig, bd_name: str) -> list[dict]:
-	bd_dir = os.path.join(cfg.bd_dir, bd_name)
-	bd_file = os.path.join(bd_dir, f"{bd_name}.bd")
+def get_bd_core_list(bd_file: str) -> list[BdCoreConfig]:
 	bd_dict = {}
-
 	if not os.path.exists(bd_file):
 		sys.exit(f"ERROR: BD File not found: {bd_file}")
 
@@ -18,13 +15,13 @@ def get_bd_core_dict(cfg: XvivConfig, bd_name: str) -> list[dict]:
 	if not bd_dict:
 		sys.exit(f"ERROR: BD data read from {bd_file} is empty")
 
-	resolved_components: list[dict] = []
+	resolved_components: list[BdCoreConfig] = []
 
 	def _recursive_find(components_dict: dict) -> None:
 		if not components_dict:
 			return None
 
-		for key, val in components_dict.items():
+		for _, val in components_dict.items():
 			if isinstance(val, dict):
 				_components = val.get('components', None)
 
@@ -38,15 +35,18 @@ def get_bd_core_dict(cfg: XvivConfig, bd_name: str) -> list[dict]:
 					inst_hier_path = val['inst_hier_path']
 
 					if xci_path:
-						xci_path = os.path.join(bd_dir, xci_path)
+						xci_path = os.path.join(os.path.dirname(bd_file), xci_path)
 
-					resolved_components.append({
-						'vlnv': vlnv,
-						'xci_name': xci_name,
-						'xci_file': xci_path,
-						'inst_hier_path': inst_hier_path,
-					})
-	
+					resolved_components.append(
+						BdCoreConfig(
+							name=xci_name,
+							vlnv=vlnv,
+							xci_file=xci_path,
+							fpga_ref=None,
+							inst_hier_path=inst_hier_path
+						)
+					)
+
 	_recursive_find(bd_dict)
 
 	return resolved_components

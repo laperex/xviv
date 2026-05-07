@@ -68,9 +68,12 @@ class BdCoreConfig(CoreConfig):
 @dataclasses.dataclass
 class BdConfig:
 	name:          str
-	save_tcl_file: str
 	vlnv_list:     list[str]
 	fpga_ref:      str
+
+	save_file: str
+	bd_file: str
+	
 	core_list:     list[BdCoreConfig]
 
 

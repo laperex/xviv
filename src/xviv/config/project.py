@@ -7,7 +7,8 @@ import re
 import sys
 import typing
 from xviv.config.catalog import Catalog, get_catalog
-from xviv.config.model import AppConfig, BdConfig, CoreConfig, DesignConfig, FpgaConfig, IpConfig, PlatformConfig, SimulationConfig, SynthConfig, VitisConfig, VivadoConfig, WrapperConfig
+from xviv.config.model import AppConfig, BdConfig, BdCoreConfig, CoreConfig, DesignConfig, FpgaConfig, IpConfig, PlatformConfig, SimulationConfig, SynthConfig, VitisConfig, VivadoConfig, WrapperConfig
+from xviv.parsers.bd_json import get_bd_core_list
 from xviv.utils.fs import resolve_globs
 
 logger = logging.getLogger(__name__)
@@ -281,7 +282,8 @@ class XvivConfig:
 
 
 	def add_bd_cfg(self, name: str, *,
-		save_tcl_file: str | None = None,
+		save_file: str | None = None,
+		bd_file: str | None = None,
 		fpga_ref: str | None = None
 	) -> typing.Self:
 		# TODO: throw error for invalid name ''
@@ -299,18 +301,28 @@ class XvivConfig:
 			#! BdCfg - BdCfgAlreadyExists
 			sys.exit(f'ERROR: for BD entry with name: {name} - invalid fpga: {fpga_ref}')
 
-		if save_tcl_file is None:
-			save_tcl_file = os.path.join(self.scripts_dir, f'{name}.tcl')
+		if save_file is None:
+			save_file = os.path.join(self.scripts_dir, 'bd', f'{name}.tcl')
+
+		if bd_file is None:
+			bd_file = os.path.join(self.bd_dir, name, f'{name}.bd')
+			
+		bd_core_list: list[BdCoreConfig] = []
+
+		if os.path.exists(bd_file):
+			logger.info(f'Loading sub core info from - {bd_file}')
+			bd_core_list = get_bd_core_list(bd_file)
 
 		self._bd_list.append(
 			BdConfig(
 				name=name,
-				save_tcl_file=save_tcl_file,
-				vlnv_list=self._get_bd_cfg_vlnv_list(save_tcl_file),
+				save_file=save_file,
+				vlnv_list=self._get_bd_cfg_vlnv_list(save_file),
 				fpga_ref=fpga_ref,
+				bd_file=bd_file,
 
 				# TODO
-				core_list=[]
+				core_list=bd_core_list
 			)
 		)
 
@@ -332,7 +344,6 @@ class XvivConfig:
 							line.strip().rstrip("\\").strip() for line in raw.splitlines()
 						] if ip
 					]
-
 		return []
 
 	def get_bd(self, name: str) -> BdConfig:
@@ -530,6 +541,10 @@ class XvivConfig:
 		return self.__path_from_build_dir('core')
 
 	@property
+	def synth_dir(self):
+		return self.__path_from_build_dir('synth')
+
+	@property
 	def bd_dir(self):
 		return self.__path_from_build_dir('bd')
 
@@ -541,10 +556,10 @@ class XvivConfig:
 		for i in self._ip_list:
 			if vlnv in i.vlnv:
 				return i.vlnv
-		
+
 		entry = self.get_catalog().lookup_optional(vlnv)
 		if entry is not None:
 			return entry.vlnv
-		
+
 		#! ResolveVLNVFailure
 		sys.exit(f'ERROR: unable to resolve VLNV from {vlnv}')
