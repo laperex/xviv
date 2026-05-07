@@ -20,7 +20,7 @@ def cmd_ip_create(cfg: XvivConfig, ip_name: typing.Optional[str] = None, ip_vlnv
 		.build()
 	)
 
-	vivado.run_vivado(cfg, config_tcl=config, dry_run=True)
+	vivado.run_vivado(cfg, config_tcl=config)
 
 	# if ip is None:
 	# 	sys.exit(f"ERROR: Unable to Resolve IP from ip_name: {ip_name}, ip_vlnv: {ip_vlnv}")

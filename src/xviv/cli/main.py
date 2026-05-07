@@ -31,7 +31,6 @@ def run() -> None:
 		help="Project configuration file (default: project.toml)")
 	p.add_argument("--log-file", default="", metavar="FILE",
 		help="Append debug log to FILE")
-	p.add_argument("--dry-run", action="store_true", default=False, help="Dry Run")
 
 	sub = p.add_subparsers(dest="command", required=True)
 	# sub.add_argument("--dry-run", action="store_true", default=False, help="Dry Run")

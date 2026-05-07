@@ -1,3 +1,4 @@
+import contextlib
 import logging
 import os
 import subprocess
@@ -100,78 +101,80 @@ def run_vivado_xsim(
 
 
 def run_vivado(
-	cfg: XvivConfig,
-	config_tcl: typing.Optional[str],
-	extra_args: list[str] = [],
-	label: typing.Optional[str] = None,
-	log_dir: typing.Optional[str] = None,
-	dry_run: bool = False 
+    cfg: XvivConfig,
+    config_tcl: str | None,
+    extra_args: list[str] | None = None,
+    label: str | None = None,
+    log_dir: str | None = None,
 ) -> None:
-	vivado_bin = os.path.join(cfg.get_vivado().path, "bin", "vivado")
-	job_log = logger.getChild(label) if label else logger
+    if config_tcl is None:
+        return
 
-	# with tempfile.NamedTemporaryFile(
-	# 	mode="w", suffix="_config.tcl", delete=False, prefix="xviv_"
-	# ) as tmp:
-	# 	tmp.write(config_tcl)
-	# 	config_tcl_path = tmp.name
-	
-	if config_tcl is None:
-		return None
+    vivado = cfg.get_vivado()
+    vivado_bin = os.path.join(vivado.path, "bin", "vivado")
+    job_log = logger.getChild(label) if label else logger
 
-	config_tcl_path = os.path.join(cfg.work_dir, "xviv_config.tcl")
-	
-	with open(config_tcl_path, 'w') as f:
-		f.write(config_tcl)
+    config_tcl_path: str | None = None
+    log_file = None
 
-	if cfg.get_vivado().dry_run:
-		return None
+    try:
+        # Write TCL to a named temp file
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix="_config.tcl", delete=False, prefix="xviv_"
+        ) as tmp:
+            tmp.write(config_tcl)
+            config_tcl_path = tmp.name
 
-	try:
-		cmd = [
-			vivado_bin,
-			"-mode", cfg.get_vivado().mode,
-			"-nolog", "-nojournal", "-notrace", "-quiet",
-			"-source", config_tcl_path,
-			*extra_args,
-		]
-		job_log.info("Running: %s", " ".join(cmd))
+        if vivado.dry_run:
+            job_log.info("[dry-run] TCL written to: %s", config_tcl_path)
+            job_log.debug("[dry-run] TCL contents:\n%s", config_tcl)
+            return
 
-		if cfg.get_vivado().mode == "tcl":
-			# interactive — connect directly to terminal, no log capture
-			result = subprocess.run(cmd)
-			if result.returncode != 0:
-				job_log.error("Vivado exited with code %d", result.returncode)
-				raise subprocess.CalledProcessError(result.returncode, cmd)
-			return
+        cmd = [
+            vivado_bin,
+            "-mode", vivado.mode,
+            "-nolog", "-nojournal", "-notrace", "-quiet",
+            "-source", config_tcl_path,
+            *(extra_args or []),
+        ]
+        job_log.info("Running: %s", " ".join(cmd))
 
-		log_path = Path(log_dir) / f"{label}.log" if log_dir else None
-		if log_path:
-			log_path.parent.mkdir(parents=True, exist_ok=True)
-		log_file = log_path.open("w") if log_path else None
+        # TCL interactive mode — attach directly to terminal
+        if vivado.mode == "tcl":
+            result = subprocess.run(cmd)
+            if result.returncode != 0:
+                raise subprocess.CalledProcessError(result.returncode, cmd)
+            return
 
-		try:
-			with subprocess.Popen(
-				cmd,
-				stdout=subprocess.PIPE,
-				stderr=subprocess.STDOUT,
-				text=True,
-				bufsize=1,
-			) as proc:
-				assert proc.stdout
-				for line in proc.stdout:
-					stripped = line.rstrip()
-					job_log.info(stripped)
-					if log_file:
-						log_file.write(line)
-				proc.wait()
-		finally:
-			if log_file:
-				log_file.close()
+        # Batch mode — stream output and write per-job log
+        log_stem = label or "vivado"
+        log_path = Path(log_dir or cfg.work_dir) / f"{log_stem}.log"
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        log_file = log_path.open("w")
 
-		if proc.returncode != 0:
-			job_log.error("Vivado exited with code %d", proc.returncode)
-			raise subprocess.CalledProcessError(proc.returncode, cmd)
+        job_log.info("Log: %s", log_path)
 
-	finally:
-		os.unlink(config_tcl_path)
+        with subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+        ) as proc:
+            assert proc.stdout
+            for line in proc.stdout:
+                stripped = line.rstrip()
+                job_log.info(stripped)
+                log_file.write(line)
+            proc.wait()
+
+        if proc.returncode != 0:
+            job_log.error("Vivado exited with code %d (log: %s)", proc.returncode, log_path)
+            raise subprocess.CalledProcessError(proc.returncode, cmd)
+
+    finally:
+        if log_file:
+            log_file.close()
+        if config_tcl_path and not vivado.dry_run:
+            with contextlib.suppress(OSError):
+                os.unlink(config_tcl_path)
