@@ -6,16 +6,14 @@ import os
 import re
 import sys
 import typing
-from xviv.config.catalog import Catalog, get_catalog
+from xviv.config.catalog import Catalog
 from xviv.config.model import AppConfig, BdConfig, BdCoreConfig, CoreConfig, DesignConfig, FpgaConfig, IpConfig, PlatformConfig, SimulationConfig, SynthConfig, VitisConfig, VivadoConfig, WrapperConfig
 from xviv.parsers.bd_json import get_bd_core_list
 from xviv.utils.fs import resolve_globs
 
 logger = logging.getLogger(__name__)
 
-# =============================================================================
-# ProjectConfig  -  root object; all callers work with this
-# =====================================
+
 class XvivConfig:
 	def __init__(self, config_file_path: str, work_dir: str, board_repo_list: list[str] = [], ip_repo_list: list[str] = []):
 		self.base_dir = os.path.abspath(os.path.dirname(config_file_path))
@@ -298,7 +296,7 @@ class XvivConfig:
 			logger.warning(f'For BD entry with name: {name} - fpga is unspecified - using default: {fpga_ref}')
 
 		if self._get_fpga_cfg_optional(fpga_ref) is None:
-			#! BdCfg - BdCfgAlreadyExists
+			#! FpgaCfg - FpgaMissing
 			sys.exit(f'ERROR: for BD entry with name: {name} - invalid fpga: {fpga_ref}')
 
 		if save_file is None:
@@ -327,6 +325,16 @@ class XvivConfig:
 		)
 
 		return self
+
+	def rebuild_bd(self, name: str) -> None:
+		bd_cfg = self._get_bd_cfg_optional(name)
+
+		if bd_cfg is None:
+			#! BdCfg - BdCfgAlreadyExists
+			sys.exit(f'ERROR: BD entry with name: {name} already exists')
+
+		if os.path.exists(bd_cfg.bd_file):
+			bd_cfg.core_list = get_bd_core_list(bd_cfg.bd_file)
 
 	def _get_bd_cfg_optional(self, name: str) -> BdConfig | None:
 		return next((i for i in self._bd_list if i.name == name), None)
@@ -410,6 +418,10 @@ class XvivConfig:
 			fpga_ref = self._get_fpga_cfg_default.name
 			logger.warning(f'For Core entry with name: {name} - fpga is unspecified - using default: {fpga_ref}')
 
+		if self._get_fpga_cfg_optional(fpga_ref) is None:
+			#! FpgaCfg - FpgaMissing
+			sys.exit(f'ERROR: for Core entry with name: {name} - invalid fpga: {fpga_ref}')
+
 		prev_vlnv = vlnv
 		vlnv = self._resolve_vlnv(vlnv)
 		if prev_vlnv != vlnv:
@@ -463,7 +475,6 @@ class XvivConfig:
 		if bd_name:
 			bd_cfg = self._get_bd_cfg_optional(bd_name)
 			if bd_cfg is None:
-				#! SynthCfg - MultipleIdSpecified
 				#! SynthCfgCfg - SynthCfgCfgDoesNotExist
 				sys.exit(f'ERROR: SynthCfg - BD does not exist for name: {bd_name}')
 
@@ -527,10 +538,6 @@ class XvivConfig:
 
 	def __path_from_base_dir(self, path: str):
 		return os.path.join(self.base_dir, path)
-
-	# @property
-	# def build_dir(self):
-	# 	return self.work_dir
 
 	@property
 	def wrapper_dir(self):

@@ -19,9 +19,7 @@ import glob
 import os
 import shutil
 
-from xviv.config.catalog import Catalog, get_catalog
 from xviv.config.loader import resolve_config_completer, load_config
-# from xviv.utils.tools import find_vivado_dir_path
 
 
 # ---------------------------------------------------------------------------

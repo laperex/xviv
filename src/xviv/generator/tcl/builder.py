@@ -129,8 +129,8 @@ class ConfigTclBuilder:
 		if os.path.isdir(core_subdir):
 			self._push(f"file delete -force \"{core_subdir}\"")
 
-		# if not os.path.isdir(dir):
-		# 	self._push(f"file mkdir \"{core_subdir}\"")
+		if not os.path.isdir(dir):
+			self._push(f"file mkdir \"{dir}\"")
 
 		self._push(f"create_ip {' '.join(params)}")
 

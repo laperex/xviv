@@ -2,6 +2,7 @@ from functools import partial
 import logging
 import os
 from pathlib import Path
+import sys
 import typing
 from xviv.config.project import XvivConfig
 from xviv.generator.tcl.commands import ConfigTclCommands
@@ -98,11 +99,17 @@ def cmd_bd_generate(cfg: XvivConfig, bd_name: str):
 # synth --bd <bd_name> [--ooc-run]
 # -----------------------------------------------------------------------------
 def cmd_bd_synth(cfg: XvivConfig, bd_name: str, ooc_run: typing.Optional[bool]):
-	xci_name = cfg.get_bd(bd_name).core_list[0].name
-	xci_file = cfg.get_bd(bd_name).core_list[0].xci_file
+	bd_cfg = cfg.get_bd(bd_name)
 
-	dcp_file = os.path.join(cfg.synth_dir, f'{xci_name}.dcp')
-	stub_file = os.path.join(cfg.synth_dir, f'{xci_name}.v')
+	if not os.path.exists(bd_cfg.bd_file):
+		#! CmdSynth - BdFileMissingError
+		sys.exit('ERROR: BD File does not exist. Cannot run synthesis')
+
+	xci_name = bd_cfg.core_list[0].name
+	xci_file = bd_cfg.core_list[0].xci_file
+
+	dcp_file = os.path.join(cfg.synth_dir, xci_name, f'{xci_name}.dcp')
+	stub_file = os.path.join(cfg.synth_dir, xci_name, f'{xci_name}.v')
 
 	config = (
 		ConfigTclCommands(cfg)

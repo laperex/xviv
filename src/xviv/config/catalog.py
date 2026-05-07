@@ -18,10 +18,6 @@ class Catalog:
 		self._cores: dict[str, CatalogCoreEntry] = {}
 		self._load(vivado_path, ip_repos or [])
 
-	# ------------------------------------------------------------------
-	# Construction
-	# ------------------------------------------------------------------
-
 	def _load(self, vivado_path: str, ip_repos: list[str]) -> None:
 		xml_path = os.path.join(vivado_path, "data", "ip", "vv_index.xml")
 		self._cores.update(vv_index_xml.parser(xml_path))
@@ -32,10 +28,6 @@ class Catalog:
 			self._cores.update(merged)
 		logger.debug("Catalog: %d total cores", len(self._cores))
 
-	# ------------------------------------------------------------------
-	# Iteration
-	# ------------------------------------------------------------------
-
 	def __len__(self) -> int:
 		return len(self._cores)
 
@@ -45,20 +37,8 @@ class Catalog:
 	def __contains__(self, vlnv: str) -> bool:
 		return vlnv in self._cores
 
-	# ------------------------------------------------------------------
-	# Lookups
-	# ------------------------------------------------------------------
-
 	def get(self, vlnv: str) -> CatalogCoreEntry | None:
 		return self._cores.get(vlnv)
-
-	# def lookup(self, id: str) -> CatalogCoreEntry:
-	# 	entry = self.lookup_none(id)
-
-	# 	if entry:
-	# 		return entry
-
-	# 	sys.exit(f"ERROR: Unable to resolve core: {id!r}")
 
 	def lookup_optional(self, id: str) -> typing.Optional[CatalogCoreEntry]:
 		entry = self._cores.get(id)
@@ -79,24 +59,21 @@ class Catalog:
 	def find_by_name(self, ip_name: str) -> list[CatalogCoreEntry]:
 		return [e for e in self._cores.values() if e.name == ip_name]
 
-	# ------------------------------------------------------------------
-	# Filtered views
-	# ------------------------------------------------------------------
-
-	# def user_visible(self) -> list[CatalogCoreEntry]:
-	# 	return [e for e in self._cores.values() if not e.hidden]
-
-	def search(self, prefix: str, *,
+	def search(
+		self,
+		prefix: str,
+		*,
 		include_hidden: bool = False,
 	) -> list[CatalogCoreEntry]:
 		needle = prefix.lower()
 		return [
 			e for e in self._cores.values()
-				if (include_hidden or not e.hidden) and (
-					needle in e.vlnv.lower()
-					or needle in e.display_name.lower()
-					or needle in e.description.lower()
-				)
+			if (include_hidden or not e.hidden)
+			and (
+				needle in e.vlnv.lower()
+				or needle in e.display_name.lower()
+				or needle in e.description.lower()
+			)
 		]
 
 	def items(self) -> Iterator[tuple[str, CatalogCoreEntry]]:
@@ -104,22 +81,6 @@ class Catalog:
 
 	def values(self) -> ValuesView[CatalogCoreEntry]:
 		return self._cores.values()
-
-
-# ------------------------------------------------------------------
-# Process-level cache
-# ------------------------------------------------------------------
-
-_CACHE: dict[tuple[str, tuple[str, ...]], Catalog] = {}
-
-
-def get_catalog(vivado_path: str, ip_repos: list[str] | None = None) -> Catalog:
-	key = (vivado_path, tuple(sorted(ip_repos or [])))
-
-	if key not in _CACHE:
-		_CACHE[key] = Catalog(vivado_path, ip_repos)
-
-	return _CACHE[key]
 
 
 def _load_ip_repo(ip_repo_path: str) -> dict[str, CatalogCoreEntry]:
