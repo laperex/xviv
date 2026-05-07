@@ -7,7 +7,7 @@ from xviv.tools import vivado
 # -----------------------------------------------------------------------------
 # create  --core <core_id> --vlnv <vlnv_id>
 # -----------------------------------------------------------------------------
-def cmd_core_create(cfg: XvivConfig, core_name: str, core_vlnv: typing.Optional[str], edit: bool = False):
+def cmd_core_create(cfg: XvivConfig, core_name: str, core_vlnv: str | None, edit: bool = False):
 	config = (
 		ConfigTclCommands(cfg)
 		.create_core(core_name)

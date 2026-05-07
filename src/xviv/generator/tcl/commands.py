@@ -331,7 +331,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 
 
-	def create_core(self, core_name: str, nogui = False) -> typing.Self:
+	def create_core(self, core_name: str) -> typing.Self:
 		# xci_file = os.path.join(self._cfg.core_dir, core_name, f"{core_name}.xci")
 		core_cfg = self._cfg.get_core(core_name)
 
@@ -341,10 +341,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 			self._create_project(None)
 
 		self._create_core(core_name, dir=self._cfg.core_dir, vlnv=core_cfg.vlnv)
-
-
-		if nogui:
-			self._generate_xci(core_cfg.xci_file)
+		self._generate_xci(core_cfg.xci_file)
 
 		return self
 
@@ -376,19 +373,16 @@ class ConfigTclCommands(ConfigTclBuilder):
 		return self
 
 
-	def _generate_xci(self, xci_file: str) -> typing.Self:
-		# if not is_stale(bd_file, bd_wrapper):
-		# 	logger.info("INFO: Output products are up to date")
-		# 	return self
-		
+	def _generate_xci(self, xci_file: str, load_xci=True) -> typing.Self:
 		if not self.current_project:
 			sys.exit(f'ERROR: current_project: {None}')
-
-		self._read_ip(xci_file)
 
 		self._generate_target_get_files(xci_file, reset=False)
 
 		return self
+
+	
+	# def synth_core()
 
 
 	def synth_xci_out_of_context(self, xci_name: str, xci_file: str, *,
