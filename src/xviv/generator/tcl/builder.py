@@ -208,7 +208,7 @@ class ConfigTclBuilder:
 			f"-component {component}",
 		])
 
-		self._push(f"ipx::add_param {' '.join(params)}")
+		self._push(f"ipgui::add_param {' '.join(params)}")
 
 
 	def _ipgui__get_pagespec(self, *,
@@ -216,11 +216,11 @@ class ConfigTclBuilder:
 		component: str
 	):
 		params = filter(None, [
-			f"-name {name}",
+			f"-name \"{name}\"",
 			f"-component {component}",
 		])
 
-		self._push(f"ipx::get_pagespec {' '.join(params)}")
+		self._push(f"ipgui::get_pagespec {' '.join(params)}")
 
 
 	# ipx
