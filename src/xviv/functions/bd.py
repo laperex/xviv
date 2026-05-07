@@ -98,7 +98,7 @@ def cmd_bd_generate(cfg: XvivConfig, bd_name: str):
 # -----------------------------------------------------------------------------
 # synth --bd <bd_name> [--ooc-run]
 # -----------------------------------------------------------------------------
-def cmd_bd_synth(cfg: XvivConfig, bd_name: str, ooc_run: typing.Optional[bool]):
+def cmd_bd_synth(cfg: XvivConfig, bd_name: str, ooc_run: bool | None):
 	bd_cfg = cfg.get_bd(bd_name)
 
 	if not os.path.exists(bd_cfg.bd_file):
@@ -121,7 +121,7 @@ def cmd_bd_synth(cfg: XvivConfig, bd_name: str, ooc_run: typing.Optional[bool]):
 		.build()
 	)
 
-	vivado.run_vivado(cfg, config_tcl=config, dry_run=True)
+	vivado.run_vivado(cfg, config_tcl=config)
 
 	# print(components[0])
 

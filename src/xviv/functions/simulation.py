@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 # -----------------------------------------------------------------------------
 # elaborate --top <top_name> [--run <time>]
 # -----------------------------------------------------------------------------
-def cmd_top_elaborate(cfg: XvivConfig, top_name: str, run: typing.Optional[str]):
+def cmd_top_elaborate(cfg: XvivConfig, top_name: str, run: str | None):
 	xlib_work_dir = cfg.get_xlib_work_dir(top_name)
 	sim_files     = cfg.resolve_globs(cfg.get_simulation(top_name=top_name).rtl)
 

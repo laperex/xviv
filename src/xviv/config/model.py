@@ -60,7 +60,7 @@ class CoreConfig:
 	name:     str
 	vlnv:     str
 	xci_file: str
-	fpga_ref: str
+	fpga_ref: str |
 
 @dataclasses.dataclass
 class BdCoreConfig(CoreConfig):

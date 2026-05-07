@@ -13,9 +13,9 @@ class ConfigTclBuilder:
 	def __init__(self, cfg: XvivConfig):
 		self._cfg = cfg
 
-		self.current_project: typing.Optional[str] = None
-		self.current_bd: typing.Optional[str] = None
-		self.current_core: typing.Optional[str] = None
+		self.current_project: str | None = None
+		self.current_bd: str | None = None
+		self.current_core: str | None = None
 
 		self.__lines: list[str] = []
 		self.__flags: set[str] = set()
@@ -38,7 +38,7 @@ class ConfigTclBuilder:
 		return self
 
 
-	def build(self) -> typing.Optional[str]:
+	def build(self) -> str | None:
 		if len(self.__lines):
 			text = '\n'.join(self.__lines) + '\n'
 			if self.__indent > 0:
@@ -59,7 +59,7 @@ class ConfigTclBuilder:
 		self._push(f"puts \"{severity}: {text}\"")
 
 
-	def _create_project(self, fpga_ref: typing.Optional[str] = None, name = "xviv_in_memory"):
+	def _create_project(self, fpga_ref: str | None = None, name = "xviv_in_memory"):
 		#* set board_repo and board_part
 		if self.current_project == name:
 			#! TCLCreateProject - ProjectExistsError
@@ -387,7 +387,7 @@ class ConfigTclBuilder:
 
 	# update_compile_order
 	def _update_compile_order(self, *,
-		fileset: typing.Optional[str] = None
+		fileset: str | None = None
 	):
 		params = filter(None, [
 			f"-fileset {fileset}" if fileset else None,
@@ -423,7 +423,7 @@ class ConfigTclBuilder:
 	def _add_files(self, file: str, *,
 		norecurse = False,
 		scan_for_includes: bool = False,
-		fileset: typing.Optional[str] = None,
+		fileset: str | None = None,
 	) -> None:
 		params = filter(None, [
 			"-scan_for_includes"  if scan_for_includes else None,
@@ -521,7 +521,7 @@ class ConfigTclBuilder:
 	# read_checkpoint
 	def _read_checkpoint(self, file: str, *,
 		incremental: bool = False,
-		cell: typing.Optional[str] = None
+		cell: str | None = None
 	):
 		params = filter(None, [
 			"-incremental"  if incremental else None,
@@ -575,7 +575,7 @@ class ConfigTclBuilder:
 
 	# opt_design
 	def _opt_design(self, *,
-		directive: typing.Optional[str] = None
+		directive: str | None = None
 	):
 		params = filter(None, [
 			f"-directive \"{directive}\"" if directive else None,
@@ -585,7 +585,7 @@ class ConfigTclBuilder:
 
 	# phys_opt_design
 	def _phys_opt_design(self, *,
-		directive: typing.Optional[str] = None
+		directive: str | None = None
 	):
 		params = filter(None, [
 			f"-directive \"{directive}\"" if directive else None,
@@ -595,7 +595,7 @@ class ConfigTclBuilder:
 
 	# place_design
 	def _place_design(self, *,
-		directive: typing.Optional[str] = None
+		directive: str | None = None
 	):
 		params = filter(None, [
 			f"-directive \"{directive}\"" if directive else None,
@@ -605,7 +605,7 @@ class ConfigTclBuilder:
 
 	# route_design
 	def _route_design(self, *,
-		directive: typing.Optional[str] = None
+		directive: str | None = None
 	):
 		params = filter(None, [
 			f"-directive \"{directive}\"" if directive else None,
@@ -616,10 +616,10 @@ class ConfigTclBuilder:
 	# synth_design
 	def _synth_design(self, top: str, *,
 		prefix: str = 'synth',
-		mode: typing.Optional[str] = None,
-		directive: typing.Optional[str] = None,
-		flatten_hierarchy: typing.Optional[str] = None,
-		fsm_extraction: typing.Optional[str] = None
+		mode: str | None = None,
+		directive: str | None = None,
+		flatten_hierarchy: str | None = None,
+		fsm_extraction: str | None = None
 	):
 		params = filter(None, [
 			f"-mode {mode}"                           if mode else None,
@@ -635,7 +635,7 @@ class ConfigTclBuilder:
 	# report
 	def _report(self, report_type: str, *,
 		file: str,
-		max_paths: typing.Optional[int] = None,
+		max_paths: int | None = None,
 		report_unconstrained: bool = False,
 		warn_on_violation: bool = False,
 		hierarchical: bool = False

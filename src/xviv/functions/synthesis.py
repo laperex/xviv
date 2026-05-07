@@ -9,7 +9,7 @@ from xviv.utils.git import _git_sha_tag
 # -----------------------------------------------------------------------------
 # config (--top <top_name> | --bd <bd_name>) --synth
 # -----------------------------------------------------------------------------
-def cmd_synth_config(cfg: XvivConfig, top_name: typing.Optional[str], bd_name: typing.Optional[str], ip_name: typing.Optional[str]):
+def cmd_synth_config(cfg: XvivConfig, top_name: str | None, bd_name: str | None, ip_name: str | None):
 	generate_synth_hooks(cfg, top_name=top_name, bd_name=bd_name, ip_name=ip_name)
 
 
@@ -31,7 +31,7 @@ def cmd_top_synth(cfg: XvivConfig, top_name: str):
 # -----------------------------------------------------------------------------
 # open --dcp <dcp_name> --top <top_name>
 # -----------------------------------------------------------------------------
-def cmd_dcp_open(cfg: XvivConfig, dcp_name: str, top_name: typing.Optional[str], bd_name: typing.Optional[str], nogui: bool = False):
+def cmd_dcp_open(cfg: XvivConfig, dcp_name: str, top_name: str | None, bd_name: str | None, nogui: bool = False):
 	# config_tcl = generate_config_tcl(cfg, top_name=top_name, bd_name=bd_name)
 
 	dcp_path   = cfg.get_dcp_path(top_name or f"{bd_name}_wrapper", dcp_name)

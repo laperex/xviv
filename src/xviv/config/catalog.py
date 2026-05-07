@@ -40,7 +40,7 @@ class Catalog:
 	def get(self, vlnv: str) -> CatalogCoreEntry | None:
 		return self._cores.get(vlnv)
 
-	def lookup_optional(self, id: str) -> typing.Optional[CatalogCoreEntry]:
+	def lookup_optional(self, id: str) -> CatalogCoreEntry | None:
 		entry = self._cores.get(id)
 		if entry is not None:
 			return entry

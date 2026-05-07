@@ -43,8 +43,8 @@ def cmd_platform_create(cfg: XvivConfig, platform_name: str):
 def cmd_app_create(
 	cfg: XvivConfig,
 	app_name: str,
-	platform_name: typing.Optional[str],
-	template_name: typing.Optional[str],
+	platform_name: str | None,
+	template_name: str | None,
 ):
 	app  = cfg.get_app(app_name)
 	plat_name = platform_name or app.platform
@@ -108,7 +108,7 @@ def cmd_platform_build(cfg: XvivConfig, platform_name: str):
 # -----------------------------------------------------------------------------
 # build --app <app_name> [--info]
 # -----------------------------------------------------------------------------
-def cmd_app_build(cfg: XvivConfig, app_name: str, info: typing.Optional[bool]):
+def cmd_app_build(cfg: XvivConfig, app_name: str, info: bool | None):
 	app      = cfg.get_app(app_name)
 	plat     = cfg.get_platform(app.platform)
 
@@ -152,10 +152,10 @@ def cmd_app_build(cfg: XvivConfig, app_name: str, info: typing.Optional[bool]):
 # -----------------------------------------------------------------------------
 def cmd_program(
 	cfg: XvivConfig,
-	app_name:      typing.Optional[str],
-	platform_name: typing.Optional[str],
-	elf:           typing.Optional[str],
-	bitstream:     typing.Optional[str],
+	app_name:      str | None,
+	platform_name: str | None,
+	elf:           str | None,
+	bitstream:     str | None,
 ):
 	server = cfg.vivado.hw_server
 
@@ -196,7 +196,7 @@ def cmd_program(
 # -----------------------------------------------------------------------------
 # processor --reset | --status
 # -----------------------------------------------------------------------------
-def cmd_processor(cfg: XvivConfig, reset: typing.Optional[bool], status: typing.Optional[bool]):
+def cmd_processor(cfg: XvivConfig, reset: bool | None, status: bool | None):
 	server = cfg.vivado.hw_server
 
 	if reset:

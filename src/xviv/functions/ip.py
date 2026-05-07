@@ -11,7 +11,7 @@ from xviv.tools import vivado
 # -----------------------------------------------------------------------------
 # create --ip <ip_name>
 # -----------------------------------------------------------------------------
-def cmd_ip_create(cfg: XvivConfig, ip_name: typing.Optional[str] = None, ip_vlnv: typing.Optional[str] = None):
+def cmd_ip_create(cfg: XvivConfig, ip_name: str | None = None, ip_vlnv: str | None = None):
 	ip = cfg.get_ip(ip_name)
 
 	config = (
