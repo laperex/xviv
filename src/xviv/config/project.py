@@ -158,7 +158,7 @@ class XvivConfig:
 				vlnv=vlnv,
 				repo=repo,
 				top=top,
-				sources=sources
+				sources=resolve_globs(sources, self.base_dir)
 			)
 		)
 
@@ -213,7 +213,7 @@ class XvivConfig:
 			WrapperConfig(
 				ip_name=ip_name,
 				wrapper_file=wrapper_file,
-				sources=sources
+				sources=resolve_globs(sources, self.base_dir)
 			)
 		)
 
@@ -381,7 +381,7 @@ class XvivConfig:
 			DesignConfig(
 				name=name,
 				top=top,
-				sources=sources
+				sources=resolve_globs(sources, self.base_dir)
 			)
 		)
 

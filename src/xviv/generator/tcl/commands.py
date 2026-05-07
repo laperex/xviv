@@ -179,17 +179,61 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 
 	def create_ip(self, ip_name: str, nogui = False) -> typing.Self:
-		ip_cfg = self._cfg.get_core(ip_name)
+		ip = self._cfg.get_ip(ip_name)
+
+		ip_vid = f'{ip.name}_{ip.version}'.replace('.', '_')
+		ip_dir = os.path.join(ip.repo, ip_vid)
+		ip_component_xml_file = os.path.join(ip_dir, 'component.xml')
+		
+		ip_edit_project_dir = os.path.join("/dev/shm/build", ip_vid)
+		ip_edit_project_name = f'edit_{ip_vid}'
 
 		# tcl begin
 
 		if self.current_project is None:
 			self._create_project(None)
 
+		# _xviv_ip_scaffold
+		self._create_peripheral(
+			name=ip_name, vendor=ip.vendor, version=ip.version, library=ip.library, dir=ip.repo
+		)
+		self._add_peripheral_interface_ipx__find_open_core(
+			'S00_AXI', vlnv=ip.vlnv, interface_mode='slave', axi_type='lite'
+		)
+		self._generate_peripheral_ipx__find_open_core(vlnv=ip.vlnv, force=True)
+		self._write_peripheral_ipx__find_open_core(vlnv=ip.vlnv)
+
+		self._ipx__edit_ip_in_project(ip_component_xml_file, directory=ip_edit_project_dir, name=ip_edit_project_name, upgrade=True)
+
+		if self.current_project:
+			self._set_current_project(self.current_project)
+			self._close_project()
+
+		self._set_current_project(ip_edit_project_name)
+
+		for i in ['S00_AXI', 'S00_AXI_RST', 'S00_AXI_CLK']:
+			self._ipx__remove_bus_interface_ipx__current_core(i)
+
+		self._ipx__remove_memory_map_ipx__current_core('S00_AXI')
+		self._ipx__remove_user_parameter_ipx__current_core('C_S00_AXI_BASEADDR')
+		self._ipx__remove_user_parameter_ipx__current_core('C_S00_AXI_HIGHADDR')
+
+		# foreach f [get_files -filter {FILE_TYPE == Verilog}] {
+		# 	remove_files $f
+		# 	file delete -force $f
+		# }
+
+		self._push(f"file delete -force \"{os.path.join(ip_dir, 'hdl')}\"")
+		
+		for s in ip.sources:
+			self._add_files(s, scan_for_includes=True)
+		
 		
 
+		# current_project "in_memory_project"
+		# close_project
+		# current_project "edit_$ip_vid"
 		# self._create_core(ip_name, dir=self._cfg.core_dir, vlnv=ip_cfg.vlnv)
-
 
 		# if nogui:
 		# 	self._generate_xci(ip_cfg.xci_file)

@@ -69,7 +69,7 @@ class ConfigTclBuilder:
 		if self._cfg.board_repo_list:
 			self._push(f'set_param board.repoPaths { _tcl_list(self._cfg.board_repo_list) }')
 
-		self._push(f"create_project -in_memory {name}" + f" -part {fpga.fpga_part} " if fpga.fpga_part else "")
+		self._push(f"create_project -in_memory \"{name}\"" + f" -part {fpga.fpga_part} " if fpga.fpga_part else "")
 
 		if fpga.board_part:
 			self._set_property_current_project('board_part', fpga.board_part)
@@ -81,7 +81,7 @@ class ConfigTclBuilder:
 		self.current_project = name
 
 
-	def _current_project(self, name: str):
+	def _set_current_project(self, name: str):
 		self._push(f"current_project \"{name}\"")
 
 
@@ -137,24 +137,25 @@ class ConfigTclBuilder:
 		self.current_core = core_name
 
 
-	def _create_peripheral(self, name: str, *,
+	def _create_peripheral(self, *,
 		vendor: str,
 		library: str,
+		name: str,
 		version: str,
 		dir: str
 	):
 		params = filter(None, [
-			f"-dir {dir}"
+			f"-dir \"{dir}\""
 		])
 
-		self._push(f"create_peripheral {vendor} {library} {name} {version} {' '.join(params)}")
+		self._push(f"create_peripheral \"{vendor}\" \"{library}\" \"{name}\" \"{version}\" {' '.join(params)}")
 
 
 	def _add_peripheral_interface_ipx__find_open_core(self, interface: str, vlnv: str, *,
 		interface_mode: str,
 		axi_type: str,
 	):
-		self._add_peripheral_interface(interface, f'[ipx::find_open_core{vlnv}]',
+		self._add_peripheral_interface(interface, f'[ipx::find_open_core \"{vlnv}\"]',
 			interface_mode=interface_mode,
 			axi_type=axi_type
 		)
@@ -174,7 +175,7 @@ class ConfigTclBuilder:
 	def _generate_peripheral_ipx__find_open_core(self, vlnv: str, *,
 		force: bool = False
 	):
-		self._generate_peripheral(f'[ipx::find_open_core{vlnv}]', force=force)
+		self._generate_peripheral(f'[ipx::find_open_core \"{vlnv}\"]', force=force)
 	
 	def _generate_peripheral(self, context: str, *,
 		force: bool = False
@@ -186,19 +187,11 @@ class ConfigTclBuilder:
 		self._push(f"generate_peripheral {' '.join(params)} {context}")
 
 
-	def _write_peripheral_ipx__find_open_core(self, vlnv: str, *,
-		force: bool = False
-	):
-		self._write_peripheral(f'[ipx::find_open_core{vlnv}]', force=force)
+	def _write_peripheral_ipx__find_open_core(self, vlnv: str):
+		self._write_peripheral(f'[ipx::find_open_core \"{vlnv}\"]')
 	
-	def _write_peripheral(self, context: str, *,
-		force: bool = False
-	):
-		params = filter(None, [
-			"-force" if force else None
-		])
-
-		self._push(f"write_peripheral {' '.join(params)} {context}")
+	def _write_peripheral(self, context: str):
+		self._push(f"write_peripheral {context}")
 
 
 	# ipgui
@@ -237,9 +230,9 @@ class ConfigTclBuilder:
 		directory: str
 	):
 		params = filter(None, [
-			f"-directory {directory}",
-			f"-name {name}",
-			f"-upgrade {str(upgrade).lower()}"
+			f"-directory \"{directory}\"",
+			f"-name \"{name}\"",
+			f"-upgrade {str(upgrade).lower()}" if upgrade else None
 		])
 
 		self._push(f"ipx::edit_ip_in_project {' '.join(params)} \"{component_xml_file}\"")

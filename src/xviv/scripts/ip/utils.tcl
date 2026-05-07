@@ -9,15 +9,15 @@
 
 # Stage 1: scaffold the default IP skeleton and open the edit project so that
 # subsequent stages operate on [ipx::current_core].
-proc _xviv_ip_scaffold {ip_id ip_vid ip_dir proj_root} {
+proc _xviv_ip_scaffold {ip_vlnv ip_vid ip_dir proj_root} {
     global xviv_ip_vendor xviv_ip_library xviv_ip_name xviv_ip_version xviv_ip_repo
 
     create_peripheral $xviv_ip_vendor $xviv_ip_library $xviv_ip_name \
         $xviv_ip_version -dir $xviv_ip_repo
     add_peripheral_interface S00_AXI \
-        -interface_mode slave -axi_type lite [ipx::find_open_core $ip_id]
-    generate_peripheral [ipx::find_open_core $ip_id] -force
-    write_peripheral    [ipx::find_open_core $ip_id]
+        -interface_mode slave -axi_type lite [ipx::find_open_core $ip_vlnv]
+    generate_peripheral [ipx::find_open_core $ip_vlnv] -force
+    write_peripheral    [ipx::find_open_core $ip_vlnv]
 
     ipx::edit_ip_in_project -upgrade true -name "edit_$ip_vid" \
         -directory "$proj_root/$ip_vid" "$ip_dir/component.xml"

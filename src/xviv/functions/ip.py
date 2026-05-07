@@ -2,10 +2,10 @@ import os
 import sys
 import typing
 from xviv.config.project import XvivConfig
-# from xviv.config.tcl import generate_config_tcl
 from xviv.generator.hooks import generate_ip_hooks
+from xviv.generator.tcl.commands import ConfigTclCommands
 from xviv.generator.wrapper import xviv_wrap_top
-# from xviv.tools.util import find_vivado_script
+from xviv.tools import vivado
 
 
 # -----------------------------------------------------------------------------
@@ -13,8 +13,14 @@ from xviv.generator.wrapper import xviv_wrap_top
 # -----------------------------------------------------------------------------
 def cmd_ip_create(cfg: XvivConfig, ip_name: typing.Optional[str] = None, ip_vlnv: typing.Optional[str] = None):
 	ip = cfg.get_ip(ip_name)
-	
-	
+
+	config = (
+		ConfigTclCommands(cfg)
+		.create_ip(ip_name)
+		.build()
+	)
+
+	vivado.run_vivado(cfg, config_tcl=config)
 
 	# if ip is None:
 	# 	sys.exit(f"ERROR: Unable to Resolve IP from ip_name: {ip_name}, ip_vlnv: {ip_vlnv}")
