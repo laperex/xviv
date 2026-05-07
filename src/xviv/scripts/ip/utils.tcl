@@ -69,7 +69,6 @@ proc _xviv_ip_expose_params {} {
     foreach param [ipx::get_user_parameters -of_objects [ipx::current_core]] {
 		set pname [get_property NAME $param]
 
-		# Fetch the current value of the parameter
 		set pvalue [get_property VALUE $param]
 
 		set display_name $pname

@@ -170,13 +170,13 @@ class ConfigTclBuilder:
 		])
 
 		self._push(f"add_peripheral_interface {interface} {' '.join(params)} {context}")
-	
-	
+
+
 	def _generate_peripheral_ipx__find_open_core(self, vlnv: str, *,
 		force: bool = False
 	):
 		self._generate_peripheral(f'[ipx::find_open_core \"{vlnv}\"]', force=force)
-	
+
 	def _generate_peripheral(self, context: str, *,
 		force: bool = False
 	):
@@ -189,7 +189,7 @@ class ConfigTclBuilder:
 
 	def _write_peripheral_ipx__find_open_core(self, vlnv: str):
 		self._write_peripheral(f'[ipx::find_open_core \"{vlnv}\"]')
-	
+
 	def _write_peripheral(self, context: str):
 		self._push(f"write_peripheral {context}")
 
@@ -202,15 +202,15 @@ class ConfigTclBuilder:
 		parent: str
 	):
 		params = filter(None, [
-			f"-name {name}",
-			f"-component {component}",
-			f"-display_name {display_name}",
+			f"-name \"{name}\"",
+			f"-display_name \"{display_name}\"",
 			f"-parent {parent}",
+			f"-component {component}",
 		])
 
-		self._push(f"ipx::edit_ip_in_project {' '.join(params)}")
-	
-	
+		self._push(f"ipx::add_param {' '.join(params)}")
+
+
 	def _ipgui__get_pagespec(self, *,
 		name: str,
 		component: str
@@ -220,7 +220,7 @@ class ConfigTclBuilder:
 			f"-component {component}",
 		])
 
-		self._push(f"ipx::edit_ip_in_project {' '.join(params)}")
+		self._push(f"ipx::get_pagespec {' '.join(params)}")
 
 
 	# ipx
@@ -237,7 +237,7 @@ class ConfigTclBuilder:
 
 		self._push(f"ipx::edit_ip_in_project {' '.join(params)} \"{component_xml_file}\"")
 
-	
+
 	def _ipx__get_user_parameters(self, *,
 		of_objects: str,
 	):
@@ -266,7 +266,7 @@ class ConfigTclBuilder:
 		])
 
 		self._push(f"ipx::get_memory_maps {' '.join(params)}")
-		
+
 
 	def _ipx__update_source_project_archive(self, component: str):
 		params = filter(None, [
@@ -294,21 +294,21 @@ class ConfigTclBuilder:
 		self._push(f"ipx::update_checksums {context}")
 
 	def _ipx__update_checksums_ipx__current_core(self, interface: str):
-		self._ipx__update_checksums('[ipx::current_core]')	
+		self._ipx__update_checksums('[ipx::current_core]')
 
 
 	def _ipx__check_integrity(self, context: str):
 		self._push(f"ipx::check_integrity {context}")
 
 	def _ipx__check_integrity_ipx__current_core(self, interface: str):
-		self._ipx__check_integrity('[ipx::current_core]')	
+		self._ipx__check_integrity('[ipx::current_core]')
 
 
 	def _ipx__save_core(self, context: str):
 		self._push(f"ipx::save_core {context}")
 
 	def _ipx__save_core_ipx__current_core(self, interface: str):
-		self._ipx__save_core('[ipx::current_core]')	
+		self._ipx__save_core('[ipx::current_core]')
 
 
 	def _ipx__remove_bus_interface(self, interface: str, context: str):
@@ -366,7 +366,7 @@ class ConfigTclBuilder:
 	def _close_gui(self):
 		self._push("close_gui")
 
-		
+
 	# update_ip_catalog
 	def _update_ip_catalog(self, *,
 		rebuild: bool = False
@@ -396,7 +396,7 @@ class ConfigTclBuilder:
 
 		self.__read_bd_list.append(file)
 		self._push(f"read_bd \"{file}\"")
-		
+
 		return True
 
 
@@ -408,7 +408,7 @@ class ConfigTclBuilder:
 
 		self.__read_ip_list.append(file)
 		self._push(f"read_ip \"{file}\"")
-		
+
 		return True
 
 
@@ -457,6 +457,23 @@ class ConfigTclBuilder:
 
 	def _set_property_current_fileset(self, name: str, val: str):
 		self._set_property(name, val, "[current_fileset]")
+
+
+	# get_property
+	def _get_property(self, name: str, context: str):
+		self._push(f'get_property {name} {context}')
+
+	def _get_property_get_files(self, name: str, file: str):
+		self._get_property(name, f"[get_files \"{file}\"]")
+
+	def _get_property_current_design(self, name: str, val: str):
+		self._get_property(name, "[current_design]")
+
+	def _get_property_current_project(self, name: str, val: str):
+		self._get_property(name, "[current_project]")
+
+	def _get_property_current_fileset(self, name: str, val: str):
+		self._get_property(name, "[current_fileset]")
 
 
 	# open bd design
@@ -618,9 +635,9 @@ class ConfigTclBuilder:
 			"-warn_on_violation"      if warn_on_violation else None,
 			"-hierarchical"           if hierarchical else None,
 		])
-		
+
 		self._push(f"report_{report_type} {' '.join(params)}")
-		
+
 
 	def _save_bd_design(self):
 		self._push("save_bd_design")
@@ -634,7 +651,21 @@ class ConfigTclBuilder:
 		child = type(self)(self._cfg).__inherit(self)
 		comm(child)
 		self._push(f'proc {name} {{{args}}} {{\n{ child.build() }}}')
+	
+	def _set(self, name: str, value_func = None):
+		child = type(self)(self._cfg).__inherit(self)
+		value_func(child)
 
+		self._push(f'set {name} [{(child.build() or '').strip()}]')
+
+	def _foreach(self, args: str, iter_func = None, body_func = None):
+		iterator_child = type(self)(self._cfg).__inherit(self)
+		iter_func(iterator_child)
+
+		body_child = type(self)(self._cfg).__inherit(self)
+		body_func(body_child)
+
+		self._push(f'foreach {args} [{(iterator_child.build() or '').strip()}] {{\n{body_child.build()}}}')
 
 	def _override(self, call, *,
 		pre_call = None,

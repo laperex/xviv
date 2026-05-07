@@ -8,6 +8,7 @@ import sys
 import typing
 from xviv.config.catalog import Catalog
 from xviv.config.model import AppConfig, BdConfig, BdCoreConfig, CoreConfig, DesignConfig, FpgaConfig, IpConfig, PlatformConfig, SimulationConfig, SynthConfig, VitisConfig, VivadoConfig, WrapperConfig
+from xviv.generator.wrapper import xviv_wrap_top
 from xviv.parsers.bd_json import get_bd_core_list
 from xviv.utils.fs import resolve_globs
 
@@ -208,6 +209,13 @@ class XvivConfig:
 		if wrapper_file is None:
 			# TODO: default ip wrapper file
 			wrapper_file = os.path.join(self.wrapper_dir, f"{ip_cfg.top}_wrapper.v")
+		
+		# run wrapper process
+		wrapper = xviv_wrap_top(ip_cfg.top, self.wrapper_dir, resolve_globs(sources, self.base_dir))
+		
+		ip_cfg.top = wrapper.wrapper_top
+		if wrapper.wrapper_file not in ip_cfg.sources:
+			ip_cfg.sources.append(wrapper.wrapper_file)
 
 		self._wrapper_list.append(
 			WrapperConfig(

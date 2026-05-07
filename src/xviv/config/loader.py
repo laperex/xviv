@@ -74,6 +74,14 @@ def load_config(path: str) -> XvivConfig:
 			]
 		)
 		
+		.add_wrapper_cfg(
+			ip_name='ip_rgb_to_hsv',
+			sources=[
+				'srcs/rtl/axi_types.sv',
+				'srcs/rtl/ip_rgb_to_hsv.sv'
+			]
+		)
+		
 		.add_core_cfg(
 			name = 'clk_wiz',
 			vlnv = 'clk_wiz:6.0'

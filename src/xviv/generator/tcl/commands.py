@@ -211,6 +211,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 		self._set_current_project(ip_edit_project_name)
 
+		# _xviv_ip_strip_scaffold
 		for i in ['S00_AXI', 'S00_AXI_RST', 'S00_AXI_CLK']:
 			self._ipx__remove_bus_interface_ipx__current_core(i)
 
@@ -222,13 +223,69 @@ class ConfigTclCommands(ConfigTclBuilder):
 		# 	remove_files $f
 		# 	file delete -force $f
 		# }
+		self._push(
+			'foreach f [get_files -filter {FILE_TYPE == Verilog}] {\n'
+			'	remove_files $f\n'
+			'	file delete -force $f\n'
+			'}\n'
+		)
 
+		# add sources
 		self._push(f"file delete -force \"{os.path.join(ip_dir, 'hdl')}\"")
 		
 		for s in ip.sources:
 			self._add_files(s, scan_for_includes=True)
+
+		self._set_property_current_fileset('TOP', ip.top)
+
+		self._update_compile_order(fileset='sources_1')
+
+		self._ipx__merge_project_changes_ipx__current_core('ports')
+		self._ipx__merge_project_changes_ipx__current_core('files')
+
+		self._update_compile_order(fileset='sources_1')
+
+		# _xviv_ip_infer_interfaces
+		for i in ['xilinx.com:interface:axis_rtl:1.0', 'xilinx.com:interface:aximm_rtl:1.0']:
+			self._ipx__infer_bus_interfaces_ipx__current_core(i)
+
+		self._update_compile_order(fileset='sources_1')
 		
+		ipx_current_core = '[ipx::current_core]'
 		
+		def __iter_body(x: typing.Self):
+			x._set('pname', lambda m: m._get_property('NAME', '$param'))
+			# x._set('pvalue', lambda m: m._get_property('VALUE', '$param'))
+			x._set('pparent', lambda m: m._ipgui__get_pagespec(
+				name='Page 0',
+				component=ipx_current_core
+			))
+			x._set('widget', lambda m: m._ipgui__add_param(
+				name='$pname',
+				display_name='$pname',
+				component=ipx_current_core,
+				parent='$pparent'
+			))
+
+			x._set_property('TOOLTIP', '"Parameter: $display_name"', '$widget')
+			# x._push(
+			# 	x.
+			# 	# self.get_pro
+			# 	# set pname [get_property NAME $param]
+
+			# 	# set pvalue [get_property VALUE $param]
+
+			# 	# set widget [ipgui::add_param \
+			# 	# 	-name $pname \
+			# 	# 	-display_name $pname \
+			# 	# 	-component [ipx::current_core] \
+			# 	# 	-parent [ipgui::get_pagespec -name "Page 0" -component [ipx::current_core]]]
+			# )
+
+		self._foreach('param',
+			iter_func=lambda x: x._ipx__get_user_parameters(of_objects=ipx_current_core),
+			body_func=__iter_body
+		)
 
 		# current_project "in_memory_project"
 		# close_project
