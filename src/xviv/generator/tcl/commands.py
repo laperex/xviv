@@ -178,7 +178,27 @@ class ConfigTclCommands(ConfigTclBuilder):
 		return self
 
 
-	def create_core(self, core_name: str, nogui = True) -> typing.Self:
+	def create_ip(self, ip_name: str, nogui = False) -> typing.Self:
+		ip_cfg = self._cfg.get_core(ip_name)
+
+		# tcl begin
+
+		if self.current_project is None:
+			self._create_project(None)
+
+		
+
+		# self._create_core(ip_name, dir=self._cfg.core_dir, vlnv=ip_cfg.vlnv)
+
+
+		# if nogui:
+		# 	self._generate_xci(ip_cfg.xci_file)
+
+		return self
+
+
+
+	def create_core(self, core_name: str, nogui = False) -> typing.Self:
 		# xci_file = os.path.join(self._cfg.core_dir, core_name, f"{core_name}.xci")
 		core_cfg = self._cfg.get_core(core_name)
 
