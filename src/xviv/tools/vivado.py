@@ -124,7 +124,7 @@ def run_vivado(
 	with open(config_tcl_path, 'w') as f:
 		f.write(config_tcl)
 
-	if dry_run:
+	if cfg.get_vivado().dry_run:
 		return None
 
 	try:

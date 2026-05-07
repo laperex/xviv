@@ -17,10 +17,10 @@ def resolve_config_completer(prefix, parsed_args, **kwargs) -> str:
 def resolve_config(explicit: str) -> str:
 	if os.path.exists(explicit):
 		return explicit
-	for candidate in ("project.cue", "project.toml"):
+	for candidate in ["project.toml"]:
 		if os.path.exists(candidate):
 			return candidate
-	sys.exit("ERROR: neither project.cue nor project.toml found in current directory.")
+	sys.exit("ERROR: project.toml not found in current directory.")
 
 def load_config(path: str) -> XvivConfig:
     with open(path, 'rb') as f:
@@ -29,7 +29,7 @@ def load_config(path: str) -> XvivConfig:
     cfg = XvivConfig(
         path,
         data['project']['build_dir'],
-        data['project']['board_repo_paths']
+        data['project']['board_repo_paths'],
     ).add_vivado_cfg(path=find_vivado_dir_path())
 
     for section, method in [

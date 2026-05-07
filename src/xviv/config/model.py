@@ -5,6 +5,7 @@ import shutil
 @dataclasses.dataclass
 class VivadoConfig:
 	path:        str
+	dry_run:     bool
 	mode:        str
 	max_threads: int
 	hw_server:   str

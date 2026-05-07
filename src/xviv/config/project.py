@@ -106,7 +106,8 @@ class XvivConfig:
 			path=path,
 			mode=mode,
 			max_threads=max_threads,
-			hw_server=hw_server
+			hw_server=hw_server,
+			dry_run=False
 		)
 
 		self._catalog_cfg = Catalog(

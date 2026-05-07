@@ -640,7 +640,7 @@ def construct_port_header_info(
 
 class SystemVerilogWrapper:
 	def __init__(self, top: str, wrapper_top: str, wrapper_file: str, sources: list[str]) -> None:
-		logger.info("SvWrapper: Top: %s, WrapperFile: %s", top, wrapper_file)
+		logger.info(f'Create Wrapper for {top}')
 
 		self.top = top
 		self.wrapper_top = wrapper_top
