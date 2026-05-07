@@ -45,10 +45,16 @@ def cmd_ip_create(cfg: XvivConfig, ip_name: typing.Optional[str] = None, ip_vlnv
 # edit --ip <ip_name>
 # -----------------------------------------------------------------------------
 def cmd_ip_edit(cfg: XvivConfig, ip_name: str, nogui: bool = False):
-	# config_tcl = generate_config_tcl(cfg, ip_name=ip_name)
+	config = (
+		ConfigTclCommands(cfg)
+		.edit_ip(ip_name, nogui=nogui)
+		.build()
+	)
 
 	if nogui:
 		cfg.vivado.mode = "tcl"
+
+	vivado.run_vivado(cfg, config_tcl=config)
 
 	# vivado.run_vivado(cfg, find_vivado_script(), "edit_ip", [str(int(not nogui))], config_tcl)
 

@@ -177,6 +177,30 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 		return self
 
+	def edit_ip(self, ip_name: str, nogui = False) -> typing.Self:
+		ip = self._cfg.get_ip(ip_name)
+
+		ip_vid = f'{ip.name}_{ip.version}'.replace('.', '_')
+		ip_dir = os.path.join(ip.repo, ip_vid)
+		ip_component_xml_file = os.path.join(ip_dir, 'component.xml')
+		
+		ip_edit_project_dir = os.path.join("/dev/shm/build", ip_vid)
+		ip_edit_project_name = f'edit_{ip_vid}'
+
+		# tcl begin
+
+		if self.current_project is None:
+			self._create_project(None)
+		
+		if not nogui:
+			self._start_gui()
+
+		self._ipx__edit_ip_in_project(ip_component_xml_file, directory=ip_edit_project_dir, name=ip_edit_project_name, upgrade=True)
+		self._set_current_project(self.current_project)
+		self._close_project()
+		self._set_current_project(ip_edit_project_name)
+		
+		return self
 
 	def create_ip(self, ip_name: str, nogui = False) -> typing.Self:
 		ip = self._cfg.get_ip(ip_name)
@@ -204,11 +228,8 @@ class ConfigTclCommands(ConfigTclBuilder):
 		self._write_peripheral_ipx__find_open_core(vlnv=ip.vlnv)
 
 		self._ipx__edit_ip_in_project(ip_component_xml_file, directory=ip_edit_project_dir, name=ip_edit_project_name, upgrade=True)
-
-		if self.current_project:
-			self._set_current_project(self.current_project)
-			self._close_project()
-
+		self._set_current_project(self.current_project)
+		self._close_project()
 		self._set_current_project(ip_edit_project_name)
 
 		# _xviv_ip_strip_scaffold
@@ -218,16 +239,14 @@ class ConfigTclCommands(ConfigTclBuilder):
 		self._ipx__remove_memory_map_ipx__current_core('S00_AXI')
 		self._ipx__remove_user_parameter_ipx__current_core('C_S00_AXI_BASEADDR')
 		self._ipx__remove_user_parameter_ipx__current_core('C_S00_AXI_HIGHADDR')
+		
+		def __rm_for_body(x: typing.Self):
+			x.remove_files('$file')
+			x._push('file delete -force "$file"')
 
-		# foreach f [get_files -filter {FILE_TYPE == Verilog}] {
-		# 	remove_files $f
-		# 	file delete -force $f
-		# }
-		self._push(
-			'foreach f [get_files -filter {FILE_TYPE == Verilog}] {\n'
-			'	remove_files $f\n'
-			'	file delete -force $f\n'
-			'}\n'
+		self._foreach('file',
+			iter_func=lambda _: _._get_files(filter='{FILE_TYPE == Verilog}'),
+			body_func=__rm_for_body
 		)
 
 		# add sources
@@ -253,47 +272,60 @@ class ConfigTclCommands(ConfigTclBuilder):
 		
 		ipx_current_core = '[ipx::current_core]'
 		
-		def __iter_body(x: typing.Self):
-			x._set('pname', lambda m: m._get_property('NAME', '$param'))
-			# x._set('pvalue', lambda m: m._get_property('VALUE', '$param'))
-			x._set('pparent', lambda m: m._ipgui__get_pagespec(
+		# _xviv_ip_expose_params
+		def __expose_params_body(x: typing.Self):
+			x._set('pname', lambda _: _._get_property('NAME', '$param'))
+
+			x._set('pparent', lambda _: _._ipgui__get_pagespec(
 				name='Page 0',
 				component=ipx_current_core
 			))
-			x._set('widget', lambda m: m._ipgui__add_param(
+			x._set('widget', lambda _: _._ipgui__add_param(
 				name='$pname',
 				display_name='$pname',
 				component=ipx_current_core,
 				parent='$pparent'
 			))
 
-			x._set_property('TOOLTIP', '"Parameter: $display_name"', '$widget')
-			# x._push(
-			# 	x.
-			# 	# self.get_pro
-			# 	# set pname [get_property NAME $param]
-
-			# 	# set pvalue [get_property VALUE $param]
-
-			# 	# set widget [ipgui::add_param \
-			# 	# 	-name $pname \
-			# 	# 	-display_name $pname \
-			# 	# 	-component [ipx::current_core] \
-			# 	# 	-parent [ipgui::get_pagespec -name "Page 0" -component [ipx::current_core]]]
-			# )
+			x._set_property('TOOLTIP', '"Parameter: $pname"', '$widget')
 
 		self._foreach('param',
 			iter_func=lambda x: x._ipx__get_user_parameters(of_objects=ipx_current_core),
-			body_func=__iter_body
+			body_func=__expose_params_body
+		)
+		
+		# _xviv_ip_wire_memory_maps
+		def __ip_wire_memory_maps_body(x: typing.Self):
+			x._set('ifc_name', lambda m: m._get_property('NAME', '$ifc'))
+			x._set('ifc_mode', lambda m: m._get_property('BUS_TYPE_NAME', '$ifc'))
+			x._set('ifc_intf', lambda m: m._get_property('INTERFACE_MODE', '$ifc'))
+			
+			def __if_body(x: typing.Self):
+				x._ipx__add_memory_map_ipx__current_core('$ifc_name')
+				x._set('ifc_memmap', lambda m: m._ipx__get_memory_maps(name='$ifc_name', of_objects=ipx_current_core))
+				x._set('ifc_addr_block', lambda m: m._ipx__add_address_block('${ifc_name}_reg', '$ifc_memmap'))
+				
+				for i in ['OFFSET_HIGH_PARAM', 'OFFSET_BASE_PARAM']:
+					x._ipx__add_address_block_parameter(i, '$ifc_addr_block')
+				
+				x._set_property('usage', 'register', '$ifc_addr_block')
+				x._set('ifc_bus_ifs', lambda m: m._ipx__get_bus_interfaces(name='$ifc_name', of_objects=ipx_current_core))
+				x._set_property('slave_memory_map_ref', '$ifc_name', '$ifc_bus_ifs')
+
+			x._if('$ifc_intf eq "slave" && [string match *axi_lite* $ifc_mode]', comm=__if_body)
+
+		self._foreach('ifc',
+			iter_func=lambda x: x._ipx__get_bus_interfaces(of_objects=ipx_current_core),
+			body_func=__ip_wire_memory_maps_body
 		)
 
-		# current_project "in_memory_project"
-		# close_project
-		# current_project "edit_$ip_vid"
-		# self._create_core(ip_name, dir=self._cfg.core_dir, vlnv=ip_cfg.vlnv)
-
-		# if nogui:
-		# 	self._generate_xci(ip_cfg.xci_file)
+		self._update_compile_order(fileset='sources_1')
+		self._set_property_current_core('core_revision', f'{2}')
+		self._ipx__update_source_project_archive(component=ipx_current_core)
+		self._ipx__create_xgui_files_ipx__current_core()
+		self._ipx__update_checksums_ipx__current_core()
+		self._ipx__check_integrity_ipx__current_core()
+		self._ipx__save_core_ipx__current_core()
 
 		return self
 

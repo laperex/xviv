@@ -40,7 +40,10 @@ class ConfigTclBuilder:
 
 	def build(self) -> typing.Optional[str]:
 		if len(self.__lines):
-			return '\n'.join(self.__lines) + '\n'
+			text = '\n'.join(self.__lines) + '\n'
+			if self.__indent > 0:
+				text += '\t' * (self.__indent - 1)
+			return text
 
 		return None
 
@@ -250,8 +253,10 @@ class ConfigTclBuilder:
 
 	def _ipx__get_bus_interfaces(self, *,
 		of_objects: str,
+		name: str | None = None,
 	):
 		params = filter(None, [
+			f"\"{name}\"" if name else None,
 			f"-of_objects {of_objects}"
 		])
 
@@ -260,8 +265,10 @@ class ConfigTclBuilder:
 
 	def _ipx__get_memory_maps(self, *,
 		of_objects: str,
+		name: str | None = None,
 	):
 		params = filter(None, [
+			f"\"{name}\"" if name else None,
 			f"-of_objects {of_objects}"
 		])
 
@@ -276,7 +283,7 @@ class ConfigTclBuilder:
 
 
 	def _ipx__add_address_block(self, block: str, context: str):
-		self._push(f"ipx::add_address_block_parameter {block} {context}")
+		self._push(f"ipx::add_address_block \"{block}\" {context}")
 
 
 	def _ipx__add_address_block_parameter(self, param: str, context: str):
@@ -286,28 +293,28 @@ class ConfigTclBuilder:
 	def _ipx__create_xgui_files(self, context: str):
 		self._push(f"ipx::create_xgui_files {context}")
 
-	def _ipx__create_xgui_files_ipx__current_core(self, interface: str):
+	def _ipx__create_xgui_files_ipx__current_core(self):
 		self._ipx__create_xgui_files('[ipx::current_core]')
 
 
 	def _ipx__update_checksums(self, context: str):
 		self._push(f"ipx::update_checksums {context}")
 
-	def _ipx__update_checksums_ipx__current_core(self, interface: str):
+	def _ipx__update_checksums_ipx__current_core(self):
 		self._ipx__update_checksums('[ipx::current_core]')
 
 
 	def _ipx__check_integrity(self, context: str):
 		self._push(f"ipx::check_integrity {context}")
 
-	def _ipx__check_integrity_ipx__current_core(self, interface: str):
+	def _ipx__check_integrity_ipx__current_core(self):
 		self._ipx__check_integrity('[ipx::current_core]')
 
 
 	def _ipx__save_core(self, context: str):
 		self._push(f"ipx::save_core {context}")
 
-	def _ipx__save_core_ipx__current_core(self, interface: str):
+	def _ipx__save_core_ipx__current_core(self):
 		self._ipx__save_core('[ipx::current_core]')
 
 
@@ -333,7 +340,7 @@ class ConfigTclBuilder:
 
 
 	def _ipx__add_memory_map(self, map: str, context: str):
-		self._push(f"ipx::add_memory_map {map} {context}")
+		self._push(f"ipx::add_memory_map \"{map}\" {context}")
 
 	def _ipx__add_memory_map_ipx__current_core(self, map: str):
 		self._ipx__add_memory_map(map, '[ipx::current_core]')
@@ -417,11 +424,7 @@ class ConfigTclBuilder:
 		norecurse = False,
 		scan_for_includes: bool = False,
 		fileset: typing.Optional[str] = None,
-	) -> bool:
-		if file in self.__read_bd_list:
-			logger.warning(f'skipping add_files for already loaded file: {file}')
-			return False
-
+	) -> None:
 		params = filter(None, [
 			"-scan_for_includes"  if scan_for_includes else None,
 			f"-fileset {fileset}" if fileset else None,
@@ -429,8 +432,14 @@ class ConfigTclBuilder:
 		])
 		self._push(f"add_files {' '.join(params)} \"{file}\"")
 
-		return True
-
+	# get_files
+	def _get_files(self, *,
+		filter: str | None = None,
+	) -> None:
+		params = [
+			f"-filter {filter}" if filter else None,
+		]
+		self._push(f"get_files {' '.join(params)}")
 
 	# remove_files
 	def remove_files(self, file: str):
@@ -451,6 +460,9 @@ class ConfigTclBuilder:
 
 	def _set_property_current_design(self, name: str, val: str):
 		self._set_property(name, val, "[current_design]")
+	
+	def _set_property_current_core(self, name: str, val: str):
+		self._set_property(name, val, "[ipx::current_core]")
 
 	def _set_property_current_project(self, name: str, val: str):
 		self._set_property(name, val, "[current_project]")
@@ -651,7 +663,12 @@ class ConfigTclBuilder:
 		child = type(self)(self._cfg).__inherit(self)
 		comm(child)
 		self._push(f'proc {name} {{{args}}} {{\n{ child.build() }}}')
-	
+
+	def _if(self, test_expr: str, comm = None):
+		child = type(self)(self._cfg).__inherit(self)
+		comm(child)
+		self._push(f'if {{{test_expr}}} {{\n{ child.build() }}}')
+
 	def _set(self, name: str, value_func = None):
 		child = type(self)(self._cfg).__inherit(self)
 		value_func(child)
