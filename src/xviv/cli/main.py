@@ -46,7 +46,7 @@ def run() -> None:
 	project_dir = os.path.dirname(cfg_path)
 	os.chdir(project_dir)
 
-	cfg = load_config(cfg_path)
+	cfg = load_config(cfg_path).build()
 	_setup_logging("xviv.log")
 
 	registry[args.command].run(cfg, args)

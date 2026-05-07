@@ -4,7 +4,7 @@ import typing
 from xviv.config.project import XvivConfig
 from xviv.generator.hooks import generate_ip_hooks
 from xviv.generator.tcl.commands import ConfigTclCommands
-from xviv.generator.wrapper import xviv_wrap_top
+from xviv.generator.wrapper import SystemVerilogWrapper
 from xviv.tools import vivado
 
 
@@ -20,7 +20,7 @@ def cmd_ip_create(cfg: XvivConfig, ip_name: typing.Optional[str] = None, ip_vlnv
 		.build()
 	)
 
-	vivado.run_vivado(cfg, config_tcl=config)
+	vivado.run_vivado(cfg, config_tcl=config, dry_run=True)
 
 	# if ip is None:
 	# 	sys.exit(f"ERROR: Unable to Resolve IP from ip_name: {ip_name}, ip_vlnv: {ip_vlnv}")

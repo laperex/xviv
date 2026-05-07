@@ -8,7 +8,7 @@ import sys
 import typing
 from xviv.config.catalog import Catalog
 from xviv.config.model import AppConfig, BdConfig, BdCoreConfig, CoreConfig, DesignConfig, FpgaConfig, IpConfig, PlatformConfig, SimulationConfig, SynthConfig, VitisConfig, VivadoConfig, WrapperConfig
-from xviv.generator.wrapper import xviv_wrap_top
+from xviv.generator.wrapper import SystemVerilogWrapper
 from xviv.parsers.bd_json import get_bd_core_list
 from xviv.utils.fs import resolve_globs
 
@@ -19,8 +19,6 @@ class XvivConfig:
 	def __init__(self, config_file_path: str, work_dir: str, board_repo_list: list[str] = [], ip_repo_list: list[str] = []):
 		self.base_dir = os.path.abspath(os.path.dirname(config_file_path))
 		self.work_dir = os.path.join(self.base_dir, work_dir)
-
-		os.makedirs(self.work_dir, exist_ok=True)
 
 		self.board_repo_list: list[str] = []
 		for path in board_repo_list:
@@ -53,6 +51,20 @@ class XvivConfig:
 
 		self._catalog_cfg: Catalog | None = None
 
+	def build(self) -> typing.Self:
+		os.makedirs(self.work_dir, exist_ok=True)
+
+		for wrapper_cfg in self._wrapper_list:
+			ip_cfg = self.get_ip(wrapper_cfg.ip_name)
+
+			SystemVerilogWrapper(
+				top=wrapper_cfg.ip_top,
+				wrapper_top=ip_cfg.top,
+				wrapper_file=wrapper_cfg.wrapper_file,
+				sources=wrapper_cfg.sources
+			)
+
+		return self
 
 	def get_catalog(self) -> Catalog:
 		if self._catalog_cfg:
@@ -206,24 +218,23 @@ class XvivConfig:
 				#! WrapperCfg - SourceMissingError
 				sys.exit(f'ERROR: required source does not exist: {i}')
 
+		wrapper_top = f'{ip_cfg.top}_wrapper'
 		if wrapper_file is None:
 			# TODO: default ip wrapper file
-			wrapper_file = os.path.join(self.wrapper_dir, f"{ip_cfg.top}_wrapper.v")
-		
-		# run wrapper process
-		wrapper = xviv_wrap_top(ip_cfg.top, self.wrapper_dir, resolve_globs(sources, self.base_dir))
-		
-		ip_cfg.top = wrapper.wrapper_top
-		if wrapper.wrapper_file not in ip_cfg.sources:
-			ip_cfg.sources.append(wrapper.wrapper_file)
+			wrapper_file = os.path.join(self.wrapper_dir, f"{wrapper_top}.sv")
 
 		self._wrapper_list.append(
 			WrapperConfig(
 				ip_name=ip_name,
+				ip_top=ip_cfg.top,
 				wrapper_file=wrapper_file,
 				sources=resolve_globs(sources, self.base_dir)
 			)
 		)
+
+		ip_cfg.top = wrapper_top
+		if wrapper_file not in ip_cfg.sources:
+			ip_cfg.sources.append(wrapper_file)
 
 		return self
 

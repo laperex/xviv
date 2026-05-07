@@ -34,6 +34,7 @@ class IpConfig:
 @dataclasses.dataclass
 class WrapperConfig:
 	ip_name:      str
+	ip_top:       str
 	wrapper_file: str
 	sources:      list[str]
 

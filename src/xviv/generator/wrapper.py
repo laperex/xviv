@@ -638,37 +638,23 @@ def construct_port_header_info(
 			raise ValueError(f"Unknown port-header kind: {info.get('kind')!r}")
 
 
-# ---------------------------------------------------------------------------
-# Main wrapper class
-# ---------------------------------------------------------------------------
+class SystemVerilogWrapper:
+	def __init__(self, top: str, wrapper_top: str, wrapper_file: str, sources: list[str]) -> None:
+		logger.info("SvWrapper: Top: %s, WrapperFile: %s", top, wrapper_file)
 
-class xviv_wrap_top:
-	"""Generate a flat SV wrapper that replaces interface ports with flat I/O."""
+		self.top = top
+		self.wrapper_top = wrapper_top
+		self.wrapper_file = wrapper_file
 
-	def __init__(self, top: str, out_dir: str, input_fileset: list[str]) -> None:
-		logger.info("Initializing xviv_wrap_top. Top: %s, WorkDir: %s", top, out_dir)
+		os.makedirs(os.path.dirname(self.wrapper_file), exist_ok=True)
 
-		self.top     = top
-		self.out_dir = out_dir
-
-		os.makedirs(self.out_dir, exist_ok=True)
-
-		self.wrapper_top  = f"{self.top}_wrapper"
-		self.wrapper_file = os.path.join(self.out_dir, f"{self.wrapper_top}.sv")
-
-		self._initialize_fileset(input_fileset)
+		self._initialize_fileset(sources)
 		self._create_wrapper()
 
-	# ------------------------------------------------------------------
-	def get_work_dir(self) -> str:
-		return self.out_dir
-
-	# ------------------------------------------------------------------
 	def _initialize_fileset(self, fileset: list[str]) -> None:
 		logger.info("Initializing and parsing fileset...")
 		self.pyslang_data, self.fileset = resolve_files(fileset)
 
-	# ------------------------------------------------------------------
 	def _top_module_interface_ports(self) -> list[tuple[str, str, str]]:
 		"""Return ``[(port_name, interface_module, modport)]`` for interface ports."""
 		pdata = self.pyslang_data[self.top]["headers"]["ports"]
@@ -678,7 +664,6 @@ class xviv_wrap_top:
 			if info["header"].get("kind") == "InterfacePortHeaderSyntax"
 		]
 
-	# ------------------------------------------------------------------
 	def _resolve_wrapper_io(
 		self,
 	) -> tuple[list[str], list[str], list[str], dict[str, tuple]]:
@@ -781,7 +766,6 @@ class xviv_wrap_top:
 
 		return flat_params, flat_ports, flat_assign, instantiations
 
-	# ------------------------------------------------------------------
 	def _create_wrapper(self) -> None:
 		logger.info("Creating wrapper...")
 		flat_params, flat_ports, flat_assign, instantiations = self._resolve_wrapper_io()
@@ -855,7 +839,7 @@ def parse_arguments() -> argparse.Namespace:
 def main() -> None:
 	config = parse_arguments()
 	_setup_logging(config.xviv_log_file or "./build/xviv/xviv_wrap_top.log")
-	xviv_wrap_top(config.xviv_top, config.out_dir, config.xviv_fileset)
+	SystemVerilogWrapper(config.xviv_top, config.out_dir, config.xviv_fileset)
 
 
 if __name__ == "__main__":

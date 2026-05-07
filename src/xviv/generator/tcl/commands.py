@@ -202,7 +202,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 		
 		return self
 
-	def create_ip(self, ip_name: str, nogui = False) -> typing.Self:
+	def create_ip(self, ip_name: str) -> typing.Self:
 		ip = self._cfg.get_ip(ip_name)
 
 		ip_vid = f'{ip.name}_{ip.version}'.replace('.', '_')

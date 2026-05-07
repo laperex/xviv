@@ -23,83 +23,24 @@ def resolve_config(explicit: str) -> str:
 	sys.exit("ERROR: neither project.cue nor project.toml found in current directory.")
 
 def load_config(path: str) -> XvivConfig:
-	return (
-		XvivConfig(path, 'build', [
-			'/home/laperex/Programming/Vivado/vivado-boards/new/board_files'
-		])
-		.add_vivado_cfg(
-			path=find_vivado_dir_path()
-		)
+    with open(path, 'rb') as f:
+        data = tomllib.load(f)
 
-		.add_fpga_cfg(
-			name='pynq',
-			fpga_part = "xc7z020clg400-1",
-			board_part = "tul.com.tw:pynq-z2:part0:1.0"
-		)
-		.add_fpga_cfg(
-			name = 'custom',
-			fpga_part = "xc7a200tfbg484-1"
-		)
-		
-		.add_ip_cfg(
-			name = 'ip_inrange',
-			vendor = 'laperex.org',
-			library = 'custom_axi_ip',
-			version = '1.0',
+    cfg = XvivConfig(
+        path,
+        data['project']['build_dir'],
+        data['project']['board_repo_paths']
+    ).add_vivado_cfg(path=find_vivado_dir_path())
 
-			sources = [
-				'srcs/rtl/axi_types.sv',
-				'srcs/rtl/axi_lite_slave.sv',
+    for section, method in [
+        ('fpga',    cfg.add_fpga_cfg),
+        ('ip',      cfg.add_ip_cfg),
+        ('wrapper', cfg.add_wrapper_cfg),
+        ('core',    cfg.add_core_cfg),
+        ('bd',      cfg.add_bd_cfg),
+        ('synth',   cfg.add_synth_cfg),
+    ]:
+        for entry in data.get(section, []):
+            method(**entry)
 
-				'srcs/rtl/cv_types.sv',
-				'srcs/rtl/cv_inrange.sv',
-
-				'srcs/rtl/ip_inrange.sv'
-			]
-		)
-		.add_ip_cfg(
-			name = 'ip_rgb_to_hsv',
-			vendor = 'laperex.org',
-			library = 'custom_axi_ip',
-			version = '1.0',
-
-			sources = [
-				'srcs/rtl/axi_types.sv',
-				'srcs/rtl/axi_lite_slave.sv',
-
-				'srcs/rtl/cv_types.sv',
-				'srcs/rtl/cv_rgb_to_hsv.sv',
-
-				'srcs/rtl/ip_rgb_to_hsv.sv'
-			]
-		)
-		
-		.add_wrapper_cfg(
-			ip_name='ip_rgb_to_hsv',
-			sources=[
-				'srcs/rtl/axi_types.sv',
-				'srcs/rtl/ip_rgb_to_hsv.sv'
-			]
-		)
-		
-		.add_core_cfg(
-			name = 'clk_wiz',
-			vlnv = 'clk_wiz:6.0'
-		)
-		.add_core_cfg(
-			name = 'ip_inrange',
-			vlnv = 'ip_inrange:1.0'
-		)
-		
-		.add_bd_cfg(
-			name = 'bd_image_processing'
-		)
-		.add_bd_cfg(
-			name = 'bd_blaze_test',
-			fpga_ref = 'custom'
-		)
-
-		.add_synth_cfg(
-			bd_name = 'bd_blaze_test'
-		)
-	)
+    return cfg
