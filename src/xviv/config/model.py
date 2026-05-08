@@ -80,7 +80,6 @@ class BdConfig:
 	save_file:       str
 	bd_file:         str
 	bd_wrapper_file: str
-	bd_wrapper_top:  str
 
 	core_list: list[BdCoreConfig]
 
@@ -91,9 +90,25 @@ class SynthConfig:
 	core_name:   str | None
 	bd_name:     str | None
 
+	top: str
 	fpga_ref:    str
 	constraints: list[str]
 
+	synth_incremental: bool
+	run_synth: bool
+	run_opt: bool
+
+	impl_incremental: bool
+	run_place: bool
+	run_phys_opt: bool
+	run_route: bool
+
+	synth_dcp_file: str
+	place_dcp_file: str
+	route_dcp_file: str
+	
+	bitstream_file: str
+	hw_platform_xsa_file: str
 
 @dataclasses.dataclass
 class SimulationConfig:

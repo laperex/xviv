@@ -140,7 +140,7 @@ class XvivConfig:
 		top: str | None = None,
 		sources: list[str] = [],
 
-		fpga_ref: str | None = None,
+		fpga: str | None = None,
 		vlnv: str | None = None,
 		repo: str | None = None,
 	) -> typing.Self:
@@ -149,10 +149,10 @@ class XvivConfig:
 			sys.exit(f'ERROR: IP entry with name: {name} already exists')
 
 		# TODO: throw error for invalid name ''
-		
-		if fpga_ref is None:
-			fpga_ref = self._get_fpga_cfg_default.name
-			logger.warning(f'For BD entry with name: {name} - fpga is unspecified - using default: {fpga_ref}')
+
+		if fpga is None:
+			fpga = self._get_fpga_cfg_default.name
+			logger.warning(f'For BD entry with name: {name} - fpga is unspecified - using default: {fpga}')
 
 		if vlnv is None:
 			vlnv = f"{vendor}:{library}:{name}:{version}"
@@ -177,7 +177,7 @@ class XvivConfig:
 				vlnv=vlnv,
 				repo=repo,
 				top=top,
-				fpga_ref=fpga_ref,
+				fpga_ref=fpga,
 				sources=resolve_globs(sources, self.base_dir)
 			)
 		)
@@ -192,29 +192,29 @@ class XvivConfig:
 		return next((i for i in self._ip_list if i.name == name), None)
 
 	def get_ip(self, name: str) -> IpConfig:
-		ip = self._get_ip_cfg_optional(name)
+		ip_cfg = self._get_ip_cfg_optional(name)
 
-		if ip is None:
+		if ip_cfg is None:
 			#! IpCfg - IpCfgDoesNotExist
 			sys.exit(f'ERROR: IP does not exist for: {name}')
 
-		return ip
+		return ip_cfg
 
 
 	def add_wrapper_cfg(self, *,
-		ip_name: str,
+		ip: str,
 		sources: list[str],
 		wrapper_file: str | None = None
 	) -> typing.Self:
-		if self._get_wrapper_cfg_optional(ip_name) is not None:
+		if self._get_wrapper_cfg_optional(ip) is not None:
 			#! WrapperCfg - WrapperCfgAlreadyExistsForIpError
-			sys.exit(f'ERROR: Wrapper entry with name: {ip_name} already exists')
+			sys.exit(f'ERROR: Wrapper entry with name: {ip} already exists')
 
-		ip_cfg = self._get_ip_cfg_optional(ip_name)
+		ip_cfg = self._get_ip_cfg_optional(ip)
 
 		if ip_cfg is None:
 			#! WrapperCfg - IpCfgMissingError
-			sys.exit(f'ERROR: IP entry with name: {ip_name} does not exist')
+			sys.exit(f'ERROR: IP entry with name: {ip} does not exist')
 
 		if not sources:
 			#! WrapperCfg - UnspecifiedSourcesError
@@ -232,7 +232,7 @@ class XvivConfig:
 
 		self._wrapper_list.append(
 			WrapperConfig(
-				ip_name=ip_name,
+				ip_name=ip,
 				ip_top=ip_cfg.top,
 				wrapper_file=wrapper_file,
 				sources=resolve_globs(sources, self.base_dir)
@@ -296,19 +296,19 @@ class XvivConfig:
 		if name is None:
 			return self._get_fpga_cfg_default
 
-		fpga = self._get_fpga_cfg_optional(name)
+		fpga_cfg = self._get_fpga_cfg_optional(name)
 
-		if fpga is None:
+		if fpga_cfg is None:
 			#! FpgaCfg - FpgaCfgDoesNotExist
 			sys.exit(f'ERROR: Fpga does not exist for: {name}')
 
-		return fpga
+		return fpga_cfg
 
 
 	def add_bd_cfg(self, name: str, *,
 		save_file: str | None = None,
 		bd_file: str | None = None,
-		fpga_ref: str | None = None,
+		fpga: str | None = None,
 		bd_wrapper_file: str | None = None,
 	) -> typing.Self:
 		# TODO: throw error for invalid name ''
@@ -318,13 +318,13 @@ class XvivConfig:
 			sys.exit(f'ERROR: BD entry with name: {name} already exists')
 
 
-		if fpga_ref is None:
-			fpga_ref = self._get_fpga_cfg_default.name
-			logger.warning(f'For BD entry with name: {name} - fpga is unspecified - using default: {fpga_ref}')
+		if fpga is None:
+			fpga = self._get_fpga_cfg_default.name
+			logger.warning(f'For BD entry with name: {name} - fpga is unspecified - using default: {fpga}')
 
-		if self._get_fpga_cfg_optional(fpga_ref) is None:
+		if self._get_fpga_cfg_optional(fpga) is None:
 			#! FpgaCfg - FpgaMissing
-			sys.exit(f'ERROR: for BD entry with name: {name} - invalid fpga: {fpga_ref}')
+			sys.exit(f'ERROR: for BD entry with name: {name} - invalid fpga: {fpga}')
 
 		if save_file is None:
 			save_file = os.path.join(self.scripts_dir, 'bd', f'{name}.tcl')
@@ -338,21 +338,18 @@ class XvivConfig:
 			logger.info(f'Loading sub core info from - {bd_file}')
 			bd_core_list = get_bd_core_list(bd_file)
 
-		bd_wrapper_top = f'{name}_wrapper'
-
 		if bd_wrapper_file is None:
-			bd_wrapper_file = os.path.join(self.bd_dir, name, 'hdl', f"{bd_wrapper_top}.v")
+			bd_wrapper_file = os.path.join(self.bd_dir, name, 'hdl', f"{name}_wrapper.v")
 
 		self._bd_list.append(
 			BdConfig(
 				name=name,
 				save_file=save_file,
 				vlnv_list=self._get_bd_cfg_vlnv_list(save_file),
-				fpga_ref=fpga_ref,
+				fpga_ref=fpga,
 				bd_file=bd_file,
 
 				bd_wrapper_file=bd_wrapper_file,
-				bd_wrapper_top=bd_wrapper_top,
 
 				# TODO
 				core_list=bd_core_list
@@ -438,7 +435,7 @@ class XvivConfig:
 	def add_core_cfg(self, name: str, *,
 		vlnv: str,
 		xci_file: str | None = None,
-		fpga_ref: str | None = None,
+		fpga: str | None = None,
 	) -> typing.Self:
 		# TODO: throw error for invalid name ''
 
@@ -449,13 +446,13 @@ class XvivConfig:
 		if xci_file is None:
 			xci_file = os.path.join(self.core_dir, name, f'{name}.xci')
 
-		if fpga_ref is None:
-			fpga_ref = self._get_fpga_cfg_default.name
-			logger.warning(f'For Core entry with name: {name} - fpga is unspecified - using default: {fpga_ref}')
+		if fpga is None:
+			fpga = self._get_fpga_cfg_default.name
+			logger.warning(f'For Core entry with name: {name} - fpga is unspecified - using default: {fpga}')
 
-		if self._get_fpga_cfg_optional(fpga_ref) is None:
+		if self._get_fpga_cfg_optional(fpga) is None:
 			#! FpgaCfg - FpgaMissing
-			sys.exit(f'ERROR: for Core entry with name: {name} - invalid fpga: {fpga_ref}')
+			sys.exit(f'ERROR: for Core entry with name: {name} - invalid fpga: {fpga}')
 
 		prev_vlnv = vlnv
 		vlnv = self._resolve_vlnv(vlnv)
@@ -467,7 +464,7 @@ class XvivConfig:
 				name=name,
 				vlnv=vlnv,
 				xci_file=xci_file,
-				fpga_ref=fpga_ref
+				fpga_ref=fpga
 			)
 		)
 
@@ -487,13 +484,32 @@ class XvivConfig:
 
 
 	def add_synth_cfg(self, *,
-		design_name: str | None = None,
-		core_name: str | None = None,
-		bd_name: str | None = None,
-		fpga_ref: str | None = None,
-		constraints: list[str] = []
+		design: str | None = None,
+		core: str | None = None,
+		bd: str | None = None,
+		fpga: str | None = None,
+
+		top: str | None = None,
+		
+		constraints: list[str] = [],
+
+		run_synth: bool = True,
+		run_place: bool = True,
+		run_route: bool = True,
+
+		synth_incremental: bool = False,
+		run_opt: bool = False,
+		impl_incremental: bool = False,
+		run_phys_opt: bool = False,
+
+		synth_dcp_file: bool | str | None = True,
+		place_dcp_file: bool | str | None = True,
+		route_dcp_file: bool | str | None = True,
+
+		bitstream_file: bool | str | None = True,
+		hw_platform_xsa_file: bool | str | None = True,
 	) -> typing.Self:
-		available_ids = [i for i in [design_name, core_name, bd_name] if i]
+		available_ids = [i for i in [design, core, bd] if i]
 
 		if len(available_ids) == 0:
 			#! SynthCfg - UnspecifiedIdentifier
@@ -503,40 +519,63 @@ class XvivConfig:
 			#! SynthCfg - MultipleIdSpecified
 			sys.exit(f'ERROR: multiple ids specified: {' '.join(available_ids)}')
 
-		if self._get_synth_cfg_optional(design_name=design_name, core_name=core_name, bd_name=bd_name) is not None:
+		if self._get_synth_cfg_optional(design_name=design, core_name=core, bd_name=bd) is not None:
 			#! SynthCfg - SynthCfgAlreadyExists
 			sys.exit(f'ERROR: SynthConfig Already Exists for id: {available_ids}')
 
-		if bd_name:
-			bd_cfg = self._get_bd_cfg_optional(bd_name)
+		if bd:
+			bd_cfg = self._get_bd_cfg_optional(bd)
 			if bd_cfg is None:
 				#! SynthCfgCfg - SynthCfgCfgDoesNotExist
-				sys.exit(f'ERROR: SynthCfg - BD does not exist for name: {bd_name}')
+				sys.exit(f'ERROR: SynthCfg - BD does not exist for name: {bd}')
 
-			if fpga_ref is None:
-				fpga_ref = bd_cfg.fpga_ref
+			if fpga is None:
+				fpga = bd_cfg.fpga_ref
 			else:
-				if fpga_ref != bd_cfg.fpga_ref:
+				if fpga != bd_cfg.fpga_ref:
 					#! SynthCfg - FpgaRefMismatch
-					sys.exit(f'ERROR: Mismatch fpga for BD: {bd_cfg.fpga_ref} with specified: {fpga_ref}')
+					sys.exit(f'ERROR: Mismatch fpga for BD: {bd_cfg.fpga_ref} with specified: {fpga}')
 
-		if core_name:
+			if top is None:
+				top = f'{bd}_wrapper'
+
+		if core:
 			pass
 
-		if design_name:
+		if design:
 			pass
 
-		if fpga_ref is None:
+		if fpga is None:
 			#! SynthCfg - UnspecifiedFpga
 			sys.exit(f'ERROR: unspecified fpga for synth target - {available_ids}')
 
+		synth_subdir = os.path.join(self.synth_dir, available_ids[0])
+
 		self._synth_list.append(
 			SynthConfig(
-				design_name=design_name,
-				core_name=core_name,
-				bd_name=bd_name,
-				fpga_ref=fpga_ref,
-				constraints=resolve_globs(constraints, self.base_dir)
+				design_name=design,
+				core_name=core,
+				bd_name=bd,
+				fpga_ref=fpga,
+				top=top,
+				
+				constraints=resolve_globs(constraints, self.base_dir),
+
+				synth_incremental=synth_incremental,
+				run_synth=run_synth,
+				run_opt=run_opt,
+
+				impl_incremental=impl_incremental,
+				run_place=run_place,
+				run_phys_opt=run_phys_opt,
+				run_route=run_route,
+
+				synth_dcp_file=_resolve_val(synth_dcp_file, os.path.join(synth_subdir, 'synth.dcp')),
+				place_dcp_file=_resolve_val(place_dcp_file, os.path.join(synth_subdir, 'place.dcp')),
+				route_dcp_file=_resolve_val(route_dcp_file, os.path.join(synth_subdir, 'route.dcp')),
+
+				bitstream_file=_resolve_val(bitstream_file, os.path.join(synth_subdir, f'{available_ids[0]}.bit')),
+				hw_platform_xsa_file=_resolve_val(hw_platform_xsa_file, os.path.join(synth_subdir, f'{available_ids[0]}.xsa')),
 			)
 		)
 
@@ -612,3 +651,14 @@ class XvivConfig:
 
 		#! ResolveVLNVFailure
 		sys.exit(f'ERROR: unable to resolve VLNV from {vlnv}')
+
+
+def _resolve_val(
+	field: bool | str | None,
+	default: str
+) -> str | None:
+	if isinstance(field, str):
+		return field
+	if field:
+		return default
+	return None

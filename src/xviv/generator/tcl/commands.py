@@ -385,22 +385,11 @@ class ConfigTclCommands(ConfigTclBuilder):
 		synth_cfg = self._cfg.get_synth(bd_name=bd_name)
 
 		# tcl begin
-		synth_dir = self._cfg.synth_dir
-
-		synth_subdir = os.path.join(synth_dir, bd_name)
-		os.makedirs(synth_subdir, exist_ok=True)
-
-		synth_dcp_file = os.path.join(synth_subdir, 'synth.dcp')
-		place_dcp_file = os.path.join(synth_subdir, 'place.dcp')
-		route_dcp_file = os.path.join(synth_subdir, 'route.dcp')
-
-		bitstream_file = os.path.join(synth_subdir, f'{bd_name}.bit')
-		hw_platform_xsa_file = os.path.join(synth_subdir, f'{bd_name}.xsa')
 
 		if self.current_project is None:
 			self._create_project(synth_cfg.fpga_ref)
 
-		self._set_property_current_fileset('TOP', bd_cfg.bd_wrapper_top)
+		self._set_property_current_fileset('TOP', synth_cfg.top)
 		self._read_bd(bd_cfg.bd_file)
 		self._add_files(bd_cfg.bd_wrapper_file)
 
@@ -409,25 +398,25 @@ class ConfigTclCommands(ConfigTclBuilder):
 		self._update_compile_order(fileset='sources_1')
 
 		self.synthesis(
-			top=bd_cfg.bd_wrapper_top,
+			top=synth_cfg.top,
 
-			synth_incremental = True,
+			synth_incremental = synth_cfg.synth_incremental,
 
-			run_synth = True,
-			synth_dcp_file=synth_dcp_file,
+			run_synth = synth_cfg.run_synth,
+			synth_dcp_file = synth_cfg.synth_dcp_file,
 
-			run_opt = True,
-			impl_incremental = True,
-			run_place = True,
-			place_dcp_file=place_dcp_file,
+			run_opt = synth_cfg.run_opt,
+			impl_incremental = synth_cfg.impl_incremental,
+			run_place = synth_cfg.run_place,
+			place_dcp_file = synth_cfg.place_dcp_file,
 
-			run_phys_opt = True,
-			run_route = True,
+			run_phys_opt = synth_cfg.run_phys_opt,
+			run_route = synth_cfg.run_route,
 
-			route_dcp_file=route_dcp_file,
+			route_dcp_file = synth_cfg.route_dcp_file,
 
-			bitstream_file = bitstream_file,
-			hw_platform_xsa_file = hw_platform_xsa_file,
+			bitstream_file = synth_cfg.bitstream_file,
+			hw_platform_xsa_file = synth_cfg.hw_platform_xsa_file,
 		)
 
 		return self
