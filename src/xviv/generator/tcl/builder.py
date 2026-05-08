@@ -23,6 +23,7 @@ class ConfigTclBuilder:
 		self.__indent = 0
 
 		self.__read_bd_list: list[str] = []
+		self.__file_mkdir_list: list[str] = []
 		self.__read_ip_list: list[str] = []
 
 	def __inherit(self, i: typing.Self) -> typing.Self:
@@ -106,7 +107,7 @@ class ConfigTclBuilder:
 		bd_subdir = os.path.join(dir, bd_name)
 
 		if os.path.isdir(bd_subdir):
-			self._push(f"file delete -force \"{bd_subdir}\"")
+			self._file_delete(bd_subdir, force=True)
 
 		self._push(f"create_bd_design {' '.join(params)} {bd_name}")
 
@@ -130,10 +131,10 @@ class ConfigTclBuilder:
 		core_subdir = os.path.join(dir, core_name)
 
 		if os.path.isdir(core_subdir):
-			self._push(f"file delete -force \"{core_subdir}\"")
+			self._file_delete(core_subdir, force=True)
 
 		if not os.path.isdir(dir):
-			self._push(f"file mkdir \"{dir}\"")
+			self._file_mkdir(dir)
 
 		self._push(f"create_ip {' '.join(params)}")
 
@@ -657,6 +658,25 @@ class ConfigTclBuilder:
 
 	def _validate_bd_design(self):
 		self._push("validate_bd_design")
+
+
+	def _file_delete(self, path: str, *,
+		force: bool = False
+	):
+		params = filter(None, [
+			"-force" if force else None,
+		])
+
+		self._push(f"file delete {' '.join(params)} \"{path}\"")
+
+	def _file_dirname(self, path: str):
+		self._push(f"file dirname \"{path}\"")
+
+	def _file_mkdir(self, path: str):
+		self._push(f"file mkdir \"{path}\"")
+	
+	def _file_normalize(self, path: str):
+		self._push(f"file normalize \"{path}\"")
 
 
 	def _proc(self, name: str, args: str, comm = None):
