@@ -390,6 +390,10 @@ class ConfigTclCommands(ConfigTclBuilder):
 		synth_subdir = os.path.join(synth_dir, bd_name)
 		os.makedirs(synth_subdir, exist_ok=True)
 
+		synth_dcp_file = os.path.join(synth_subdir, 'synth.dcp')
+		place_dcp_file = os.path.join(synth_subdir, 'place.dcp')
+		route_dcp_file = os.path.join(synth_subdir, 'route.dcp')
+
 		bitstream_file = os.path.join(synth_subdir, f'{bd_name}.bit')
 		hw_platform_xsa_file = os.path.join(synth_subdir, f'{bd_name}.xsa')
 
@@ -407,54 +411,22 @@ class ConfigTclCommands(ConfigTclBuilder):
 		self.synthesis(
 			top=bd_cfg.bd_wrapper_top,
 
+			synth_incremental = True,
+
 			run_synth = True,
+			synth_dcp_file=synth_dcp_file,
 
-			# synth_report_timing_summary_file: str | None = None,
-			# synth_report_utilization_file: str | None = None,
-			# synth_report_incremental_reuse_file: str | None = None,
-
-			# synth_dcp_file: str | None = None,
-			# synth_stub_file: str | None = None,
-			# synth_functional_netlist_file: str | None = None,
-			# synth_timing_netlist_file: str | None = None,
-
-
-			#+ opt
 			run_opt = True,
-			# opt_directive: str = 'default',
-
-
 			impl_incremental = True,
-
 			run_place = True,
+			place_dcp_file=place_dcp_file,
 
-
-			#+ phys_opt
 			run_phys_opt = True,
-			# phys_opt_directive: str = 'default',
-
-
-			#* route
 			run_route = True,
-			# route_directive: str = 'default',
-			# route_dcp_file: str | None = None,
 
-			# route_report_drc_file: str | None = None,
-			# route_report_methodology_file: str | None = None,
-			# route_report_power_file: str | None = None,
-			# route_report_route_status_file: str | None = None,
-			# route_report_timing_summary_file: str | None = None,
-
-			# impl_report_incremental_reuse_file: str | None = None,
-
-			# impl_functional_netlist_file: str | None = None,
-			# impl_timing_netlist_file: str | None = None,
-
-
-			# usr_access_value: int | None = None,
+			route_dcp_file=route_dcp_file,
 
 			bitstream_file = bitstream_file,
-
 			hw_platform_xsa_file = hw_platform_xsa_file,
 		)
 
@@ -550,7 +522,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 		def _incremental(stage: str, dcp_file: str | None):
 			if dcp_file:
 				if not os.path.exists(dcp_file):
-					logger.info(f'dcp does not exist at: {dcp_file}\nskipping incremental {stage}')
+					logger.info(f'dcp does not exist at: {dcp_file} -> skipping incremental {stage}')
 				else:
 					self._read_checkpoint(dcp_file, incremental=True)
 

@@ -566,8 +566,6 @@ class XvivConfig:
 			core_name=core_name,
 			bd_name=bd_name,
 		)
-		
-		print(synth)
 
 		if synth is None:
 			#! SynthCfg - SynthCfgDoesNotExist
