@@ -31,6 +31,8 @@ class IpConfig:
 	repo:    str
 	top:     str
 	sources: list[str]
+	fpga_ref: str
+
 
 @dataclasses.dataclass
 class WrapperConfig:
@@ -53,6 +55,7 @@ class DesignConfig:
 	name:    str
 	top:     str
 	sources: list[str]
+	fpga_ref: str
 
 
 @dataclasses.dataclass
@@ -60,7 +63,8 @@ class CoreConfig:
 	name:     str
 	vlnv:     str
 	xci_file: str
-	fpga_ref: str |
+	fpga_ref: str
+
 
 @dataclasses.dataclass
 class BdCoreConfig(CoreConfig):
@@ -69,14 +73,16 @@ class BdCoreConfig(CoreConfig):
 
 @dataclasses.dataclass
 class BdConfig:
-	name:          str
-	vlnv_list:     list[str]
-	fpga_ref:      str
+	name:            str
+	vlnv_list:       list[str]
+	fpga_ref:        str
 
-	save_file: str
-	bd_file: str
-	
-	core_list:     list[BdCoreConfig]
+	save_file:       str
+	bd_file:         str
+	bd_wrapper_file: str
+	bd_wrapper_top:  str
+
+	core_list: list[BdCoreConfig]
 
 
 @dataclasses.dataclass
@@ -91,7 +97,7 @@ class SynthConfig:
 
 @dataclasses.dataclass
 class SimulationConfig:
-	top: str
+	top:     str
 	sources: list[str]
 	backend: str
 

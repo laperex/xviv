@@ -140,6 +140,7 @@ class XvivConfig:
 		top: str | None = None,
 		sources: list[str] = [],
 
+		fpga_ref: str | None = None,
 		vlnv: str | None = None,
 		repo: str | None = None,
 	) -> typing.Self:
@@ -148,6 +149,10 @@ class XvivConfig:
 			sys.exit(f'ERROR: IP entry with name: {name} already exists')
 
 		# TODO: throw error for invalid name ''
+		
+		if fpga_ref is None:
+			fpga_ref = self._get_fpga_cfg_default.name
+			logger.warning(f'For BD entry with name: {name} - fpga is unspecified - using default: {fpga_ref}')
 
 		if vlnv is None:
 			vlnv = f"{vendor}:{library}:{name}:{version}"
@@ -172,6 +177,7 @@ class XvivConfig:
 				vlnv=vlnv,
 				repo=repo,
 				top=top,
+				fpga_ref=fpga_ref,
 				sources=resolve_globs(sources, self.base_dir)
 			)
 		)
@@ -302,7 +308,8 @@ class XvivConfig:
 	def add_bd_cfg(self, name: str, *,
 		save_file: str | None = None,
 		bd_file: str | None = None,
-		fpga_ref: str | None = None
+		fpga_ref: str | None = None,
+		bd_wrapper_file: str | None = None,
 	) -> typing.Self:
 		# TODO: throw error for invalid name ''
 
@@ -324,12 +331,17 @@ class XvivConfig:
 
 		if bd_file is None:
 			bd_file = os.path.join(self.bd_dir, name, f'{name}.bd')
-			
+
 		bd_core_list: list[BdCoreConfig] = []
 
 		if os.path.exists(bd_file):
 			logger.info(f'Loading sub core info from - {bd_file}')
 			bd_core_list = get_bd_core_list(bd_file)
+
+		bd_wrapper_top = f'{name}_wrapper'
+
+		if bd_wrapper_file is None:
+			bd_wrapper_file = os.path.join(self.bd_dir, name, 'hdl', f"{bd_wrapper_top}.v")
 
 		self._bd_list.append(
 			BdConfig(
@@ -338,6 +350,9 @@ class XvivConfig:
 				vlnv_list=self._get_bd_cfg_vlnv_list(save_file),
 				fpga_ref=fpga_ref,
 				bd_file=bd_file,
+
+				bd_wrapper_file=bd_wrapper_file,
+				bd_wrapper_top=bd_wrapper_top,
 
 				# TODO
 				core_list=bd_core_list
@@ -521,7 +536,7 @@ class XvivConfig:
 				core_name=core_name,
 				bd_name=bd_name,
 				fpga_ref=fpga_ref,
-				constraints=constraints
+				constraints=resolve_globs(constraints, self.base_dir)
 			)
 		)
 
@@ -532,7 +547,14 @@ class XvivConfig:
 		core_name: str | None = None,
 		bd_name: str | None = None
 	) -> SynthConfig | None:
-		return next((i for i in self._synth_list if (i.bd_name == bd_name) or (i.design_name == design_name) or (i.core_name == core_name)), None)
+		return next((
+				i for i in self._synth_list
+				if (bd_name is not None and i.bd_name == bd_name)
+				or (design_name is not None and i.design_name == design_name)
+				or (core_name is not None and i.core_name == core_name)
+			),
+			None,
+		)
 
 	def get_synth(self,
 		design_name: str | None = None,
@@ -544,6 +566,8 @@ class XvivConfig:
 			core_name=core_name,
 			bd_name=bd_name,
 		)
+		
+		print(synth)
 
 		if synth is None:
 			#! SynthCfg - SynthCfgDoesNotExist

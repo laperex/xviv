@@ -16,6 +16,8 @@ def get_bd_core_list(bd_file: str) -> list[BdCoreConfig]:
 		sys.exit(f"ERROR: BD data read from {bd_file} is empty")
 
 	resolved_components: list[BdCoreConfig] = []
+	
+	fpga_selected = bd_dict['design']['design_info'].get('device')
 
 	def _recursive_find(components_dict: dict) -> None:
 		if not components_dict:
@@ -42,7 +44,7 @@ def get_bd_core_list(bd_file: str) -> list[BdCoreConfig]:
 							name=xci_name,
 							vlnv=vlnv,
 							xci_file=xci_path,
-							fpga_ref=None,
+							fpga_ref=f'{fpga_selected}',
 							inst_hier_path=inst_hier_path
 						)
 					)

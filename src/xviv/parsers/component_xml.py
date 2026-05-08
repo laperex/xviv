@@ -1,6 +1,5 @@
 import logging
 import xml.etree.ElementTree as ET
-from typing import Optional
 
 from xviv.config.model import CatalogCoreEntry
 
@@ -12,7 +11,7 @@ _SPIRIT_NS = "http://www.spiritconsortium.org/XMLSchema/SPIRIT/1685-2009"
 _XILINX_NS = "http://www.xilinx.com"
 
 
-def parser(xml_path: str) -> Optional[CatalogCoreEntry]:
+def parser(xml_path: str) -> CatalogCoreEntry | None:
 	try:
 		root = ET.parse(xml_path).getroot()
 
@@ -42,12 +41,18 @@ def parser(xml_path: str) -> Optional[CatalogCoreEntry]:
 		)
 
 		return CatalogCoreEntry(
-			vlnv=vlnv, vendor=vendor, library=library,
-			name=name, version=version,
+			vlnv=vlnv,
+			vendor=vendor,
+			library=library,
+			name=name,
+			version=version,
 			display_name=display_name,
 			description=description,
-			hidden=False, board_dependent=False, ipi_only=False,
-			unsupported_families=frozenset(), upgrades_from=(),
+			hidden=False,
+			board_dependent=False,
+			ipi_only=False,
+			unsupported_families=frozenset(),
+			upgrades_from=(),
 		)
 	except Exception as exc:
 		logger.debug("Failed to parse component.xml at %s: %s", xml_path, exc)

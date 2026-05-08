@@ -105,19 +105,25 @@ def cmd_bd_synth(cfg: XvivConfig, bd_name: str, ooc_run: bool | None):
 		#! CmdSynth - BdFileMissingError
 		sys.exit('ERROR: BD File does not exist. Cannot run synthesis')
 
-	xci_name = bd_cfg.core_list[0].name
-	xci_file = bd_cfg.core_list[0].xci_file
+	# xci_name = bd_cfg.core_list[0].name
+	# xci_file = bd_cfg.core_list[0].xci_file
 
-	dcp_file = os.path.join(cfg.synth_dir, xci_name, f'{xci_name}.dcp')
-	stub_file = os.path.join(cfg.synth_dir, xci_name, f'{xci_name}.v')
+	# dcp_file = os.path.join(cfg.synth_dir, xci_name, f'{xci_name}.dcp')
+	# stub_file = os.path.join(cfg.synth_dir, xci_name, f'{xci_name}.v')
+
+	# config = (
+	# 	ConfigTclCommands(cfg)
+	# 	.synth_xci_out_of_context(
+	# 		xci_name, xci_file,
+	# 		dcp_file=dcp_file,
+	# 		stub_file=stub_file
+	# 	)
+	# 	.build()
+	# )
 
 	config = (
 		ConfigTclCommands(cfg)
-		.synth_xci_out_of_context(
-			xci_name, xci_file,
-			dcp_file=dcp_file,
-			stub_file=stub_file
-		)
+		.synth_bd(bd_name)
 		.build()
 	)
 

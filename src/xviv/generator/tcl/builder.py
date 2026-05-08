@@ -556,7 +556,7 @@ class ConfigTclBuilder:
 		params = filter(None, [
 			"-force" if force else None,
 		])
-		self._push(f"write_bistream {' '.join(params)} \"{file}\"")
+		self._push(f"write_bitstream {' '.join(params)} \"{file}\"")
 
 
 	# write_hw_platform

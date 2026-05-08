@@ -151,13 +151,10 @@ class ConfigTclCommands(ConfigTclBuilder):
 	def generate_bd(self, bd_name: str, bd_file_exist_check: bool = True, force: bool = False) -> typing.Self:
 		bd_cfg = self._cfg.get_bd(bd_name)
 
-		bd_file = os.path.join(self._cfg.bd_dir, bd_name, f"{bd_name}.bd")
-		bd_wrapper = os.path.join(self._cfg.bd_dir, bd_name, 'hdl', f"{bd_name}_wrapper.v")
+		if bd_file_exist_check and not os.path.exists(bd_cfg.bd_file):
+			sys.exit(f"ERROR: BD File does not exist at path: {bd_cfg.bd_file}")
 
-		if bd_file_exist_check and not os.path.exists(bd_file):
-			sys.exit(f"ERROR: BD File does not exist at path: {bd_file}")
-
-		if not is_stale(bd_file, bd_wrapper):
+		if not is_stale(bd_cfg.bd_file, bd_cfg.bd_wrapper_file):
 			logger.info("INFO: Output products are up to date")
 			return self
 
@@ -167,15 +164,16 @@ class ConfigTclCommands(ConfigTclBuilder):
 			self._create_project(bd_cfg.fpga_ref)
 
 		if self.current_bd != bd_name:
-			self._read_bd(bd_file)
-			self._open_bd_design(bd_file)
+			self._read_bd(bd_cfg.bd_file)
+			self._open_bd_design(bd_cfg.bd_file)
 
 			self.current_bd = bd_name
 
 		self._bd_upgrade_ip_cells()
-		self._generate_target_get_files(bd_file)
+		self._generate_target_get_files(bd_cfg.bd_file)
 
 		return self
+
 
 	def edit_ip(self, ip_name: str, nogui = False) -> typing.Self:
 		ip = self._cfg.get_ip(ip_name)
@@ -183,15 +181,15 @@ class ConfigTclCommands(ConfigTclBuilder):
 		ip_vid = f'{ip.name}_{ip.version}'.replace('.', '_')
 		ip_dir = os.path.join(ip.repo, ip_vid)
 		ip_component_xml_file = os.path.join(ip_dir, 'component.xml')
-		
+
 		ip_edit_project_dir = os.path.join("/dev/shm/build", ip_vid)
 		ip_edit_project_name = f'edit_{ip_vid}'
 
 		# tcl begin
 
 		if self.current_project is None:
-			self._create_project(None)
-		
+			self._create_project(ip.fpga_ref)
+
 		if not nogui:
 			self._start_gui()
 
@@ -199,7 +197,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 		self._set_current_project(self.current_project)
 		self._close_project()
 		self._set_current_project(ip_edit_project_name)
-		
+
 		return self
 
 	def create_ip(self, ip_name: str) -> typing.Self:
@@ -208,14 +206,14 @@ class ConfigTclCommands(ConfigTclBuilder):
 		ip_vid = f'{ip.name}_{ip.version}'.replace('.', '_')
 		ip_dir = os.path.join(ip.repo, ip_vid)
 		ip_component_xml_file = os.path.join(ip_dir, 'component.xml')
-		
+
 		ip_edit_project_dir = os.path.join("/dev/shm/build", ip_vid)
 		ip_edit_project_name = f'edit_{ip_vid}'
 
 		# tcl begin
 
 		if self.current_project is None:
-			self._create_project(None)
+			self._create_project(ip.fpga_ref)
 
 		# _xviv_ip_scaffold
 		self._create_peripheral(
@@ -239,7 +237,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 		self._ipx__remove_memory_map_ipx__current_core('S00_AXI')
 		self._ipx__remove_user_parameter_ipx__current_core('C_S00_AXI_BASEADDR')
 		self._ipx__remove_user_parameter_ipx__current_core('C_S00_AXI_HIGHADDR')
-		
+
 		def __rm_for_body(x: typing.Self):
 			x.remove_files('$file')
 			x._push('file delete -force "$file"')
@@ -251,7 +249,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 		# add sources
 		self._push(f"file delete -force \"{os.path.join(ip_dir, 'hdl')}\"")
-		
+
 		for s in ip.sources:
 			self._add_files(s, scan_for_includes=True)
 
@@ -269,9 +267,9 @@ class ConfigTclCommands(ConfigTclBuilder):
 			self._ipx__infer_bus_interfaces_ipx__current_core(i)
 
 		self._update_compile_order(fileset='sources_1')
-		
+
 		ipx_current_core = '[ipx::current_core]'
-		
+
 		# _xviv_ip_expose_params
 		def __expose_params_body(x: typing.Self):
 			x._set('pname', lambda _: _._get_property('NAME', '$param'))
@@ -293,21 +291,21 @@ class ConfigTclCommands(ConfigTclBuilder):
 			iter_func=lambda x: x._ipx__get_user_parameters(of_objects=ipx_current_core),
 			body_func=__expose_params_body
 		)
-		
+
 		# _xviv_ip_wire_memory_maps
 		def __ip_wire_memory_maps_body(x: typing.Self):
 			x._set('ifc_name', lambda m: m._get_property('NAME', '$ifc'))
 			x._set('ifc_mode', lambda m: m._get_property('BUS_TYPE_NAME', '$ifc'))
 			x._set('ifc_intf', lambda m: m._get_property('INTERFACE_MODE', '$ifc'))
-			
+
 			def __if_body(x: typing.Self):
 				x._ipx__add_memory_map_ipx__current_core('$ifc_name')
 				x._set('ifc_memmap', lambda m: m._ipx__get_memory_maps(name='$ifc_name', of_objects=ipx_current_core))
 				x._set('ifc_addr_block', lambda m: m._ipx__add_address_block('${ifc_name}_reg', '$ifc_memmap'))
-				
+
 				for i in ['OFFSET_HIGH_PARAM', 'OFFSET_BASE_PARAM']:
 					x._ipx__add_address_block_parameter(i, '$ifc_addr_block')
-				
+
 				x._set_property('usage', 'register', '$ifc_addr_block')
 				x._set('ifc_bus_ifs', lambda m: m._ipx__get_bus_interfaces(name='$ifc_name', of_objects=ipx_current_core))
 				x._set_property('slave_memory_map_ref', '$ifc_name', '$ifc_bus_ifs')
@@ -338,7 +336,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 		# tcl begin
 
 		if self.current_project is None:
-			self._create_project(None)
+			self._create_project(core_cfg.fpga_ref)
 
 		self._create_core(core_name, dir=self._cfg.core_dir, vlnv=core_cfg.vlnv)
 		self._generate_xci(core_cfg.xci_file)
@@ -353,7 +351,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 		# tcl begin
 
 		if self.current_project is None:
-			self._create_project(None)
+			self._create_project(core_cfg.fpga_ref)
 
 		if self.current_core != core_name:
 			self._read_ip(core_cfg.xci_file)
@@ -381,8 +379,86 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 		return self
 
-	
-	# def synth_core()
+
+	def synth_bd(self, bd_name: str):
+		bd_cfg = self._cfg.get_bd(bd_name)
+		synth_cfg = self._cfg.get_synth(bd_name=bd_name)
+
+		# tcl begin
+		synth_dir = self._cfg.synth_dir
+
+		synth_subdir = os.path.join(synth_dir, bd_name)
+		os.makedirs(synth_subdir, exist_ok=True)
+
+		bitstream_file = os.path.join(synth_subdir, f'{bd_name}.bit')
+		hw_platform_xsa_file = os.path.join(synth_subdir, f'{bd_name}.xsa')
+
+		if self.current_project is None:
+			self._create_project(synth_cfg.fpga_ref)
+
+		self._set_property_current_fileset('TOP', bd_cfg.bd_wrapper_top)
+		self._read_bd(bd_cfg.bd_file)
+		self._add_files(bd_cfg.bd_wrapper_file)
+
+		for i in synth_cfg.constraints:
+			self._add_files(i, fileset='constrs_1')
+		self._update_compile_order(fileset='sources_1')
+
+		self.synthesis(
+			top=bd_cfg.bd_wrapper_top,
+
+			run_synth = True,
+
+			# synth_report_timing_summary_file: str | None = None,
+			# synth_report_utilization_file: str | None = None,
+			# synth_report_incremental_reuse_file: str | None = None,
+
+			# synth_dcp_file: str | None = None,
+			# synth_stub_file: str | None = None,
+			# synth_functional_netlist_file: str | None = None,
+			# synth_timing_netlist_file: str | None = None,
+
+
+			#+ opt
+			run_opt = True,
+			# opt_directive: str = 'default',
+
+
+			impl_incremental = True,
+
+			run_place = True,
+
+
+			#+ phys_opt
+			run_phys_opt = True,
+			# phys_opt_directive: str = 'default',
+
+
+			#* route
+			run_route = True,
+			# route_directive: str = 'default',
+			# route_dcp_file: str | None = None,
+
+			# route_report_drc_file: str | None = None,
+			# route_report_methodology_file: str | None = None,
+			# route_report_power_file: str | None = None,
+			# route_report_route_status_file: str | None = None,
+			# route_report_timing_summary_file: str | None = None,
+
+			# impl_report_incremental_reuse_file: str | None = None,
+
+			# impl_functional_netlist_file: str | None = None,
+			# impl_timing_netlist_file: str | None = None,
+
+
+			# usr_access_value: int | None = None,
+
+			bitstream_file = bitstream_file,
+
+			hw_platform_xsa_file = hw_platform_xsa_file,
+		)
+
+		return self
 
 
 	def synth_xci_out_of_context(self, xci_name: str, xci_file: str, *,
@@ -393,19 +469,20 @@ class ConfigTclCommands(ConfigTclBuilder):
 			sys.exit(f'ERROR: xci_file does not exist: {xci_file}')
 
 		if self.current_project is None:
-			self._create_project(None)
-		
+			#! Synthesis - NoProjectCreated
+			sys.exit('ERROR: Project not created')
+
 		self._read_ip(xci_file)
 
 		self._generate_xci(xci_file)
-		
+
 		self.synthesis(xci_name,
 			run_synth=True,
 			synth_mode='out_of_context',
 			synth_dcp_file=dcp_file,
 			synth_stub_file=stub_file
 		)
-		
+
 		return self
 
 
@@ -479,7 +556,8 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 		# tcl begin
 		if self.current_project is None:
-			self._create_project(None)
+			#! Synthesis - NoProjectCreated
+			sys.exit('ERROR: Project not created')
 
 		#* synth_design
 		if synth_incremental:
