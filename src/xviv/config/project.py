@@ -7,7 +7,7 @@ import re
 import sys
 import typing
 from xviv.config.catalog import Catalog
-from xviv.config.model import AppConfig, BdConfig, BdCoreConfig, CoreConfig, DesignConfig, FpgaConfig, IpConfig, PlatformConfig, SimulationConfig, SynthConfig, VitisConfig, VivadoConfig, WrapperConfig
+from xviv.config.model import AppConfig, BdConfig, BdCoreConfig, CoreConfig, DesignConfig, FpgaConfig, IpConfig, PlatformConfig, SimulationConfig, SynthConfig, VitisConfig, VivadoConfig, IpWrapperConfig
 from xviv.generator.wrapper import SystemVerilogWrapper
 from xviv.parsers.bd_json import get_bd_core_list
 from xviv.utils.fs import resolve_globs
@@ -36,7 +36,7 @@ class XvivConfig:
 		self._fpga_list: list[FpgaConfig] = []
 
 		self._ip_list: list[IpConfig] = []
-		self._wrapper_list: list[WrapperConfig] = []
+		self._wrapper_list: list[IpWrapperConfig] = []
 
 		self._bd_list: list[BdConfig] = []
 
@@ -231,7 +231,7 @@ class XvivConfig:
 			wrapper_file = os.path.join(self.wrapper_dir, f"{wrapper_top}.sv")
 
 		self._wrapper_list.append(
-			WrapperConfig(
+			IpWrapperConfig(
 				ip_name=ip,
 				ip_top=ip_cfg.top,
 				wrapper_file=wrapper_file,
@@ -245,10 +245,10 @@ class XvivConfig:
 
 		return self
 
-	def _get_wrapper_cfg_optional(self, name: str) -> WrapperConfig | None:
+	def _get_wrapper_cfg_optional(self, name: str) -> IpWrapperConfig | None:
 		return next((i for i in self._wrapper_list if i.ip_name == name), None)
 
-	def get_wrapper(self, name: str) -> WrapperConfig:
+	def get_wrapper(self, name: str) -> IpWrapperConfig:
 		wrapper = self._get_wrapper_cfg_optional(name)
 
 		if wrapper is None:

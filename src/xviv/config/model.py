@@ -25,20 +25,22 @@ class VitisConfig:
 class IpConfig:
 	vendor:  str
 	library: str
-	name:    str
 	version: str
 	vlnv:    str
 	repo:    str
+
+	name:    str
 	top:     str
 	sources: list[str]
 	fpga_ref: str
 
 
 @dataclasses.dataclass
-class WrapperConfig:
+class IpWrapperConfig:
+	wrapper_file: str
+
 	ip_name:      str
 	ip_top:       str
-	wrapper_file: str
 	sources:      list[str]
 
 
