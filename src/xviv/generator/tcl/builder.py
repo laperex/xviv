@@ -117,6 +117,24 @@ class ConfigTclBuilder:
 	def _read_bd(self, file) -> None:
 		self._push(f"read_bd \"{file}\"")
 
+	def _delete_bd_objs(self, *args: str):
+		self._push(f'delete_bd_objs {" ".join(args)}')
+
+	def _assign_bd_address(self):
+		self._push('assign_bd_address')
+
+	def _get_bd_addr_segs(self, *, excluded: bool = False):
+		params = filter(None, [
+			'-excluded' if excluded else None
+		])
+		self._push(f'get_bd_addr_segs {" ".join(params)}'.strip())
+
+	def _get_bd_cells(self, *, hierarchical: bool = False, filter: str | None = None):
+		params = filter(None, [
+			'-hierarchical'    if hierarchical else None,
+			f'-filter {filter}' if filter      else None,
+		])
+		self._push(f'get_bd_cells {" ".join(params)}')
 
 	# -------------------------------------------------------------------------
 	# IP / core management
@@ -144,6 +162,12 @@ class ConfigTclBuilder:
 
 	def _read_ip(self, file) -> None:
 		self._push(f"read_ip \"{file}\"")
+
+	def _upgrade_ip(self, cells: str):
+		self._push(f'upgrade_ip {cells}')
+	
+	def _get_ips(self, name: str):
+		self._push(f"get_ips {name}")
 
 	def _update_ip_catalog(self, *,
 		rebuild: bool = False
@@ -407,9 +431,11 @@ class ConfigTclBuilder:
 
 	def _get_files(self, *,
 		filter: str | None = None,
+		of_objects: str | None = None
 	) -> None:
 		params = [
 			f"-filter {filter}" if filter else None,
+			f"-of_objects {of_objects}" if of_objects else None,
 		]
 		self._push(f"get_files {' '.join(params)}")
 
@@ -723,7 +749,6 @@ class ConfigTclBuilder:
 
 	def _return(self):
 		self._push('return')
-
 
 	# -------------------------------------------------------------------------
 	# TCL I/O

@@ -102,27 +102,29 @@ class ConfigTclCommands(ConfigTclBuilder):
 	# ------------------------------------------------------
 
 	def _bd_refresh_addresses(self):
-		self._push("delete_bd_objs [get_bd_addr_segs] [get_bd_addr_segs -excluded]")
-		self._push("assign_bd_address")
+		self._delete_bd_objs('[get_bd_addr_segs]', '[get_bd_addr_segs -excluded]')
+		self._assign_bd_address()
 
 	def _bd_upgrade_ip_cells(self):
-		self._push(
-			"set stale_cells [get_bd_cells -hierarchical -filter {TYPE == ip}]\n"
-			"if {[llength $stale_cells] > 0} {\n"
-			"	if {[catch {upgrade_ip $stale_cells} err]} {\n"
-			"		puts \"IP upgrade failed during generate_bd: $err\";\n"
-			"	}\n"
-			"}"
-		)
+		self._set_exec('stale_cells', lambda x: x._get_bd_cells(hierarchical=True, filter='{TYPE == ip}'))
+
+		def __if_stale(x: typing.Self):
+			x._if('[catch {upgrade_ip $stale_cells} err]', lambda c: c._puts('"IP upgrade failed during generate_bd: $err"'))
+
+		self._if('[llength $stale_cells] > 0', __if_stale)
 
 	def _write_sim_fileset(self, core_name: str, filename: str):
-		self._push(
-			f"set fd [open \"{filename}\" w]\n"
-			f"foreach f [get_files -of_objects [get_ips {core_name}] -filter {{USED_IN =~ \"*simulation*\"}}] {{\n"
-			"	puts $fd [file normalize $f]\n"
-			"}\n"
-			"close $fd\n"
+		self._set_exec('fd', lambda x: x._open(f'"{filename}"', 'w'))
+
+		self._foreach('f',
+			iter_lambda=lambda x: x._get_files(
+				of_objects=f'[get_ips {core_name}]',
+				filter='{USED_IN =~ "*simulation*"}'
+			),
+			body_func=lambda x: x._puts_exec('$fd', lambda m: m._file_normalize('$f'))
 		)
+
+		self._close('$fd')
 
 	# ------------------------------------------------------
 	# functions
