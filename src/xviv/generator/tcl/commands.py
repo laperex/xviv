@@ -70,15 +70,14 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 			x._write_bd_tcl('$path', force=True, no_project_wrapper=True)
 
-			x._set_exec('f',    lambda m: m._open('$path', 'r'))
+			x._set_exec('f', lambda m: m._open('$path', 'r'))
 			x._set_exec('data', lambda m: m._read_file('$f'))
 			x._close('$f')
 
 			x._set_exec('start', lambda m: m._string_first('"set bCheckIPsPassed"', '$data'))
-			x._set_exec('end',   lambda m: m._string_first('"save_bd_design"',      '$data'))
+			x._set_exec('end', lambda m: m._string_first('"save_bd_design"',      '$data'))
 
-			x._if('$start == -1 || $end == -1',
-				lambda c: c._error('"Could not find expected markers in state BD TCL"'))
+			x._if('$start == -1 || $end == -1', lambda c: c._error('"Could not find expected markers in state BD TCL"'))
 
 			x._set_exec('f', lambda m: m._open('$path', 'w'))
 			x._puts_exec('$f', lambda m: m._join('$prefix', '"\\n"'))
