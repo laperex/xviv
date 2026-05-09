@@ -58,6 +58,9 @@ class ConfigTclCommands(ConfigTclBuilder):
 		self._proc_bd_save_tcl()
 		self._override("save_bd_design", post_call=lambda x: x._call_bd_save_tcl(bd_name, bd_state_tcl_file))
 
+	
+	# def _call__fifo_reopen(self):
+	# 	self._proc__fifo_reopen()
 
 	@ConfigTclBuilder._fn_def
 	def _proc_bd_save_tcl(self):
@@ -65,28 +68,23 @@ class ConfigTclCommands(ConfigTclBuilder):
 			x._set_exec('path_dirname', lambda _: _._file_dirname('$path'))
 			x._file_mkdir('$path_dirname')
 
-			x._push(
-				# "file mkdir [file dirname $path]\n"
+			x._write_bd_tcl('$path', force=True, no_project_wrapper=True)
 
-				"\twrite_bd_tcl -force -no_project_wrapper $path\n"
+			x._set_exec('f',    lambda m: m._open('$path', 'r'))
+			x._set_exec('data', lambda m: m._read_file('$f'))
+			x._close('$f')
 
-				"\tset f [open $path r]\n"
-				"\tset data [read $f]\n"
-				"\tclose $f\n"
+			x._set_exec('start', lambda m: m._string_first('"set bCheckIPsPassed"', '$data'))
+			x._set_exec('end',   lambda m: m._string_first('"save_bd_design"',      '$data'))
 
-				"\tset start [string first \"set bCheckIPsPassed\" $data]\n"
-				"\tset end [string first \"save_bd_design\" $data]\n"
+			x._if('$start == -1 || $end == -1',
+				lambda c: c._error('"Could not find expected markers in state BD TCL"'))
 
-				"\tif {$start == -1 || $end == -1} {\n"
-				"\t	error \"Could not find expected markers in state BD TCL\"\n"
-				"\t}\n"
-
-				"\tset f [open $path w]\n"
-				"\tputs $f [join $prefix \"\\n\"]\n"
-				"\tputs $f \"\"\n"
-				"\tputs $f [string range $data $start [expr {$end - 1}]]\n"
-				"\tclose $f"
-			)
+			x._set_exec('f', lambda m: m._open('$path', 'w'))
+			x._puts_exec('$f', lambda m: m._join('$prefix', '"\\n"'))
+			x._puts('""', channel='$f')
+			x._puts_exec('$f', lambda m: m._string_range('$data', '$start', '[expr {$end - 1}]'))
+			x._close('$f')
 
 		self._proc("bd_save_tcl", "path prefix", __bd_save_tcl)
 
@@ -94,7 +92,9 @@ class ConfigTclCommands(ConfigTclBuilder):
 	def _call_bd_save_tcl(self, bd_name, bd_state_tcl_file: str):
 		self._proc_bd_save_tcl()
 
-		self._push(rf'bd_save_tcl "{bd_state_tcl_file}" "#{bd_name}\n\n"')
+		self._call('bd_save_tcl', [
+			f'"{bd_state_tcl_file}"', rf'"#{bd_name}\n\n"'
+		])
 
 
 	# ------------------------------------------------------
@@ -127,6 +127,54 @@ class ConfigTclCommands(ConfigTclBuilder):
 	# ------------------------------------------------------
 	# functions
 	# ------------------------------------------------------
+	
+	
+	def xsim_wdb(self, wdb_file: str, wcfg_file: str, top_name: str, fifo_file: str) -> typing.Self:
+		if os.path.exists(wcfg_file):
+			self.catch(lambda c: c._open_wave_config(wcfg_file))
+		else:
+			self._add_wave(top_name)
+			self._save_wave_config(wcfg_file)
+
+		self._set('xsi_sim_wdb_file', f'"{wdb_file}"')
+		self._set('xsi_sim_wcfg_file', f'"{wcfg_file}"')
+		self._set('xviv_fifo_path', f'"{fifo_file}"')
+
+		self._set_exec('xviv_fifo_fh', lambda x: x._open('$xviv_fifo_path', 'r+'))
+		self._fconfigure('$xviv_fifo_fh', blocking=False, buffering='line')
+
+		def __fifo_reopen(x: typing.Self):
+			x._global('xviv_fifo_fh', 'xviv_fifo_path')
+			x.catch(lambda c: c._close('$xviv_fifo_fh'))
+			x._set_exec('xviv_fifo_fh', lambda m: m._open('$xviv_fifo_path', 'r+'))
+			x._fconfigure('$xviv_fifo_fh', blocking=False, buffering='line')
+			x._fileevent('$xviv_fifo_fh', 'readable', '_fifo_handle')
+
+		self._proc('_fifo_reopen', '', __fifo_reopen)
+
+		def __fifo_handle(x: typing.Self):
+			x._global('xviv_fifo_fh')
+
+			def __on_eof(c: typing.Self):
+				c._fileevent('$xviv_fifo_fh', 'readable', '{}')
+				c._call('_fifo_reopen')
+				c._return()
+			x._if('[eof $xviv_fifo_fh]', __on_eof)
+
+			x._set_exec('len', lambda m: m._gets('$xviv_fifo_fh', 'cmd'))
+			x._if('$len <= 0', lambda c: c._return())
+			x._puts('"xviv: $cmd"')
+			x.catch(lambda c: c._uplevel('#0', '$cmd'), result_var='result')
+			x._puts('"xviv: -> $result"')
+
+		self._proc('_fifo_handle', '', __fifo_handle)
+
+		self._fileevent('$xviv_fifo_fh', 'readable', '_fifo_handle')
+		self._puts('"xviv: FIFO ready at $xviv_fifo_path"')
+		
+		return self
+	
+	
 	def create_bd(self, bd_name: str, generate: bool = True) -> typing.Self:
 		bd_cfg = self._cfg.get_bd(bd_name)
 		bd_subdir = os.path.join(self._cfg.bd_dir, bd_name)
@@ -275,15 +323,15 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 		def __rm_for_body(x: typing.Self):
 			x.remove_files('$file')
-			x._push('file delete -force "$file"')
+			x._file_delete('$file', force=True)
 
 		self._foreach('file',
-			iter_func=lambda _: _._get_files(filter='{FILE_TYPE == Verilog}'),
+			iter_lambda=lambda _: _._get_files(filter='{FILE_TYPE == Verilog}'),
 			body_func=__rm_for_body
 		)
 
 		# add sources
-		self._push(f"file delete -force \"{os.path.join(ip_dir, 'hdl')}\"")
+		self._file_delete(os.path.join(ip_dir, 'hdl'), force=True)
 
 		for s in ip_cfg.sources:
 			self._add_files(s, scan_for_includes=True)
@@ -323,7 +371,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 			x._set_property('TOOLTIP', '"Parameter: $pname"', '$widget')
 
 		self._foreach('param',
-			iter_func=lambda x: x._ipx__get_user_parameters(of_objects=ipx_current_core),
+			iter_lambda=lambda x: x._ipx__get_user_parameters(of_objects=ipx_current_core),
 			body_func=__expose_params_body
 		)
 
@@ -345,10 +393,10 @@ class ConfigTclCommands(ConfigTclBuilder):
 				x._set_exec('ifc_bus_ifs', lambda m: m._ipx__get_bus_interfaces(name='$ifc_name', of_objects=ipx_current_core))
 				x._set_property('slave_memory_map_ref', '$ifc_name', '$ifc_bus_ifs')
 
-			x._if('$ifc_intf eq "slave" && [string match *axi_lite* $ifc_mode]', comm=__if_body)
+			x._if('$ifc_intf eq "slave" && [string match *axi_lite* $ifc_mode]', __if_body)
 
 		self._foreach('ifc',
-			iter_func=lambda x: x._ipx__get_bus_interfaces(of_objects=ipx_current_core),
+			iter_lambda=lambda x: x._ipx__get_bus_interfaces(of_objects=ipx_current_core),
 			body_func=__ip_wire_memory_maps_body
 		)
 
@@ -361,8 +409,6 @@ class ConfigTclCommands(ConfigTclBuilder):
 		self._ipx__save_core_ipx__current_core()
 
 		return self
-
-
 
 	def create_core(self, core_name: str) -> typing.Self:
 		core_cfg = self._cfg.get_core(core_name)
@@ -393,7 +439,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 		if not nogui:
 			self._foreach('{key val}',
-				iter_func=lambda _: _._start_ip_gui(f'[get_ips {core_name}]'),
+				iter_lambda=lambda _: _._start_ip_gui(f'[get_ips {core_name}]'),
 				body_func=lambda _: _._set_property('CONFIG.$key', '[lindex $val 0]', f'[get_ips {core_name}]')
 			)
 
@@ -487,31 +533,6 @@ class ConfigTclCommands(ConfigTclBuilder):
 		)
 
 		return self
-
-
-	# def synth_xci_out_of_context(self, xci_name: str, xci_file: str, *,
-	# 	dcp_file: str | None = None,
-	# 	stub_file: str | None = None
-	# ) -> typing.Self:
-	# 	if not os.path.exists(xci_file):
-	# 		#! SynthXci - XciFileNotExists
-	# 		sys.exit(f'ERROR: xci_file does not exist: {xci_file}')
-
-		
-
-	# 	self._read_ip(xci_file)
-
-	# 	self._generate_xci(xci_file)
-
-	# 	self.synthesis(xci_name,
-	# 		run_synth=True,
-	# 		synth_mode='out_of_context',
-	# 		synth_dcp_file=dcp_file,
-	# 		synth_stub_file=stub_file
-	# 	)
-
-	# 	return self
-
 
 	def _synthesis(self, top: str, *,
 		synth_incremental: bool = False,

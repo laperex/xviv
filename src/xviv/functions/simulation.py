@@ -1,3 +1,4 @@
+from xviv.generator.tcl.commands import ConfigTclCommands
 import logging
 import os
 import subprocess
@@ -97,27 +98,42 @@ puts "xviv: FIFO ready at $xviv_fifo_path"
 # open --wdb --top <top_name>
 # -----------------------------------------------------------------------------
 def cmd_wdb_open(cfg: XvivConfig, top_name: str, nogui: bool = False):
-	xsim_bin = os.path.join(cfg.vivado.path, "bin", "xsim")
-	xlib_work_dir = cfg.get_xlib_work_dir(top_name)
-
-	wdb_file  = f"{top_name}.wdb"
-	wcfg_file = f"{top_name}.wcfg"
-	tcl_file  = os.path.join(xlib_work_dir, "waveform_config.tcl")
-
-	os.makedirs(xlib_work_dir, exist_ok=True)
-	fifo = cfg.get_control_fifo_path(top_name)
-	_ensure_fifo(fifo)
-
-	with open(tcl_file, "w") as f:
-		f.write(
-		_XSIM_WDB_TCL.format(wdb=wdb_file, wcfg=wcfg_file, top=top_name, fifo_path=fifo)
+	wdb_file  = f"/home/laperex/Programming/image_processing/build/test_sim_wdb/{top_name}.wdb"
+	wcfg_file = f"/home/laperex/Programming/image_processing/build/test_sim_wdb/{top_name}.wcfg"
+	fifo_file = f"/home/laperex/Programming/image_processing/build/test_sim_wdb/{top_name}.fifo"
+	
+	config = (
+		ConfigTclCommands(cfg)
+		.xsim_wdb(
+			wdb_file=wdb_file,
+			top_name=top_name,
+			wcfg_file=wcfg_file,
+			fifo_file=fifo_file
+		)
+		.build()
 	)
+	
+	print(config)
+	
+	# xsim_bin = os.path.join(cfg.vivado.path, "bin", "xsim")
+	# xlib_work_dir = cfg.get_xlib_work_dir(top_name)
 
-	proc = subprocess.Popen(
-		[xsim_bin, wdb_file, "-t", tcl_file, "" if nogui else "-g"],
-		cwd=xlib_work_dir,
-	)
-	logger.info("xsim waveform PID: %d", proc.pid)
+	# tcl_file  = os.path.join(xlib_work_dir, "waveform_config.tcl")
+
+	# os.makedirs(xlib_work_dir, exist_ok=True)
+	# fifo = cfg.get_control_fifo_path(top_name)
+	# _ensure_fifo(fifo)
+
+	# with open(tcl_file, "w") as f:
+	# 	f.write(
+	# 	_XSIM_WDB_TCL.format(wdb=wdb_file, wcfg=wcfg_file, top=top_name, fifo_path=fifo)
+	# )
+
+	# proc = subprocess.Popen(
+	# 	[xsim_bin, wdb_file, "-t", tcl_file, "" if nogui else "-g"],
+	# 	cwd=xlib_work_dir,
+	# )
+	# logger.info("xsim waveform PID: %d", proc.pid)
 
 
 # -----------------------------------------------------------------------------
@@ -127,11 +143,11 @@ def cmd_wdb_reload(cfg: XvivConfig, top_name: str):
 	path = cfg.get_control_fifo_path(top_name)
 	cmd = (
 		"after 300 {"
-		"set _wcfg [get_property FILE_PATH [current_wave_config]]; "
-		"save_wave_config [current_wave_config];"
-		"close_wave_config [current_wave_config];"
-		"open_wave_database $xsi_sim_wdb_file; "
-		"catch {open_wave_config $_wcfg}"
+			"\tset _wcfg [get_property FILE_PATH [current_wave_config]]; "
+			"\tsave_wave_config [current_wave_config];"
+			"\tclose_wave_config [current_wave_config];"
+			"\topen_wave_database $xsi_sim_wdb_file; "
+			"\tcatch {open_wave_config $_wcfg}"
 		"}"
 	)
 	logger.info("Reloading waveform: %s", path)
