@@ -13,27 +13,13 @@ class ConfigTclBuilder:
 	def __init__(self, cfg: XvivConfig):
 		self._cfg = cfg
 
-		self.current_project: str | None = None
-		self.current_bd: str | None = None
-		self.current_core: str | None = None
-
 		self.__lines: list[str] = []
 		self.__flags: set[str] = set()
-		self.__root = True
 		self.__indent = 0
 
-		self.__read_bd_list: list[str] = []
-		self.__file_mkdir_list: list[str] = []
-		self.__read_ip_list: list[str] = []
-
 	def __inherit(self, i: typing.Self) -> typing.Self:
-		self.current_project = i.current_project
-		self.current_bd = i.current_bd
-		self.current_core = i.current_core
-
 		self.__lines = []
 		self.__flags = set(i.__flags)
-		self.__root = False
 		self.__indent = i.__indent + 1
 
 		return self
@@ -59,33 +45,43 @@ class ConfigTclBuilder:
 	def _logging(self, text: str, severity: str = 'XVIV_INFO'):
 		self._push(f"puts \"{severity}: {text}\"")
 
+	# def _create_project(self, fpga_ref: str | None = None, name = "xviv_in_memory"):
+	# 	#* set board_repo and board_part
+	# 	if self.current_project == name:
+	# 		#! TCLCreateProject - ProjectExistsError
+	# 		sys.exit(f"ERROR: Attempt to recreate project: {name}")
 
-	def _create_project(self, fpga_ref: str | None = None, name = "xviv_in_memory"):
-		#* set board_repo and board_part
-		if self.current_project == name:
-			#! TCLCreateProject - ProjectExistsError
-			sys.exit(f"ERROR: Attempt to recreate project: {name}")
+	# 	fpga = self._cfg.get_fpga(fpga_ref)
 
-		fpga = self._cfg.get_fpga(fpga_ref)
+	# 	self._set_param('general.maxThreads', str(self._cfg.get_vivado().max_threads))
 
-		self._set_param('general.maxThreads', str(self._cfg.get_vivado().max_threads))
+	# 	if self._cfg.board_repo_list:
+	# 		self._push(f'set_param board.repoPaths { _tcl_list(self._cfg.board_repo_list) }')
 
-		if self._cfg.board_repo_list:
-			self._push(f'set_param board.repoPaths { _tcl_list(self._cfg.board_repo_list) }')
+	# 	self._push(f"create_project -in_memory \"{name}\"" + f" -part {fpga.fpga_part} " if fpga.fpga_part else "")
 
-		self._push(f"create_project -in_memory \"{name}\"" + f" -part {fpga.fpga_part} " if fpga.fpga_part else "")
+	# 	if fpga.board_part:
+	# 		self._set_property_current_project('board_part', fpga.board_part)
 
-		if fpga.board_part:
-			self._set_property_current_project('board_part', fpga.board_part)
+	# 	# TODO: Throw Error when no board and fpga part is selected.
+	# 	if self._cfg.ip_repo_list:
+	# 		self._set_property_current_project('ip_repo_paths', _tcl_list(self._cfg.ip_repo_list))
 
-		# TODO: Throw Error when no board and fpga part is selected.
-		if self._cfg.ip_repo_list:
-			self._set_property_current_project('ip_repo_paths', _tcl_list(self._cfg.ip_repo_list))
+	# 	self.current_project = name
 
-		self.current_project = name
+	def _create_project(self, name: str, *,
+		part: str | None = None,
+		in_memory: bool = False,
+	):
+		params = filter(None, [
+			"-in_memory" if in_memory else None,
+			f"-part {part}" if part else None,
+		])
+
+		self._push(f"create_project {' '.join(params)} {name}")
 
 
-	def _set_current_project(self, name: str):
+	def _current_project(self, name: str):
 		self._push(f"current_project \"{name}\"")
 
 
@@ -93,52 +89,53 @@ class ConfigTclBuilder:
 		self._push("close_project")
 
 
-	def _create_bd_design(self, bd_name, *,
+	def _create_bd_design(self, name: str, *,
 		dir: str
 	) -> None:
-		if self.current_bd == bd_name:
-			#! TCLCreateBd - BdExistsError
-			sys.exit(f"ERROR: Attempt to recreate BD: {bd_name}")
-
 		params = filter(None, [
 			f"-dir \"{dir}\""
 		])
 
-		bd_subdir = os.path.join(dir, bd_name)
+		self._push(f"create_bd_design {' '.join(params)} {name}")
+		
+	# 	if self.current_bd == bd_name:
+	# 		#! TCLCreateBd - BdExistsError
+	# 		sys.exit(f"ERROR: Attempt to recreate BD: {bd_name}")
 
-		if os.path.isdir(bd_subdir):
-			self._file_delete(bd_subdir, force=True)
+	# 	params = filter(None, [
+	# 		f"-dir \"{dir}\""
+	# 	])
 
-		self._push(f"create_bd_design {' '.join(params)} {bd_name}")
+	# 	bd_subdir = os.path.join(dir, bd_name)
 
-		self.current_bd = bd_name
+	# 	if os.path.isdir(bd_subdir):
+	# 		self._file_delete(bd_subdir, force=True)
+
+	# 	self._push(f"create_bd_design {' '.join(params)} {bd_name}")
+
+	# 	self.current_bd = bd_name
+	
 
 
-	def _create_core(self, core_name, *,
+	def _create_core(self, name: str, *,
 		dir: str,
 		vlnv: str
 	) -> None:
-		if self.current_core == core_name:
-			#! TCLCreateCore - CoreExistsError
-			sys.exit(f"ERROR: attempt to recreate core: {core_name}")
-
 		params = filter(None, [
 			f"-dir \"{dir}\"",
-			f"-vlnv {vlnv}"             if vlnv else None,
-			f"-module_name {core_name}" if core_name else None,
+			f"-vlnv {vlnv}"        if vlnv else None,
+			f"-module_name {name}" if name else None,
 		])
-
-		core_subdir = os.path.join(dir, core_name)
+		
+		core_subdir = os.path.join(dir, name)
 
 		if os.path.isdir(core_subdir):
 			self._file_delete(core_subdir, force=True)
-
+		
 		if not os.path.isdir(dir):
 			self._file_mkdir(dir)
 
 		self._push(f"create_ip {' '.join(params)}")
-
-		self.current_core = core_name
 
 
 	def _create_peripheral(self, *,
@@ -366,6 +363,14 @@ class ConfigTclBuilder:
 		self._push(f"source \"{filename}\"")
 
 
+	# start_ip_gui:
+	def _start_ip_gui(self, ip: str):
+		params = filter(None, [
+			f"-ip {ip}"  if ip else None,
+		])
+		self._push(f"start_ip_gui {' '.join(params)}")
+
+
 	# start_gui: open project vivado gui
 	def _start_gui(self):
 		self._push("start_gui")
@@ -397,28 +402,13 @@ class ConfigTclBuilder:
 
 
 	# read_bd
-	def _read_bd(self, file) -> bool:
-		if file in self.__read_bd_list:
-			logger.warning(f'skipping read_bd for already loaded file: {file}')
-			return False
-
-		self.__read_bd_list.append(file)
+	def _read_bd(self, file) -> None:
 		self._push(f"read_bd \"{file}\"")
-
-		return True
 
 
 	# read_ip
-	def _read_ip(self, file) -> bool:
-		if file in self.__read_ip_list:
-			logger.warning(f'skipping read_ip for already loaded file: {file}')
-			return False
-
-		self.__read_ip_list.append(file)
+	def _read_ip(self, file) -> None:
 		self._push(f"read_ip \"{file}\"")
-
-		return True
-
 
 	# add_files
 	def _add_files(self, file: str, *,
@@ -689,11 +679,15 @@ class ConfigTclBuilder:
 		comm(child)
 		self._push(f'if {{{test_expr}}} {{\n{ child.build() }}}')
 
-	def _set(self, name: str, value_func = None):
+	def _set_exec(self, name: str, value_func = None):
 		child = type(self)(self._cfg).__inherit(self)
 		value_func(child)
 
-		self._push(f'set {name} [{(child.build() or '').strip()}]')
+		self._set(name, f"[{(child.build() or '').strip()}]")
+
+	def _set(self, name: str, value: str):
+		self._push(f'set {name} {value}')
+
 
 	def _foreach(self, args: str, iter_func = None, body_func = None):
 		iterator_child = type(self)(self._cfg).__inherit(self)

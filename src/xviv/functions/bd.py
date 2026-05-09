@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 def cmd_bd_create(cfg: XvivConfig, bd_name: str):
 	config = (
 		ConfigTclCommands(cfg)
-		.create_bd(bd_name)
+		.create_bd(bd_name, generate=True)
 		.build()
 	)
 
