@@ -102,13 +102,60 @@ class SynthConfig:
 	run_place: bool
 	run_phys_opt: bool
 	run_route: bool
-
-	synth_dcp_file: str
-	place_dcp_file: str
-	route_dcp_file: str
 	
-	bitstream_file: str
-	hw_platform_xsa_file: str
+	bitstream_file: str | None
+	hw_platform_xsa_file: str | None
+	
+	# checkpoints
+
+	synth_dcp_file: str | None
+	place_dcp_file: str | None
+	route_dcp_file: str | None
+	
+	# reports
+	
+	synth_report_timing_summary_file: str | None
+	synth_report_utilization_file: str | None
+	synth_report_incremental_reuse_file: str | None
+	
+	route_report_drc_file: str | None
+	route_report_methodology_file: str | None
+	route_report_power_file: str | None
+	route_report_route_status_file: str | None
+	route_report_timing_summary_file: str | None
+
+	impl_report_incremental_reuse_file: str | None
+	
+	# # netlists
+	
+	synth_functional_netlist_file: str | None
+	synth_timing_netlist_file: str | None
+	impl_functional_netlist_file: str | None
+	impl_timing_netlist_file: str | None
+	
+	# # stubs
+	
+	synth_stub_file: str | None
+	
+	# settings
+	
+	synth_directive: str
+	synth_mode: str
+	synth_flatten_hierarchy: str
+	synth_fsm_extraction: str
+	
+	opt_directive: str
+	
+	place_directive: str
+	
+	phys_opt_directive: str
+	
+	route_directive: str
+
+	# usr access val
+
+	usr_access_value: int | None
+
 
 @dataclasses.dataclass
 class SimulationConfig:

@@ -502,12 +502,46 @@ class XvivConfig:
 		impl_incremental: bool = False,
 		run_phys_opt: bool = False,
 
-		synth_dcp_file: bool | str | None = True,
-		place_dcp_file: bool | str | None = True,
-		route_dcp_file: bool | str | None = True,
+		synth_dcp: bool | str | None = True,
+		place_dcp: bool | str | None = True,
+		route_dcp: bool | str | None = True,
 
-		bitstream_file: bool | str | None = True,
-		hw_platform_xsa_file: bool | str | None = True,
+		bitstream: bool | str | None = True,
+		hw_platform: bool | str | None = True,
+
+		synth_report_timing_summary: bool | str | None = False,
+		synth_report_utilization: bool | str | None = False,
+		
+		route_report_drc: bool | str | None = False,
+		route_report_methodology: bool | str | None = False,
+		route_report_power: bool | str | None = False,
+		route_report_route_status: bool | str | None = False,
+		route_report_timing_summary: bool | str | None = False,
+
+		synth_report_incremental_reuse: bool | str | None = False,
+		impl_report_incremental_reuse: bool | str | None = False,
+		
+		synth_functional_netlist: bool | str | None = False,
+		synth_timing_netlist: bool | str | None = False,
+		impl_functional_netlist: bool | str | None = False,
+		impl_timing_netlist: bool | str | None = False,
+		
+		synth_stub: bool | str | None = False,
+		
+		synth_directive: str = 'default',
+		synth_mode: str = 'default',
+		synth_flatten_hierarchy: str = 'rebuilt',
+		synth_fsm_extraction: str = 'auto',
+		
+		opt_directive: str = 'default',
+		
+		place_directive: str = 'default',
+		
+		phys_opt_directive: str = 'default',
+		
+		route_directive: str = 'default',
+		
+		usr_access_value: int | None = None,
 	) -> typing.Self:
 		available_ids = [i for i in [design, core, bd] if i]
 
@@ -522,6 +556,8 @@ class XvivConfig:
 		if self._get_synth_cfg_optional(design_name=design, core_name=core, bd_name=bd) is not None:
 			#! SynthCfg - SynthCfgAlreadyExists
 			sys.exit(f'ERROR: SynthConfig Already Exists for id: {available_ids}')
+
+		id_name = available_ids[0]
 
 		if bd:
 			bd_cfg = self._get_bd_cfg_optional(bd)
@@ -549,7 +585,10 @@ class XvivConfig:
 			#! SynthCfg - UnspecifiedFpga
 			sys.exit(f'ERROR: unspecified fpga for synth target - {available_ids}')
 
-		synth_subdir = os.path.join(self.synth_dir, available_ids[0])
+		synth_subdir = os.path.join(self.synth_dir, id_name)
+		synth_reports_subdir = os.path.join(synth_subdir, 'reports')
+		synth_netlists_subdir = os.path.join(synth_subdir, 'netlists')
+		synth_checkpoints_subdir = os.path.join(synth_subdir, 'checkpoints')
 
 		self._synth_list.append(
 			SynthConfig(
@@ -570,12 +609,40 @@ class XvivConfig:
 				run_phys_opt=run_phys_opt,
 				run_route=run_route,
 
-				synth_dcp_file=_resolve_val(synth_dcp_file, os.path.join(synth_subdir, 'synth.dcp')),
-				place_dcp_file=_resolve_val(place_dcp_file, os.path.join(synth_subdir, 'place.dcp')),
-				route_dcp_file=_resolve_val(route_dcp_file, os.path.join(synth_subdir, 'route.dcp')),
+				synth_dcp_file=_resolve_val(synth_dcp, os.path.join(synth_checkpoints_subdir, 'synth.dcp')),
+				place_dcp_file=_resolve_val(place_dcp, os.path.join(synth_checkpoints_subdir, 'place.dcp')),
+				route_dcp_file=_resolve_val(route_dcp, os.path.join(synth_checkpoints_subdir, 'route.dcp')),
 
-				bitstream_file=_resolve_val(bitstream_file, os.path.join(synth_subdir, f'{available_ids[0]}.bit')),
-				hw_platform_xsa_file=_resolve_val(hw_platform_xsa_file, os.path.join(synth_subdir, f'{available_ids[0]}.xsa')),
+				bitstream_file=_resolve_val(bitstream, os.path.join(synth_subdir, f'{id_name}.bit')),
+				hw_platform_xsa_file=_resolve_val(hw_platform, os.path.join(synth_subdir, f'{id_name}.xsa')),
+
+				synth_report_timing_summary_file=_resolve_val(synth_report_timing_summary, os.path.join(synth_reports_subdir, 'synth_report_timing_summary_file.rpt')),
+				synth_report_utilization_file=_resolve_val(synth_report_utilization, os.path.join(synth_reports_subdir, 'synth_report_utilization_file.rpt')),
+				synth_report_incremental_reuse_file=_resolve_val(synth_report_incremental_reuse, os.path.join(synth_reports_subdir, 'synth_report_incremental_reuse_file.rpt')),
+				route_report_drc_file=_resolve_val(route_report_drc, os.path.join(synth_reports_subdir, 'route_report_drc_file.rpt')),
+				route_report_methodology_file=_resolve_val(route_report_methodology, os.path.join(synth_reports_subdir, 'route_report_methodology_file.rpt')),
+				route_report_power_file=_resolve_val(route_report_power, os.path.join(synth_reports_subdir, 'route_report_power_file.rpt')),
+				route_report_route_status_file=_resolve_val(route_report_route_status, os.path.join(synth_reports_subdir, 'route_report_route_status_file.rpt')),
+				route_report_timing_summary_file=_resolve_val(route_report_timing_summary, os.path.join(synth_reports_subdir, 'route_report_timing_summary_file.rpt')),
+				impl_report_incremental_reuse_file=_resolve_val(impl_report_incremental_reuse, os.path.join(synth_reports_subdir, 'impl_report_incremental_reuse_file.rpt')),
+				
+				synth_functional_netlist_file=_resolve_val(synth_functional_netlist, os.path.join(synth_netlists_subdir, f'{id_name}_synth_functional_netlist.v')),
+				synth_timing_netlist_file=_resolve_val(synth_timing_netlist, os.path.join(synth_netlists_subdir, f'{id_name}_synth_timing_netlist.v')),
+				impl_functional_netlist_file=_resolve_val(impl_functional_netlist, os.path.join(synth_netlists_subdir, f'{id_name}_impl_functional_netlist.v')),
+				impl_timing_netlist_file=_resolve_val(impl_timing_netlist, os.path.join(synth_netlists_subdir, f'{id_name}_impl_timing_netlist.v')),
+				
+				synth_stub_file=_resolve_val(synth_stub, os.path.join(synth_subdir, f'{id_name}_stub.v')),
+				
+				synth_directive=synth_directive,
+				synth_mode=synth_mode,
+				synth_flatten_hierarchy=synth_flatten_hierarchy,
+				synth_fsm_extraction=synth_fsm_extraction,
+				opt_directive=opt_directive,
+				place_directive=place_directive,
+				phys_opt_directive=phys_opt_directive,
+				route_directive=route_directive,
+
+				usr_access_value=usr_access_value
 			)
 		)
 

@@ -141,7 +141,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 		# TODO: add a new flag --import=true flag to make this if explicit
 		if os.path.exists(bd_cfg.save_file):
-			self._set('parentCell', "")
+			self._set('parentCell', '""')
 			self._source(bd_cfg.save_file)
 			self._bd_refresh_addresses()
 			self._validate_bd_design()
@@ -401,16 +401,6 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 		return self
 
-
-	# def _generate_xci(self, xci_file: str, load_xci=True) -> typing.Self:
-	# 	if not self.current_project:
-	# 		sys.exit(f'ERROR: current_project: {None}')
-
-	# 	self._generate_target_get_files(xci_file, reset=False)
-
-	# 	return self
-
-
 	def synth_bd(self, bd_name: str):
 		synth_cfg = self._cfg.get_synth(bd_name=bd_name)
 
@@ -448,6 +438,34 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 			bitstream_file = synth_cfg.bitstream_file,
 			hw_platform_xsa_file = synth_cfg.hw_platform_xsa_file,
+			
+			synth_report_timing_summary_file = synth_cfg.synth_report_timing_summary_file,
+			synth_report_utilization_file = synth_cfg.synth_report_utilization_file,
+			synth_report_incremental_reuse_file = synth_cfg.synth_report_incremental_reuse_file,
+			route_report_drc_file = synth_cfg.route_report_drc_file,
+			route_report_methodology_file = synth_cfg.route_report_methodology_file,
+			route_report_power_file = synth_cfg.route_report_power_file,
+			route_report_route_status_file = synth_cfg.route_report_route_status_file,
+			route_report_timing_summary_file = synth_cfg.route_report_timing_summary_file,
+			impl_report_incremental_reuse_file = synth_cfg.impl_report_incremental_reuse_file,
+			
+			synth_functional_netlist_file = synth_cfg.synth_functional_netlist_file,
+			synth_timing_netlist_file = synth_cfg.synth_timing_netlist_file,
+			impl_functional_netlist_file = synth_cfg.impl_functional_netlist_file,
+			impl_timing_netlist_file = synth_cfg.impl_timing_netlist_file,
+			
+			synth_stub_file = synth_cfg.synth_stub_file,
+			
+			synth_directive = synth_cfg.synth_directive,
+			synth_mode = synth_cfg.synth_mode,
+			synth_flatten_hierarchy = synth_cfg.synth_flatten_hierarchy,
+			synth_fsm_extraction = synth_cfg.synth_fsm_extraction,
+			opt_directive = synth_cfg.opt_directive,
+			place_directive = synth_cfg.place_directive,
+			phys_opt_directive = synth_cfg.phys_opt_directive,
+			route_directive = synth_cfg.route_directive,
+			
+			usr_access_value = synth_cfg.usr_access_value,
 		)
 
 		return self

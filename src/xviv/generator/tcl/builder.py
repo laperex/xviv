@@ -45,30 +45,6 @@ class ConfigTclBuilder:
 	def _logging(self, text: str, severity: str = 'XVIV_INFO'):
 		self._push(f"puts \"{severity}: {text}\"")
 
-	# def _create_project(self, fpga_ref: str | None = None, name = "xviv_in_memory"):
-	# 	#* set board_repo and board_part
-	# 	if self.current_project == name:
-	# 		#! TCLCreateProject - ProjectExistsError
-	# 		sys.exit(f"ERROR: Attempt to recreate project: {name}")
-
-	# 	fpga = self._cfg.get_fpga(fpga_ref)
-
-	# 	self._set_param('general.maxThreads', str(self._cfg.get_vivado().max_threads))
-
-	# 	if self._cfg.board_repo_list:
-	# 		self._push(f'set_param board.repoPaths { _tcl_list(self._cfg.board_repo_list) }')
-
-	# 	self._push(f"create_project -in_memory \"{name}\"" + f" -part {fpga.fpga_part} " if fpga.fpga_part else "")
-
-	# 	if fpga.board_part:
-	# 		self._set_property_current_project('board_part', fpga.board_part)
-
-	# 	# TODO: Throw Error when no board and fpga part is selected.
-	# 	if self._cfg.ip_repo_list:
-	# 		self._set_property_current_project('ip_repo_paths', _tcl_list(self._cfg.ip_repo_list))
-
-	# 	self.current_project = name
-
 	def _create_project(self, name: str, *,
 		part: str | None = None,
 		in_memory: bool = False,
@@ -494,6 +470,8 @@ class ConfigTclBuilder:
 		params = filter(None, [
 			"-force" if force else None,
 		])
+		
+		self._file_mkdir_dirname_file(file)
 		self._push(f"write_checkpoint {' '.join(params)} \"{file}\"")
 
 
@@ -525,6 +503,9 @@ class ConfigTclBuilder:
 			f"-mode {mode}"                      if mode else None,
 			f"-sdf_anno {str(sdf_anno).lower()}" if sdf_anno else None,
 		])
+		
+		self._file_mkdir_dirname_file(file)
+
 		self._push(f"write_verilog {' '.join(params)} \"{file}\"")
 
 
@@ -535,6 +516,9 @@ class ConfigTclBuilder:
 		params = filter(None, [
 			"-force" if force else None,
 		])
+		
+		self._file_mkdir_dirname_file(file)
+		
 		self._push(f"write_bitstream {' '.join(params)} \"{file}\"")
 
 
@@ -549,6 +533,9 @@ class ConfigTclBuilder:
 			"-fixed"       if fixed else None,
 			"-include_bit" if include_bit else None,
 		])
+		
+		self._file_mkdir_dirname_file(file)
+		
 		self._push(f"write_hw_platform {' '.join(params)} \"{file}\"")
 
 
@@ -626,6 +613,8 @@ class ConfigTclBuilder:
 			"-warn_on_violation"      if warn_on_violation else None,
 			"-hierarchical"           if hierarchical else None,
 		])
+		
+		self._file_mkdir_dirname_file(file)
 
 		self._push(f"report_{report_type} {' '.join(params)}")
 
@@ -652,7 +641,13 @@ class ConfigTclBuilder:
 
 	def _file_mkdir(self, path: str):
 		self._push(f"file mkdir \"{path}\"")
-	
+
+	def _file_mkdir_dirname_file(self, path: str, exists_ok=False):
+		if exists_ok and os.path.exists(os.path.dirname(path)):
+			return
+
+		self._file_mkdir(os.path.dirname(path))
+
 	def _file_normalize(self, path: str):
 		self._push(f"file normalize \"{path}\"")
 
