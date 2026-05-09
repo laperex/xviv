@@ -399,12 +399,21 @@ class XvivConfig:
 	def add_design_cfg(self, name: str, *,
 		sources: list[str],
 		top: str | None = None,
+		fpga: str | None = None,
 	) -> typing.Self:
 		# TODO: throw error for invalid name ''
 
 		if self._get_design_cfg_optional(name) is not None:
 			#! DesignCfg - DesignCfgAlreadyExists
 			sys.exit(f'ERROR: design entry with name: {name} already exists')
+		
+		if fpga is None:
+			fpga = self._get_fpga_cfg_default.name
+			logger.warning(f'For Design entry with name: {name} - fpga is unspecified - using default: {fpga}')
+
+		if self._get_fpga_cfg_optional(fpga) is None:
+			#! FpgaCfg - FpgaMissing
+			sys.exit(f'ERROR: for Design entry with name: {name} - invalid fpga: {fpga}')
 
 		if top is None:
 			top = name
@@ -413,7 +422,8 @@ class XvivConfig:
 			DesignConfig(
 				name=name,
 				top=top,
-				sources=resolve_globs(sources, self.base_dir)
+				sources=resolve_globs(sources, self.base_dir),
+				fpga_ref=fpga
 			)
 		)
 
@@ -560,10 +570,7 @@ class XvivConfig:
 		id_name = available_ids[0]
 
 		if bd:
-			bd_cfg = self._get_bd_cfg_optional(bd)
-			if bd_cfg is None:
-				#! SynthCfgCfg - SynthCfgCfgDoesNotExist
-				sys.exit(f'ERROR: SynthCfg - BD does not exist for name: {bd}')
+			bd_cfg = self.get_bd(bd)
 
 			if fpga is None:
 				fpga = bd_cfg.fpga_ref
@@ -579,7 +586,17 @@ class XvivConfig:
 			pass
 
 		if design:
-			pass
+			design_cfg = self.get_design(design)
+
+			if fpga is None:
+				fpga = design_cfg.fpga_ref
+			else:
+				if fpga != design_cfg.fpga_ref:
+					#! SynthCfg - FpgaRefMismatch
+					sys.exit(f'ERROR: Mismatch fpga for Design: {design_cfg.fpga_ref} with specified: {fpga}')
+
+			if top is None:
+				top = design_cfg.top
 
 		if fpga is None:
 			#! SynthCfg - UnspecifiedFpga

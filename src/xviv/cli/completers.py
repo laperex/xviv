@@ -143,9 +143,17 @@ def arg(container, *flags, completer=None, **kwargs):
 	return action
 
 
-def target_group(parser, *, ip: bool = False, bd: bool = False, top=None, required: bool = True):
+def target_group(parser, *,
+	design: bool = True,
+	ip: bool = False,
+	bd: bool = False,
+	top=None,
+	required: bool = True
+):
 	mg = parser.add_mutually_exclusive_group(required=required)
 
+	if design:
+		arg(mg, "--design", metavar="NAME", help="Design name", completer=c_ip)
 	if ip:
 		arg(mg, "--ip", metavar="NAME", help="IP name", completer=c_ip)
 	if bd:

@@ -38,6 +38,7 @@ def load_config(path: str) -> XvivConfig:
         ('wrapper', cfg.add_wrapper_cfg),
         ('core',    cfg.add_core_cfg),
         ('bd',      cfg.add_bd_cfg),
+        ('design',  cfg.add_design_cfg),
         ('synth',   cfg.add_synth_cfg),
     ]:
         for entry in data.get(section, []):

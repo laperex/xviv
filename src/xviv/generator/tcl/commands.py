@@ -401,18 +401,36 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 		return self
 
-	def synth_bd(self, bd_name: str):
-		synth_cfg = self._cfg.get_synth(bd_name=bd_name)
+	def synth(self, *,
+		bd: str | None = None,
+		design: str | None = None,
+	):
+		synth_cfg = self._cfg.get_synth(bd_name=bd, design_name=design)
 
 		# tcl begin
 
 		self._require_project(fpga_ref=synth_cfg.fpga_ref)
 
-		bd_cfg = self._cfg.get_bd(synth_cfg.bd_name)
-		self._read_bd(bd_cfg.bd_file)
-		self._add_files(bd_cfg.bd_wrapper_file)
+		if bd:
+			bd_cfg = self._cfg.get_bd(synth_cfg.bd_name)
+			
+			assert os.path.exists(bd_cfg.bd_file)
+			assert os.path.exists(bd_cfg.bd_wrapper_file)
+			
+			self._read_bd(bd_cfg.bd_file)
+			self._add_files(bd_cfg.bd_wrapper_file)
+		
+		if design:
+			design_cfg = self._cfg.get_design(synth_cfg.design_name)
+			
+			for i in design_cfg.sources:
+				assert os.path.exists(i)
+
+				self._add_files(i, scan_for_includes=True)
 
 		for i in synth_cfg.constraints:
+			assert os.path.exists(i)
+
 			self._add_files(i, fileset='constrs_1')
 		self._update_compile_order(fileset='sources_1')
 

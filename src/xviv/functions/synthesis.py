@@ -1,9 +1,10 @@
-import typing
 from xviv.config.project import XvivConfig
 # from xviv.config.tcl import generate_config_tcl
 from xviv.generator.hooks import generate_synth_hooks
 # from xviv.tools.util import find_vivado_script
+from xviv.tools import vivado
 from xviv.utils.git import _git_sha_tag
+from xviv.generator.tcl.commands import ConfigTclCommands
 
 
 # -----------------------------------------------------------------------------
@@ -16,8 +17,20 @@ def cmd_synth_config(cfg: XvivConfig, top_name: str | None, bd_name: str | None,
 # -----------------------------------------------------------------------------
 # synth --top <top_name>
 # -----------------------------------------------------------------------------
-def cmd_top_synth(cfg: XvivConfig, top_name: str):
+def cmd_design_synth(cfg: XvivConfig, design_name: str | None):
 	_, _, tag = _git_sha_tag()
+
+	# print(tag)
+	
+	config = (
+		ConfigTclCommands(cfg)
+		.synth(design=design_name)
+		.build()
+	)
+
+	vivado.run_vivado(cfg, config_tcl=config)
+	
+	
 
 	# config_tcl = generate_config_tcl(cfg, top_name=top_name)
 

@@ -123,7 +123,7 @@ def cmd_bd_synth(cfg: XvivConfig, bd_name: str, ooc_run: bool | None):
 
 	config = (
 		ConfigTclCommands(cfg)
-		.synth_bd(bd_name)
+		.synth(bd=bd_name)
 		.build()
 	)
 
