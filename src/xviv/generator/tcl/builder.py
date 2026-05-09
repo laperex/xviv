@@ -96,24 +96,12 @@ class ConfigTclBuilder:
 			f"-dir \"{dir}\""
 		])
 
+		bd_subdir = os.path.join(dir, name)
+
+		if os.path.isdir(bd_subdir):
+			self._file_delete(bd_subdir, force=True)
+
 		self._push(f"create_bd_design {' '.join(params)} {name}")
-		
-	# 	if self.current_bd == bd_name:
-	# 		#! TCLCreateBd - BdExistsError
-	# 		sys.exit(f"ERROR: Attempt to recreate BD: {bd_name}")
-
-	# 	params = filter(None, [
-	# 		f"-dir \"{dir}\""
-	# 	])
-
-	# 	bd_subdir = os.path.join(dir, bd_name)
-
-	# 	if os.path.isdir(bd_subdir):
-	# 		self._file_delete(bd_subdir, force=True)
-
-	# 	self._push(f"create_bd_design {' '.join(params)} {bd_name}")
-
-	# 	self.current_bd = bd_name
 	
 
 
