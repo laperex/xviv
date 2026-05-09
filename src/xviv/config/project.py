@@ -7,7 +7,7 @@ import re
 import sys
 import typing
 from xviv.config.catalog import Catalog
-from xviv.config.model import AppConfig, BdConfig, BdCoreConfig, CoreConfig, DesignConfig, FpgaConfig, IpConfig, PlatformConfig, SimulationConfig, SynthConfig, VitisConfig, VivadoConfig, IpWrapperConfig
+from xviv.config.model import AppConfig, BdConfig, SubCoreConfig, CoreConfig, DesignConfig, FpgaConfig, IpConfig, PlatformConfig, SimulationConfig, SynthConfig, VitisConfig, VivadoConfig, IpWrapperConfig
 from xviv.generator.wrapper import SystemVerilogWrapper
 from xviv.parsers.bd_json import get_bd_core_list
 from xviv.utils.fs import resolve_globs
@@ -45,6 +45,7 @@ class XvivConfig:
 		self._design_list: list[DesignConfig] = []
 
 		self._synth_list: list[SynthConfig] = []
+		self._sim_list: list[SimulationConfig] = []
 
 		self._vivado_cfg: VivadoConfig | None = None
 		self._vitis_cfg: VitisConfig | None = None
@@ -71,21 +72,21 @@ class XvivConfig:
 			return self._catalog_cfg
 
 		#! UninitializedCoreCatalog
-		sys.exit('ERROR: Catalog is not initialized')
+		raise RuntimeError('ERROR: Catalog is not initialized')
 
 	def get_vivado(self) -> VivadoConfig:
 		if self._vivado_cfg:
 			return self._vivado_cfg
 
 		#! UninitializedVivadoCfg
-		sys.exit('ERROR: VivadoConfig is not initialized')
+		raise RuntimeError('ERROR: VivadoConfig is not initialized')
 
 	def get_vitis(self) -> VitisConfig:
 		if self._vitis_cfg:
 			return self._vitis_cfg
 
 		#! UninitializedVitisCfg
-		sys.exit('ERROR: VitisConfig is not initialized')
+		raise RuntimeError('ERROR: VitisConfig is not initialized')
 
 
 	def add_vivado_cfg(self,
@@ -96,11 +97,11 @@ class XvivConfig:
 	) -> typing.Self:
 		if self._vivado_cfg is not None:
 			#! VivadoCfg - VivadoCfgAlreadySpecified
-			sys.exit('ERROR: Vivado Config Already Specified')
+			raise RuntimeError('ERROR: Vivado Config Already Specified')
 
 		if not os.path.exists(path):
 			#! VivadoCfg - InvalidPath
-			sys.exit(f'ERROR: Invadlid Vivado Path: {path}')
+			raise RuntimeError(f'ERROR: Invadlid Vivado Path: {path}')
 
 		self._vivado_cfg = VivadoConfig(
 			path=path,
@@ -123,11 +124,11 @@ class XvivConfig:
 	) -> typing.Self:
 		if self._vitis_cfg is not None:
 			#! VitisCfg - VitisCfgAlreadySpecified
-			sys.exit('ERROR: Vitis Config Already Specified')
+			raise RuntimeError('ERROR: Vitis Config Already Specified')
 
 		if not os.path.exists(path):
 			#! VitisCfg - InvalidPath
-			sys.exit(f'ERROR: Invadlid Vitis Path: {path}')
+			raise RuntimeError(f'ERROR: Invadlid Vitis Path: {path}')
 
 		return self
 
@@ -146,13 +147,11 @@ class XvivConfig:
 	) -> typing.Self:
 		if self._get_ip_cfg_optional(name) is not None:
 			#! IpCfg - IpCfgAlreadyExistsError
-			sys.exit(f'ERROR: IP entry with name: {name} already exists')
+			raise RuntimeError(f'ERROR: IP entry with name: {name} already exists')
 
 		# TODO: throw error for invalid name ''
 
-		if fpga is None:
-			fpga = self._get_fpga_cfg_default.name
-			logger.warning(f'For BD entry with name: {name} - fpga is unspecified - using default: {fpga}')
+		fpga = self._resolve_fpga(fpga)
 
 		if vlnv is None:
 			vlnv = f"{vendor}:{library}:{name}:{version}"
@@ -196,7 +195,7 @@ class XvivConfig:
 
 		if ip_cfg is None:
 			#! IpCfg - IpCfgDoesNotExist
-			sys.exit(f'ERROR: IP does not exist for: {name}')
+			raise RuntimeError(f'ERROR: IP does not exist for: {name}')
 
 		return ip_cfg
 
@@ -208,22 +207,22 @@ class XvivConfig:
 	) -> typing.Self:
 		if self._get_wrapper_cfg_optional(ip) is not None:
 			#! WrapperCfg - WrapperCfgAlreadyExistsForIpError
-			sys.exit(f'ERROR: Wrapper entry with name: {ip} already exists')
+			raise RuntimeError(f'ERROR: Wrapper entry with name: {ip} already exists')
 
 		ip_cfg = self._get_ip_cfg_optional(ip)
 
 		if ip_cfg is None:
 			#! WrapperCfg - IpCfgMissingError
-			sys.exit(f'ERROR: IP entry with name: {ip} does not exist')
+			raise RuntimeError(f'ERROR: IP entry with name: {ip} does not exist')
 
 		if not sources:
 			#! WrapperCfg - UnspecifiedSourcesError
-			sys.exit(f'ERROR: sources not specified, empty: {sources}')
+			raise RuntimeError(f'ERROR: sources not specified, empty: {sources}')
 
 		for i in sources:
 			if not os.path.exists(i):
 				#! WrapperCfg - SourceMissingError
-				sys.exit(f'ERROR: required source does not exist: {i}')
+				raise RuntimeError(f'ERROR: required source does not exist: {i}')
 
 		wrapper_top = f'{ip_cfg.top}_wrapper'
 		if wrapper_file is None:
@@ -253,7 +252,7 @@ class XvivConfig:
 
 		if wrapper is None:
 			#! wrapperCfg - wrapperCfgDoesNotExist
-			sys.exit(f'ERROR: wrapper does not exist for: {name}')
+			raise RuntimeError(f'ERROR: wrapper does not exist for: {name}')
 
 		return wrapper
 
@@ -262,15 +261,16 @@ class XvivConfig:
 		fpga_part: str | None = None,
 		board_part: str | None = None
 	) -> typing.Self:
+		# TODO: throw error for invalid name ''
+
 		if self._get_fpga_cfg_optional(name) is not None:
 			#! FpgaCfg - FpgaCfgAlreadyExists
-			sys.exit(f'ERROR: Fpga entry with name: {name} already exists')
+			raise RuntimeError(f'ERROR: Fpga entry with name: {name} already exists')
 
-		# TODO: throw error for invalid name ''
 
 		if fpga_part is None and board_part is None:
 			#! FpgaCfg - PartUnspecified
-			sys.exit(f'ERROR: part unspecified for fpga entry: {name}')
+			raise RuntimeError(f'ERROR: part unspecified for fpga entry: {name}')
 
 		self._fpga_list.append(
 			FpgaConfig(
@@ -288,7 +288,7 @@ class XvivConfig:
 	@property
 	def _get_fpga_cfg_default(self) -> FpgaConfig:
 		if not self._fpga_list:
-			sys.exit('ERROR: No Fpga specified in config')
+			raise RuntimeError('ERROR: No Fpga specified in config')
 
 		return self._fpga_list[0]
 
@@ -300,7 +300,7 @@ class XvivConfig:
 
 		if fpga_cfg is None:
 			#! FpgaCfg - FpgaCfgDoesNotExist
-			sys.exit(f'ERROR: Fpga does not exist for: {name}')
+			raise RuntimeError(f'ERROR: Fpga does not exist for: {name}')
 
 		return fpga_cfg
 
@@ -315,16 +315,9 @@ class XvivConfig:
 
 		if self._get_bd_cfg_optional(name) is not None:
 			#! BdCfg - BdCfgAlreadyExists
-			sys.exit(f'ERROR: BD entry with name: {name} already exists')
+			raise RuntimeError(f'ERROR: BD entry with name: {name} already exists')
 
-
-		if fpga is None:
-			fpga = self._get_fpga_cfg_default.name
-			logger.warning(f'For BD entry with name: {name} - fpga is unspecified - using default: {fpga}')
-
-		if self._get_fpga_cfg_optional(fpga) is None:
-			#! FpgaCfg - FpgaMissing
-			sys.exit(f'ERROR: for BD entry with name: {name} - invalid fpga: {fpga}')
+		fpga = self._resolve_fpga(fpga)
 
 		if save_file is None:
 			save_file = os.path.join(self.scripts_dir, 'bd', f'{name}.tcl')
@@ -332,7 +325,7 @@ class XvivConfig:
 		if bd_file is None:
 			bd_file = os.path.join(self.bd_dir, name, f'{name}.bd')
 
-		bd_core_list: list[BdCoreConfig] = []
+		bd_core_list: list[SubCoreConfig] = []
 
 		if os.path.exists(bd_file):
 			logger.info(f'Loading sub core info from - {bd_file}')
@@ -363,7 +356,7 @@ class XvivConfig:
 
 		if bd_cfg is None:
 			#! BdCfg - BdCfgAlreadyExists
-			sys.exit(f'ERROR: BD entry with name: {name} already exists')
+			raise RuntimeError(f'ERROR: BD entry with name: {name} already exists')
 
 		if os.path.exists(bd_cfg.bd_file):
 			bd_cfg.core_list = get_bd_core_list(bd_cfg.bd_file)
@@ -391,10 +384,71 @@ class XvivConfig:
 
 		if bd is None:
 			#! BDCfg - BDCfgDoesNotExist
-			sys.exit(f'ERROR: BD does not exist for: {name}')
+			raise RuntimeError(f'ERROR: BD does not exist for: {name}')
 
 		return bd
 
+	def _resolve_fpga(self, fpga_ref: str | None, default_fpga: str | None = None):
+		if fpga_ref is None:
+			if default_fpga is None:
+				fpga_ref = self._get_fpga_cfg_default.name
+			else:
+				fpga_ref = default_fpga
+			# logger.debug(f'fpga is unspecified - using default: {fpga_ref}')
+			# logger.debug(f'For Design entry with name: {name} - fpga is unspecified - using default: {fpga_ref}')
+
+		if self._get_fpga_cfg_optional(fpga_ref) is None:
+			#! FpgaCfg - FpgaMissing
+			raise RuntimeError(f'ERROR: invalid fpga: {fpga_ref}')
+
+		return fpga_ref
+
+	def add_sim_cfg(self, name: str, *,
+		sources: list[str],
+		top: str | None = None,
+		design: str | None = None,
+		backend: str = 'xsim',
+		timescale: str = '1ns/1ps'
+	) -> typing.Self:
+		# TODO: throw error for invalid name ''
+
+		if self._get_sim_cfg_optional(name) is not None:
+			#! SimCfg - SimCfgAlreadyExists
+			raise RuntimeError(f'ERROR: sim entry with name: {name} already exists')
+
+		if top is None:
+			top = name
+
+		assert top is not None
+		assert name is not None
+		
+		sim_subdir = os.path.join(self.work_dir, 'sim', name)
+
+		self._sim_list.append(
+			SimulationConfig(
+				name=name,
+				top=top,
+				design=design,
+				sources=resolve_globs(sources, self.base_dir),
+				backend=backend,
+				timescale=timescale,
+				work_dir=sim_subdir
+			)
+		)
+
+		return self
+
+	def _get_sim_cfg_optional(self, name: str) -> SimulationConfig | None:
+		return next((i for i in self._sim_list if i.name == name), None)
+
+	def get_sim(self, name: str) -> SimulationConfig:
+		sim = self._get_sim_cfg_optional(name)
+
+		if sim is None:
+			#! SimCfg - SimCfgDoesNotExist
+			raise RuntimeError(f'ERROR: sim does not exist for: {name}')
+
+		return sim
 
 	def add_design_cfg(self, name: str, *,
 		sources: list[str],
@@ -405,15 +459,9 @@ class XvivConfig:
 
 		if self._get_design_cfg_optional(name) is not None:
 			#! DesignCfg - DesignCfgAlreadyExists
-			sys.exit(f'ERROR: design entry with name: {name} already exists')
-		
-		if fpga is None:
-			fpga = self._get_fpga_cfg_default.name
-			logger.warning(f'For Design entry with name: {name} - fpga is unspecified - using default: {fpga}')
+			raise RuntimeError(f'ERROR: design entry with name: {name} already exists')
 
-		if self._get_fpga_cfg_optional(fpga) is None:
-			#! FpgaCfg - FpgaMissing
-			sys.exit(f'ERROR: for Design entry with name: {name} - invalid fpga: {fpga}')
+		fpga = self._resolve_fpga(fpga)
 
 		if top is None:
 			top = name
@@ -437,7 +485,7 @@ class XvivConfig:
 
 		if design is None:
 			#! DesignCfg - DesignCfgDoesNotExist
-			sys.exit(f'ERROR: Design does not exist for: {name}')
+			raise RuntimeError(f'ERROR: Design does not exist for: {name}')
 
 		return design
 
@@ -451,18 +499,12 @@ class XvivConfig:
 
 		if self._get_core_cfg_optional(name) is not None:
 			#! CoreCfg - CoreCfgAlreadyExists
-			sys.exit(f'ERROR: core entry with name: {name} already exists')
+			raise RuntimeError(f'ERROR: core entry with name: {name} already exists')
 
 		if xci_file is None:
 			xci_file = os.path.join(self.core_dir, name, f'{name}.xci')
 
-		if fpga is None:
-			fpga = self._get_fpga_cfg_default.name
-			logger.warning(f'For Core entry with name: {name} - fpga is unspecified - using default: {fpga}')
-
-		if self._get_fpga_cfg_optional(fpga) is None:
-			#! FpgaCfg - FpgaMissing
-			sys.exit(f'ERROR: for Core entry with name: {name} - invalid fpga: {fpga}')
+		fpga = self._resolve_fpga(fpga)
 
 		prev_vlnv = vlnv
 		vlnv = self._resolve_vlnv(vlnv)
@@ -488,7 +530,7 @@ class XvivConfig:
 
 		if core is None:
 			#! CoreCfg - CoreCfgDoesNotExist
-			sys.exit(f'ERROR: Core does not exist for: {name}')
+			raise RuntimeError(f'ERROR: Core does not exist for: {name}')
 
 		return core
 
@@ -553,31 +595,26 @@ class XvivConfig:
 		
 		usr_access_value: int | None = None,
 	) -> typing.Self:
-		available_ids = [i for i in [design, core, bd] if i]
+		list_ids = [i for i in [design, core, bd] if i]
 
-		if len(available_ids) == 0:
+		if len(list_ids) == 0:
 			#! SynthCfg - UnspecifiedIdentifier
-			sys.exit('ERROR: need to specify at least one - bd, ip, design')
+			raise RuntimeError('ERROR: need to specify at least one - bd, ip, design')
 
-		if len(available_ids) != 1:
+		if len(list_ids) != 1:
 			#! SynthCfg - MultipleIdSpecified
-			sys.exit(f'ERROR: multiple ids specified: {' '.join(available_ids)}')
+			raise RuntimeError(f'ERROR: multiple ids specified: {' '.join(list_ids)}')
 
 		if self._get_synth_cfg_optional(design_name=design, core_name=core, bd_name=bd) is not None:
 			#! SynthCfg - SynthCfgAlreadyExists
-			sys.exit(f'ERROR: SynthConfig Already Exists for id: {available_ids}')
+			raise RuntimeError(f'ERROR: SynthConfig Already Exists for id: {list_ids}')
 
-		id_name = available_ids[0]
+		id_name = list_ids[0]
 
 		if bd:
 			bd_cfg = self.get_bd(bd)
 
-			if fpga is None:
-				fpga = bd_cfg.fpga_ref
-			else:
-				if fpga != bd_cfg.fpga_ref:
-					#! SynthCfg - FpgaRefMismatch
-					sys.exit(f'ERROR: Mismatch fpga for BD: {bd_cfg.fpga_ref} with specified: {fpga}')
+			fpga = self._resolve_fpga(bd_cfg.fpga_ref)
 
 			if top is None:
 				top = f'{bd}_wrapper'
@@ -593,14 +630,15 @@ class XvivConfig:
 			else:
 				if fpga != design_cfg.fpga_ref:
 					#! SynthCfg - FpgaRefMismatch
-					sys.exit(f'ERROR: Mismatch fpga for Design: {design_cfg.fpga_ref} with specified: {fpga}')
+					raise RuntimeError(f'ERROR: Mismatch fpga for Design: {design_cfg.fpga_ref} with specified: {fpga}')
+
+			fpga = self._resolve_fpga(design_cfg.fpga_ref)
 
 			if top is None:
 				top = design_cfg.top
 
-		if fpga is None:
-			#! SynthCfg - UnspecifiedFpga
-			sys.exit(f'ERROR: unspecified fpga for synth target - {available_ids}')
+		assert top is not None
+		assert fpga is not None
 
 		synth_subdir = os.path.join(self.synth_dir, id_name)
 		synth_reports_subdir = os.path.join(synth_subdir, 'reports')
@@ -692,7 +730,7 @@ class XvivConfig:
 
 		if synth is None:
 			#! SynthCfg - SynthCfgDoesNotExist
-			sys.exit(f'ERROR: Synth does not exist for: [{design_name or ''}{core_name or ''}{bd_name or ''}]')
+			raise RuntimeError(f'ERROR: Synth does not exist for: [{design_name or ''}{core_name or ''}{bd_name or ''}]')
 
 		return synth
 
@@ -734,7 +772,7 @@ class XvivConfig:
 			return entry.vlnv
 
 		#! ResolveVLNVFailure
-		sys.exit(f'ERROR: unable to resolve VLNV from {vlnv}')
+		raise RuntimeError(f'ERROR: unable to resolve VLNV from {vlnv}')
 
 
 def _resolve_val(

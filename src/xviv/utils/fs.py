@@ -1,4 +1,5 @@
 import glob
+import hashlib
 import logging
 import os
 import sys
@@ -29,3 +30,11 @@ def is_stale(srcfile: str, dstfile: str, exit_on_fail=True) -> bool:
 
 	logger.info(f"[stale_checker] {srcfile}: up to date, skipping")
 	return False
+
+def combined_checksum(files: list[str], algorithm: str = "sha256") -> str:
+    h = hashlib.new(algorithm)
+    for path in files:
+        with open(path, "rb") as f:
+            for chunk in iter(lambda: f.read(65536), b""):
+                h.update(chunk)
+    return h.hexdigest()

@@ -69,7 +69,7 @@ class CoreConfig:
 
 
 @dataclasses.dataclass
-class BdCoreConfig(CoreConfig):
+class SubCoreConfig(CoreConfig):
 	inst_hier_path: str
 
 
@@ -83,7 +83,7 @@ class BdConfig:
 	bd_file:         str
 	bd_wrapper_file: str
 
-	core_list: list[BdCoreConfig]
+	core_list: list[SubCoreConfig]
 
 
 @dataclasses.dataclass
@@ -161,9 +161,14 @@ class SynthConfig:
 
 @dataclasses.dataclass
 class SimulationConfig:
-	top:     str
-	sources: list[str]
-	backend: str
+	name:      str
+	top:       str
+	sources:   list[str]
+	backend:   str
+	design:    str | None
+	timescale: str
+	
+	work_dir: str | None
 
 
 @dataclasses.dataclass

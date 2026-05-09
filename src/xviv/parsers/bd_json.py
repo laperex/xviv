@@ -1,10 +1,10 @@
 import json
 import os
 import sys
-from xviv.config.model import BdCoreConfig
+from xviv.config.model import SubCoreConfig
 
 
-def get_bd_core_list(bd_file: str) -> list[BdCoreConfig]:
+def get_bd_core_list(bd_file: str) -> list[SubCoreConfig]:
 	bd_dict = {}
 	if not os.path.exists(bd_file):
 		sys.exit(f"ERROR: BD File not found: {bd_file}")
@@ -15,7 +15,7 @@ def get_bd_core_list(bd_file: str) -> list[BdCoreConfig]:
 	if not bd_dict:
 		sys.exit(f"ERROR: BD data read from {bd_file} is empty")
 
-	resolved_components: list[BdCoreConfig] = []
+	resolved_components: list[SubCoreConfig] = []
 	
 	fpga_selected = bd_dict['design']['design_info'].get('device')
 
@@ -40,7 +40,7 @@ def get_bd_core_list(bd_file: str) -> list[BdCoreConfig]:
 						xci_path = os.path.join(os.path.dirname(bd_file), xci_path)
 
 					resolved_components.append(
-						BdCoreConfig(
+						SubCoreConfig(
 							name=xci_name,
 							vlnv=vlnv,
 							xci_file=xci_path,

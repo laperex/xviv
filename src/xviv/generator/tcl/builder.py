@@ -651,6 +651,10 @@ class ConfigTclBuilder:
 	def _file_normalize(self, path: str):
 		self._push(f"file normalize \"{path}\"")
 
+	def catch(self, func = None):
+		child = type(self)(self._cfg).__inherit(self)
+		func(child)
+		self._push(f'catch {{\n{child.build()}}}')
 
 	def _proc(self, name: str, args: str, comm = None):
 		child = type(self)(self._cfg).__inherit(self)

@@ -18,10 +18,6 @@ def cmd_synth_config(cfg: XvivConfig, top_name: str | None, bd_name: str | None,
 # synth --top <top_name>
 # -----------------------------------------------------------------------------
 def cmd_design_synth(cfg: XvivConfig, design_name: str | None):
-	_, _, tag = _git_sha_tag()
-
-	# print(tag)
-	
 	config = (
 		ConfigTclCommands(cfg)
 		.synth(design=design_name)
@@ -29,17 +25,6 @@ def cmd_design_synth(cfg: XvivConfig, design_name: str | None):
 	)
 
 	vivado.run_vivado(cfg, config_tcl=config)
-	
-	
-
-	# config_tcl = generate_config_tcl(cfg, top_name=top_name)
-
-	# vivado.run_vivado(
-	# 	# cfg, find_vivado_script(), "synthesis",
-	# 	[top_name, tag],
-	# 	config_tcl,
-	# )
-
 
 # -----------------------------------------------------------------------------
 # open --dcp <dcp_name> --top <top_name>

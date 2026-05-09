@@ -5,40 +5,43 @@ import typing
 from xviv.config.project import XvivConfig
 from xviv.tools import vivado
 from xviv.utils.fifo import _ensure_fifo, _fifo_send
+from xviv.utils.fs import combined_checksum
 
 logger = logging.getLogger(__name__)
 
 # -----------------------------------------------------------------------------
-# elaborate --top <top_name> [--run <time>]
-# -----------------------------------------------------------------------------
-def cmd_top_elaborate(cfg: XvivConfig, top_name: str, run: str | None):
-	xlib_work_dir = cfg.get_xlib_work_dir(top_name)
-	sim_files     = cfg.resolve_globs(cfg.get_simulation(top_name=top_name).rtl)
-
-	xsim_lib  = "xv_work"
-	timescale = "1ns/1ps"
-
-	vivado.run_vivado_xvlog(cfg, xlib_work_dir, sim_files, xsim_lib=xsim_lib)
-
-	run_all = run == "all"
-	vivado.run_vivado_xelab(cfg, xlib_work_dir, top_name, timescale=timescale, xsim_lib=xsim_lib, run_all=run_all)
-
-	if not run_all and run:
-		cmd_top_simulate(cfg, top_name, run)
-
-# -----------------------------------------------------------------------------
 # simulate --top <top_name> [--run <time>]
 # -----------------------------------------------------------------------------
-def cmd_top_simulate(cfg: XvivConfig, top_name: str, run: str = "all"):
-	xlib_work_dir = cfg.get_xlib_work_dir(top_name)
+def cmd_top_simulate(cfg: XvivConfig, sim_name: str, run: str = "all"):
+	sim_cfg = cfg.get_sim(sim_name)
 
-	x_simulate_tcl = f"""
-		log_wave -recursive *
-		run {run}
-		exit
-	"""
+	sim_files = []
+	
+	if sim_cfg.design:
+		design_cfg = cfg.get_design(sim_cfg.design)
 
-	vivado.run_vivado_xsim(cfg, xlib_work_dir, top_name, x_simulate_tcl)
+		sim_files += design_cfg.sources
+
+	sim_files += sim_cfg.sources
+	
+	# print(combined_checksum(sim_files))
+
+	if sim_cfg.backend == 'xsim':
+		xsim_lib  = "xv_work"
+		vivado.run_vivado_xvlog(cfg, sim_cfg.work_dir, sim_files, xsim_lib=xsim_lib)
+		vivado.run_vivado_xelab(cfg, sim_cfg.work_dir, sim_cfg.top, timescale=sim_cfg.timescale, xsim_lib=xsim_lib, run_all=(run == 'all'))
+
+		if not (run == 'all'):
+			x_simulate_tcl = f"""
+				log_wave -recursive *
+				run {run}
+				exit
+			"""
+
+			vivado.run_vivado_xsim(cfg, sim_cfg.work_dir, sim_cfg.top, x_simulate_tcl)
+	else:
+		#! InvalidSimulationBackend
+		raise RuntimeError(f'ERROR: invalid sim backend {sim_cfg.backend}')
 
 # WAVEFORM
 
