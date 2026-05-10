@@ -6,18 +6,20 @@ import typing
 from xviv.config.project import XvivConfig
 from xviv.tools import vivado
 from xviv.utils.fifo import _ensure_fifo, _fifo_send
-from xviv.utils.fs import combined_checksum
+from xviv.utils.fs import assert_file_exists, combined_checksum
 
 logger = logging.getLogger(__name__)
 
 # -----------------------------------------------------------------------------
 # simulate --top <top_name> [--run <time>]
 # -----------------------------------------------------------------------------
-def cmd_simulate(cfg: XvivConfig, sim_name: str, run: str = "all"):
+def cmd_simulate(cfg: XvivConfig, *, sim_name: str, run: str | None):
 	sim_cfg = cfg.get_sim(sim_name)
 
+	if run is None:
+		run = 'all'
+
 	sim_files = []
-	
 	if sim_cfg.design:
 		design_cfg = cfg.get_design(sim_cfg.design)
 
@@ -45,8 +47,11 @@ def cmd_simulate(cfg: XvivConfig, sim_name: str, run: str = "all"):
 # -----------------------------------------------------------------------------
 # open --wdb --top <top_name>
 # -----------------------------------------------------------------------------
-def cmd_wdb_open(cfg: XvivConfig, top_name: str, nogui: bool = False):
-	sim_cfg = cfg.get_sim(top_name)
+def cmd_wdb_open(cfg: XvivConfig, *,
+	sim_name: str,
+	nogui: bool = False
+):
+	sim_cfg = cfg.get_sim(sim_name)
 
 	wdb_file = os.path.join(sim_cfg.work_dir, f'{sim_cfg.top}.wdb')
 	wcfg_file = os.path.join(sim_cfg.work_dir, f'{sim_cfg.top}.wcfg')
@@ -76,10 +81,14 @@ def cmd_wdb_open(cfg: XvivConfig, top_name: str, nogui: bool = False):
 # -----------------------------------------------------------------------------
 # reload --wdb --top <top_name>
 # -----------------------------------------------------------------------------
-def cmd_wdb_reload(cfg: XvivConfig, top_name: str):
-	sim_cfg = cfg.get_sim(top_name)
+def cmd_wdb_reload(cfg: XvivConfig, *,
+	sim_name: str
+):
+	sim_cfg = cfg.get_sim(sim_name)
 
 	fifo_file = os.path.join(sim_cfg.work_dir, f'{sim_cfg.top}.fifo')
+	
+	assert_file_exists(fifo_file)
 
 	cmd = (
 		ConfigTclCommands(cfg)

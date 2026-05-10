@@ -75,7 +75,7 @@ class TestRequireProject:
     def test_second_call_without_exists_ok_exits(self, cfg):
         c = cmds(cfg)
         c._require_project()
-        with pytest.raises(SystemExit):
+        with pytest.raises(RuntimeError):
             c._require_project(exists_ok=False)
 
     def test_second_call_with_exists_ok_returns_false(self, cfg):
@@ -148,7 +148,7 @@ class TestEditBd:
 
     def test_missing_bd_file_exits(self, cfg_with_bd):
         c = cmds(cfg_with_bd)
-        with pytest.raises(SystemExit):
+        with pytest.raises(RuntimeError):
             c.edit_bd("my_bd")
 
     def test_emits_open_bd_design(self, cfg, tmp_path):
@@ -184,10 +184,9 @@ class TestEditBd:
 # ---------------------------------------------------------------------------
 
 class TestGenerateBd:
-
     def test_missing_bd_file_exits(self, cfg_with_bd):
         c = cmds(cfg_with_bd)
-        with pytest.raises(SystemExit):
+        with pytest.raises(RuntimeError):
             c.generate_bd("my_bd", check=True)
 
     def test_up_to_date_emits_nothing(self, cfg_with_bd):
@@ -336,7 +335,7 @@ class TestEditIp:
     def test_missing_component_xml_exits(self, cfg):
         cfg.add_ip_cfg("my_ip", sources=[], top="my_ip")
         c = cmds(cfg)
-        with pytest.raises(SystemExit):
+        with pytest.raises(RuntimeError):
             c.edit_ip("my_ip")
 
     def test_emits_edit_ip_in_project(self, cfg, tmp_path):
@@ -365,7 +364,7 @@ class TestEditCore:
         with patch.object(cfg, "_resolve_vlnv", return_value="xilinx.com:ip:fifo_generator:13.2"):
             cfg.add_core_cfg("my_fifo", vlnv="xilinx.com:ip:fifo_generator:13.2")
         c = cmds(cfg)
-        with pytest.raises(SystemExit):
+        with pytest.raises(RuntimeError):
             c.edit_core("my_fifo")
 
     def test_emits_read_ip(self, cfg, tmp_path):

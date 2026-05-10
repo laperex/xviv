@@ -1,16 +1,11 @@
-import glob
 import logging
 import os
 import re
 import subprocess
-import sys
-import typing
 
 from xviv.config.project import XvivConfig
-# from xviv.tools.util import find_xsct_script
 from xviv.functions.bd import ConfigTclCommands
 from xviv.tools.vitis import run_xsct
-from xviv.utils.fs import resolve_globs
 from xviv.utils.tools import mb_tool, get_vitis_env
 
 
@@ -19,7 +14,9 @@ logger = logging.getLogger(__name__)
 # -----------------------------------------------------------------------------
 # create --platform <platform_name>
 # -----------------------------------------------------------------------------
-def cmd_platform_create(cfg: XvivConfig, platform_name: str):
+def cmd_platform_create(cfg: XvivConfig, *,
+	platform_name: str
+):
 	config = (
 		ConfigTclCommands(cfg)
 		.create_platform(platform_name)
@@ -58,7 +55,7 @@ def cmd_platform_build(cfg: XvivConfig, platform_name: str):
 def cmd_app_create(cfg: XvivConfig, *,
 	app_name: str,
 	platform_name: str | None,
-	template: str | None,
+	template: str | None = None,
 ):
 	app_cfg = cfg.get_app(app_name)
 
@@ -148,8 +145,6 @@ def cmd_program(cfg: XvivConfig, *,
 		.program(bitstream_file=bitstream_file, elf_file=elf_file)
 		.build()
 	)
-
-	print(config)
 
 	logger.info("Bitstream : %s", bitstream_file)
 	if elf_file:

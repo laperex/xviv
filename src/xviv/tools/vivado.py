@@ -22,6 +22,9 @@ def run_vivado_xvlog(
 	cmd = [xvlog_bin, "-sv", "-incr", "-work", xsim_lib, *fileset, *extra_files]
 	logger.info("Running: %s", " ".join(cmd))
 	os.makedirs(target_dir, exist_ok=True)
+	
+	if cfg.get_vivado().dry_run:
+		return
 
 	try:
 		subprocess.run(cmd, check=True, cwd=target_dir)
@@ -58,6 +61,9 @@ def run_vivado_xelab(
 
 	logger.info("Running: %s", " ".join(cmd))
 	os.makedirs(target_dir, exist_ok=True)
+	
+	if cfg.get_vivado().dry_run:
+		return
 
 	try:
 		subprocess.run(cmd, check=True, cwd=target_dir)
@@ -100,6 +106,9 @@ def run_vivado_xsim(
 
 	logger.info("Running: %s", " ".join(cmd))
 	os.makedirs(target_dir, exist_ok=True)
+	
+	if cfg.get_vivado().dry_run:
+		return
 
 	try:
 		if popen:

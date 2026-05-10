@@ -6,7 +6,7 @@ import sys
 import typing
 from xviv.config.project import XvivConfig
 from xviv.generator.tcl.commands import ConfigTclCommands
-from xviv.generator.hooks import generate_bd_hooks
+# from xviv.generator.hooks import generate_bd_hooks
 from xviv.parsers.bd_json import get_bd_core_list
 from xviv.tools import vivado
 from xviv.utils.git import _git_sha_tag
@@ -18,43 +18,14 @@ logger = logging.getLogger(__name__)
 # -----------------------------------------------------------------------------
 # create --bd <bd_name>
 # -----------------------------------------------------------------------------
-def cmd_bd_create(cfg: XvivConfig, bd_name: str):
+def cmd_bd_create(cfg: XvivConfig, *,
+	bd_name: str
+):
 	config = (
 		ConfigTclCommands(cfg)
 		.create_bd(bd_name, generate=True)
 		.build()
 	)
-
-	# bd_cfg = cfg.get_bd(bd_name)
-
-	# catalog = cfg.get_catalog()
-
-	# required_ips = bd_cfg.vlnv_list
-	
-	# if required_ips:
-	# 	logger.info(f"Determined IP depenedency list for BD {bd_name}. Running Automatic Paralllel BD Create flow\n- {'\n- '.join(required_ips)}")
-
-	# 	logger.info("IPs to be created in parallel jobs:")
-
-	# 	required_ips_create_list = []
-	# 	for i in required_ips:
-	# 		if i in [k.vlnv for k in cfg.ips]:
-	# 			logger.info(f"\t- {i}")
-	# 			required_ips_create_list.append(i)
-
-	# 	unresolved_ips = [i for i in required_ips if not catalog.get(i) and i not in required_ips_create_list]
-
-	# 	if unresolved_ips:
-	# 		sys.exit(f"ERROR: These IP's cannot be resolved: {unresolved_ips}")
-
-	# 	if required_ips_create_list:
-	# 		max_workers = cfg.build.max_parallel_jobs
-
-	# 		run_parallel(
-	# 			[(partial(cmd_ip_create, cfg, ip_vlnv=v), f"cmd_ip_create({v})") for v in required_ips_create_list],
-	# 		max_workers=max_workers)
-	# else:
-	# 	logger.info("Unable to Determine IP depenedency for BD. Running Manual BD Create flow")
 
 	vivado.run_vivado(cfg, config_tcl=config)
 
@@ -62,7 +33,10 @@ def cmd_bd_create(cfg: XvivConfig, bd_name: str):
 # -----------------------------------------------------------------------------
 # edit --bd <bd_name>
 # -----------------------------------------------------------------------------
-def cmd_bd_edit(cfg: XvivConfig, bd_name: str, nogui: bool = False):
+def cmd_bd_edit(cfg: XvivConfig, *,
+	bd_name: str,
+	nogui: bool = False
+):
 	config = (
 		ConfigTclCommands(cfg)
 		.edit_bd(bd_name, nogui=nogui)
@@ -70,22 +44,17 @@ def cmd_bd_edit(cfg: XvivConfig, bd_name: str, nogui: bool = False):
 	)
 
 	if nogui:
-		cfg.vivado.mode = 'tcl'
+		cfg.get_vivado().mode = 'tcl'
 
 	vivado.run_vivado(cfg, config_tcl=config)
 
 
 # -----------------------------------------------------------------------------
-# config --bd <bd_name>
-# -----------------------------------------------------------------------------
-def cmd_bd_config(cfg: XvivConfig, bd_name: str, exist_ok=False):
-	generate_bd_hooks(cfg, bd_name, exist_ok=exist_ok)
-
-
-# -----------------------------------------------------------------------------
 # generate --bd <bd_name>
 # -----------------------------------------------------------------------------
-def cmd_bd_generate(cfg: XvivConfig, bd_name: str):
+def cmd_bd_generate(cfg: XvivConfig, *,
+	bd_name: str
+):
 	config = (
 		ConfigTclCommands(cfg)
 		.generate_bd(bd_name)
@@ -98,13 +67,9 @@ def cmd_bd_generate(cfg: XvivConfig, bd_name: str):
 # -----------------------------------------------------------------------------
 # synth --bd <bd_name> [--ooc-run]
 # -----------------------------------------------------------------------------
-def cmd_bd_synth(cfg: XvivConfig, bd_name: str, ooc_run: bool | None):
-	bd_cfg = cfg.get_bd(bd_name)
-
-	if not os.path.exists(bd_cfg.bd_file):
-		#! CmdSynth - BdFileMissingError
-		sys.exit('ERROR: BD File does not exist. Cannot run synthesis')
-
+def cmd_bd_synth(cfg: XvivConfig, *,
+	bd_name: str
+):
 	# xci_name = bd_cfg.core_list[0].name
 	# xci_file = bd_cfg.core_list[0].xci_file
 

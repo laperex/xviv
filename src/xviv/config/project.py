@@ -17,8 +17,12 @@ logger = logging.getLogger(__name__)
 
 class XvivConfig:
 
-	def __init__(self, config_file_path: str, work_dir: str, board_repo_list: list[str] = [], ip_repo_list: list[str] = []):
+	def __init__(self, config_file_path: str, work_dir: str | None, board_repo_list: list[str] = [], ip_repo_list: list[str] = []):
 		self.base_dir = os.path.abspath(os.path.dirname(config_file_path))
+
+		if work_dir is None:
+			work_dir = 'build'
+
 		self.work_dir = os.path.join(self.base_dir, work_dir)
 
 		self.board_repo_list: list[str] = []

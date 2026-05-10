@@ -38,3 +38,6 @@ def combined_checksum(files: list[str], algorithm: str = "sha256") -> str:
             for chunk in iter(lambda: f.read(65536), b""):
                 h.update(chunk)
     return h.hexdigest()
+
+def assert_file_exists(path: str) -> None:
+    assert os.path.exists(path), f"File not found: {path}"

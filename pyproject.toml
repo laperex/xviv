@@ -23,9 +23,6 @@ keywords = ["fpga", "vivado", "xilinx", "eda", "rtl"]
 [tool.hatch.version]
 source = "vcs"
 
-[tool.setuptools.package-data]
-xviv = ["scripts/**/*.tcl"]
-
 [project.urls]
 Homepage   = "https://github.com/laperex/xviv"
 Repository = "https://github.com/laperex/xviv"

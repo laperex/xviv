@@ -1,20 +1,3 @@
-"""
-Completers and parser-helper utilities used by every command class.
-
-Public API
-----------
-arg(container, *flags, completer=None, **kwargs)
-	Thin wrapper around add_argument that attaches a completer in one call.
-
-target_group(parser, *, ip, bd, top, required) -> MutuallyExclusiveGroup
-	Adds the standard --ip / --bd / --top mutex group in one call.
-
-c_ip, c_bd, c_app, c_platform, c_core   — name completers for each entity type
-c_top_all, c_top_synth, c_top_sim        — top-module name completers
-c_core_instance, c_core_vlnv             — re-exported catalog completers
-dcp_stems_completer                      — completer for .dcp stem names
-"""
-
 import glob
 import os
 import shutil
@@ -35,37 +18,6 @@ def _cfg_completer(collection: str, attr: str = "name"):
 		except Exception:
 			return []
 	return completer
-
-
-def _top_completer(*, synth: bool = True, sim: bool = True):
-	def completer(prefix, parsed_args, **kwargs):
-		try:
-			cfg = load_config(os.path.abspath(resolve_config_completer(prefix, parsed_args)))
-			tops = []
-			if synth:
-				tops += [s.top for s in cfg.synths]
-			if sim:
-				tops += [s.top for s in cfg.simulations]
-			return tops
-		except Exception:
-			return []
-	return completer
-
-
-def dcp_stems_completer(prefix, parsed_args, **kwargs):
-	"""Complete .dcp stem names (post_synth, post_place, post_route, ...)."""
-	try:
-		cfg = load_config(os.path.abspath(resolve_config_completer(prefix, parsed_args)))
-		top = getattr(parsed_args, "top", None)
-		if not top:
-			return ["post_synth", "post_place", "post_route"]
-		stems = [
-			os.path.splitext(os.path.basename(f))[0]
-			for f in glob.glob(os.path.join(cfg.build_dir, top, "*.dcp"))
-		]
-		return stems or ["post_synth", "post_place", "post_route"]
-	except Exception:
-		return ["post_synth", "post_place", "post_route"]
 
 
 def core_instance_completer(prefix: str, parsed_args, **kwargs) -> dict[str, str]:
@@ -111,24 +63,53 @@ def core_instance_completer(prefix: str, parsed_args, **kwargs) -> dict[str, str
 				completions[vlnv] = desc
 		return completions
 	except Exception:
-		# logger.debug("_core_instance_completer failed: %s", exc)
 		return {}
 
+def c_dcp_file(prefix, parsed_args, **kwargs):
+    try:
+        config_path = os.path.abspath(resolve_config_completer(prefix, parsed_args))
+        cfg = load_config(config_path)
+        config_dir = os.path.dirname(config_path)
 
+        result: dict[str, str] = {}
 
+        for synth in cfg._synth_list:
+            ids = [(kind, name) for kind, name in [
+                ('Design', synth.design_name),
+                ('Core', synth.core_name),
+                ('BD', synth.bd_name),
+            ] if name]
+
+            if len(ids) != 1:
+                continue
+
+            kind, name = ids[0]
+
+            for phase, file in [
+                ('synth', synth.synth_dcp_file),
+                ('place', synth.place_dcp_file),
+                ('route', synth.route_dcp_file),
+            ]:
+                if file:
+                    rel = os.path.relpath(file, config_dir)
+                    result[rel] = f'{phase} — {kind} — {name}'
+
+        return result
+
+    except Exception:
+        return {}
 
 # ---------------------------------------------------------------------------
 # Public completers
 # ---------------------------------------------------------------------------
 
-c_ip            = _cfg_completer("ips")
-c_bd            = _cfg_completer("bds")
-c_app           = _cfg_completer("apps")
-c_platform      = _cfg_completer("platforms")
-c_core          = _cfg_completer("cores")
-c_top_all       = _top_completer(synth=True,  sim=True)
-c_top_synth     = _top_completer(synth=True,  sim=False)
-c_top_sim       = _top_completer(synth=False, sim=True)
+c_ip            = _cfg_completer("_ip_list")
+c_bd            = _cfg_completer("_bd_list")
+c_app           = _cfg_completer("_app_list")
+c_platform      = _cfg_completer("_platform_list")
+c_core          = _cfg_completer("_core_list")
+c_design        = _cfg_completer("_design_list")
+c_sim_target    = _cfg_completer("_sim_list")
 
 c_core_instance = core_instance_completer
 
@@ -144,21 +125,36 @@ def arg(container, *flags, completer=None, **kwargs):
 
 
 def target_group(parser, *,
-	design: bool = True,
+	design: bool = False,
 	ip: bool = False,
 	bd: bool = False,
-	top=None,
+	sim: bool = False,
+	app: bool = False,
+	platform: bool = False,
+	wdb: bool = False,
+	dcp: bool = False,
+	core: bool = False,
 	required: bool = True
 ):
 	mg = parser.add_mutually_exclusive_group(required=required)
-
+	
+	if platform:
+		arg(mg, "--platform", metavar="NAME", help="Platform name", completer=c_platform)
+	if app:
+		arg(mg, "--app", metavar="NAME", help="App name", completer=c_app)
+	if sim:
+		arg(mg, "--target", metavar="NAME", help="Simulation name", completer=c_sim_target)
 	if design:
-		arg(mg, "--design", metavar="NAME", help="Design name", completer=c_ip)
+		arg(mg, "--design", metavar="NAME", help="Design name", completer=c_design)
 	if ip:
 		arg(mg, "--ip", metavar="NAME", help="IP name", completer=c_ip)
 	if bd:
 		arg(mg, "--bd", metavar="NAME", help="BD name", completer=c_bd)
-	if top:
-		arg(mg, "--top", metavar="NAME", help="Top module name", completer=top)
+	if wdb:
+		arg(mg, "--wdb", metavar="NAME", help="Simulation target name in config", completer=c_sim_target)
+	if dcp:
+		arg(mg, "--dcp", metavar="NAME", help="Checkpoint file", completer=c_dcp_file)
+	if core:
+		arg(mg, "--core", metavar="NAME", help="Core name", completer=c_core)
 
 	return mg

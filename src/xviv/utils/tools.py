@@ -3,16 +3,6 @@ import shutil
 import subprocess
 import sys
 
-# def find_vivado_script() -> str:
-# 	ref = importlib.resources.files("xviv") / "scripts" / "dispatch" / "vivado.tcl"
-
-# 	with importlib.resources.as_file(ref) as path:
-# 		return str(path)
-
-# def find_xsct_script() -> str:
-# 	ref = importlib.resources.files("xviv") / "scripts" / "dispatch" / "xsct.tcl"
-# 	with importlib.resources.as_file(ref) as path:
-# 		return str(path)
 
 _HINT = """\
 ERROR: '{tool}' not found on PATH.

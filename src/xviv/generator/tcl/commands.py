@@ -4,7 +4,7 @@ import sys
 import typing
 
 from xviv.generator.tcl.builder import ConfigTclBuilder, _tcl_list
-from xviv.utils.fs import is_stale
+from xviv.utils.fs import assert_file_exists, is_stale
 
 
 logger = logging.getLogger(__name__)
@@ -28,7 +28,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 				return False
 
 			#! RequireProject - ProjectExistsError
-			sys.exit(f'ERROR: attempt to create inmemory project: {name}')
+			raise RuntimeError(f'ERROR: attempt to create inmemory project: {name}')
 
 		self.__current_project_name = name
 
@@ -53,7 +53,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 	@ConfigTclBuilder._fn_def
 	def _override_save_bd_design(self, bd_name: str, bd_state_tcl_file: str):
 		if not bd_state_tcl_file:
-			sys.exit("ERROR: bd_state_tcl_file is required")
+			raise RuntimeError("ERROR: bd_state_tcl_file is required")
 
 		self._proc_bd_save_tcl()
 		self._override("save_bd_design", post_call=lambda x: x._call_bd_save_tcl(bd_name, bd_state_tcl_file))
@@ -77,9 +77,9 @@ class ConfigTclCommands(ConfigTclBuilder):
 			x._if('$start == -1 || $end == -1', lambda c: c._error('"Could not find expected markers in state BD TCL"'))
 
 			x._set_exec('f', lambda m: m._open('$path', 'w'))
-			x._puts_exec('$f', lambda m: m._join('$prefix', '"\\n"'))
+			x._puts_exec(lambda m: m._join('$prefix', '"\\n"'), channel='$f')
 			x._puts('""', channel='$f')
-			x._puts_exec('$f', lambda m: m._string_range('$data', '$start', '[expr {$end - 1}]'))
+			x._puts_exec(lambda m: m._string_range('$data', '$start', '[expr {$end - 1}]'), channel='$f')
 			x._close('$f')
 
 		self._proc("bd_save_tcl", "path prefix", __bd_save_tcl)
@@ -117,10 +117,22 @@ class ConfigTclCommands(ConfigTclBuilder):
 				of_objects=f'[get_ips {core_name}]',
 				filter='{USED_IN =~ "*simulation*"}'
 			),
-			body_func=lambda x: x._puts_exec('$fd', lambda m: m._file_normalize('$f'))
+			body_func=lambda x: x._puts_exec(lambda m: m._file_normalize('$f'), channel='$fd')
 		)
 
 		self._close('$fd')
+	
+	def open_dcp(self, dcp_file: str | None, nogui=False) -> typing.Self:
+		assert_file_exists(dcp_file)
+		
+		dcp_file = os.path.abspath(dcp_file)
+
+		self._open_checkpoint(file=dcp_file)
+		
+		if not nogui:
+			self._start_gui()
+		
+		return self
 
 	# ------------------------------------------------------
 	# functions
@@ -361,7 +373,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 		bd_cfg = self._cfg.get_bd(bd_name)
 
 		if not os.path.exists(bd_cfg.bd_file):
-			sys.exit(f"ERROR: BD File does not exist at path: {bd_cfg.bd_file}")
+			raise RuntimeError(f"ERROR: BD File does not exist at path: {bd_cfg.bd_file}")
 
 		self._require_project(fpga_ref=bd_cfg.fpga_ref)
 		self._read_bd(bd_cfg.bd_file)
@@ -383,7 +395,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 		bd_cfg = self._cfg.get_bd(bd_name)
 
 		if check and not os.path.exists(bd_cfg.bd_file):
-			sys.exit(f"ERROR: BD File does not exist at path: {bd_cfg.bd_file}")
+			raise RuntimeError(f"ERROR: BD File does not exist at path: {bd_cfg.bd_file}")
 
 		if not force and not is_stale(bd_cfg.bd_file, bd_cfg.bd_wrapper_file):
 			logger.info("INFO: Output products are up to date")
@@ -414,7 +426,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 		if not os.path.exists(ip_component_xml_file):
 			#! EditIp - IpNotExists
-			sys.exit(f'ERROR: Ip - {ip_name}: does not exist')
+			raise RuntimeError(f'ERROR: Ip - {ip_name}: does not exist')
 
 		# tcl begin
 
@@ -564,6 +576,10 @@ class ConfigTclCommands(ConfigTclBuilder):
 	def create_core(self, core_name: str) -> typing.Self:
 		core_cfg = self._cfg.get_core(core_name)
 
+		if self._cfg.get_catalog().lookup_optional(id=core_cfg.vlnv) is None:
+			#! IpNotCreated
+			raise RuntimeError(f'ERROR: Core: {core_cfg.name} with IP: {core_cfg.vlnv}. IP not created / unable to resolve')
+
 		# tcl begin
 
 		self._require_project(fpga_ref=core_cfg.fpga_ref)
@@ -580,7 +596,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 		if not os.path.exists(core_cfg.xci_file):
 			#! EditCore - CoreNotExists
-			sys.exit(f'ERROR: Core - {core_name}: does not exist')
+			raise RuntimeError(f'ERROR: Core - {core_name}: does not exist - {core_cfg.xci_file}')
 
 		# tcl begin
 
@@ -611,8 +627,8 @@ class ConfigTclCommands(ConfigTclBuilder):
 		if bd:
 			bd_cfg = self._cfg.get_bd(synth_cfg.bd_name)
 
-			assert os.path.exists(bd_cfg.bd_file)
-			assert os.path.exists(bd_cfg.bd_wrapper_file)
+			assert_file_exists(bd_cfg.bd_file)
+			assert_file_exists(bd_cfg.bd_wrapper_file)
 
 			self._read_bd(bd_cfg.bd_file)
 			self._add_files(bd_cfg.bd_wrapper_file)
@@ -621,12 +637,12 @@ class ConfigTclCommands(ConfigTclBuilder):
 			design_cfg = self._cfg.get_design(synth_cfg.design_name)
 
 			for i in design_cfg.sources:
-				assert os.path.exists(i)
+				assert_file_exists(i)
 
 				self._add_files(i, scan_for_includes=True)
 
 		for i in synth_cfg.constraints:
-			assert os.path.exists(i)
+			assert_file_exists(i)
 
 			self._add_files(i, fileset='constrs_1')
 		self._update_compile_order(fileset='sources_1')
@@ -755,7 +771,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 		if self._require_project(exists_ok=True):
 			#! Synthesis - ProjectNotCreated
-			sys.exit('Error: Project Not Created before calling Synthesis')
+			raise RuntimeError('Error: Project Not Created before calling Synthesis')
 
 		#* synth_design
 		if synth_incremental:

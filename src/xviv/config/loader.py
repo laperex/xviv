@@ -20,7 +20,9 @@ def resolve_config(explicit: str) -> str:
 	for candidate in ["project.toml"]:
 		if os.path.exists(candidate):
 			return candidate
-	sys.exit("ERROR: project.toml not found in current directory.")
+
+	#! ConfigTomlNotFound
+	raise RuntimeError("ERROR: project.toml not found in current directory.")
 
 def load_config(path: str) -> XvivConfig:
     with open(path, 'rb') as f:
@@ -29,8 +31,8 @@ def load_config(path: str) -> XvivConfig:
     cfg = (
 		XvivConfig(
 			path,
-			data['project']['build_dir'],
-			data['project']['board_repo_paths'],
+			data['project'].get('build_dir', None),
+			data['project'].get('board_repo_paths', []),
 		)
 		.add_vivado_cfg(
 			path=find_vivado_dir_path()
@@ -41,16 +43,16 @@ def load_config(path: str) -> XvivConfig:
 	)
 
     for section, method in [
-        ('fpga',    cfg.add_fpga_cfg),
-        ('ip',      cfg.add_ip_cfg),
-        ('wrapper', cfg.add_wrapper_cfg),
-        ('core',    cfg.add_core_cfg),
-        ('bd',      cfg.add_bd_cfg),
-        ('design',  cfg.add_design_cfg),
-        ('simulation',  cfg.add_sim_cfg),
-        ('synth',   cfg.add_synth_cfg),
+        ('fpga',       cfg.add_fpga_cfg),
+        ('ip',         cfg.add_ip_cfg),
+        ('wrapper',    cfg.add_wrapper_cfg),
+        ('core',       cfg.add_core_cfg),
+        ('bd',         cfg.add_bd_cfg),
+        ('design',     cfg.add_design_cfg),
+        ('simulation', cfg.add_sim_cfg),
+        ('synth',      cfg.add_synth_cfg),
         ('platform',   cfg.add_platform_cfg),
-        ('app',   cfg.add_app_cfg),
+        ('app',        cfg.add_app_cfg),
     ]:
         for entry in data.get(section, []):
             method(**entry)

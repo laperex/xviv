@@ -7,7 +7,9 @@ from xviv.tools import vivado
 # -----------------------------------------------------------------------------
 # create  --core <core_id> --vlnv <vlnv_id>
 # -----------------------------------------------------------------------------
-def cmd_core_create(cfg: XvivConfig, core_name: str, core_vlnv: str | None, edit: bool = False):
+def cmd_core_create(cfg: XvivConfig, *,
+	core_name: str
+):
 	config = (
 		ConfigTclCommands(cfg)
 		.create_core(core_name)
@@ -19,7 +21,10 @@ def cmd_core_create(cfg: XvivConfig, core_name: str, core_vlnv: str | None, edit
 # -----------------------------------------------------------------------------
 # edit --core <core_id>
 # -----------------------------------------------------------------------------
-def cmd_core_edit(cfg: XvivConfig, core_name: str, nogui: bool = False):
+def cmd_core_edit(cfg: XvivConfig, *,
+	core_name: str,
+	nogui: bool = False
+):
 	config = (
 		ConfigTclCommands(cfg)
 		.edit_core(core_name, nogui=nogui)
@@ -34,7 +39,9 @@ def cmd_core_edit(cfg: XvivConfig, core_name: str, nogui: bool = False):
 # -----------------------------------------------------------------------------
 # search --query <query>
 # -----------------------------------------------------------------------------
-def cmd_search_core(cfg: XvivConfig, query: str) -> None:
+def cmd_search_core(cfg: XvivConfig, *,
+	query: str
+):
 	catalog = cfg.get_catalog()
 
 	needle = query.lower()
