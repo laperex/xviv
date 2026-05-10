@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 class XvivConfig:
+
 	def __init__(self, config_file_path: str, work_dir: str, board_repo_list: list[str] = [], ip_repo_list: list[str] = []):
 		self.base_dir = os.path.abspath(os.path.dirname(config_file_path))
 		self.work_dir = os.path.join(self.base_dir, work_dir)
@@ -69,27 +70,9 @@ class XvivConfig:
 
 		return self
 
-	def get_catalog(self) -> Catalog:
-		if self._catalog_cfg:
-			return self._catalog_cfg
-
-		#! UninitializedCoreCatalog
-		raise RuntimeError('ERROR: Catalog is not initialized')
-
-	def get_vivado(self) -> VivadoConfig:
-		if self._vivado_cfg:
-			return self._vivado_cfg
-
-		#! UninitializedVivadoCfg
-		raise RuntimeError('ERROR: VivadoConfig is not initialized')
-
-	def get_vitis(self) -> VitisConfig:
-		if self._vitis_cfg:
-			return self._vitis_cfg
-
-		#! UninitializedVitisCfg
-		raise RuntimeError('ERROR: VitisConfig is not initialized')
-
+	# -------------------------------------------------------------------------
+	# Add methods
+	# -------------------------------------------------------------------------
 
 	def add_vivado_cfg(self,
 		path: str,
@@ -120,7 +103,6 @@ class XvivConfig:
 
 		return self
 
-
 	def add_vitis_cfg(self,
 		path: str,
 	) -> typing.Self:
@@ -138,6 +120,30 @@ class XvivConfig:
 
 		return self
 
+	def add_fpga_cfg(self, name: str, *,
+		fpga_part: str | None = None,
+		board_part: str | None = None
+	) -> typing.Self:
+		# TODO: throw error for invalid name ''
+
+		if self._get_fpga_cfg_optional(name) is not None:
+			#! FpgaCfg - FpgaCfgAlreadyExists
+			raise RuntimeError(f'ERROR: Fpga entry with name: {name} already exists')
+
+
+		if fpga_part is None and board_part is None:
+			#! FpgaCfg - PartUnspecified
+			raise RuntimeError(f'ERROR: part unspecified for fpga entry: {name}')
+
+		self._fpga_list.append(
+			FpgaConfig(
+				name=name,
+				fpga_part=fpga_part,
+				board_part=board_part
+			)
+		)
+
+		return self
 
 	def add_ip_cfg(self, name: str, *,
 		vendor: str = 'xviv.org',
@@ -189,23 +195,6 @@ class XvivConfig:
 
 		return self
 
-	@property
-	def _get_ip_repo_default(self) -> str:
-		return self.__path_from_build_dir('ip')
-
-	def _get_ip_cfg_optional(self, name: str) -> IpConfig | None:
-		return next((i for i in self._ip_list if i.name == name), None)
-
-	def get_ip(self, name: str) -> IpConfig:
-		ip_cfg = self._get_ip_cfg_optional(name)
-
-		if ip_cfg is None:
-			#! IpCfg - IpCfgDoesNotExist
-			raise RuntimeError(f'ERROR: IP does not exist for: {name}')
-
-		return ip_cfg
-
-
 	def add_wrapper_cfg(self, *,
 		ip: str,
 		sources: list[str],
@@ -249,67 +238,6 @@ class XvivConfig:
 			ip_cfg.sources.append(wrapper_file)
 
 		return self
-
-	def _get_wrapper_cfg_optional(self, name: str) -> IpWrapperConfig | None:
-		return next((i for i in self._wrapper_list if i.ip_name == name), None)
-
-	def get_wrapper(self, name: str) -> IpWrapperConfig:
-		wrapper = self._get_wrapper_cfg_optional(name)
-
-		if wrapper is None:
-			#! wrapperCfg - wrapperCfgDoesNotExist
-			raise RuntimeError(f'ERROR: wrapper does not exist for: {name}')
-
-		return wrapper
-
-
-	def add_fpga_cfg(self, name: str, *,
-		fpga_part: str | None = None,
-		board_part: str | None = None
-	) -> typing.Self:
-		# TODO: throw error for invalid name ''
-
-		if self._get_fpga_cfg_optional(name) is not None:
-			#! FpgaCfg - FpgaCfgAlreadyExists
-			raise RuntimeError(f'ERROR: Fpga entry with name: {name} already exists')
-
-
-		if fpga_part is None and board_part is None:
-			#! FpgaCfg - PartUnspecified
-			raise RuntimeError(f'ERROR: part unspecified for fpga entry: {name}')
-
-		self._fpga_list.append(
-			FpgaConfig(
-				name=name,
-				fpga_part=fpga_part,
-				board_part=board_part
-			)
-		)
-
-		return self
-
-	def _get_fpga_cfg_optional(self, name: str) -> FpgaConfig | None:
-		return next((i for i in self._fpga_list if i.name == name), None)
-
-	@property
-	def _get_fpga_cfg_default(self) -> FpgaConfig:
-		if not self._fpga_list:
-			raise RuntimeError('ERROR: No Fpga specified in config')
-
-		return self._fpga_list[0]
-
-	def get_fpga(self, name: str | None) -> FpgaConfig:
-		if name is None:
-			return self._get_fpga_cfg_default
-
-		fpga_cfg = self._get_fpga_cfg_optional(name)
-
-		if fpga_cfg is None:
-			#! FpgaCfg - FpgaCfgDoesNotExist
-			raise RuntimeError(f'ERROR: Fpga does not exist for: {name}')
-
-		return fpga_cfg
-
 
 	def add_bd_cfg(self, name: str, *,
 		save_file: str | None = None,
@@ -357,264 +285,6 @@ class XvivConfig:
 
 		return self
 
-	def rebuild_bd(self, name: str) -> None:
-		bd_cfg = self._get_bd_cfg_optional(name)
-
-		if bd_cfg is None:
-			#! BdCfg - BdCfgAlreadyExists
-			raise RuntimeError(f'ERROR: BD entry with name: {name} already exists')
-
-		if os.path.exists(bd_cfg.bd_file):
-			bd_cfg.core_list = get_bd_core_list(bd_cfg.bd_file)
-
-	def _get_bd_cfg_optional(self, name: str) -> BdConfig | None:
-		return next((i for i in self._bd_list if i.name == name), None)
-
-	def _get_bd_cfg_vlnv_list(self, file: str) -> list[str]:
-		if os.path.exists(file):
-			with open(file, 'rt') as f:
-				match = re.search(r'set\s+list_check_ips\s+"(.*?)"', f.read(), re.DOTALL)
-
-				if match:
-					raw = match.group(1)
-
-					return [
-						ip for ip in [
-							line.strip().rstrip("\\").strip() for line in raw.splitlines()
-						] if ip
-					]
-		return []
-
-	def get_bd(self, name: str) -> BdConfig:
-		bd = self._get_bd_cfg_optional(name)
-
-		if bd is None:
-			#! BDCfg - BDCfgDoesNotExist
-			raise RuntimeError(f'ERROR: BD does not exist for: {name}')
-
-		return bd
-
-	def _resolve_fpga(self, fpga_ref: str | None, default_fpga: str | None = None):
-		if fpga_ref is None:
-			if default_fpga is None:
-				fpga_ref = self._get_fpga_cfg_default.name
-			else:
-				fpga_ref = default_fpga
-			# logger.debug(f'fpga is unspecified - using default: {fpga_ref}')
-			# logger.debug(f'For Design entry with name: {name} - fpga is unspecified - using default: {fpga_ref}')
-
-		if self._get_fpga_cfg_optional(fpga_ref) is None:
-			#! FpgaCfg - FpgaMissing
-			raise RuntimeError(f'ERROR: invalid fpga: {fpga_ref}')
-
-		return fpga_ref
-
-	def add_sim_cfg(self, name: str, *,
-		sources: list[str],
-		top: str | None = None,
-		design: str | None = None,
-		backend: str = 'xsim',
-		timescale: str = '1ns/1ps'
-	) -> typing.Self:
-		# TODO: throw error for invalid name ''
-
-		if self._get_sim_cfg_optional(name) is not None:
-			#! SimCfg - SimCfgAlreadyExists
-			raise RuntimeError(f'ERROR: sim entry with name: {name} already exists')
-
-		if top is None:
-			top = name
-
-		assert top is not None
-		assert name is not None
-		
-		sim_subdir = os.path.join(self.work_dir, 'sim', name)
-
-		self._sim_list.append(
-			SimulationConfig(
-				name=name,
-				top=top,
-				design=design,
-				sources=resolve_globs(sources, self.base_dir),
-				backend=backend,
-				timescale=timescale,
-				work_dir=sim_subdir
-			)
-		)
-
-		return self
-
-	def _get_sim_cfg_optional(self, name: str) -> SimulationConfig | None:
-		return next((i for i in self._sim_list if i.name == name), None)
-
-	def get_sim(self, name: str) -> SimulationConfig:
-		sim = self._get_sim_cfg_optional(name)
-
-		if sim is None:
-			#! SimCfg - SimCfgDoesNotExist
-			raise RuntimeError(f'ERROR: sim does not exist for: {name}')
-
-		return sim
-	
-	
-	def add_platform_cfg(self, name: str, *,
-		bd: str | None = None,
-		design: str | None = None,
-		xsa: str | None = None,
-		bitstream: str | None = None,
-		cpu: str | None = None,
-		os: str | None = None,
-	) -> typing.Self:
-		list_ids = [i for i in [bd, design, xsa] if i]
-
-		if len(list_ids) == 0:
-			#! PlatformCfg - UnspecifiedIdentifier
-			raise RuntimeError('ERROR: need to specify at least one - bd, design, xsa')
-
-		if len(list_ids) != 1:
-			#! PlatformCfg - MultipleIdSpecified
-			raise RuntimeError(f'ERROR: multiple ids specified: {' '.join(list_ids)}')
-
-		# TODO: throw error for invalid name ''
-
-		if self._get_platform_cfg_optional(name) is not None:
-			#! PlatformCfg - PlatformCfgAlreadyExists
-			raise RuntimeError(f'ERROR: platform entry with name: {name} already exists')
-
-		if cpu is None:
-			cpu = 'microblaze_0'
-		
-		if os is None:
-			os = 'standalone'
-		
-		if xsa is None:
-			synth_cfg = self.get_synth(design_name=design, bd_name=bd)
-
-			xsa = synth_cfg.hw_platform_xsa_file
-		
-		if bitstream is None:
-			synth_cfg = self.get_synth(design_name=design, bd_name=bd)
-
-			bitstream = synth_cfg.bitstream_file
-
-		import os as _os
-		if not _os.path.exists(xsa):
-			raise RuntimeError(f'ERROR: xsa file not found: {xsa}')
-
-		platform_subdir = _os.path.join(self.work_dir, 'platform', name)
-
-		self._platform_list.append(
-			PlatformConfig(
-				name=name,
-				cpu=cpu,
-				os=os,
-				xsa_file=xsa,
-				bitstream_file=bitstream,
-				dir=platform_subdir
-			)
-		)
-
-		return self
-
-	def _get_platform_cfg_optional(self, name: str) -> PlatformConfig | None:
-		return next((i for i in self._platform_list if i.name == name), None)
-
-	def get_platform(self, name: str) -> PlatformConfig:
-		platform = self._get_platform_cfg_optional(name)
-
-		if platform is None:
-			#! PlatformCfg - PlatformCfgDoesNotExist
-			raise RuntimeError(f'ERROR: platform does not exist for: {name}')
-
-		return platform
-
-
-
-	def add_app_cfg(self, name: str, *,
-		platform: str | None = None,
-		template: str | None = None,
-		sources: list[str] = []
-	) -> typing.Self:
-		if self._get_app_cfg_optional(name) is not None:
-			#! AppCfg - appCfgAlreadyExists
-			raise RuntimeError(f'ERROR: app entry with name: {name} already exists')
-
-		if platform is None:
-			raise RuntimeError('ERROR: platform entry required for app config')
-
-		if template is None:
-			template = 'empty_application'
-
-		app_subdir = os.path.join(self.work_dir, 'app', name)
-
-		elf = os.path.join(app_subdir, 'executable.elf')
-
-		self._app_list.append(
-			AppConfig(
-				name=name,
-				platform=platform,
-				template=template,
-				sources=resolve_globs(sources, self.base_dir),
-				dir=app_subdir,
-				elf_file=elf
-			)
-		)
-
-		return self
-
-	def _get_app_cfg_optional(self, name: str) -> AppConfig | None:
-		return next((i for i in self._app_list if i.name == name), None)
-
-	def get_app(self, name: str) -> AppConfig:
-		app = self._get_app_cfg_optional(name)
-
-		if app is None:
-			#! AppCfg - appCfgDoesNotExist
-			raise RuntimeError(f'ERROR: app does not exist for: {name}')
-
-		return app
-
-
-	def add_design_cfg(self, name: str, *,
-		sources: list[str],
-		top: str | None = None,
-		fpga: str | None = None,
-	) -> typing.Self:
-		# TODO: throw error for invalid name ''
-
-		if self._get_design_cfg_optional(name) is not None:
-			#! DesignCfg - DesignCfgAlreadyExists
-			raise RuntimeError(f'ERROR: design entry with name: {name} already exists')
-
-		fpga = self._resolve_fpga(fpga)
-
-		if top is None:
-			top = name
-
-		self._design_list.append(
-			DesignConfig(
-				name=name,
-				top=top,
-				sources=resolve_globs(sources, self.base_dir),
-				fpga_ref=fpga
-			)
-		)
-
-		return self
-
-	def _get_design_cfg_optional(self, name: str) -> DesignConfig | None:
-		return next((i for i in self._design_list if i.name == name), None)
-
-	def get_design(self, name: str) -> DesignConfig:
-		design = self._get_design_cfg_optional(name)
-
-		if design is None:
-			#! DesignCfg - DesignCfgDoesNotExist
-			raise RuntimeError(f'ERROR: Design does not exist for: {name}')
-
-		return design
-
-
 	def add_core_cfg(self, name: str, *,
 		vlnv: str,
 		xci_file: str | None = None,
@@ -647,18 +317,32 @@ class XvivConfig:
 
 		return self
 
-	def _get_core_cfg_optional(self, name: str) -> CoreConfig | None:
-		return next((i for i in self._core_list if i.name == name), None)
+	def add_design_cfg(self, name: str, *,
+		sources: list[str],
+		top: str | None = None,
+		fpga: str | None = None,
+	) -> typing.Self:
+		# TODO: throw error for invalid name ''
 
-	def get_core(self, name: str) -> CoreConfig:
-		core = self._get_core_cfg_optional(name)
+		if self._get_design_cfg_optional(name) is not None:
+			#! DesignCfg - DesignCfgAlreadyExists
+			raise RuntimeError(f'ERROR: design entry with name: {name} already exists')
 
-		if core is None:
-			#! CoreCfg - CoreCfgDoesNotExist
-			raise RuntimeError(f'ERROR: Core does not exist for: {name}')
+		fpga = self._resolve_fpga(fpga)
 
-		return core
+		if top is None:
+			top = name
 
+		self._design_list.append(
+			DesignConfig(
+				name=name,
+				top=top,
+				sources=resolve_globs(sources, self.base_dir),
+				fpga_ref=fpga
+			)
+		)
+
+		return self
 
 	def add_synth_cfg(self, *,
 		design: str | None = None,
@@ -828,19 +512,213 @@ class XvivConfig:
 
 		return self
 
-	def _get_synth_cfg_optional(self,
-		design_name: str | None = None,
-		core_name: str | None = None,
-		bd_name: str | None = None
-	) -> SynthConfig | None:
-		return next((
-				i for i in self._synth_list
-				if (bd_name is not None and i.bd_name == bd_name)
-				or (design_name is not None and i.design_name == design_name)
-				or (core_name is not None and i.core_name == core_name)
-			),
-			None,
+	def add_sim_cfg(self, name: str, *,
+		sources: list[str],
+		top: str | None = None,
+		design: str | None = None,
+		backend: str = 'xsim',
+		timescale: str = '1ns/1ps'
+	) -> typing.Self:
+		# TODO: throw error for invalid name ''
+
+		if self._get_sim_cfg_optional(name) is not None:
+			#! SimCfg - SimCfgAlreadyExists
+			raise RuntimeError(f'ERROR: sim entry with name: {name} already exists')
+
+		if top is None:
+			top = name
+
+		assert top is not None
+		assert name is not None
+		
+		sim_subdir = os.path.join(self.work_dir, 'sim', name)
+
+		self._sim_list.append(
+			SimulationConfig(
+				name=name,
+				top=top,
+				design=design,
+				sources=resolve_globs(sources, self.base_dir),
+				backend=backend,
+				timescale=timescale,
+				work_dir=sim_subdir
+			)
 		)
+
+		return self
+
+	def add_platform_cfg(self, name: str, *,
+		bd: str | None = None,
+		design: str | None = None,
+		xsa: str | None = None,
+		bitstream: str | None = None,
+		cpu: str | None = None,
+		os: str | None = None,
+	) -> typing.Self:
+		list_ids = [i for i in [bd, design, xsa] if i]
+
+		if len(list_ids) == 0:
+			#! PlatformCfg - UnspecifiedIdentifier
+			raise RuntimeError('ERROR: need to specify at least one - bd, design, xsa')
+
+		if len(list_ids) != 1:
+			#! PlatformCfg - MultipleIdSpecified
+			raise RuntimeError(f'ERROR: multiple ids specified: {' '.join(list_ids)}')
+
+		# TODO: throw error for invalid name ''
+
+		if self._get_platform_cfg_optional(name) is not None:
+			#! PlatformCfg - PlatformCfgAlreadyExists
+			raise RuntimeError(f'ERROR: platform entry with name: {name} already exists')
+
+		if cpu is None:
+			cpu = 'microblaze_0'
+		
+		if os is None:
+			os = 'standalone'
+		
+		if xsa is None:
+			synth_cfg = self.get_synth(design_name=design, bd_name=bd)
+
+			xsa = synth_cfg.hw_platform_xsa_file
+		
+		if bitstream is None:
+			synth_cfg = self.get_synth(design_name=design, bd_name=bd)
+
+			bitstream = synth_cfg.bitstream_file
+
+		import os as _os
+		if not _os.path.exists(xsa):
+			raise RuntimeError(f'ERROR: xsa file not found: {xsa}')
+
+		platform_subdir = _os.path.join(self.work_dir, 'platform', name)
+
+		self._platform_list.append(
+			PlatformConfig(
+				name=name,
+				cpu=cpu,
+				os=os,
+				xsa_file=xsa,
+				bitstream_file=bitstream,
+				dir=platform_subdir
+			)
+		)
+
+		return self
+
+	def add_app_cfg(self, name: str, *,
+		platform: str | None = None,
+		template: str | None = None,
+		sources: list[str] = []
+	) -> typing.Self:
+		if self._get_app_cfg_optional(name) is not None:
+			#! AppCfg - appCfgAlreadyExists
+			raise RuntimeError(f'ERROR: app entry with name: {name} already exists')
+
+		if platform is None:
+			raise RuntimeError('ERROR: platform entry required for app config')
+
+		if template is None:
+			template = 'empty_application'
+
+		app_subdir = os.path.join(self.work_dir, 'app', name)
+
+		elf = os.path.join(app_subdir, 'executable.elf')
+
+		self._app_list.append(
+			AppConfig(
+				name=name,
+				platform=platform,
+				template=template,
+				sources=resolve_globs(sources, self.base_dir),
+				dir=app_subdir,
+				elf_file=elf
+			)
+		)
+
+		return self
+
+	# -------------------------------------------------------------------------
+	# Get methods (public)
+	# -------------------------------------------------------------------------
+
+	def get_catalog(self) -> Catalog:
+		if self._catalog_cfg:
+			return self._catalog_cfg
+
+		#! UninitializedCoreCatalog
+		raise RuntimeError('ERROR: Catalog is not initialized')
+
+	def get_vivado(self) -> VivadoConfig:
+		if self._vivado_cfg:
+			return self._vivado_cfg
+
+		#! UninitializedVivadoCfg
+		raise RuntimeError('ERROR: VivadoConfig is not initialized')
+
+	def get_vitis(self) -> VitisConfig:
+		if self._vitis_cfg:
+			return self._vitis_cfg
+
+		#! UninitializedVitisCfg
+		raise RuntimeError('ERROR: VitisConfig is not initialized')
+
+	def get_fpga(self, name: str | None) -> FpgaConfig:
+		if name is None:
+			return self._get_fpga_cfg_default
+
+		fpga_cfg = self._get_fpga_cfg_optional(name)
+
+		if fpga_cfg is None:
+			#! FpgaCfg - FpgaCfgDoesNotExist
+			raise RuntimeError(f'ERROR: Fpga does not exist for: {name}')
+
+		return fpga_cfg
+
+	def get_ip(self, name: str) -> IpConfig:
+		ip_cfg = self._get_ip_cfg_optional(name)
+
+		if ip_cfg is None:
+			#! IpCfg - IpCfgDoesNotExist
+			raise RuntimeError(f'ERROR: IP does not exist for: {name}')
+
+		return ip_cfg
+
+	def get_wrapper(self, name: str) -> IpWrapperConfig:
+		wrapper = self._get_wrapper_cfg_optional(name)
+
+		if wrapper is None:
+			#! wrapperCfg - wrapperCfgDoesNotExist
+			raise RuntimeError(f'ERROR: wrapper does not exist for: {name}')
+
+		return wrapper
+
+	def get_bd(self, name: str) -> BdConfig:
+		bd = self._get_bd_cfg_optional(name)
+
+		if bd is None:
+			#! BDCfg - BDCfgDoesNotExist
+			raise RuntimeError(f'ERROR: BD does not exist for: {name}')
+
+		return bd
+
+	def get_core(self, name: str) -> CoreConfig:
+		core = self._get_core_cfg_optional(name)
+
+		if core is None:
+			#! CoreCfg - CoreCfgDoesNotExist
+			raise RuntimeError(f'ERROR: Core does not exist for: {name}')
+
+		return core
+
+	def get_design(self, name: str) -> DesignConfig:
+		design = self._get_design_cfg_optional(name)
+
+		if design is None:
+			#! DesignCfg - DesignCfgDoesNotExist
+			raise RuntimeError(f'ERROR: Design does not exist for: {name}')
+
+		return design
 
 	def get_synth(self,
 		design_name: str | None = None,
@@ -859,13 +737,156 @@ class XvivConfig:
 
 		return synth
 
-	# helpers
+	def get_sim(self, name: str) -> SimulationConfig:
+		sim = self._get_sim_cfg_optional(name)
 
-	def __path_from_build_dir(self, path: str):
-		return os.path.join(self.work_dir, path)
+		if sim is None:
+			#! SimCfg - SimCfgDoesNotExist
+			raise RuntimeError(f'ERROR: sim does not exist for: {name}')
 
-	def __path_from_base_dir(self, path: str):
-		return os.path.join(self.base_dir, path)
+		return sim
+
+	def get_platform(self, name: str) -> PlatformConfig:
+		platform = self._get_platform_cfg_optional(name)
+
+		if platform is None:
+			#! PlatformCfg - PlatformCfgDoesNotExist
+			raise RuntimeError(f'ERROR: platform does not exist for: {name}')
+
+		return platform
+
+	def get_app(self, name: str) -> AppConfig:
+		app = self._get_app_cfg_optional(name)
+
+		if app is None:
+			#! AppCfg - appCfgDoesNotExist
+			raise RuntimeError(f'ERROR: app does not exist for: {name}')
+
+		return app
+
+	# -------------------------------------------------------------------------
+	# Other public methods
+	# -------------------------------------------------------------------------
+
+	def rebuild_bd(self, name: str) -> None:
+		bd_cfg = self._get_bd_cfg_optional(name)
+
+		if bd_cfg is None:
+			#! BdCfg - BdCfgAlreadyExists
+			raise RuntimeError(f'ERROR: BD entry with name: {name} already exists')
+
+		if os.path.exists(bd_cfg.bd_file):
+			bd_cfg.core_list = get_bd_core_list(bd_cfg.bd_file)
+
+	# -------------------------------------------------------------------------
+	# Private helpers - optional lookups
+	# -------------------------------------------------------------------------
+
+	def _get_fpga_cfg_optional(self, name: str) -> FpgaConfig | None:
+		return next((i for i in self._fpga_list if i.name == name), None)
+
+	def _get_ip_cfg_optional(self, name: str) -> IpConfig | None:
+		return next((i for i in self._ip_list if i.name == name), None)
+
+	def _get_wrapper_cfg_optional(self, name: str) -> IpWrapperConfig | None:
+		return next((i for i in self._wrapper_list if i.ip_name == name), None)
+
+	def _get_bd_cfg_optional(self, name: str) -> BdConfig | None:
+		return next((i for i in self._bd_list if i.name == name), None)
+
+	def _get_bd_cfg_vlnv_list(self, file: str) -> list[str]:
+		if os.path.exists(file):
+			with open(file, 'rt') as f:
+				match = re.search(r'set\s+list_check_ips\s+"(.*?)"', f.read(), re.DOTALL)
+
+				if match:
+					raw = match.group(1)
+
+					return [
+						ip for ip in [
+							line.strip().rstrip("\\").strip() for line in raw.splitlines()
+						] if ip
+					]
+		return []
+
+	def _get_core_cfg_optional(self, name: str) -> CoreConfig | None:
+		return next((i for i in self._core_list if i.name == name), None)
+
+	def _get_design_cfg_optional(self, name: str) -> DesignConfig | None:
+		return next((i for i in self._design_list if i.name == name), None)
+
+	def _get_synth_cfg_optional(self,
+		design_name: str | None = None,
+		core_name: str | None = None,
+		bd_name: str | None = None
+	) -> SynthConfig | None:
+		return next((
+				i for i in self._synth_list
+				if (bd_name is not None and i.bd_name == bd_name)
+				or (design_name is not None and i.design_name == design_name)
+				or (core_name is not None and i.core_name == core_name)
+			),
+			None,
+		)
+
+	def _get_sim_cfg_optional(self, name: str) -> SimulationConfig | None:
+		return next((i for i in self._sim_list if i.name == name), None)
+
+	def _get_platform_cfg_optional(self, name: str) -> PlatformConfig | None:
+		return next((i for i in self._platform_list if i.name == name), None)
+
+	def _get_app_cfg_optional(self, name: str) -> AppConfig | None:
+		return next((i for i in self._app_list if i.name == name), None)
+
+	# -------------------------------------------------------------------------
+	# Private helpers - resolvers
+	# -------------------------------------------------------------------------
+
+	def _resolve_fpga(self, fpga_ref: str | None, default_fpga: str | None = None):
+		if fpga_ref is None:
+			if default_fpga is None:
+				fpga_ref = self._get_fpga_cfg_default.name
+			else:
+				fpga_ref = default_fpga
+			# logger.debug(f'fpga is unspecified - using default: {fpga_ref}')
+			# logger.debug(f'For Design entry with name: {name} - fpga is unspecified - using default: {fpga_ref}')
+
+		if self._get_fpga_cfg_optional(fpga_ref) is None:
+			#! FpgaCfg - FpgaMissing
+			raise RuntimeError(f'ERROR: invalid fpga: {fpga_ref}')
+
+		return fpga_ref
+
+	def _resolve_vlnv(self, vlnv: str) -> str:
+		for i in self._ip_list:
+			if vlnv in i.vlnv:
+				return i.vlnv
+
+		entry = self.get_catalog().lookup_optional(vlnv)
+		if entry is not None:
+			return entry.vlnv
+
+		#! ResolveVLNVFailure
+		raise RuntimeError(f'ERROR: unable to resolve VLNV from {vlnv}')
+
+	# -------------------------------------------------------------------------
+	# Properties - default getters
+	# -------------------------------------------------------------------------
+
+	@property
+	def _get_ip_repo_default(self) -> str:
+		return self.__path_from_build_dir('ip')
+
+	@property
+	def _get_fpga_cfg_default(self) -> FpgaConfig:
+		if not self._fpga_list:
+			raise RuntimeError('ERROR: No Fpga specified in config')
+
+		return self._fpga_list[0]
+
+	# -------------------------------------------------------------------------
+	# Properties - path helpers
+	# -------------------------------------------------------------------------
 
 	@property
 	def wrapper_dir(self):
@@ -887,17 +908,11 @@ class XvivConfig:
 	def scripts_dir(self):
 		return self.__path_from_base_dir(os.path.join('scripts', 'xviv'))
 
-	def _resolve_vlnv(self, vlnv: str) -> str:
-		for i in self._ip_list:
-			if vlnv in i.vlnv:
-				return i.vlnv
+	def __path_from_build_dir(self, path: str):
+		return os.path.join(self.work_dir, path)
 
-		entry = self.get_catalog().lookup_optional(vlnv)
-		if entry is not None:
-			return entry.vlnv
-
-		#! ResolveVLNVFailure
-		raise RuntimeError(f'ERROR: unable to resolve VLNV from {vlnv}')
+	def __path_from_base_dir(self, path: str):
+		return os.path.join(self.base_dir, path)
 
 
 def _resolve_val(
