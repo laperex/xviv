@@ -8,7 +8,7 @@ import tomllib
 
 from xviv.config import model
 from xviv.config.project import XvivConfig
-from xviv.utils.tools import find_vivado_dir_path
+from xviv.utils.tools import find_vitis_dir_path, find_vivado_dir_path
 
 
 def resolve_config_completer(prefix, parsed_args, **kwargs) -> str:
@@ -26,11 +26,19 @@ def load_config(path: str) -> XvivConfig:
     with open(path, 'rb') as f:
         data = tomllib.load(f)
 
-    cfg = XvivConfig(
-        path,
-        data['project']['build_dir'],
-        data['project']['board_repo_paths'],
-    ).add_vivado_cfg(path=find_vivado_dir_path())
+    cfg = (
+		XvivConfig(
+			path,
+			data['project']['build_dir'],
+			data['project']['board_repo_paths'],
+		)
+		.add_vivado_cfg(
+			path=find_vivado_dir_path()
+		)
+		.add_vitis_cfg(
+			path=find_vitis_dir_path()
+		)
+	)
 
     for section, method in [
         ('fpga',    cfg.add_fpga_cfg),
@@ -41,6 +49,8 @@ def load_config(path: str) -> XvivConfig:
         ('design',  cfg.add_design_cfg),
         ('simulation',  cfg.add_sim_cfg),
         ('synth',   cfg.add_synth_cfg),
+        ('platform',   cfg.add_platform_cfg),
+        ('app',   cfg.add_app_cfg),
     ]:
         for entry in data.get(section, []):
             method(**entry)

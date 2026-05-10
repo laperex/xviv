@@ -10,11 +10,6 @@ class VivadoConfig:
 	max_threads: int
 	hw_server:   str
 
-	# vivado_bin: str | None
-	# xvlog_bin: str | None
-	# xelab_bin: str | None
-	# xsim_bin: str | None
-
 @dataclasses.dataclass
 class VitisConfig:
 	path: str
@@ -23,15 +18,15 @@ class VitisConfig:
 
 @dataclasses.dataclass
 class IpConfig:
-	vendor:  str
-	library: str
-	version: str
-	vlnv:    str
-	repo:    str
+	vendor:   str
+	library:  str
+	version:  str
+	vlnv:     str
+	repo:     str
 
-	name:    str
-	top:     str
-	sources: list[str]
+	name:     str
+	top:      str
+	sources:  list[str]
 	fpga_ref: str
 
 
@@ -175,21 +170,19 @@ class SimulationConfig:
 class PlatformConfig:
 	name:      str
 	cpu:       str
-	os:        str = "standalone"
-	xsa:       str = ""
-	synth_top: str = ""
-
+	os:        str
+	xsa_file:  str
+	bitstream_file:  str
+	dir:       str
 
 @dataclasses.dataclass
 class AppConfig:
 	name:     str
 	platform: str
-	template: str = "empty_application"
-	src_dir:  str = ""
-
-	def __post_init__(self) -> None:
-		if not self.src_dir:
-			self.src_dir = f"srcs/sw/{self.name}"
+	template: str
+	sources:  list[str]
+	dir:      str
+	elf_file: str
 
 
 @dataclasses.dataclass(frozen=True)

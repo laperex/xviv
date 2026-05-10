@@ -113,7 +113,7 @@ class CreateCommand(Command):
 		elif args.core is not None:
 			cmd_core_create(cfg, args.core or "", args.vlnv, args.edit)
 		elif args.app:
-			cmd_app_create(cfg, args.app, args.platform, args.template)
+			cmd_app_create(cfg, app_name=args.app, platform_name=args.platform, template=args.template)
 		elif args.platform:
 			cmd_platform_create(cfg, args.platform)
 		else:
@@ -142,22 +142,22 @@ class EditCommand(Command):
 			cmd_core_edit(cfg, args.core, nogui=args.nogui)
 
 
-class ElaborateCommand(Command):
-	name = "elaborate"
-	help = "Compile and optionally run simulation"
+# class ElaborateCommand(Command):
+# 	name = "elaborate"
+# 	help = "Compile and optionally run simulation"
 
-	@classmethod
-	def register(cls, sub: argparse._SubParsersAction) -> None:
-		super().register(sub)
-		c = cls.c
-		arg(c, "--top", required=True, metavar="NAME",
-			help="Simulation top module", completer=c_top_sim)
-		c.add_argument("--run", metavar="TIME", default="",
-			help="Simulation run time, e.g. 1000ns")
+# 	@classmethod
+# 	def register(cls, sub: argparse._SubParsersAction) -> None:
+# 		super().register(sub)
+# 		c = cls.c
+# 		arg(c, "--top", required=True, metavar="NAME",
+# 			help="Simulation top module", completer=c_top_sim)
+# 		c.add_argument("--run", metavar="TIME", default="",
+# 			help="Simulation run time, e.g. 1000ns")
 
-	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
-		super().run(cfg, args)
-		cmd_top_elaborate(cfg, args.top, args.run)
+# 	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
+# 		super().run(cfg, args)
+# 		cmd_top_elaborate(cfg, args.top, args.run)
 
 
 class GenerateCommand(Command):
@@ -236,7 +236,13 @@ class ProgramCommand(Command):
 
 	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
 		super().run(cfg, args)
-		cmd_program(cfg, args.app, args.platform, args.elf, args.bitstream)
+		# cmd_program(cfg, args.app, args.platform, args.elf, args.bitstream)
+		cmd_program(cfg,
+			bitstream_file=args.bitstream,
+			elf_file=args.elf,
+			app_name=args.app,
+			platform_name=args.platform,
+		)
 
 
 class ReloadCommand(Command):

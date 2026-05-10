@@ -24,7 +24,7 @@ Or let xviv source it automatically:
 """
 
 _settings_sourced: set[str] = set()
-
+_sourced_env: dict[str, str] = {}
 
 def _source_settings(settings_path: str) -> None:
 	if settings_path in _settings_sourced:
@@ -45,6 +45,7 @@ def _source_settings(settings_path: str) -> None:
 		for entry in result.stdout.split("\0")
 		if "=" in entry
 	)
+
 	for k, v in sourced_env.items():
 		if os.environ.get(k) != v:
 			os.environ[k] = v
@@ -100,3 +101,21 @@ def find_vivado_dir_path() -> str:
 
 def find_vitis_dir_path() -> str:
 	return _find_tool_dir("xsct")
+
+def get_vitis_env() -> dict:
+    env = os.environ.copy()
+    extra_paths = [
+        f"{find_vitis_dir_path()}/gnu/microblaze/lin/bin",      # mb-gcc lives here
+        f"{find_vitis_dir_path()}/bin",
+        f"{find_vitis_dir_path()}/lib/lnx64.o",
+    ]
+    env["PATH"] = ":".join(extra_paths) + ":" + env.get("PATH", "")
+
+    return env
+
+
+def mb_tool(tool: str) -> str:
+    return os.path.join(
+        find_vitis_dir_path(), "gnu", "microblaze", "lin", "bin",
+        f"microblaze-xilinx-elf-{tool}",
+    )

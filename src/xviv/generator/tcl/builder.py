@@ -116,23 +116,26 @@ class ConfigTclBuilder:
 		self._push(f'get_bd_addr_segs {" ".join(params)}'.strip())
 
 	def _get_bd_cells(self, *, hierarchical: bool = False, filter: str | None = None):
-		params = filter(None, [
+		params = [
 			'-hierarchical'    if hierarchical else None,
 			f'-filter {filter}' if filter      else None,
-		])
-		self._push(f'get_bd_cells {" ".join(params)}')
+		]
+		self._push(f'get_bd_cells {" ".join([i for i in params if i])}')
 
 	def _after(self, ms: int, body_func = None):
-		child = type(self)(self._cfg).__inherit(self)
-		body_func(child)
-		self._push(f'after {ms} {{\n{child.build()}}}')
+		if body_func:
+			child = type(self)(self._cfg).__inherit(self)
+			body_func(child)
+			self._push(f'after {ms} {{\n{child.build()}}}')
+		else:
+			self._push(f'after {ms}')
 
 	def _current_wave_config(self):
 		self._push('current_wave_config')
 
 	def _close_wave_config(self, config: str):
 		self._push(f'close_wave_config {config}')
-	
+
 	def _close_sim(self):
 		self._push('close_sim')
 
@@ -159,12 +162,12 @@ class ConfigTclBuilder:
 			f"-vlnv {vlnv}"        if vlnv else None,
 			f"-module_name {name}" if name else None,
 		])
-		
+
 		core_subdir = os.path.join(dir, name)
 
 		if os.path.isdir(core_subdir):
 			self._file_delete(core_subdir, force=True)
-		
+
 		if not os.path.isdir(dir):
 			self._file_mkdir(dir)
 
@@ -175,7 +178,7 @@ class ConfigTclBuilder:
 
 	def _upgrade_ip(self, cells: str):
 		self._push(f'upgrade_ip {cells}')
-	
+
 	def _get_ips(self, name: str):
 		self._push(f"get_ips {name}")
 
@@ -198,7 +201,7 @@ class ConfigTclBuilder:
 
 	def _generate_target_get_files(self, file: str, *,
 		target="all",
-		quiet=False,
+		quiet = False,
 		reset=True
 	):
 		if reset:
@@ -210,6 +213,193 @@ class ConfigTclBuilder:
 		self._push(f"generate_target {target} {' '.join(params)} [get_files \"{file}\"]")
 
 
+
+	def _hsi__open_hw_design(self, xsi_file: str):
+		self._push(f"hsi::open_hw_design \"{xsi_file}\"")
+
+	def _hsi__create_sw_design(self, name: str, *,
+		proc: str | None = None,
+		os: str | None = None
+	):
+		params = filter(None, [
+			f"-proc \"{proc}\"" if proc else None,
+			f"-os \"{os}\"" if os else None,
+		])
+		self._push(f"hsi::create_sw_design {name} {' '.join(params)}")
+
+	def _hsi__set_property_hsi__get_os(self, name: str, value: str):
+		self._hsi__set_property(name, value, '[hsi::get_os]')
+
+	def _hsi__set_property(self, name: str, value: str, context: str):
+		self._push(f"hsi::set_property {name} {value} {context}")
+
+	def _hsi__get_os(self):
+		self._push("hsi::get_os")
+
+	def _hsi__generate_app(self, *,
+		hw: str | None = None,
+		os: str | None = None,
+		proc: str | None = None,
+		app: str | None = None,
+		dir: str | None = None,
+	):
+		params = filter(None, [
+			f"-hw {hw}" if hw else None,
+			f"-os \"{os}\"" if os else None,
+			f"-proc \"{proc}\"" if proc else None,
+			f"-app \"{app}\"" if app else None,
+			f"-dir \"{dir}\"" if dir else None,
+		])
+		self._push(f"hsi::generate_app {' '.join(params)}")
+
+	def _hsi__generate_bsp(self, *,
+		dir: str | None = None
+	):
+		params = filter(None, [
+			f"-dir \"{dir}\"" if dir else None
+		])
+		self._push(f"hsi::generate_bsp {' '.join(params)}")
+
+	def _hsi__close_hw_design(self, name: str):
+		self._push(f"hsi::close_hw_design {name}")
+
+
+	def _fpga(self, file: str, *,
+		partial: bool = False,
+		no_revision_check: bool = False,
+		skip_compatibility_check: bool = False,
+		state: bool = False,
+		config_status: bool = False,
+		ir_status: bool = False,
+		boot_status: bool = False,
+		timer_status: bool = False,
+		cor0_status: bool = False,
+		cor1_status: bool = False,
+		wbstar_status: bool = False,
+	):
+		params = filter(None, [
+			f"-file \"{file}\"",
+			"-partial" if partial else None,
+			"-no-revision-check" if no_revision_check else None,
+			"-skip-compatibility-check" if skip_compatibility_check else None,
+			"-state" if state else None,
+			"-config-status" if config_status else None,
+			"-ir-status" if ir_status else None,
+			"-boot-status" if boot_status else None,
+			"-timer-status" if timer_status else None,
+			"-cor0-status" if cor0_status else None,
+			"-cor1-status" if cor1_status else None,
+			"-wbstar-status" if wbstar_status else None
+		])
+		self._push(f"fpga {' '.join(params)}")
+
+	def _rst(self, *,
+		processor: bool = False,
+		cores: bool = False,
+		system: bool = False,
+		srst: bool = False,
+		por: bool = False,
+		ps: bool = False,
+		stop: bool = False,
+		start: bool = False,
+		clear_registers: bool = False
+	):
+		params = filter(None, [
+			"-processor" if processor else None,
+			"-cores" if cores else None,
+			"-system" if system else None,
+			"-srst" if srst else None,
+			"-por" if por else None,
+			"-ps" if ps else None,
+			"-stop" if stop else None,
+			"-start" if start else None,
+			"-clear-registers" if clear_registers else None
+		])
+		self._push(f"rst {' '.join(params)}")
+
+	def _dow(self, file: str, *,
+		clear: bool = False,
+		skip_tcm_clear: bool = False,
+		keepsym: bool = False,
+		force: bool = False,
+		bypass_cache_sync: bool = False,
+		relocate_section_map: str | None = None,
+		vaddr: bool = False,
+	):
+		params = filter(None, [
+			"-clear" if clear else None,
+			"-skip-tcm-clear" if skip_tcm_clear else None,
+			"-keepsym" if keepsym else None,
+			"-force" if force else None,
+			"-bypass-cache-sync" if bypass_cache_sync else None,
+			f"-relocate-section-map {relocate_section_map}" if relocate_section_map else None,
+			"-vaddr" if vaddr else None
+		])
+		self._push(f"dow {' '.join(params)} \"{file}\"")
+
+	def _con(self, *,
+		block: bool = False,
+		timeout: str | None = None,
+		addr: str | None = None,
+	):
+		params = filter(None, [
+			"-block" if block else None,
+			f"-timeout {timeout}" if timeout else None,
+			f"-addr {addr}" if addr else None,
+		])
+		self._push(f"con {' '.join(params)}")
+
+	def _connect(self, *,
+		host: str | None = None,
+		port: str | None = None,
+		url: str | None = None,
+		list: bool = False,
+		set: str | None = None,
+		new: bool = False,
+		xvc_url: str | None = None,
+		symbols: bool = False
+	):
+		params = filter(None, [
+			f"-host {host}" if host else None,
+			f"-port {port}" if port else None,
+			f"-url {url}" if url else None,
+			"-list" if list else None,
+			f"-set {set}" if set else None,
+			"-new" if new else None,
+			f"-xvc-url {xvc_url}" if xvc_url else None,
+			"-symbols" if symbols else None,
+		])
+		self._push(f"connect {' '.join(params)}")
+
+	def _disconnect(self):
+		self._push("disconnect")
+
+	def _state(self):
+		self._push('state')
+
+	def _rrd(self):
+		self._push('rrd')
+		
+	def _targets(self, id: str | None = None, *,
+		set: bool = False,
+		regexp: bool = False,
+		nocase: bool = False,
+		filter: str | None = None,
+		target_properties: bool = False,
+		index: str | None = None,
+		timeout: str | None = None,
+	):
+		params = [
+			"-set" if set else None,
+			"-regexp" if regexp else None,
+			"-nocase" if nocase else None,
+			f"-filter {filter}" if filter else None,
+			"-target-properties" if target_properties else None,
+			f"-index {index}" if index else None,
+			f"-timeout {timeout}" if timeout else None,
+			id if id else None,
+		]
+		self._push(f"targets {' '.join([i for i in params if i])}")
 
 	def _create_peripheral(self, *,
 		vendor: str,
@@ -435,7 +625,7 @@ class ConfigTclBuilder:
 			f"-filter {filter}" if filter else None,
 			f"-of_objects {of_objects}" if of_objects else None,
 		]
-		self._push(f"get_files {' '.join(params)}")
+		self._push(f"get_files {' '.join([i for i in params if i])}")
 
 	def remove_files(self, file: str):
 		self._push(f"remove_files \"{file}\"")
@@ -545,7 +735,7 @@ class ConfigTclBuilder:
 			"-warn_on_violation"      if warn_on_violation else None,
 			"-hierarchical"           if hierarchical else None,
 		])
-		
+
 		self._file_mkdir_dirname_file(file)
 
 		self._push(f"report_{report_type} {' '.join(params)}")
@@ -558,7 +748,7 @@ class ConfigTclBuilder:
 		params = filter(None, [
 			"-force" if force else None,
 		])
-		
+
 		self._file_mkdir_dirname_file(file)
 		self._push(f"write_checkpoint {' '.join(params)} \"{file}\"")
 
@@ -587,7 +777,7 @@ class ConfigTclBuilder:
 			f"-mode {mode}"                      if mode else None,
 			f"-sdf_anno {str(sdf_anno).lower()}" if sdf_anno else None,
 		])
-		
+
 		self._file_mkdir_dirname_file(file)
 
 		self._push(f"write_verilog {' '.join(params)} \"{file}\"")
@@ -598,9 +788,9 @@ class ConfigTclBuilder:
 		params = filter(None, [
 			"-force" if force else None,
 		])
-		
+
 		self._file_mkdir_dirname_file(file)
-		
+
 		self._push(f"write_bitstream {' '.join(params)} \"{file}\"")
 
 	def _write_hw_platform(self, file: str, *,
@@ -613,9 +803,9 @@ class ConfigTclBuilder:
 			"-fixed"       if fixed else None,
 			"-include_bit" if include_bit else None,
 		])
-		
+
 		self._file_mkdir_dirname_file(file)
-		
+
 		self._push(f"write_hw_platform {' '.join(params)} \"{file}\"")
 
 
@@ -646,7 +836,7 @@ class ConfigTclBuilder:
 	def _file_mkdir(self, path: str):
 		self._push(f"file mkdir \"{path}\"")
 
-	def _file_mkdir_dirname_file(self, path: str, exists_ok=False):
+	def _file_mkdir_dirname_file(self, path: str, exists_ok = False):
 		if exists_ok and os.path.exists(os.path.dirname(path)):
 			return
 
@@ -739,7 +929,7 @@ class ConfigTclBuilder:
 			self._push(f'puts {channel} {text}')
 		else:
 			self._push(f'puts {text}')
-	
+
 	def _write_bd_tcl(self, path: str, *, force: bool = False, no_project_wrapper: bool = False):
 		params = filter(None, [
 			'-force'               if force               else None,
@@ -756,10 +946,18 @@ class ConfigTclBuilder:
 	def _error(self, msg: str):
 		self._push(f'error {msg}')
 
-	def _puts_exec(self, channel: str, value_lambda):
+	def _exit(self, code: int = 0):
+		self._push(f'exit {code}')
+
+	def _puts_exec(self, value_lambda, *, channel: str | None = None):
 		child = type(self)(self._cfg).__inherit(self)
 		value_lambda(child)
-		self._push(f'puts {channel} [{(child.build() or "").strip()}]')
+		expr = f'[{(child.build() or "").strip()}]'
+
+		if channel:
+			self._push(f'puts {channel} {expr}')
+		else:
+			self._push(f'puts {expr}')
 
 	def _fconfigure(self, fh: str, *,
 		blocking: bool,

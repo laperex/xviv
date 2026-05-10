@@ -8,7 +8,10 @@ import typing
 
 from xviv.config.project import XvivConfig
 # from xviv.tools.util import find_xsct_script
+from xviv.functions.bd import ConfigTclCommands
+from xviv.tools.vitis import run_xsct
 from xviv.utils.fs import resolve_globs
+from xviv.utils.tools import mb_tool, get_vitis_env
 
 
 logger = logging.getLogger(__name__)
@@ -17,227 +20,162 @@ logger = logging.getLogger(__name__)
 # create --platform <platform_name>
 # -----------------------------------------------------------------------------
 def cmd_platform_create(cfg: XvivConfig, platform_name: str):
-	plat = cfg.get_platform(platform_name)
+	config = (
+		ConfigTclCommands(cfg)
+		.create_platform(platform_name)
+		.build()
+	)
 
-	xsa, _ = cfg.get_platform_paths(platform_name)
-	bsp    = cfg.get_platform_dir(platform_name)
-
-	if not os.path.exists(xsa):
-		sys.exit(
-			f"ERROR: XSA not found: {xsa}\n"
-			f"  Run synthesis for platform '{platform_name}' first."
-		)
-
-	logger.info("Creating BSP platform '%s'", platform_name)
-	logger.info("  XSA    : %s", xsa)
-	logger.info("  CPU    : %s", plat.cpu)
-	logger.info("  OS     : %s", plat.os)
-	logger.info("  BSP dir: %s", bsp)
-
-	# xsct.run_xsct(cfg, find_xsct_script(), ["create_platform", xsa, plat.cpu, plat.os, bsp])
-
-
-# -----------------------------------------------------------------------------
-# create --app <app_name> [--platform <platform_name>] [--template <template>]
-# -----------------------------------------------------------------------------
-def cmd_app_create(
-	cfg: XvivConfig,
-	app_name: str,
-	platform_name: str | None,
-	template_name: str | None,
-):
-	app  = cfg.get_app(app_name)
-	plat_name = platform_name or app.platform
-	plat = cfg.get_platform(plat_name)
-
-	xsa, _ = cfg.get_platform_paths(plat_name)
-	bsp    = cfg.get_platform_dir(plat_name)
-
-	if not os.path.exists(xsa):
-		sys.exit(
-			f"ERROR: XSA not found: {xsa}\n"
-			f"  Run synthesis for platform '{plat_name}' first."
-		)
-
-	# Auto-create BSP if absent
-	if not os.path.isdir(bsp):
-		logger.info("BSP not found - creating platform '%s' first", plat_name)
-		cmd_platform_create(cfg, plat_name)
-
-	# get_app_dir exits if dir missing; use build_dir directly so create works
-	app_out_dir = os.path.join(cfg.build_dir, "app", app_name)
-	template    = template_name or app.template
-	src_dir     = app.src_dir
-
-	logger.info("Creating app '%s' from template '%s'", app_name, template)
-	logger.info("  App dir : %s", app_out_dir)
-
-	# xsct.run_xsct(
-	# 	# cfg, find_xsct_script(),
-	# 	["create_app", xsa, plat.cpu, plat.os, template, app_out_dir],
-	# )
-
-	if not os.path.isdir(src_dir):
-		logger.warning("src_dir not found, creating %s", src_dir)
-
-	os.makedirs(src_dir, exist_ok=True)
-
+	run_xsct(cfg, config_tcl=config)
 
 # -----------------------------------------------------------------------------
 # build --platform <platform_name>
 # -----------------------------------------------------------------------------
 def cmd_platform_build(cfg: XvivConfig, platform_name: str):
-	bsp = cfg.get_platform_dir(platform_name)
+	platform_cfg = cfg.get_platform(platform_name)
 
-	if not os.path.isdir(bsp):
-		sys.exit(
-			f"ERROR: BSP directory not found: {bsp}\n"
+	if not os.path.isdir(platform_cfg.dir):
+		#! BspDirectoryNotFound
+		raise RuntimeError(
+			f"ERROR: BSP directory not found: {platform_cfg.dir}\n"
 			f"  Run: xviv create --platform {platform_name}"
 		)
 
-	logger.info("Building BSP: %s", bsp)
+	logger.info("Building BSP: %s", platform_cfg.dir)
 
 	subprocess.run(
 		["make", f"-j{os.cpu_count() or 4}"],
 		check=True,
-		cwd=bsp
+		cwd=platform_cfg.dir,
+		env=get_vitis_env()
 	)
+
 	logger.info("BSP build complete")
+
+# -----------------------------------------------------------------------------
+# create --app <app_name> [--platform <platform_name>] [--template <template>]
+# -----------------------------------------------------------------------------
+def cmd_app_create(cfg: XvivConfig, *,
+	app_name: str,
+	platform_name: str | None,
+	template: str | None,
+):
+	app_cfg = cfg.get_app(app_name)
+
+	if template:
+		app_cfg.template = template
+	
+	if platform_name:
+		app_cfg.platform = platform_name
+
+	platform_cfg = cfg.get_platform(app_cfg.platform)
+
+	if not os.path.isdir(platform_cfg.dir):
+		logger.info("BSP not found - creating platform '%s' first", app_cfg.platform)
+		cmd_platform_create(cfg, app_cfg.platform)
+
+	config = (
+		ConfigTclCommands(cfg)
+		.create_app(app_name)
+		.build()
+	)
+
+	run_xsct(cfg, config_tcl=config)
+
+	logger.info(f"App: {app_cfg.name} - Create complete - {app_cfg.dir}")
 
 
 # -----------------------------------------------------------------------------
 # build --app <app_name> [--info]
 # -----------------------------------------------------------------------------
 def cmd_app_build(cfg: XvivConfig, app_name: str, info: bool | None):
-	app      = cfg.get_app(app_name)
-	plat     = cfg.get_platform(app.platform)
+	app_cfg = cfg.get_app(app_name)
+	platform_cfg = cfg.get_platform(app_cfg.platform)
 
-	bsp         = cfg.get_platform_dir(app.platform)
-	app_out_dir = cfg.get_app_dir(app_name)
+	_transform_app_makefile(os.path.join(app_cfg.dir, "Makefile"))
 
-	_transform_app_makefile(os.path.join(app_out_dir, "Makefile"))
+	bsp_include = os.path.join(platform_cfg.dir, platform_cfg.cpu, "include")
+	bsp_lib = os.path.join(platform_cfg.dir, platform_cfg.cpu, "lib")
 
-	bsp_include = os.path.join(bsp, plat.cpu, "include")
-	bsp_lib     = os.path.join(bsp, plat.cpu, "lib")
-
-	src_dir   = cfg.abs_path(app.src_dir)
-	c_sources = " ".join(resolve_globs(["**/*.c"], src_dir))
-
-	logger.info("Building app '%s'", app_name)
 	subprocess.run(
 		[
 			"make", f"-j{os.cpu_count() or 4}",
-			f"INCLUDEPATH=-I{src_dir} -I{bsp_include} -I{bsp}",
-			f"c_SOURCES={c_sources}",
+			f"INCLUDEPATH=-I{bsp_include} -I{platform_cfg.dir}",
+			f"c_SOURCES={' '.join(app_cfg.sources)}",
 			f"LIBPATH=-L{bsp_lib}",
 		],
 		check=True,
-		cwd=app_out_dir
+		cwd=app_cfg.dir,
+		env=get_vitis_env(),
 	)
 
 	logger.info("App build complete")
 
-	if info:
-		elf = _find_elf(cfg, app_name)
+	if not os.path.exists(app_cfg.elf_file):
+		#! ElfNotCreated
+		raise RuntimeError(f'ERROR: elf file not created for app: {app_name} at {app_cfg.elf_file} in {app_cfg.dir}')
 
-		logger.info("ELF: %s", elf)
-		print(f"\n=== ELF size: {os.path.basename(elf)} ===")
-		subprocess.run([_mb_tool(cfg, "size"), elf])
-		print(f"\n=== ELF sections: {os.path.basename(elf)} ===")
-		subprocess.run([_mb_tool(cfg, "objdump"), "-h", elf])
+	if info:
+		logger.info("ELF: %s", app_cfg.elf_file)
+		print(f"\n=== ELF size: {os.path.basename(app_cfg.elf_file)} ===")
+		subprocess.run([mb_tool("size"), app_cfg.elf_file])
+		print(f"\n=== ELF sections: {os.path.basename(app_cfg.elf_file)} ===")
+		subprocess.run([mb_tool("objdump"), "-h", app_cfg.elf_file])
 
 
 # -----------------------------------------------------------------------------
 # program [--app | --platform | --elf | --bitstream]
 # -----------------------------------------------------------------------------
-def cmd_program(
-	cfg: XvivConfig,
-	app_name:      str | None,
-	platform_name: str | None,
-	elf:           str | None,
-	bitstream:     str | None,
+def cmd_program(cfg: XvivConfig, *,
+	bitstream_file: str | None = None,
+	elf_file: str | None = None,
+	app_name: str | None = None,
+	platform_name: str | None = None
 ):
-	server = cfg.vivado.hw_server
+	if bitstream_file is None:
+		if platform_name is None:
+			if app_name is not None:
+				platform_name = cfg.get_app(app_name).platform
 
-	bitstream_path = ""
+		bitstream_file = cfg.get_platform(platform_name).bitstream_file
 
-	if bitstream:
-		bitstream_path = os.path.abspath(bitstream)
+	if elf_file is None:
+		if app_name is not None:
+			elf_file = cfg.get_app(app_name).elf_file
 
-	elif platform_name:
-		_, bitstream_path = cfg.get_platform_paths(platform_name)
+	config = (
+		ConfigTclCommands(cfg)
+		.program(bitstream_file=bitstream_file, elf_file=elf_file)
+		.build()
+	)
 
-	elif app_name:
-		app = cfg.get_app(app_name)
-		_, bitstream_path = cfg.get_platform_paths(app.platform)
+	print(config)
 
-	if not os.path.exists(bitstream_path):
-		sys.exit(f"ERROR: Bitstream not found: {bitstream_path}")
+	logger.info("Bitstream : %s", bitstream_file)
+	if elf_file:
+		logger.info("ELF : %s", elf_file)
 
-	elf_path = ""
-
-	if elf:
-		elf_path = os.path.abspath(elf)
-		if not os.path.exists(elf_path):
-			sys.exit(f"ERROR: ELF not found: {elf_path}")
-
-	elif app_name:
-		elf_path = _find_elf(cfg, app_name)
-
-	logger.info("Programming FPGA")
-	logger.info("  Bitstream : %s", bitstream_path)
-	if elf_path:
-		logger.info("  ELF       : %s", elf_path)
-	logger.info("  hw_server : %s", server)
-
-	# xsct.run_xsct(cfg, find_xsct_script(), ["program", bitstream_path, elf_path, server])
+	run_xsct(cfg, config_tcl=config)
 
 
 # -----------------------------------------------------------------------------
 # processor --reset | --status
 # -----------------------------------------------------------------------------
-def cmd_processor(cfg: XvivConfig, reset: bool | None, status: bool | None):
-	server = cfg.vivado.hw_server
+def cmd_processor(cfg: XvivConfig, *,
+	reset: bool | None,
+	status: bool | None
+):
+	config = (
+		ConfigTclCommands(cfg)
+		.processor_cntrl(reset=reset, status=status)
+		.build()
+	)
 
-	if reset:
-		logger.info("Resetting embedded processor via JTAG (%s)", server)
-		# xsct.run_xsct(cfg, find_xsct_script(), ["processor_reset", server])
-
-	# elif status:
-		# xsct.run_xsct(cfg, find_xsct_script(), ["processor_status", server])
-
+	run_xsct(cfg, config_tcl=config)
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-
-def _find_elf(cfg: XvivConfig, app_name: str) -> str:
-    app_out_dir = cfg.get_app_dir(app_name)
-
-    candidates = [
-        os.path.join(app_out_dir, "Debug", f"{app_name}.elf"),
-        os.path.join(app_out_dir, f"{app_name}.elf"),
-    ]
-
-    for c in candidates:
-        if os.path.exists(c):
-            return c
-
-    hits = sorted(glob.glob(os.path.join(app_out_dir, "**", "*.elf"), recursive=True))
-
-    if not hits:
-        sys.exit(f"No ELF found in {app_out_dir}")
-
-    return hits[0]
-
-
-def _mb_tool(cfg: XvivConfig, tool: str) -> str:
-    return os.path.join(
-        cfg.vivado.path, "gnu", "microblaze", "lin", "bin",
-        f"microblaze-xilinx-elf-{tool}",
-    )
-
 
 def _transform_app_makefile(path: str):
     content = open(path, "rt").read()

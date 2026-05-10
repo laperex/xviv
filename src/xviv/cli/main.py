@@ -2,7 +2,7 @@ import argparse
 import argcomplete
 import os
 
-from xviv.cli.commands import Command, CreateCommand, SearchCommand, EditCommand, ConfigCommand, GenerateCommand, SynthCommand, OpenCommand, ElaborateCommand, SimulateCommand, ReloadCommand, BuildCommand, ProgramCommand, ProcessorCommand
+from xviv.cli.commands import Command, CreateCommand, SearchCommand, EditCommand, ConfigCommand, GenerateCommand, SynthCommand, OpenCommand, SimulateCommand, ReloadCommand, BuildCommand, ProgramCommand, ProcessorCommand
 from xviv.config.loader import load_config, resolve_config
 from xviv.utils.log import _setup_logging
 
@@ -14,7 +14,7 @@ _COMMANDS: list[type[Command]] = [
 	GenerateCommand,
 	SynthCommand,
 	OpenCommand,
-	ElaborateCommand,
+	# ElaborateCommand,
 	SimulateCommand,
 	ReloadCommand,
 	BuildCommand,

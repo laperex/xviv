@@ -46,6 +46,8 @@ class XvivConfig:
 
 		self._synth_list: list[SynthConfig] = []
 		self._sim_list: list[SimulationConfig] = []
+		self._platform_list: list[PlatformConfig] = []
+		self._app_list: list[AppConfig] = []
 
 		self._vivado_cfg: VivadoConfig | None = None
 		self._vitis_cfg: VitisConfig | None = None
@@ -129,6 +131,10 @@ class XvivConfig:
 		if not os.path.exists(path):
 			#! VitisCfg - InvalidPath
 			raise RuntimeError(f'ERROR: Invadlid Vitis Path: {path}')
+		
+		self._vitis_cfg = VitisConfig(
+			path=path
+		)
 
 		return self
 
@@ -449,6 +455,125 @@ class XvivConfig:
 			raise RuntimeError(f'ERROR: sim does not exist for: {name}')
 
 		return sim
+	
+	
+	def add_platform_cfg(self, name: str, *,
+		bd: str | None = None,
+		design: str | None = None,
+		xsa: str | None = None,
+		bitstream: str | None = None,
+		cpu: str | None = None,
+		os: str | None = None,
+	) -> typing.Self:
+		list_ids = [i for i in [bd, design, xsa] if i]
+
+		if len(list_ids) == 0:
+			#! PlatformCfg - UnspecifiedIdentifier
+			raise RuntimeError('ERROR: need to specify at least one - bd, design, xsa')
+
+		if len(list_ids) != 1:
+			#! PlatformCfg - MultipleIdSpecified
+			raise RuntimeError(f'ERROR: multiple ids specified: {' '.join(list_ids)}')
+
+		# TODO: throw error for invalid name ''
+
+		if self._get_platform_cfg_optional(name) is not None:
+			#! PlatformCfg - PlatformCfgAlreadyExists
+			raise RuntimeError(f'ERROR: platform entry with name: {name} already exists')
+
+		if cpu is None:
+			cpu = 'microblaze_0'
+		
+		if os is None:
+			os = 'standalone'
+		
+		if xsa is None:
+			synth_cfg = self.get_synth(design_name=design, bd_name=bd)
+
+			xsa = synth_cfg.hw_platform_xsa_file
+		
+		if bitstream is None:
+			synth_cfg = self.get_synth(design_name=design, bd_name=bd)
+
+			bitstream = synth_cfg.bitstream_file
+
+		import os as _os
+		if not _os.path.exists(xsa):
+			raise RuntimeError(f'ERROR: xsa file not found: {xsa}')
+
+		platform_subdir = _os.path.join(self.work_dir, 'platform', name)
+
+		self._platform_list.append(
+			PlatformConfig(
+				name=name,
+				cpu=cpu,
+				os=os,
+				xsa_file=xsa,
+				bitstream_file=bitstream,
+				dir=platform_subdir
+			)
+		)
+
+		return self
+
+	def _get_platform_cfg_optional(self, name: str) -> PlatformConfig | None:
+		return next((i for i in self._platform_list if i.name == name), None)
+
+	def get_platform(self, name: str) -> PlatformConfig:
+		platform = self._get_platform_cfg_optional(name)
+
+		if platform is None:
+			#! PlatformCfg - PlatformCfgDoesNotExist
+			raise RuntimeError(f'ERROR: platform does not exist for: {name}')
+
+		return platform
+
+
+
+	def add_app_cfg(self, name: str, *,
+		platform: str | None = None,
+		template: str | None = None,
+		sources: list[str] = []
+	) -> typing.Self:
+		if self._get_app_cfg_optional(name) is not None:
+			#! AppCfg - appCfgAlreadyExists
+			raise RuntimeError(f'ERROR: app entry with name: {name} already exists')
+
+		if platform is None:
+			raise RuntimeError('ERROR: platform entry required for app config')
+
+		if template is None:
+			template = 'empty_application'
+
+		app_subdir = os.path.join(self.work_dir, 'app', name)
+
+		elf = os.path.join(app_subdir, 'executable.elf')
+
+		self._app_list.append(
+			AppConfig(
+				name=name,
+				platform=platform,
+				template=template,
+				sources=resolve_globs(sources, self.base_dir),
+				dir=app_subdir,
+				elf_file=elf
+			)
+		)
+
+		return self
+
+	def _get_app_cfg_optional(self, name: str) -> AppConfig | None:
+		return next((i for i in self._app_list if i.name == name), None)
+
+	def get_app(self, name: str) -> AppConfig:
+		app = self._get_app_cfg_optional(name)
+
+		if app is None:
+			#! AppCfg - appCfgDoesNotExist
+			raise RuntimeError(f'ERROR: app does not exist for: {name}')
+
+		return app
+
 
 	def add_design_cfg(self, name: str, *,
 		sources: list[str],

@@ -35,7 +35,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 		fpga_cfg = self._cfg.get_fpga(fpga_ref)
 
 		self._set_param('general.maxThreads', str(self._cfg.get_vivado().max_threads))
-		
+
 		if self._cfg.board_repo_list:
 			self._set_param('board.repoPaths', _tcl_list(self._cfg.board_repo_list))
 
@@ -58,9 +58,6 @@ class ConfigTclCommands(ConfigTclBuilder):
 		self._proc_bd_save_tcl()
 		self._override("save_bd_design", post_call=lambda x: x._call_bd_save_tcl(bd_name, bd_state_tcl_file))
 
-	
-	# def _call__fifo_reopen(self):
-	# 	self._proc__fifo_reopen()
 
 	@ConfigTclBuilder._fn_def
 	def _proc_bd_save_tcl(self):
@@ -138,9 +135,9 @@ class ConfigTclCommands(ConfigTclBuilder):
 			x.catch(lambda c: c._open_wave_config('$_wcfg'))
 
 		self._after(300, __after_body)
-		
+
 		return self
-	
+
 	def waveform_setup(self, wdb_file: str, wcfg_file: str, top_name: str, fifo_file: str) -> typing.Self:
 		if os.path.exists(wcfg_file):
 			self.catch(lambda c: c._open_wave_config(wcfg_file))
@@ -193,10 +190,142 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 		self._fileevent('$xviv_fifo_fh', 'readable', '_fifo_handle')
 		self._puts('"xviv: FIFO ready at $xviv_fifo_path"')
-		
+
 		return self
 	
+	def _select_fpga(self):
+		self._set_exec('tlist', lambda x: x._targets())
+		self._puts('"INFO: JTAG targets:\\n$tlist"')
+
+		def __no_fpga(c: typing.Self):
+			c._puts('"No FPGA target found on JTAG.\\n  $err\\n  Is the FPGA powered and connected?"')
+			c._exit(1)
+
+		self._if('[catch {targets -set -filter {name =~ "xc*"}} err]', __no_fpga)
+
+		self._puts('"INFO: FPGA target selected"')
+		self._puts_exec(lambda x: x._targets())
+
+	def _select_mb(self):
+		self._if('[catch {targets -set -filter {name =~ "MicroBlaze #0*"}} err]',
+			lambda c: (
+				c._puts('"No MicroBlaze target found.\\n  $err\\n  Is the FPGA programmed?"'),
+				c._exit(1)
+			)
+		)
+
+		self._puts('"INFO: MicroBlaze target selected"')
+		self._puts_exec(lambda x: x._targets())
+
+	def _processor_status(self):
+		self._puts('"\\n=== JTAG Targets ==="')
+		self._puts_exec(lambda x: x._targets())
+
+		# non-fatal: catch only the filter, which is the only fallible part
+		def __no_mb(c: typing.Self):
+			c._puts('"WARN: Could not select MicroBlaze target: $err"')
+			c._disconnect()
+			c._exit(0)
+
+		self._if('[catch {targets -set -filter {name =~ "MicroBlaze #0*"}} err]', __no_mb)
+
+		self._puts('"\\n=== Processor State ==="')
+		self._if('[catch {puts [state]} err]',
+			lambda c: c._puts('"  (could not read state: $err)"'))
+
+		self._puts('"\\n=== General-Purpose Registers ==="')
+
+		def __no_regs(c: typing.Self):
+			c._puts('"  (registers unavailable - processor may be running)"')
+			c._puts('"  Hint: use \'xviv processor --reset\' to halt and inspect."')
+
+		self._if('[catch {puts [rrd]} err]', __no_regs)
+
+	def program(self, bitstream_file: str, elf_file: str | None = None) -> typing.Self:
+		self._connect()
+
+		self._select_fpga()
+		
+		if not os.path.exists(bitstream_file):
+			raise RuntimeError(f'ERROR: bistream file does not exist: {bitstream_file}')
+
+		self._fpga(bitstream_file)
+
+		if elf_file is not None:
+			if not os.path.exists(elf_file):
+				raise RuntimeError(f'ERROR: elf file does not exist: {elf_file}')
+
+			self._after(500)
+			
+			self._select_mb()
+			self._rst(processor=True)
+			self._dow(elf_file)
+			self._con()
+		
+		self._disconnect()
+
+		return self
 	
+	def processor_cntrl(self, reset: bool | None, status: bool | None) -> typing.Self:
+		self._connect()
+			
+		if reset:
+			self._select_mb()
+			
+			self._rst(processor=True)
+			self._puts('INFO: processor reset')
+			self._con()
+			self._puts('INFO: processor running')
+		
+		if status:
+			self._processor_status()
+
+		self._disconnect()
+		
+		return self
+
+	def create_platform(self, platform_name: str) -> typing.Self:
+		platform_cfg = self._cfg.get_platform(platform_name)
+
+		self._file_delete(platform_cfg.dir, force=True)
+		self._file_mkdir(platform_cfg.dir)
+
+		self._set_exec('hw', lambda _: _._hsi__open_hw_design(platform_cfg.xsa_file))
+
+		self._hsi__create_sw_design('bsp_design', proc=platform_cfg.cpu, os=platform_cfg.os)
+
+		self._hsi__set_property_hsi__get_os('CONFIG.stdout', 'mdm_1')
+		self._hsi__set_property_hsi__get_os('CONFIG.stdin', 'mdm_1')
+
+		self._hsi__generate_bsp(dir=platform_cfg.dir)
+
+		self._hsi__close_hw_design('$hw')
+
+		return self
+
+
+	def create_app(self, app_name: str) -> typing.Self:
+		app_cfg = self._cfg.get_app(app_name)
+		platform_cfg = self._cfg.get_platform(app_cfg.platform)
+
+		self._file_delete(app_cfg.dir, force=True)
+		self._file_mkdir(app_cfg.dir)
+
+		self._set_exec('hw', lambda _: _._hsi__open_hw_design(platform_cfg.xsa_file))
+
+		self._hsi__generate_app(
+			hw='$hw',
+			os=platform_cfg.os,
+			proc=platform_cfg.cpu,
+			app=app_cfg.template,
+			dir=app_cfg.dir
+		)
+
+		self._hsi__close_hw_design('$hw')
+
+		return self
+
+
 	def create_bd(self, bd_name: str, generate: bool = True) -> typing.Self:
 		bd_cfg = self._cfg.get_bd(bd_name)
 		bd_subdir = os.path.join(self._cfg.bd_dir, bd_name)
@@ -448,7 +577,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 	def edit_core(self, core_name: str, nogui: bool = False) -> typing.Self:
 		core_cfg = self._cfg.get_core(core_name)
 
-		
+
 		if not os.path.exists(core_cfg.xci_file):
 			#! EditCore - CoreNotExists
 			sys.exit(f'ERROR: Core - {core_name}: does not exist')
@@ -481,16 +610,16 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 		if bd:
 			bd_cfg = self._cfg.get_bd(synth_cfg.bd_name)
-			
+
 			assert os.path.exists(bd_cfg.bd_file)
 			assert os.path.exists(bd_cfg.bd_wrapper_file)
-			
+
 			self._read_bd(bd_cfg.bd_file)
 			self._add_files(bd_cfg.bd_wrapper_file)
-		
+
 		if design:
 			design_cfg = self._cfg.get_design(synth_cfg.design_name)
-			
+
 			for i in design_cfg.sources:
 				assert os.path.exists(i)
 
@@ -524,7 +653,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 			bitstream_file = synth_cfg.bitstream_file,
 			hw_platform_xsa_file = synth_cfg.hw_platform_xsa_file,
-			
+
 			synth_report_timing_summary_file = synth_cfg.synth_report_timing_summary_file,
 			synth_report_utilization_file = synth_cfg.synth_report_utilization_file,
 			synth_report_incremental_reuse_file = synth_cfg.synth_report_incremental_reuse_file,
@@ -534,14 +663,14 @@ class ConfigTclCommands(ConfigTclBuilder):
 			route_report_route_status_file = synth_cfg.route_report_route_status_file,
 			route_report_timing_summary_file = synth_cfg.route_report_timing_summary_file,
 			impl_report_incremental_reuse_file = synth_cfg.impl_report_incremental_reuse_file,
-			
+
 			synth_functional_netlist_file = synth_cfg.synth_functional_netlist_file,
 			synth_timing_netlist_file = synth_cfg.synth_timing_netlist_file,
 			impl_functional_netlist_file = synth_cfg.impl_functional_netlist_file,
 			impl_timing_netlist_file = synth_cfg.impl_timing_netlist_file,
-			
+
 			synth_stub_file = synth_cfg.synth_stub_file,
-			
+
 			synth_directive = synth_cfg.synth_directive,
 			synth_mode = synth_cfg.synth_mode,
 			synth_flatten_hierarchy = synth_cfg.synth_flatten_hierarchy,
@@ -550,7 +679,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 			place_directive = synth_cfg.place_directive,
 			phys_opt_directive = synth_cfg.phys_opt_directive,
 			route_directive = synth_cfg.route_directive,
-			
+
 			usr_access_value = synth_cfg.usr_access_value,
 		)
 
