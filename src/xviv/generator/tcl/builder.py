@@ -10,8 +10,6 @@ logger = logging.getLogger(__name__)
 
 
 class ConfigTclBuilder:
-
-
 	def __init__(self, cfg: XvivConfig):
 		self._cfg = cfg
 

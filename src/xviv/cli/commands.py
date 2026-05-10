@@ -9,7 +9,7 @@ from xviv.functions.all import cmd_all_create, cmd_bd_create, cmd_ip_create
 from xviv.functions.bd import cmd_bd_config, cmd_bd_edit, cmd_bd_generate, cmd_bd_synth
 from xviv.functions.core import cmd_core_create, cmd_core_edit, cmd_search_core
 from xviv.functions.ip import cmd_ip_config, cmd_ip_edit, cmd_ip_synth
-from xviv.functions.simulation import cmd_top_simulate, cmd_wdb_open, cmd_wdb_reload
+from xviv.functions.simulation import cmd_simulate, cmd_wdb_open, cmd_wdb_reload
 from xviv.functions.synthesis import cmd_dcp_open, cmd_synth_config, cmd_design_synth
 from xviv.functions.xsct import cmd_app_build, cmd_app_create, cmd_platform_build, cmd_platform_create, cmd_processor, cmd_program
 
@@ -284,7 +284,7 @@ class SimulateCommand(Command):
 
 	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
 		super().run(cfg, args)
-		cmd_top_simulate(cfg, args.top, args.run)
+		cmd_simulate(cfg, args.top, args.run)
 
 
 class SynthCommand(Command):

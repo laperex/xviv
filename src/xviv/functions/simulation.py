@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 # -----------------------------------------------------------------------------
 # simulate --top <top_name> [--run <time>]
 # -----------------------------------------------------------------------------
-def cmd_top_simulate(cfg: XvivConfig, sim_name: str, run: str = "all"):
+def cmd_simulate(cfg: XvivConfig, sim_name: str, run: str = "all"):
 	sim_cfg = cfg.get_sim(sim_name)
 
 	sim_files = []
@@ -46,11 +46,11 @@ def cmd_top_simulate(cfg: XvivConfig, sim_name: str, run: str = "all"):
 # open --wdb --top <top_name>
 # -----------------------------------------------------------------------------
 def cmd_wdb_open(cfg: XvivConfig, top_name: str, nogui: bool = False):
-	wdb_file  = f"/home/laperex/Programming/image_processing/build/sim/adder_tb/tb_top.wdb"
-	wcfg_file = f"/home/laperex/Programming/image_processing/build/sim/adder_tb/tb_top.wcfg"
-	fifo_file = f"/home/laperex/Programming/image_processing/build/sim/adder_tb/tb_top.fifo"
-
 	sim_cfg = cfg.get_sim(top_name)
+
+	wdb_file = os.path.join(sim_cfg.work_dir, f'{sim_cfg.top}.wdb')
+	wcfg_file = os.path.join(sim_cfg.work_dir, f'{sim_cfg.top}.wcfg')
+	fifo_file = os.path.join(sim_cfg.work_dir, f'{sim_cfg.top}.fifo')
 
 	config = (
 		ConfigTclCommands(cfg)
@@ -77,7 +77,9 @@ def cmd_wdb_open(cfg: XvivConfig, top_name: str, nogui: bool = False):
 # reload --wdb --top <top_name>
 # -----------------------------------------------------------------------------
 def cmd_wdb_reload(cfg: XvivConfig, top_name: str):
-	fifo_file = f"/home/laperex/Programming/image_processing/build/sim/adder_tb/tb_top.fifo"
+	sim_cfg = cfg.get_sim(top_name)
+
+	fifo_file = os.path.join(sim_cfg.work_dir, f'{sim_cfg.top}.fifo')
 
 	cmd = (
 		ConfigTclCommands(cfg)

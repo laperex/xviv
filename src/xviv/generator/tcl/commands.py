@@ -658,6 +658,9 @@ class ConfigTclCommands(ConfigTclBuilder):
 		if synth_stub_file:
 			self._write_verilog(synth_stub_file, mode='synth_stub', force=True)
 
+		if synth_mode == 'out_of_context':
+			return
+
 		# opt_design
 		if run_opt:
 			self._opt_design(directive=opt_directive)
