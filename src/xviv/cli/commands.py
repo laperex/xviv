@@ -10,6 +10,7 @@ from xviv.functions.core import cmd_core_create, cmd_core_edit, cmd_search_core
 from xviv.functions.graph import cmd_graph
 from xviv.functions.ip import cmd_ip_create, cmd_ip_edit
 from xviv.functions.simulation import cmd_simulate, cmd_wdb_open, cmd_wdb_reload
+from xviv.functions.status import cmd_status
 from xviv.functions.synthesis import cmd_dcp_open, cmd_design_synth
 from xviv.functions.xsct import cmd_app_build, cmd_app_create, cmd_platform_build, cmd_platform_create, cmd_processor, cmd_program
 
@@ -88,7 +89,7 @@ class EditCommand(Command):
 		super().register(sub)
 		c = cls.c
 		target_group(c, ip=True, bd=True, core=True)
-		
+
 		c.add_argument("--nogui", action="store_true", help="Do not edit in GUI")
 
 	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
@@ -279,3 +280,43 @@ class GraphCommand(Command):
 
 	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
 		cmd_graph(cfg, args)
+
+
+# ---------------------------------------------------------------------------
+# StatusCommand
+# ---------------------------------------------------------------------------
+
+
+class StatusCommand(Command):
+	name = "status"
+	help = "Show build state of all project entities"
+
+	@classmethod
+	def register(cls, sub: argparse._SubParsersAction) -> None:
+		super().register(sub)
+
+		_ALL_KINDS = ("fpga", "ip", "core", "bd", "design", "synth", "sim", "platform", "app")
+
+		c = cls.c
+		c.add_argument(
+			"--verbose", "-v",
+			action="store_true",
+			help="Show per-artifact breakdown and stale source details",
+		)
+		c.add_argument(
+			"--filter", "-f",
+			metavar="KIND",
+			choices=_ALL_KINDS,
+			help=(
+				"Show only this entity kind: "
+				+ " | ".join(_ALL_KINDS)
+			),
+		)
+		c.add_argument(
+			"--stale",
+			action="store_true",
+			help="Show only entities that are stale or missing",
+		)
+
+	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
+		cmd_status(cfg, args)
