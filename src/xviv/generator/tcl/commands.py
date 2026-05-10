@@ -128,9 +128,20 @@ class ConfigTclCommands(ConfigTclBuilder):
 	# ------------------------------------------------------
 	# functions
 	# ------------------------------------------------------
+	def waveform_reload(self) -> typing.Self:
+		def __after_body(x: typing.Self):
+			x._set_exec('_wcfg', lambda m: m._get_property('FILE_PATH', '[current_wave_config]'))
+			x._save_wave_config('[current_wave_config]')
+			# x._close_sim()
+			x._close_wave_config('[current_wave_config]')
+			x._open_wave_database('$xsi_sim_wdb_file')
+			x.catch(lambda c: c._open_wave_config('$_wcfg'))
+
+		self._after(300, __after_body)
+		
+		return self
 	
-	
-	def xsim_wdb(self, wdb_file: str, wcfg_file: str, top_name: str, fifo_file: str) -> typing.Self:
+	def waveform_setup(self, wdb_file: str, wcfg_file: str, top_name: str, fifo_file: str) -> typing.Self:
 		if os.path.exists(wcfg_file):
 			self.catch(lambda c: c._open_wave_config(wcfg_file))
 		else:
@@ -154,16 +165,26 @@ class ConfigTclCommands(ConfigTclBuilder):
 		self._proc('_fifo_reopen', '', __fifo_reopen)
 
 		def __fifo_handle(x: typing.Self):
-			x._global('xviv_fifo_fh')
-
 			def __on_eof(c: typing.Self):
 				c._fileevent('$xviv_fifo_fh', 'readable', '{}')
 				c._call('_fifo_reopen')
 				c._return()
+
+			x._global('xviv_fifo_fh')
+
 			x._if('[eof $xviv_fifo_fh]', __on_eof)
 
 			x._set_exec('len', lambda m: m._gets('$xviv_fifo_fh', 'cmd'))
-			x._if('$len <= 0', lambda c: c._return())
+			x._if('$len < 0', lambda c: c._return())
+
+			# accumulate lines until braces/brackets are balanced
+			def __accumulate(c: typing.Self):
+				c._set_exec('len', lambda m: m._gets('$xviv_fifo_fh', 'line'))
+				c._if('$len < 0', lambda d: d._return())
+				c._append('cmd', '"\\n"', '$line')
+
+			x._while('![info complete $cmd]', __accumulate)
+			x._if('$cmd eq ""', lambda c: c._return())
 			x._puts('"xviv: $cmd"')
 			x.catch(lambda c: c._uplevel('#0', '$cmd'), result_var='result')
 			x._puts('"xviv: -> $result"')

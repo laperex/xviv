@@ -10,7 +10,8 @@ def _ensure_fifo(path: str) -> None:
 			os.unlink(path)
 			os.mkfifo(path)
 	else:
-		os.makedirs(os.path.dirname(path), exist_ok=True)
+		if parent := os.path.dirname(path):
+			os.makedirs(parent, exist_ok=True)
 		os.mkfifo(path)
 
 

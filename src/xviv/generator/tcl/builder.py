@@ -11,9 +11,6 @@ logger = logging.getLogger(__name__)
 
 class ConfigTclBuilder:
 
-	# -------------------------------------------------------------------------
-	# Builder infrastructure
-	# -------------------------------------------------------------------------
 
 	def __init__(self, cfg: XvivConfig):
 		self._cfg = cfg
@@ -48,9 +45,6 @@ class ConfigTclBuilder:
 		self._push(f"puts \"{severity}: {text}\"")
 
 
-	# -------------------------------------------------------------------------
-	# Project management
-	# -------------------------------------------------------------------------
 
 	def _create_project(self, name: str, *,
 		part: str | None = None,
@@ -70,9 +64,6 @@ class ConfigTclBuilder:
 		self._push("close_project")
 
 
-	# -------------------------------------------------------------------------
-	# GUI
-	# -------------------------------------------------------------------------
 
 	def _start_gui(self):
 		self._push("start_gui")
@@ -87,9 +78,6 @@ class ConfigTclBuilder:
 		self._push(f"start_ip_gui {' '.join(params)}")
 
 
-	# -------------------------------------------------------------------------
-	# Block design (BD)
-	# -------------------------------------------------------------------------
 
 	def _create_bd_design(self, name: str, *,
 		dir: str
@@ -136,9 +124,33 @@ class ConfigTclBuilder:
 		])
 		self._push(f'get_bd_cells {" ".join(params)}')
 
-	# -------------------------------------------------------------------------
-	# IP / core management
-	# -------------------------------------------------------------------------
+	def _after(self, ms: int, body_func = None):
+		child = type(self)(self._cfg).__inherit(self)
+		body_func(child)
+		self._push(f'after {ms} {{\n{child.build()}}}')
+
+	def _current_wave_config(self):
+		self._push('current_wave_config')
+
+	def _close_wave_config(self, config: str):
+		self._push(f'close_wave_config {config}')
+	
+	def _close_sim(self):
+		self._push('close_sim')
+
+	def _open_wave_database(self, file: str):
+		self._push(f'open_wave_database {file}')
+
+	def _while(self, test_expr: str, body_func):
+		child = type(self)(self._cfg).__inherit(self)
+		body_func(child)
+		self._push(f'while {{{test_expr}}} {{\n{child.build()}}}')
+
+	def _append(self, var: str, *args: str):
+		self._push(f'append {var} {" ".join(args)}')
+
+	def _info_complete(self, script: str):
+		self._push(f'info complete {script}')
 
 	def _create_core(self, name: str, *,
 		dir: str,
@@ -200,9 +212,6 @@ class ConfigTclBuilder:
 		self._push(f"generate_target {target} {' '.join(params)} [get_files \"{file}\"]")
 
 
-	# -------------------------------------------------------------------------
-	# Peripheral
-	# -------------------------------------------------------------------------
 
 	def _create_peripheral(self, *,
 		vendor: str,
@@ -258,9 +267,6 @@ class ConfigTclBuilder:
 		self._push(f"write_peripheral {context}")
 
 
-	# -------------------------------------------------------------------------
-	# ipgui
-	# -------------------------------------------------------------------------
 
 	def _ipgui__add_param(self, *,
 		name: str,
@@ -289,9 +295,6 @@ class ConfigTclBuilder:
 		self._push(f"ipgui::get_pagespec {' '.join(params)}")
 
 
-	# -------------------------------------------------------------------------
-	# ipx
-	# -------------------------------------------------------------------------
 
 	def _ipx__edit_ip_in_project(self, component_xml_file: str,
 		upgrade: bool,
@@ -410,9 +413,6 @@ class ConfigTclBuilder:
 		self._ipx__save_core('[ipx::current_core]')
 
 
-	# -------------------------------------------------------------------------
-	# File set / source management
-	# -------------------------------------------------------------------------
 
 	def _source(self, filename: str):
 		self._push(f"source \"{filename}\"")
@@ -443,9 +443,6 @@ class ConfigTclBuilder:
 		self._push(f"remove_files \"{file}\"")
 
 
-	# -------------------------------------------------------------------------
-	# Properties & parameters
-	# -------------------------------------------------------------------------
 
 	def _set_param(self, name: str, val: str):
 		self._push(f'set_param {name} {val}')
@@ -484,9 +481,6 @@ class ConfigTclBuilder:
 		self._get_property(name, "[current_fileset]")
 
 
-	# -------------------------------------------------------------------------
-	# Design flow  (synth → opt → place → phys_opt → route)
-	# -------------------------------------------------------------------------
 
 	def _synth_design(self, top: str, *,
 		prefix: str = 'synth',
@@ -538,9 +532,6 @@ class ConfigTclBuilder:
 		self._push(f"route_design {' '.join(params)}")
 
 
-	# -------------------------------------------------------------------------
-	# Reports
-	# -------------------------------------------------------------------------
 
 	def _report(self, report_type: str, *,
 		file: str,
@@ -562,9 +553,6 @@ class ConfigTclBuilder:
 		self._push(f"report_{report_type} {' '.join(params)}")
 
 
-	# -------------------------------------------------------------------------
-	# Checkpoints
-	# -------------------------------------------------------------------------
 
 	def _write_checkpoint(self, file: str, *,
 		force: bool = False
@@ -590,9 +578,6 @@ class ConfigTclBuilder:
 		self._push(f"open_checkpoint \"{file}\"")
 
 
-	# -------------------------------------------------------------------------
-	# Output artefacts  (verilog, bitstream, hw_platform)
-	# -------------------------------------------------------------------------
 
 	def _write_verilog(self, file: str, *,
 		mode: str,
@@ -636,9 +621,6 @@ class ConfigTclBuilder:
 		self._push(f"write_hw_platform {' '.join(params)} \"{file}\"")
 
 
-	# -------------------------------------------------------------------------
-	# Wave / simulation
-	# -------------------------------------------------------------------------
 
 	def _open_wave_config(self, file: str):
 		self._push(f"open_wave_config \"{file}\"")
@@ -650,9 +632,6 @@ class ConfigTclBuilder:
 		self._push(f"add_wave {module}")
 
 
-	# -------------------------------------------------------------------------
-	# Filesystem helpers
-	# -------------------------------------------------------------------------
 
 	def _file_delete(self, path: str, *,
 		force: bool = False
@@ -679,9 +658,6 @@ class ConfigTclBuilder:
 		self._push(f"file normalize \"{path}\"")
 
 
-	# -------------------------------------------------------------------------
-	# TCL control flow
-	# -------------------------------------------------------------------------
 
 	def _set(self, name: str, value: str):
 		self._push(f"set {name} {value}")
@@ -750,9 +726,6 @@ class ConfigTclBuilder:
 	def _return(self):
 		self._push('return')
 
-	# -------------------------------------------------------------------------
-	# TCL I/O
-	# -------------------------------------------------------------------------
 
 	def _open(self, path: str, mode: str):
 		self._push(f'open {path} {mode}')
@@ -809,9 +782,6 @@ class ConfigTclBuilder:
 		self._push(f'string range {s} {start} {end}')
 
 
-	# -------------------------------------------------------------------------
-	# Decorator helpers
-	# -------------------------------------------------------------------------
 
 	@staticmethod
 	def _fn_def(fn):
