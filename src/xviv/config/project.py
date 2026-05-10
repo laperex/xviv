@@ -58,10 +58,13 @@ class XvivConfig:
 		self._vitis_cfg: VitisConfig | None = None
 
 		self._catalog_cfg: Catalog | None = None
-
+	
 	def build(self) -> typing.Self:
 		os.makedirs(self.work_dir, exist_ok=True)
 
+		return self
+
+	def build_wrappers(self) -> typing.Self:
 		for wrapper_cfg in self._wrapper_list:
 			ip_cfg = self.get_ip(wrapper_cfg.ip_name)
 
@@ -180,7 +183,7 @@ class XvivConfig:
 				self.ip_repo_list.append(repo)
 
 		if top is None:
-			logger.warning(f'Top unspecified for ip_cfg: {name} - defaulting to {name}')
+			logger.debug(f'Top unspecified for ip_cfg: {name} - defaulting to {name}')
 			top = name
 
 		self._ip_list.append(
@@ -266,7 +269,7 @@ class XvivConfig:
 		bd_core_list: list[SubCoreConfig] = []
 
 		if os.path.exists(bd_file):
-			logger.info(f'Loading sub core info from - {bd_file}')
+			logger.debug(f'Loading sub core info from - {bd_file}')
 			bd_core_list = get_bd_core_list(bd_file)
 
 		if bd_wrapper_file is None:
@@ -308,7 +311,7 @@ class XvivConfig:
 		prev_vlnv = vlnv
 		vlnv = self._resolve_vlnv(vlnv)
 		if prev_vlnv != vlnv:
-			logger.warning(f'For Core entry with name: {name} - vlnv resolved to: {vlnv}')
+			logger.debug(f'For Core entry with name: {name} - vlnv resolved to: {vlnv}')
 
 		self._core_list.append(
 			CoreConfig(

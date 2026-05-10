@@ -13,6 +13,8 @@ from xviv.tools import vivado
 def cmd_ip_create(cfg: XvivConfig, *,
 	ip_name: str | None = None
 ):
+	cfg = cfg.build_wrappers()
+
 	config = (
 		ConfigTclCommands(cfg)
 		.create_ip(ip_name)

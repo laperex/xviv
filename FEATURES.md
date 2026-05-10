@@ -1,11 +1,5 @@
-- find use for export_bd - [removed export_bd]
-
-- cli prompt to make user enter vivado & vitis path for env var. is env var is not set or is incompatible. 
-
 - core
 	- use in synth
-
-- overhaul synth
 
 - synth add debug marking
 
@@ -75,3 +69,147 @@
 		_original_exit {*}$args
 	}
 	```
+
+
+
+def cmd_status(cfg: XvivConfig) -> None:
+    rows = []
+
+    for synth in cfg._synth_list:
+        name = synth.design_name or synth.bd_name
+        bit  = synth.bitstream_file
+        rows.append((
+            'synth', name,
+            '✓' if bit and os.path.exists(bit) else '✗',
+            _mtime_str(bit)
+        ))
+
+    for sim in cfg._sim_list:
+        wdb = os.path.join(sim.work_dir, f'{sim.top}.wdb')
+        rows.append((
+            'sim', sim.name,
+            '✓' if os.path.exists(wdb) else '?',
+            _mtime_str(wdb)
+        ))
+
+    # Print as aligned table
+    for kind, name, status, mtime in rows:
+        print(f'{status}  {kind:8s}  {name:30s}  {mtime}')
+
+def cmd_lint(cfg: XvivConfig, *, design_name: str) -> None:
+    design_cfg = cfg.get_design(design_name)
+
+    ys_script = '\n'.join([
+        *[f'read_verilog -sv {s}' for s in design_cfg.sources],
+        f'hierarchy -check -top {design_cfg.top}',
+        'proc',
+        'opt_clean',
+        'check',   # reports multi-driven signals, unconnected ports, etc.
+    ])
+
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.ys', delete=False) as f:
+        f.write(ys_script)
+        ys_path = f.name
+
+    subprocess.run(['yosys', '-s', ys_path], check=True)
+
+def cmd_estimate(cfg: XvivConfig, *, design_name: str) -> None:
+    design_cfg = cfg.get_design(design_name)
+
+    ys_script = '\n'.join([
+        *[f'read_verilog -sv {s}' for s in design_cfg.sources],
+        f'hierarchy -top {design_cfg.top}',
+        'proc; opt; techmap',
+        'stat',    # prints LUT/FF/memory estimates
+    ])
+    ...
+
+def cmd_validate(cfg: XvivConfig) -> None:
+    errors = []
+
+    # Check all source files exist
+    for design in cfg._design_list:
+        for src in design.sources:
+            if not os.path.exists(src):
+                errors.append(f'[design/{design.name}] source missing: {src}')
+
+    # Check formal targets reference valid designs
+    for formal in cfg._formal_list:
+        if formal.design_ref and cfg._get_design_cfg_optional(formal.design_ref) is None:
+            errors.append(f'[formal/{formal.name}] design ref not found: {formal.design_ref}')
+
+    # Check synth constraints exist
+    for synth in cfg._synth_list:
+        for c in synth.constraints:
+            if not os.path.exists(c):
+                errors.append(f'[synth/{synth.top}] constraint missing: {c}')
+
+    if errors:
+        for e in errors:
+            print(f'ERROR: {e}')
+        raise SystemExit(1)
+
+    print(f'OK: {len(cfg._design_list)} designs, '
+          f'{len(cfg._formal_list)} formal targets, '
+          f'{len(cfg._synth_list)} synth runs — all valid')
+
+def cmd_clean(cfg: XvivConfig, *, target: str | None, all: bool) -> None:
+    import shutil
+
+    if all:
+        shutil.rmtree(cfg.work_dir, ignore_errors=True)
+        print(f'Removed: {cfg.work_dir}')
+        return
+
+    if target:
+        # Clean just one target's output
+        for formal in cfg._formal_list:
+            if formal.name == target:
+                shutil.rmtree(formal.work_dir, ignore_errors=True)
+                return
+        for synth in cfg._synth_list:
+            name = synth.design_name or synth.bd_name
+            if name == target:
+                shutil.rmtree(os.path.join(cfg.synth_dir, name), ignore_errors=True)
+                return
+
+def cmd_formal_coverage(cfg, *, formal_name: str) -> None:
+    formal_cfg = cfg.get_formal(formal_name)
+    cover_dir  = os.path.join(formal_cfg.work_dir, 'engine_0')
+
+    # sby writes one trace per cover point
+    traces = glob.glob(os.path.join(cover_dir, 'trace*.vcd'))
+
+    print(f'\n=== Cover Results: {formal_name} ===')
+    print(f'  Reachable cover points: {len(traces)}')
+    for t in traces:
+        print(f'  ✓ {os.path.basename(t)}')
+
+    # Check for unreachable (sby logs these as FAILED COVER)
+    log = os.path.join(formal_cfg.work_dir, 'logfile.txt')
+    if os.path.exists(log):
+        with open(log) as f:
+            for line in f:
+                if 'FAILED' in line and 'cover' in line.lower():
+                    print(f'  ✗ {line.strip()}')
+
+def cmd_formal_run_all(cfg: XvivConfig) -> None:
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    targets  = cfg._formal_list
+    status   = {f.name: 'RUNNING' for f in targets}
+
+    def _run(formal_cfg):
+        try:
+            _run_formal(cfg, formal_cfg)
+            status[formal_cfg.name] = 'PASS'
+        except SystemExit:
+            status[formal_cfg.name] = 'FAIL'
+
+    with ThreadPoolExecutor(max_workers=len(targets)) as pool:
+        futures = {pool.submit(_run, f): f for f in targets}
+
+        for fut in as_completed(futures):
+            formal_cfg = futures[fut]
+            icon = '✓' if status[formal_cfg.name] == 'PASS' else '✗'
+            print(f'\r{icon} {formal_cfg.name:30s} {status[formal_cfg.name]}')

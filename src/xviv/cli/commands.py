@@ -7,6 +7,7 @@ from xviv.cli.completers import arg, target_group, c_ip, c_bd, c_app, c_platform
 from xviv.config.project import XvivConfig
 from xviv.functions.bd import cmd_bd_create, cmd_bd_edit, cmd_bd_generate, cmd_bd_synth
 from xviv.functions.core import cmd_core_create, cmd_core_edit, cmd_search_core
+from xviv.functions.graph import cmd_graph
 from xviv.functions.ip import cmd_ip_create, cmd_ip_edit
 from xviv.functions.simulation import cmd_simulate, cmd_wdb_open, cmd_wdb_reload
 from xviv.functions.synthesis import cmd_dcp_open, cmd_design_synth
@@ -248,3 +249,33 @@ class SynthCommand(Command):
 			cmd_bd_synth(cfg, bd_name=args.bd)
 		elif args.design:
 			cmd_design_synth(cfg, design_name=args.design)
+
+
+# ---------------------------------------------------------------------------
+# GraphCommand
+# ---------------------------------------------------------------------------
+
+class GraphCommand(Command):
+	name = "graph"
+	help = "Print a tree of all project entities and their relationships"
+
+	@classmethod
+	def register(cls, sub: argparse._SubParsersAction) -> None:
+		super().register(sub)
+		c = cls.c
+		c.add_argument(
+			"--filter", "-f",
+			metavar="KIND",
+			help=(
+				"Show only this entity kind: "
+				"fpga | ip | core | bd | design | synth | sim | platform | app"
+			),
+		)
+		c.add_argument(
+			"--no-deps",
+			action="store_true",
+			help="Omit the dependency-chain summary at the bottom",
+		)
+
+	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
+		cmd_graph(cfg, args)
