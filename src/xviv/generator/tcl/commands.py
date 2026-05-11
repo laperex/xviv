@@ -17,6 +17,10 @@ class ConfigTclCommands(ConfigTclBuilder):
 		self.__current_project_name: str | None = None
 
 
+	# ------------------------------------------------------
+	# Project
+	# ------------------------------------------------------
+
 	def _require_project(self, *,
 		fpga_ref: str | None = None,
 		exists_ok = False
@@ -50,77 +54,9 @@ class ConfigTclCommands(ConfigTclBuilder):
 		return True
 
 
-	@ConfigTclBuilder._fn_def
-	def _override_save_bd_design(self, bd_name: str, bd_state_tcl_file: str):
-		if not bd_state_tcl_file:
-			raise RuntimeError("ERROR: bd_state_tcl_file is required")
-
-		self._proc_bd_save_tcl()
-		self._override("save_bd_design", post_call=lambda x: x._call_bd_save_tcl(bd_name, bd_state_tcl_file))
-
-
-	@ConfigTclBuilder._fn_def
-	def _proc_bd_save_tcl(self):
-		def __bd_save_tcl(x: typing.Self):
-			x._set_exec('path_dirname', lambda _: _._file_dirname('$path'))
-			x._file_mkdir('$path_dirname')
-
-			x._write_bd_tcl('$path', force=True, no_project_wrapper=True)
-
-			x._set_exec('f', lambda m: m._open('$path', 'r'))
-			x._set_exec('data', lambda m: m._read_file('$f'))
-			x._close('$f')
-
-			x._set_exec('start', lambda m: m._string_first('"set bCheckIPsPassed"', '$data'))
-			x._set_exec('end', lambda m: m._string_first('"save_bd_design"',      '$data'))
-
-			x._if('$start == -1 || $end == -1', lambda c: c._error('"Could not find expected markers in state BD TCL"'))
-
-			x._set_exec('f', lambda m: m._open('$path', 'w'))
-			x._puts_exec(lambda m: m._join('$prefix', '"\\n"'), channel='$f')
-			x._puts('""', channel='$f')
-			x._puts_exec(lambda m: m._string_range('$data', '$start', '[expr {$end - 1}]'), channel='$f')
-			x._close('$f')
-
-		self._proc("bd_save_tcl", "path prefix", __bd_save_tcl)
-
-
-	def _call_bd_save_tcl(self, bd_name, bd_state_tcl_file: str):
-		self._proc_bd_save_tcl()
-
-		self._call('bd_save_tcl', [
-			f'"{bd_state_tcl_file}"', rf'"#{bd_name}\n\n"'
-		])
-
-
 	# ------------------------------------------------------
-	# BD Functions
+	# DCP
 	# ------------------------------------------------------
-
-	def _bd_refresh_addresses(self):
-		self._delete_bd_objs('[get_bd_addr_segs]', '[get_bd_addr_segs -excluded]')
-		self._assign_bd_address()
-
-	def _bd_upgrade_ip_cells(self):
-		self._set_exec('stale_cells', lambda x: x._get_bd_cells(hierarchical=True, filter='{TYPE == ip}'))
-
-		def __if_stale(x: typing.Self):
-			x._if('[catch {upgrade_ip $stale_cells} err]', lambda c: c._puts('"IP upgrade failed during generate_bd: $err"'))
-
-		self._if('[llength $stale_cells] > 0', __if_stale)
-
-	def _write_sim_fileset(self, core_name: str, filename: str):
-		self._set_exec('fd', lambda x: x._open(f'"{filename}"', 'w'))
-
-		self._foreach('f',
-			iter_lambda=lambda x: x._get_files(
-				of_objects=f'[get_ips {core_name}]',
-				filter='{USED_IN =~ "*simulation*"}'
-			),
-			body_func=lambda x: x._puts_exec(lambda m: m._file_normalize('$f'), channel='$fd')
-		)
-
-		self._close('$fd')
 
 	def open_dcp(self, dcp_file: str | None, nogui=False) -> typing.Self:
 		assert_file_exists(dcp_file)
@@ -134,9 +70,11 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 		return self
 
+
 	# ------------------------------------------------------
-	# functions
+	# Waveform / Simulation
 	# ------------------------------------------------------
+
 	def waveform_reload(self) -> typing.Self:
 		def __after_body(x: typing.Self):
 			x._set_exec('_wcfg', lambda m: m._get_property('FILE_PATH', '[current_wave_config]'))
@@ -204,6 +142,11 @@ class ConfigTclCommands(ConfigTclBuilder):
 		self._puts('"xviv: FIFO ready at $xviv_fifo_path"')
 
 		return self
+
+
+	# ------------------------------------------------------
+	# JTAG / Hardware
+	# ------------------------------------------------------
 
 	def _select_fpga(self):
 		self._set_exec('tlist', lambda x: x._targets())
@@ -296,6 +239,11 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 		return self
 
+
+	# ------------------------------------------------------
+	# Platform / App
+	# ------------------------------------------------------
+
 	def create_platform(self, platform_name: str) -> typing.Self:
 		platform_cfg = self._cfg.get_platform(platform_name)
 
@@ -341,6 +289,77 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 		return self
 
+
+	# ------------------------------------------------------
+	# Block Design (BD)
+	# ------------------------------------------------------
+
+	@ConfigTclBuilder._fn_def
+	def _override_save_bd_design(self, bd_name: str, bd_state_tcl_file: str):
+		if not bd_state_tcl_file:
+			raise RuntimeError("ERROR: bd_state_tcl_file is required")
+
+		self._proc_bd_save_tcl()
+		self._override("save_bd_design", post_call=lambda x: x._call_bd_save_tcl(bd_name, bd_state_tcl_file))
+
+
+	@ConfigTclBuilder._fn_def
+	def _proc_bd_save_tcl(self):
+		def __bd_save_tcl(x: typing.Self):
+			x._set_exec('path_dirname', lambda _: _._file_dirname('$path'))
+			x._file_mkdir('$path_dirname')
+
+			x._write_bd_tcl('$path', force=True, no_project_wrapper=True)
+
+			x._set_exec('f', lambda m: m._open('$path', 'r'))
+			x._set_exec('data', lambda m: m._read_file('$f'))
+			x._close('$f')
+
+			x._set_exec('start', lambda m: m._string_first('"set bCheckIPsPassed"', '$data'))
+			x._set_exec('end', lambda m: m._string_first('"save_bd_design"',      '$data'))
+
+			x._if('$start == -1 || $end == -1', lambda c: c._error('"Could not find expected markers in state BD TCL"'))
+
+			x._set_exec('f', lambda m: m._open('$path', 'w'))
+			x._puts_exec(lambda m: m._join('$prefix', '"\\n"'), channel='$f')
+			x._puts('""', channel='$f')
+			x._puts_exec(lambda m: m._string_range('$data', '$start', '[expr {$end - 1}]'), channel='$f')
+			x._close('$f')
+
+		self._proc("bd_save_tcl", "path prefix", __bd_save_tcl)
+
+
+	def _call_bd_save_tcl(self, bd_name, bd_state_tcl_file: str):
+		self._proc_bd_save_tcl()
+
+		self._call('bd_save_tcl', [
+			f'"{bd_state_tcl_file}"', rf'"#{bd_name}\n\n"'
+		])
+
+	def _bd_refresh_addresses(self):
+		self._delete_bd_objs('[get_bd_addr_segs]', '[get_bd_addr_segs -excluded]')
+		self._assign_bd_address()
+
+	def _bd_upgrade_ip_cells(self):
+		self._set_exec('stale_cells', lambda x: x._get_bd_cells(hierarchical=True, filter='{TYPE == ip}'))
+
+		def __if_stale(x: typing.Self):
+			x._if('[catch {upgrade_ip $stale_cells} err]', lambda c: c._puts('"IP upgrade failed during generate_bd: $err"'))
+
+		self._if('[llength $stale_cells] > 0', __if_stale)
+
+	def _write_sim_fileset(self, core_name: str, filename: str):
+		self._set_exec('fd', lambda x: x._open(f'"{filename}"', 'w'))
+
+		self._foreach('f',
+			iter_lambda=lambda x: x._get_files(
+				of_objects=f'[get_ips {core_name}]',
+				filter='{USED_IN =~ "*simulation*"}'
+			),
+			body_func=lambda x: x._puts_exec(lambda m: m._file_normalize('$f'), channel='$fd')
+		)
+
+		self._close('$fd')
 
 	def create_bd(self, bd_name: str, generate: bool = True) -> typing.Self:
 		bd_cfg = self._cfg.get_bd(bd_name)
@@ -419,34 +438,9 @@ class ConfigTclCommands(ConfigTclBuilder):
 		return self
 
 
-	def edit_ip(self, ip_name: str, nogui = False) -> typing.Self:
-		ip_cfg = self._cfg.get_ip(ip_name)
-
-		ip_vid = f'{ip_cfg.name}_{ip_cfg.version}'.replace('.', '_')
-		ip_dir = os.path.join(ip_cfg.repo, ip_vid)
-		ip_component_xml_file = os.path.join(ip_dir, 'component.xml')
-
-		ip_edit_project_dir = os.path.join("/dev/shm/build", ip_vid)
-		ip_edit_project_name = f'edit_{ip_vid}'
-
-		assert_file_exists(ip_component_xml_file)
-
-		# tcl begin
-
-		self._require_project(fpga_ref=ip_cfg.fpga_ref)
-
-		if not nogui:
-			self._start_gui()
-
-		self._ipx__edit_ip_in_project(
-			ip_component_xml_file, directory=ip_edit_project_dir, name=ip_edit_project_name, upgrade=True
-		)
-		self._current_project(self.__current_project_name)
-		self._close_project()
-		self._current_project(ip_edit_project_name)
-
-		return self
-
+	# ------------------------------------------------------
+	# IP
+	# ------------------------------------------------------
 
 	def create_ip(self, ip_name: str) -> typing.Self:
 		ip_cfg = self._cfg.get_ip(ip_name)
@@ -576,6 +570,39 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 		return self
 
+	def edit_ip(self, ip_name: str, nogui = False) -> typing.Self:
+		ip_cfg = self._cfg.get_ip(ip_name)
+
+		ip_vid = f'{ip_cfg.name}_{ip_cfg.version}'.replace('.', '_')
+		ip_dir = os.path.join(ip_cfg.repo, ip_vid)
+		ip_component_xml_file = os.path.join(ip_dir, 'component.xml')
+
+		ip_edit_project_dir = os.path.join("/dev/shm/build", ip_vid)
+		ip_edit_project_name = f'edit_{ip_vid}'
+
+		assert_file_exists(ip_component_xml_file)
+
+		# tcl begin
+
+		self._require_project(fpga_ref=ip_cfg.fpga_ref)
+
+		if not nogui:
+			self._start_gui()
+
+		self._ipx__edit_ip_in_project(
+			ip_component_xml_file, directory=ip_edit_project_dir, name=ip_edit_project_name, upgrade=True
+		)
+		self._current_project(self.__current_project_name)
+		self._close_project()
+		self._current_project(ip_edit_project_name)
+
+		return self
+
+
+	# ------------------------------------------------------
+	# Core
+	# ------------------------------------------------------
+
 	def create_core(self, core_name: str) -> typing.Self:
 		core_cfg = self._cfg.get_core(core_name)
 
@@ -608,6 +635,11 @@ class ConfigTclCommands(ConfigTclBuilder):
 			self._generate_target_get_files(core_cfg.xci_file, reset=False)
 
 		return self
+
+
+	# ------------------------------------------------------
+	# Synthesis
+	# ------------------------------------------------------
 
 	def synth(self, *,
 		bd: str | None = None,
@@ -901,4 +933,3 @@ class ConfigTclCommands(ConfigTclBuilder):
 		# hw_platform
 		if hw_platform_xsa_file:
 			self._write_hw_platform(hw_platform_xsa_file, force=True, include_bit=True, fixed=True)
-
