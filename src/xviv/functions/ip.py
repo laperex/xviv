@@ -5,6 +5,7 @@ from xviv.config.project import XvivConfig
 from xviv.generator.tcl.commands import ConfigTclCommands
 from xviv.generator.wrapper import SystemVerilogWrapper
 from xviv.tools import vivado
+from xviv.utils.parallel import run_parallel
 
 
 # -----------------------------------------------------------------------------
@@ -22,6 +23,19 @@ def cmd_ip_create(cfg: XvivConfig, *,
 	)
 
 	vivado.run_vivado(cfg, config_tcl=config)
+	
+	ip_cfg = cfg.get_ip(ip_name)
+
+	run_parallel([
+		(
+			lambda i=i: vivado.run_vivado(cfg, config_tcl=(
+				ConfigTclCommands(cfg)
+				.generate_core(core_name=i.name)
+				.build()
+			), label=ip_name),
+			i.name,
+		) for i in cfg._core_list if i.vlnv == ip_cfg.vlnv
+	])
 
 
 # -----------------------------------------------------------------------------
