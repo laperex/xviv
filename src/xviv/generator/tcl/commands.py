@@ -299,6 +299,8 @@ class ConfigTclCommands(ConfigTclBuilder):
 	def create_platform(self, platform_name: str) -> typing.Self:
 		platform_cfg = self._cfg.get_platform(platform_name)
 
+		assert_file_exists(platform_cfg.xsa_file)
+
 		self._file_delete(platform_cfg.dir, force=True)
 		self._file_mkdir(platform_cfg.dir)
 
@@ -319,6 +321,8 @@ class ConfigTclCommands(ConfigTclBuilder):
 	def create_app(self, app_name: str) -> typing.Self:
 		app_cfg = self._cfg.get_app(app_name)
 		platform_cfg = self._cfg.get_platform(app_cfg.platform)
+		
+		assert_file_exists(platform_cfg.xsa_file)
 
 		self._file_delete(app_cfg.dir, force=True)
 		self._file_mkdir(app_cfg.dir)
