@@ -80,8 +80,6 @@ class BdConfig:
 	bd_file:         str
 	bd_wrapper_file: str
 
-	# core_list: list[SubCoreConfig]
-
 
 @dataclasses.dataclass
 class SynthConfig:

@@ -2,6 +2,7 @@ from xviv.config.project import XvivConfig
 from xviv.tools import vivado
 from xviv.utils.git import _git_sha_tag
 from xviv.generator.tcl.commands import ConfigTclCommands
+from xviv.utils.parallel import run_parallel
 
 
 # -----------------------------------------------------------------------------
@@ -15,14 +16,16 @@ def cmd_synth(cfg: XvivConfig, *,
 	synth_cfg = cfg.get_synth(bd_name=bd_name, design_name=design_name, core_name=core_name)
 
 	if synth_cfg.out_of_context_subcores:
-		for i in cfg.get_subcore_list(bd_name=bd_name, design_name=design_name):
-			config = (
-				ConfigTclCommands(cfg)
-				.synth(core=i.core)
-				.build()
-			)
-
-			vivado.run_vivado(cfg, config_tcl=config, label=bd_name)
+		run_parallel([
+			(
+				lambda i=i: vivado.run_vivado(cfg, config_tcl=(
+					ConfigTclCommands(cfg)
+					.synth(core=i.core)
+					.build()
+				), label=bd_name),
+				i.core,
+			) for i in cfg.get_subcore_list(bd_name=bd_name, design_name=design_name)
+		])
 
 	config = (
 		ConfigTclCommands(cfg)

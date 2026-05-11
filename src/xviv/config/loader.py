@@ -53,6 +53,7 @@ def load_config(path: str) -> XvivConfig:
         ('synth',      cfg.add_synth_cfg),
         ('platform',   cfg.add_platform_cfg),
         ('app',        cfg.add_app_cfg),
+        ('subcore',    cfg.add_subcore_cfg),
     ]:
         for entry in data.get(section, []):
             method(**entry)

@@ -276,7 +276,7 @@ class XvivConfig:
 					fpga=fpga
 				)
 
-				self.add_subcore(
+				self.add_subcore_cfg(
 					bd=name,
 					inst_hier_path=inst_hier_path,
 					core=xci_name
@@ -304,7 +304,7 @@ class XvivConfig:
 		return self
 
 
-	def add_subcore(self, *,
+	def add_subcore_cfg(self, *,
 		design: str | None = None,
 		bd: str | None = None,
 
@@ -406,10 +406,10 @@ class XvivConfig:
 		run_place: bool = True,
 		run_route: bool = True,
 
-		synth_incremental: bool = False,
-		run_opt: bool = False,
-		impl_incremental: bool = False,
-		run_phys_opt: bool = False,
+		synth_incremental: bool = True,
+		run_opt: bool = True,
+		impl_incremental: bool = True,
+		run_phys_opt: bool = True,
 
 		synth_dcp: bool | str | None = True,
 		place_dcp: bool | str | None = True,
@@ -665,8 +665,6 @@ class XvivConfig:
 			bitstream = synth_cfg.bitstream_file
 
 		import os as _os
-		if not _os.path.exists(xsa):
-			raise RuntimeError(f'ERROR: xsa file not found: {xsa}')
 
 		platform_subdir = _os.path.join(self.work_dir, 'platform', name)
 

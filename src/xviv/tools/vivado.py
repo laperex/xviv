@@ -184,11 +184,14 @@ def run_vivado(
 			text=True,
 			bufsize=1,
 		) as proc:
-			assert proc.stdout
+			if proc.stdout is None:
+				raise RuntimeError("stdout pipe unexpectedly None")
+
 			for line in proc.stdout:
 				stripped = line.rstrip()
 				job_log.info(stripped)
 				log_file.write(line)
+				log_file.flush()
 			proc.wait()
 
 		if proc.returncode != 0:
