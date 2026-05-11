@@ -685,6 +685,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 			synth_cfg.synth_timing_netlist_file,
 			synth_cfg.impl_functional_netlist_file,
 			synth_cfg.impl_timing_netlist_file,
+			synth_cfg.impl_timing_sdf_file,
 			synth_cfg.synth_stub_file,
 		])]
 
@@ -785,6 +786,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 			synth_timing_netlist_file = synth_cfg.synth_timing_netlist_file,
 			impl_functional_netlist_file = synth_cfg.impl_functional_netlist_file,
 			impl_timing_netlist_file = synth_cfg.impl_timing_netlist_file,
+			impl_timing_sdf_file = synth_cfg.impl_timing_sdf_file,
 
 			synth_stub_file = synth_cfg.synth_stub_file,
 
@@ -857,7 +859,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 		impl_functional_netlist_file: str | None = None,
 		impl_timing_netlist_file: str | None = None,
-
+		impl_timing_sdf_file: str | None = None,
 
 		usr_access_value: int | None = None,
 
@@ -955,7 +957,8 @@ class ConfigTclCommands(ConfigTclBuilder):
 			self._write_verilog(impl_functional_netlist_file, mode='funcsim', force=True)
 		if impl_timing_netlist_file:
 			self._write_verilog(impl_timing_netlist_file, mode='timesim', force=True, sdf_anno=True)
-
+		if impl_timing_sdf_file:
+			self._write_sdf(impl_timing_sdf_file, mode='timesim', force=True)
 
 		# set usr_access_value
 		if usr_access_value:

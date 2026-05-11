@@ -13,24 +13,59 @@ logger = logging.getLogger(__name__)
 # -----------------------------------------------------------------------------
 # simulate --top <top_name> [--run <time>]
 # -----------------------------------------------------------------------------
-def cmd_simulate(cfg: XvivConfig, *, sim_name: str, run: str | None):
+def cmd_simulate(cfg: XvivConfig, *,
+	sim_name: str,
+	run: str | None,
+
+	mode: str = 'default'
+):
 	sim_cfg = cfg.get_sim(sim_name)
 
 	if run is None:
 		run = 'all'
 
-	sim_files = []
-	if sim_cfg.design:
-		design_cfg = cfg.get_design(sim_cfg.design)
+	sim_files: list[str] = []
+	sdfmax_entries: list[str] = []
 
-		sim_files += design_cfg.sources
+	if sim_cfg.design:
+		if mode == 'default':
+			design_cfg = cfg.get_design(sim_cfg.design)
+
+			sim_files += design_cfg.sources
+		else:
+			synth_cfg = cfg.get_synth(design_name=sim_cfg.design)
+
+			match mode:
+				case 'post_synth_functional':
+					assert_file_exists(synth_cfg.synth_functional_netlist_file)
+					sim_files.append(synth_cfg.synth_functional_netlist_file)
+				
+				case 'post_synth_timing':
+					assert_file_exists(synth_cfg.synth_timing_netlist_file)
+					sim_files.append(synth_cfg.synth_timing_netlist_file)
+				
+				case 'post_impl_functional':
+					assert_file_exists(synth_cfg.impl_functional_netlist_file)
+					sim_files.append(synth_cfg.impl_functional_netlist_file)
+				
+				case 'post_impl_timing':
+					assert_file_exists(synth_cfg.impl_timing_sdf_file)
+					
+					for s in sim_cfg.sdfmax:
+						sdfmax_entries.append(f'{s}={synth_cfg.impl_timing_sdf_file}')
+					
+					assert_file_exists(synth_cfg.impl_timing_netlist_file)
+					sim_files.append(synth_cfg.impl_timing_netlist_file)
+				
+				case _:
+					raise RuntimeError(f'ERROR: Unknown simulation mode: {mode}')
 
 	sim_files += sim_cfg.sources
 
 	if sim_cfg.backend == 'xsim':
 		xsim_lib  = "xv_work"
 		vivado.run_vivado_xvlog(cfg, sim_cfg.work_dir, sim_files, xsim_lib=xsim_lib)
-		vivado.run_vivado_xelab(cfg, sim_cfg.work_dir, sim_cfg.top, timescale=sim_cfg.timescale, xsim_lib=xsim_lib, run_all=(run == 'all'))
+		vivado.run_vivado_xelab(cfg, sim_cfg.work_dir, sim_cfg.top, timescale=sim_cfg.timescale, xsim_lib=xsim_lib, run_all=(run == 'all'), sdfmax_entries=sdfmax_entries)
 
 		if not (run == 'all'):
 			x_simulate_tcl = f"""

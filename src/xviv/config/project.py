@@ -446,6 +446,8 @@ class XvivConfig:
 		impl_functional_netlist: bool | str | None = False,
 		impl_timing_netlist: bool | str | None = False,
 		
+		impl_timing_sdf: bool | str | None = False,
+		
 		synth_stub: bool | str | None = False,
 		
 		synth_directive: str = 'default',
@@ -545,6 +547,10 @@ class XvivConfig:
 			if constraints:
 				constr_list = constraints.get('sources', [])
 
+		if impl_timing_netlist is not None:
+			if not impl_timing_sdf:
+				impl_timing_sdf = True
+
 		assert top is not None
 		assert fpga is not None
 
@@ -595,6 +601,8 @@ class XvivConfig:
 				synth_timing_netlist_file=_resolve_val(synth_timing_netlist, os.path.join(synth_netlists_subdir, f'{id_name}_synth_timing_netlist.v')),
 				impl_functional_netlist_file=_resolve_val(impl_functional_netlist, os.path.join(synth_netlists_subdir, f'{id_name}_impl_functional_netlist.v')),
 				impl_timing_netlist_file=_resolve_val(impl_timing_netlist, os.path.join(synth_netlists_subdir, f'{id_name}_impl_timing_netlist.v')),
+
+				impl_timing_sdf_file=_resolve_val(impl_timing_sdf, os.path.join(synth_netlists_subdir, f'{id_name}_impl_timing.sdf')),
 				
 				synth_stub_file=_resolve_val(synth_stub, os.path.join(synth_subdir, f'{id_name}_stub.v')),
 				
@@ -618,6 +626,7 @@ class XvivConfig:
 		top: str | None = None,
 		design: str | None = None,
 		backend: str = 'xsim',
+		sdfmax: list[str] = [],
 		timescale: str = '1ns/1ps'
 	) -> typing.Self:
 		# TODO: throw error for invalid name ''
@@ -642,7 +651,8 @@ class XvivConfig:
 				sources=resolve_globs(sources, self.base_dir),
 				backend=backend,
 				timescale=timescale,
-				work_dir=sim_subdir
+				work_dir=sim_subdir,
+				sdfmax=sdfmax
 			)
 		)
 

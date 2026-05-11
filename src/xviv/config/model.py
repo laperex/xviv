@@ -130,6 +130,8 @@ class SynthConfig:
 	synth_timing_netlist_file: str | None
 	impl_functional_netlist_file: str | None
 	impl_timing_netlist_file: str | None
+
+	impl_timing_sdf_file: str | None
 	
 	# # stubs
 	
@@ -164,7 +166,9 @@ class SimulationConfig:
 	design:    str | None
 	timescale: str
 	
-	work_dir: str | None
+	work_dir:  str | None
+	
+	sdfmax:    list[str]
 
 
 @dataclasses.dataclass

@@ -39,6 +39,7 @@ def run_vivado_xelab(
 	timescale: str,
 	xsim_lib: str,
 	run_all=False,
+	sdfmax_entries: list[str] = [],
 ) -> None:
 	xelab_bin = os.path.join(cfg.get_vivado().path, "bin", "xelab")
 
@@ -46,8 +47,9 @@ def run_vivado_xelab(
 		xelab_bin,
 		f"{xsim_lib}.{top}",
 		f"{xsim_lib}.glbl",
-		"-L", "unifast_ver",
-		"-L", "unisims_ver",
+		# "-L", "unifast_ver",
+		# "-L", "unisims_ver",
+		"-L", "simprims_ver",
 		"-L", "unimacro_ver",
 		"-L", "secureip",
 		"-debug", "typical",
@@ -55,6 +57,9 @@ def run_vivado_xelab(
 		"-s", top,
 		"-timescale", timescale
 	]
+
+	for i in sdfmax_entries:
+		cmd += ['-sdfmax', i]
 
 	if run_all:
 		cmd.append("-R")
@@ -162,14 +167,14 @@ def run_vivado(
 		]
 		job_log.info("Running: %s", " ".join(cmd))
 
-		# TCL interactive mode — attach directly to terminal
+		# TCL interactive mode - attach directly to terminal
 		if vivado.mode == "tcl":
 			result = subprocess.run(cmd)
 			if result.returncode != 0:
 				raise subprocess.CalledProcessError(result.returncode, cmd)
 			return
 
-		# Batch mode — stream output and write per-job log
+		# Batch mode - stream output and write per-job log
 		log_stem = label or "vivado"
 		log_path = Path(log_dir or cfg.work_dir) / f"{log_stem}.log"
 		log_path.parent.mkdir(parents=True, exist_ok=True)

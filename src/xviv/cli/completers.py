@@ -99,6 +99,15 @@ def c_dcp_file(prefix, parsed_args, **kwargs):
     except Exception:
         return {}
 
+def c_sim_modes(prefix, parsed_args, **kwargs):
+    return [
+		'default',
+		'post_synth_functional',
+		'post_synth_timing',
+		'post_impl_functional',
+		'post_impl_timing'
+	]
+
 # ---------------------------------------------------------------------------
 # Public completers
 # ---------------------------------------------------------------------------
@@ -129,6 +138,7 @@ def target_group(parser, *,
 	ip: bool = False,
 	bd: bool = False,
 	sim: bool = False,
+	sim_mode: bool = False,
 	app: bool = False,
 	platform: bool = False,
 	wdb: bool = False,
@@ -160,5 +170,8 @@ def target_group(parser, *,
 		arg(mg, "--bd", metavar="NAME", help="BD name", completer=c_bd)
 	if core:
 		arg(mg, "--core", metavar="NAME", help="Core name", completer=c_core)
+
+	if sim_mode:
+		arg(parser, "--mode", metavar="NAME", help="Core name", completer=c_sim_modes)
 
 	return mg

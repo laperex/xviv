@@ -227,14 +227,14 @@ class SimulateCommand(Command):
 	def register(cls, sub: argparse._SubParsersAction) -> None:
 		super().register(sub)
 		c = cls.c
-		target_group(c, sim=True)
+		target_group(c, sim=True, sim_mode=True)
 
 		c.add_argument("--run", metavar="TIME", help="Simulation run time, e.g. 1000ns")
 
 	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
 		super().run(cfg, args)
 
-		cmd_simulate(cfg, sim_name=args.target, run=args.run)
+		cmd_simulate(cfg, sim_name=args.target, run=args.run, mode=args.mode)
 
 
 class SynthCommand(Command):

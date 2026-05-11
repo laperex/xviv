@@ -830,6 +830,23 @@ class ConfigTclBuilder:
 		self._file_mkdir_dirname_file(file)
 
 		self._push(f"write_verilog {' '.join(params)} \"{file}\"")
+	
+	def _write_sdf(self, file: str, *,
+		mode: str,
+		force: bool = False,
+		process_corner: str | None = None,
+		cell: str | None = None
+	):
+		params = filter(None, [
+			"-force"                            if force else None,
+			f"-mode {mode}"                     if mode else None,
+			f"-cell {cell}"                     if cell else None,
+			f"-process_corner {process_corner}" if process_corner else None,
+		])
+
+		self._file_mkdir_dirname_file(file)
+
+		self._push(f"write_sdf {' '.join(params)} \"{file}\"")
 
 	def _write_bitstream(self, file: str, *,
 		force: bool = False,
