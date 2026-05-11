@@ -46,6 +46,7 @@ class XvivConfig:
 		self._bd_list: list[BdConfig] = []
 
 		self._core_list: list[CoreConfig] = []
+		self._subcore_list: list[SubCoreConfig] = []
 
 		self._design_list: list[DesignConfig] = []
 
@@ -61,6 +62,33 @@ class XvivConfig:
 	
 	def build(self) -> typing.Self:
 		os.makedirs(self.work_dir, exist_ok=True)
+		
+		self.build_bd_subcores()
+
+		return self
+
+	def build_bd_subcores(self) -> typing.Self:
+		for bd_cfg in self._bd_list:
+			if os.path.exists(bd_cfg.bd_file):
+				for xci_name, xci_file, vlnv, inst_hier_path in get_bd_core_list(bd_cfg.bd_file):
+					# print(vlnv, xci_name)
+
+					# self._subcore_list.append(
+					# 	SubCoreConfig(
+					# 		name=xci_name,
+					# 		vlnv=vlnv,
+					# 		xci_file=xci_file,
+					# 		fpga_ref=bd_cfg.fpga_ref,
+
+					# 		inst_hier_path=inst_hier_path,
+
+					# 		bd=bd_cfg.name,
+					# 		design=None,
+					# 	)
+					# )
+
+					# self.add_core_cfg()
+					pass
 
 		return self
 
@@ -266,11 +294,24 @@ class XvivConfig:
 		if bd_file is None:
 			bd_file = os.path.join(self.bd_dir, name, f'{name}.bd')
 
-		bd_core_list: list[SubCoreConfig] = []
-
 		if os.path.exists(bd_file):
-			logger.debug(f'Loading sub core info from - {bd_file}')
-			bd_core_list = get_bd_core_list(bd_file)
+			for xci_name, xci_file, vlnv, inst_hier_path in get_bd_core_list(bd_file):
+				self.add_core_cfg(
+					name=xci_name,
+					vlnv=vlnv,
+					xci_file=xci_file,
+					fpga=fpga
+				)
+
+				self.add_subcore(
+					bd=name,
+					inst_hier_path=inst_hier_path,
+					core=xci_name
+				)
+
+				self.add_synth_cfg(
+					core=xci_name
+				)
 
 		if bd_wrapper_file is None:
 			bd_wrapper_file = os.path.join(self.bd_dir, name, 'hdl', f"{name}_wrapper.v")
@@ -284,13 +325,38 @@ class XvivConfig:
 				bd_file=bd_file,
 
 				bd_wrapper_file=bd_wrapper_file,
-
-				# TODO
-				core_list=bd_core_list
 			)
 		)
 
 		return self
+
+
+	def add_subcore(self, *,
+		design: str | None = None,
+		bd: str | None = None,
+
+		inst_hier_path: str,
+		core: str,
+	) -> typing.Self:
+		if design is None and bd is None:
+			#! SubCoreIdNone 
+			raise RuntimeError(f'ERROR: Unspecified BD / Design for subcore: {inst_hier_path} - {core}')
+		
+		if design is not None and bd is not None:
+			#! SubCoreIdMultiple 
+			raise RuntimeError(f'ERROR: Multiple BD - {bd} / Design - {design} specified for subcore: {inst_hier_path} - {core}')
+
+		self._subcore_list.append(
+			SubCoreConfig(
+				inst_hier_path=inst_hier_path,
+				bd=bd,
+				design=design,
+				core=core
+			)
+		)
+		
+		return self
+
 
 	def add_core_cfg(self, name: str, *,
 		vlnv: str,
@@ -356,6 +422,8 @@ class XvivConfig:
 		core: str | None = None,
 		bd: str | None = None,
 		fpga: str | None = None,
+		
+		out_of_context_subcores: bool = False,
 
 		top: str | None = None,
 		
@@ -397,7 +465,7 @@ class XvivConfig:
 		synth_stub: bool | str | None = False,
 		
 		synth_directive: str = 'default',
-		synth_mode: str = 'default',
+		synth_mode: str | None = None,
 		synth_flatten_hierarchy: str = 'rebuilt',
 		synth_fsm_extraction: str = 'auto',
 		
@@ -430,13 +498,37 @@ class XvivConfig:
 		if bd:
 			bd_cfg = self.get_bd(bd)
 
-			fpga = self._resolve_fpga(bd_cfg.fpga_ref)
+			if fpga is None:
+				fpga = self._resolve_fpga(bd_cfg.fpga_ref)
+			else:
+				if fpga != bd_cfg.fpga_ref:
+					#! SynthCfg - FpgaRefMismatch
+					raise RuntimeError(f'ERROR: Mismatch fpga for BD: {bd_cfg.fpga_ref} with specified: {fpga}')
 
 			if top is None:
 				top = f'{bd}_wrapper'
 
 		if core:
-			pass
+			core_cfg = self.get_core(core)
+
+			if fpga is None:
+				fpga = self._resolve_fpga(core_cfg.fpga_ref)
+			else:
+				if fpga != core_cfg.fpga_ref:
+					#! SynthCfg - FpgaRefMismatch
+					raise RuntimeError(f'ERROR: Mismatch fpga for BD: {core_cfg.fpga_ref} with specified: {fpga}')
+
+			if synth_mode is None:
+				synth_mode = 'out_of_context'
+
+			if top is None:
+				top = core
+			
+			if not isinstance(synth_stub, str):
+				synth_stub = True
+
+			if not isinstance(synth_dcp, str):
+				synth_dcp = True
 
 		if design:
 			design_cfg = self.get_design(design)
@@ -453,6 +545,9 @@ class XvivConfig:
 			if top is None:
 				top = design_cfg.top
 
+		if synth_mode is None:
+			synth_mode = 'default'
+
 		assert top is not None
 		assert fpga is not None
 
@@ -468,6 +563,8 @@ class XvivConfig:
 				bd_name=bd,
 				fpga_ref=fpga,
 				top=top,
+				
+				out_of_context_subcores=out_of_context_subcores,
 				
 				constraints=resolve_globs(constraints, self.base_dir),
 
@@ -770,20 +867,37 @@ class XvivConfig:
 			raise RuntimeError(f'ERROR: app does not exist for: {name}')
 
 		return app
+	
+	def get_subcore_list(self, bd_name: str | None = None, design_name: str | None = None) -> list[SubCoreConfig]:
+		subcore_list: list[SubCoreConfig] = []
+		
+		if bd_name is not None and design_name is not None:
+			raise RuntimeError(f'ERROR: Specified Multiple: bd_name {bd_name}, design_name {design_name}')
+
+		for i in self._subcore_list:
+			if design_name:
+				if i.design == design_name:
+					subcore_list.append(i)
+
+			if bd_name:
+				if i.bd == bd_name:
+					subcore_list.append(i)
+
+		return subcore_list
 
 	# -------------------------------------------------------------------------
 	# Other public methods
 	# -------------------------------------------------------------------------
 
-	def rebuild_bd(self, name: str) -> None:
-		bd_cfg = self._get_bd_cfg_optional(name)
+	# def rebuild_bd(self, name: str) -> None:
+	# 	bd_cfg = self._get_bd_cfg_optional(name)
 
-		if bd_cfg is None:
-			#! BdCfg - BdCfgAlreadyExists
-			raise RuntimeError(f'ERROR: BD entry with name: {name} already exists')
+	# 	if bd_cfg is None:
+	# 		#! BdCfg - BdCfgAlreadyExists
+	# 		raise RuntimeError(f'ERROR: BD entry with name: {name} already exists')
 
-		if os.path.exists(bd_cfg.bd_file):
-			bd_cfg.core_list = get_bd_core_list(bd_cfg.bd_file)
+	# 	if os.path.exists(bd_cfg.bd_file):
+	# 		bd_cfg.core_list = get_bd_core_list(bd_cfg.bd_file)
 
 	# -------------------------------------------------------------------------
 	# Private helpers - optional lookups

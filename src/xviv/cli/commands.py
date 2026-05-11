@@ -11,7 +11,7 @@ from xviv.functions.graph import cmd_graph
 from xviv.functions.ip import cmd_ip_create, cmd_ip_edit
 from xviv.functions.simulation import cmd_simulate, cmd_wdb_open, cmd_wdb_reload
 from xviv.functions.status import cmd_status
-from xviv.functions.synthesis import cmd_dcp_open, cmd_design_synth
+from xviv.functions.synthesis import cmd_dcp_open, cmd_synth
 from xviv.functions.xsct import cmd_app_build, cmd_app_create, cmd_platform_build, cmd_platform_create, cmd_processor, cmd_program
 
 
@@ -241,15 +241,12 @@ class SynthCommand(Command):
 	def register(cls, sub: argparse._SubParsersAction) -> None:
 		super().register(sub)
 		c = cls.c
-		target_group(c, bd=True, design=True)
+		target_group(c, bd=True, design=True, core=True)
 
 	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
 		super().run(cfg, args)
 
-		if args.bd:
-			cmd_bd_synth(cfg, bd_name=args.bd)
-		elif args.design:
-			cmd_design_synth(cfg, design_name=args.design)
+		cmd_synth(cfg, design_name=args.design, bd_name=args.bd, core_name=args.core)
 
 
 # ---------------------------------------------------------------------------

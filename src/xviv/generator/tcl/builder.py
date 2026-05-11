@@ -115,6 +115,12 @@ class ConfigTclBuilder:
 		])
 		self._push(f'get_bd_addr_segs {" ".join(params)}'.strip())
 
+	def _get_cells(self, *, filter: str | None = None):
+		params = [
+			f'-filter {filter}' if filter      else None,
+		]
+		self._push(f'get_cells {" ".join([i for i in params if i])}')
+	
 	def _get_bd_cells(self, *, hierarchical: bool = False, filter: str | None = None):
 		params = [
 			'-hierarchical'    if hierarchical else None,
@@ -757,8 +763,8 @@ class ConfigTclBuilder:
 		cell: str | None = None
 	):
 		params = filter(None, [
-			"-incremental"  if incremental else None,
-			f"-cell {cell}" if cell else None,
+			"-incremental" if incremental else None,
+			f"-cell \"{cell}\"" if cell else None,
 		])
 		self._push(f"read_checkpoint {' '.join(params)} \"{file}\"")
 

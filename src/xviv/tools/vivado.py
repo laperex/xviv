@@ -143,7 +143,7 @@ def run_vivado(
 	try:
 		# Write TCL to a named temp file
 		with tempfile.NamedTemporaryFile(
-			mode="w", suffix="_config.tcl", delete=False, prefix="xviv_"
+			mode="w", suffix="_config.tcl", delete=False, prefix=f"xviv_{label or ''}_"
 		) as tmp:
 			tmp.write(config_tcl)
 			config_tcl_path = tmp.name

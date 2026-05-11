@@ -64,9 +64,11 @@ class CoreConfig:
 
 
 @dataclasses.dataclass
-class SubCoreConfig(CoreConfig):
+class SubCoreConfig:
 	inst_hier_path: str
-
+	bd: str | None
+	design: str | None
+	core: str | None
 
 @dataclasses.dataclass
 class BdConfig:
@@ -78,7 +80,7 @@ class BdConfig:
 	bd_file:         str
 	bd_wrapper_file: str
 
-	core_list: list[SubCoreConfig]
+	# core_list: list[SubCoreConfig]
 
 
 @dataclasses.dataclass
@@ -86,6 +88,8 @@ class SynthConfig:
 	design_name: str | None
 	core_name:   str | None
 	bd_name:     str | None
+	
+	out_of_context_subcores: bool
 
 	top: str
 	fpga_ref:    str

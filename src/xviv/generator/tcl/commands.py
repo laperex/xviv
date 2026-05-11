@@ -121,17 +121,17 @@ class ConfigTclCommands(ConfigTclBuilder):
 		)
 
 		self._close('$fd')
-	
+
 	def open_dcp(self, dcp_file: str | None, nogui=False) -> typing.Self:
 		assert_file_exists(dcp_file)
-		
+
 		dcp_file = os.path.abspath(dcp_file)
 
 		self._open_checkpoint(file=dcp_file)
-		
+
 		if not nogui:
 			self._start_gui()
-		
+
 		return self
 
 	# ------------------------------------------------------
@@ -204,7 +204,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 		self._puts('"xviv: FIFO ready at $xviv_fifo_path"')
 
 		return self
-	
+
 	def _select_fpga(self):
 		self._set_exec('tlist', lambda x: x._targets())
 		self._puts('"INFO: JTAG targets:\\n$tlist"')
@@ -257,7 +257,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 		self._connect()
 
 		self._select_fpga()
-		
+
 		if not os.path.exists(bitstream_file):
 			raise RuntimeError(f'ERROR: bistream file does not exist: {bitstream_file}')
 
@@ -268,32 +268,32 @@ class ConfigTclCommands(ConfigTclBuilder):
 				raise RuntimeError(f'ERROR: elf file does not exist: {elf_file}')
 
 			self._after(500)
-			
+
 			self._select_mb()
 			self._rst(processor=True)
 			self._dow(elf_file)
 			self._con()
-		
+
 		self._disconnect()
 
 		return self
-	
+
 	def processor_cntrl(self, reset: bool | None, status: bool | None) -> typing.Self:
 		self._connect()
-			
+
 		if reset:
 			self._select_mb()
-			
+
 			self._rst(processor=True)
 			self._puts('INFO: processor reset')
 			self._con()
 			self._puts('INFO: processor running')
-		
+
 		if status:
 			self._processor_status()
 
 		self._disconnect()
-		
+
 		return self
 
 	def create_platform(self, platform_name: str) -> typing.Self:
@@ -617,21 +617,24 @@ class ConfigTclCommands(ConfigTclBuilder):
 	def synth(self, *,
 		bd: str | None = None,
 		design: str | None = None,
+		core: str | None = None,
 	):
-		synth_cfg = self._cfg.get_synth(bd_name=bd, design_name=design)
+		synth_cfg = self._cfg.get_synth(bd_name=bd, design_name=design, core_name=core)
 
 		# tcl begin
 
 		self._require_project(fpga_ref=synth_cfg.fpga_ref)
 
+		out_of_context_hier_dcp_map: dict[str, str] = {}
+
 		if bd:
 			bd_cfg = self._cfg.get_bd(synth_cfg.bd_name)
 
 			assert_file_exists(bd_cfg.bd_file)
-			assert_file_exists(bd_cfg.bd_wrapper_file)
+			self._add_files(bd_cfg.bd_file, scan_for_includes=True)
 
-			self._read_bd(bd_cfg.bd_file)
-			self._add_files(bd_cfg.bd_wrapper_file)
+			assert_file_exists(bd_cfg.bd_wrapper_file)
+			self._add_files(bd_cfg.bd_wrapper_file, scan_for_includes=True)
 
 		if design:
 			design_cfg = self._cfg.get_design(synth_cfg.design_name)
@@ -641,16 +644,49 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 				self._add_files(i, scan_for_includes=True)
 
+		if core:
+			core_cfg = self._cfg.get_core(synth_cfg.core_name)
+
+			assert_file_exists(core_cfg.xci_file)
+			self._read_ip(core_cfg.xci_file)
+
+			#* Exit / STALE Check
+			if not is_stale(core_cfg.xci_file, synth_cfg.synth_dcp_file) and not is_stale(core_cfg.xci_file, synth_cfg.synth_stub_file):
+				logger.info(f'skipping upto date synth targets: {core_cfg.name}')
+
+				self._clear()
+				return self
+
+
 		for i in synth_cfg.constraints:
 			assert_file_exists(i)
-
 			self._add_files(i, fileset='constrs_1')
+
 		self._update_compile_order(fileset='sources_1')
 
-		self._set_property_current_fileset('TOP', synth_cfg.top)
+
+		if synth_cfg.out_of_context_subcores:
+			for i in self._cfg.get_subcore_list(bd_name=bd, design_name=design):
+				subcore_synth_cfg = self._cfg.get_synth(core_name=i.core)
+
+				assert_file_exists(subcore_synth_cfg.synth_stub_file)
+				self._add_files(subcore_synth_cfg.synth_stub_file, norecurse=True)
+
+				self._set_property_get_files('USED_IN', '{synthesis implementation out_of_context}', subcore_synth_cfg.synth_stub_file)
+
+				_id = i.inst_hier_path
+				if bd:
+					_id = f'[get_cells -filter {{IS_PRIMITIVE == 0 && PARENT == ""}}]/{_id}'
+
+				out_of_context_hier_dcp_map[_id] = subcore_synth_cfg.synth_dcp_file
+
+		# self._set_property_current_fileset('TOP', synth_cfg.top)
+		# self._update_compile_order(fileset='constsr_1')
 
 		self._synthesis(
 			top = synth_cfg.top,
+
+			out_of_context_hier_dcp_map = out_of_context_hier_dcp_map,
 
 			synth_incremental = synth_cfg.synth_incremental,
 
@@ -703,6 +739,8 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 	def _synthesis(self, top: str, *,
 		synth_incremental: bool = False,
+
+		out_of_context_hier_dcp_map: dict[str, str] = {},
 
 		#* synth
 		run_synth: bool = False,
@@ -786,6 +824,9 @@ class ConfigTclCommands(ConfigTclBuilder):
 				fsm_extraction=synth_fsm_extraction
 			)
 
+		for inst_hier_path, dcp_file in out_of_context_hier_dcp_map.items():
+			self._read_checkpoint(dcp_file, cell=inst_hier_path)
+
 		if synth_dcp_file:
 			self._write_checkpoint(synth_dcp_file, force=True)
 
@@ -802,6 +843,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 			self._write_verilog(synth_timing_netlist_file, mode='timesim', force=True, sdf_anno=True)
 		if synth_stub_file:
 			self._write_verilog(synth_stub_file, mode='synth_stub', force=True)
+
 
 		if synth_mode == 'out_of_context':
 			return
