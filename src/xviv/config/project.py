@@ -206,6 +206,7 @@ class XvivConfig:
 	def add_wrapper_cfg(self, *,
 		ip: str,
 		sources: list[str],
+		wrapper_top: str | None = None,
 		wrapper_file: str | None = None
 	) -> typing.Self:
 		if self._get_wrapper_cfg_optional(ip) is not None:
@@ -227,7 +228,9 @@ class XvivConfig:
 				#! WrapperCfg - SourceMissingError
 				raise RuntimeError(f'ERROR: required source does not exist: {i}')
 
-		wrapper_top = f'{ip_cfg.top}_wrapper'
+		if wrapper_top is None:
+			wrapper_top = f'{ip_cfg.top}_wrapper'
+
 		if wrapper_file is None:
 			# TODO: default ip wrapper file
 			wrapper_file = os.path.join(self.wrapper_dir, f"{wrapper_top}.sv")
@@ -283,7 +286,16 @@ class XvivConfig:
 				)
 
 				self.add_synth_cfg(
-					core=xci_name
+					core=xci_name,
+					
+					run_place=False,
+					place_dcp=False,
+					
+					run_route=False,
+					route_dcp=False,
+					
+					run_phys_opt=False,
+					run_opt=False,
 				)
 
 		if bd_wrapper_file is None:
@@ -293,7 +305,6 @@ class XvivConfig:
 			BdConfig(
 				name=name,
 				save_file=save_file,
-				vlnv_list=self._get_bd_cfg_vlnv_list(save_file),
 				fpga_ref=fpga,
 				bd_file=bd_file,
 
@@ -400,7 +411,7 @@ class XvivConfig:
 
 		top: str | None = None,
 		
-		constraints: list[str] = [],
+		constraints: dict = {},
 
 		run_synth: bool = True,
 		run_place: bool = True,
@@ -521,6 +532,19 @@ class XvivConfig:
 		if synth_mode is None:
 			synth_mode = 'default'
 
+		constr_list: list[str] = []
+
+		if synth_mode == 'out_of_context':
+			bitstream = False
+			hw_platform = False
+			usr_access_value = None
+			
+			if 'ooc' in constraints:
+				constr_list = constraints['ooc'].get('sources', [])
+		else:
+			if constraints:
+				constr_list = constraints.get('sources', [])
+
 		assert top is not None
 		assert fpga is not None
 
@@ -539,7 +563,7 @@ class XvivConfig:
 				
 				out_of_context_subcores=out_of_context_subcores,
 				
-				constraints=resolve_globs(constraints, self.base_dir),
+				constraints=resolve_globs(constr_list, self.base_dir),
 
 				synth_incremental=synth_incremental,
 				run_synth=run_synth,
@@ -885,21 +909,6 @@ class XvivConfig:
 
 	def _get_bd_cfg_optional(self, name: str) -> BdConfig | None:
 		return next((i for i in self._bd_list if i.name == name), None)
-
-	def _get_bd_cfg_vlnv_list(self, file: str) -> list[str]:
-		if os.path.exists(file):
-			with open(file, 'rt') as f:
-				match = re.search(r'set\s+list_check_ips\s+"(.*?)"', f.read(), re.DOTALL)
-
-				if match:
-					raw = match.group(1)
-
-					return [
-						ip for ip in [
-							line.strip().rstrip("\\").strip() for line in raw.splitlines()
-						] if ip
-					]
-		return []
 
 	def _get_core_cfg_optional(self, name: str) -> CoreConfig | None:
 		return next((i for i in self._core_list if i.name == name), None)

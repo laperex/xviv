@@ -142,12 +142,6 @@ def _render_bd(cfg: XvivConfig) -> list[tuple[str, list[str]]]:
 			*_path("bd_file", bd.bd_file),
 			*_path("save",    bd.save_file),
 		]
-		if bd.vlnv_list:
-			children.append(_leaf("ip_count", len(bd.vlnv_list)))
-		# if bd.core_list:
-		# 	children.append(f"sub_cores: {len(bd.core_list)}")
-		# 	for sc in bd.core_list:
-		# 		children.append(f"    {_TEE}{sc.name}  ({sc.vlnv})")
 		rows.append((f"[bd]  {bd.name}", children))
 	return rows
 

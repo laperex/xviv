@@ -4,7 +4,7 @@ import sys
 import typing
 
 from xviv.generator.tcl.builder import ConfigTclBuilder, _tcl_list
-from xviv.utils.fs import assert_file_exists, is_stale
+from xviv.utils.fs import assert_file_exists, is_stale, is_stale_list
 
 
 logger = logging.getLogger(__name__)
@@ -379,7 +379,15 @@ class ConfigTclCommands(ConfigTclBuilder):
 		# TODO: add a new flag --import=true flag to make this if explicit
 		if os.path.exists(bd_cfg.save_file):
 			self._set('parentCell', '""')
+			
 			self._source(bd_cfg.save_file)
+			
+			def __body(c: typing.Self):
+				c._puts('"ERROR: BD script failed"')
+				c._exit(1)
+
+			self._if('[llength [get_bd_cells]] == 0', __body)
+
 			self._bd_refresh_addresses()
 			self._validate_bd_design()
 			self._save_bd_design()
@@ -602,6 +610,8 @@ class ConfigTclCommands(ConfigTclBuilder):
 	def create_core(self, core_name: str) -> typing.Self:
 		core_cfg = self._cfg.get_core(core_name)
 		
+		if self._cfg.get_catalog().lookup_optional(core_cfg.vlnv) is None:
+			raise RuntimeError(f'For core with name: {core_cfg.name} - IP with vlnv {core_cfg.vlnv} does not exist')
 
 		self._require_project(fpga_ref=core_cfg.fpga_ref)
 
@@ -613,7 +623,6 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 	def edit_core(self, core_name: str, nogui: bool = False) -> typing.Self:
 		core_cfg = self._cfg.get_core(core_name)
-		
 
 		self._require_project(fpga_ref=core_cfg.fpga_ref)
 
@@ -631,6 +640,21 @@ class ConfigTclCommands(ConfigTclBuilder):
 		return self
 
 
+	def generate_core(self, core_name: str, *,
+		force: bool = False
+	) -> typing.Self:
+		core_cfg = self._cfg.get_core(core_name)
+
+		assert_file_exists(core_cfg.xci_file)
+
+		self._require_project(fpga_ref=core_cfg.fpga_ref)
+
+		self._read_ip(core_cfg.xci_file)
+		self._generate_target_get_files(core_cfg.xci_file)
+
+		return self
+
+
 	# ------------------------------------------------------
 	# Synthesis
 	# ------------------------------------------------------
@@ -642,6 +666,27 @@ class ConfigTclCommands(ConfigTclBuilder):
 	):
 		synth_cfg = self._cfg.get_synth(bd_name=bd, design_name=design, core_name=core)
 		
+		out_files = [i for i in filter(None, [
+			synth_cfg.bitstream_file,
+			synth_cfg.hw_platform_xsa_file,
+			synth_cfg.synth_dcp_file,
+			synth_cfg.place_dcp_file,
+			synth_cfg.route_dcp_file,
+			synth_cfg.synth_report_timing_summary_file,
+			synth_cfg.synth_report_utilization_file,
+			synth_cfg.synth_report_incremental_reuse_file,
+			synth_cfg.route_report_drc_file,
+			synth_cfg.route_report_methodology_file,
+			synth_cfg.route_report_power_file,
+			synth_cfg.route_report_route_status_file,
+			synth_cfg.route_report_timing_summary_file,
+			synth_cfg.impl_report_incremental_reuse_file,
+			synth_cfg.synth_functional_netlist_file,
+			synth_cfg.synth_timing_netlist_file,
+			synth_cfg.impl_functional_netlist_file,
+			synth_cfg.impl_timing_netlist_file,
+			synth_cfg.synth_stub_file,
+		])]
 
 		self._require_project(fpga_ref=synth_cfg.fpga_ref)
 
@@ -671,7 +716,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 			self._read_ip(core_cfg.xci_file)
 
 			#* Exit / STALE Check
-			if not is_stale(core_cfg.xci_file, synth_cfg.synth_dcp_file) and not is_stale(core_cfg.xci_file, synth_cfg.synth_stub_file):
+			if not is_stale_list(core_cfg.xci_file, out_files):
 				logger.info(f'skipping upto date synth targets: {core_cfg.name}')
 
 				self._clear()
@@ -864,9 +909,6 @@ class ConfigTclCommands(ConfigTclBuilder):
 		if synth_stub_file:
 			self._write_verilog(synth_stub_file, mode='synth_stub', force=True)
 
-
-		if synth_mode == 'out_of_context':
-			return
 
 		# opt_design
 		if run_opt:

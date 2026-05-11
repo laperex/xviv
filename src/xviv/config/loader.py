@@ -25,10 +25,10 @@ def resolve_config(explicit: str) -> str:
 	raise RuntimeError("ERROR: project.toml not found in current directory.")
 
 def load_config(path: str) -> XvivConfig:
-    with open(path, 'rb') as f:
-        data = tomllib.load(f)
+	with open(path, 'rb') as f:
+		data = tomllib.load(f)
 
-    cfg = (
+	cfg = (
 		XvivConfig(
 			path,
 			data['project'].get('build_dir', None),
@@ -42,20 +42,20 @@ def load_config(path: str) -> XvivConfig:
 		)
 	)
 
-    for section, method in [
-        ('fpga',       cfg.add_fpga_cfg),
-        ('ip',         cfg.add_ip_cfg),
-        ('wrapper',    cfg.add_wrapper_cfg),
-        ('core',       cfg.add_core_cfg),
-        ('bd',         cfg.add_bd_cfg),
-        ('design',     cfg.add_design_cfg),
-        ('simulation', cfg.add_sim_cfg),
-        ('synth',      cfg.add_synth_cfg),
-        ('platform',   cfg.add_platform_cfg),
-        ('app',        cfg.add_app_cfg),
-        ('subcore',    cfg.add_subcore_cfg),
-    ]:
-        for entry in data.get(section, []):
-            method(**entry)
+	for section, method in [
+		('fpga',       cfg.add_fpga_cfg),
+		('ip',         cfg.add_ip_cfg),
+		('wrapper',    cfg.add_wrapper_cfg),
+		('core',       cfg.add_core_cfg),
+		('bd',         cfg.add_bd_cfg),
+		('design',     cfg.add_design_cfg),
+		('simulation', cfg.add_sim_cfg),
+		('synth',      cfg.add_synth_cfg),
+		('platform',   cfg.add_platform_cfg),
+		('app',        cfg.add_app_cfg),
+		('subcore',    cfg.add_subcore_cfg),
+	]:
+		for entry in data.get(section, []):
+			method(**entry)
 
-    return cfg
+	return cfg

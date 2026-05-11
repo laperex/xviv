@@ -14,6 +14,13 @@ def resolve_globs(patterns: list[str], base: str) -> list[str]:
 		files.extend(os.path.abspath(h) for h in hits if os.path.isfile(h))
 	return files
 
+def is_stale_list(srcfile: str, dstfilelist: list[str], exit_on_fail: bool=True) -> bool:
+	for i in dstfilelist:
+		if is_stale(srcfile, i, exit_on_fail=exit_on_fail):
+			return True
+
+	return False
+
 def is_stale(srcfile: str, dstfile: str, exit_on_fail=True) -> bool:
 	if not os.path.exists(dstfile):
 		return True

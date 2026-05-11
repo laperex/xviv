@@ -203,7 +203,6 @@ def _status_bd(cfg: XvivConfig) -> list[EntityStatus]:
         state   = _artifact_state(artifacts, sources)
         details = [
             f"fpga: {bd.fpga_ref}",
-            f"ip_count: {len(bd.vlnv_list)}",
         ]
         out.append(EntityStatus(
             kind="bd", name=bd.name,

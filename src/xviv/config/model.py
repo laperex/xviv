@@ -73,7 +73,6 @@ class SubCoreConfig:
 @dataclasses.dataclass
 class BdConfig:
 	name:            str
-	vlnv_list:       list[str]
 	fpga_ref:        str
 
 	save_file:       str

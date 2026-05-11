@@ -7,7 +7,7 @@ from xviv.cli.completers import target_group
 from xviv.config.project import XvivConfig
 
 from xviv.functions.bd import cmd_bd_create, cmd_bd_edit, cmd_bd_generate
-from xviv.functions.core import cmd_core_create, cmd_core_edit, cmd_search_core
+from xviv.functions.core import cmd_core_create, cmd_core_edit, cmd_core_generate, cmd_search_core
 from xviv.functions.graph import cmd_graph
 from xviv.functions.ip import cmd_ip_create, cmd_ip_edit
 from xviv.functions.simulation import cmd_simulate, cmd_wdb_open, cmd_wdb_reload
@@ -112,12 +112,15 @@ class GenerateCommand(Command):
 	def register(cls, sub: argparse._SubParsersAction) -> None:
 		super().register(sub)
 		c = cls.c
-		target_group(c, bd=True)
+		target_group(c, bd=True, core=True)
 
 	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
 		super().run(cfg, args)
 
-		cmd_bd_generate(cfg, args.bd)
+		if args.bd:
+			cmd_bd_generate(cfg, bd_name=args.bd)
+		elif args.core:
+			cmd_core_generate(cfg, core_name=args.core)
 
 
 class OpenCommand(Command):

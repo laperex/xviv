@@ -37,6 +37,20 @@ def cmd_core_edit(cfg: XvivConfig, *,
 	vivado.run_vivado(cfg, config_tcl=config)
 
 # -----------------------------------------------------------------------------
+# generate --bd <bd_name>
+# -----------------------------------------------------------------------------
+def cmd_core_generate(cfg: XvivConfig, *,
+	core_name: str
+):
+	config = (
+		ConfigTclCommands(cfg)
+		.generate_core(core_name)
+		.build()
+	)
+
+	vivado.run_vivado(cfg, config_tcl=config)
+
+# -----------------------------------------------------------------------------
 # search --query <query>
 # -----------------------------------------------------------------------------
 def cmd_search_core(cfg: XvivConfig, *,
