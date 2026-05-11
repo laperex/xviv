@@ -22,7 +22,7 @@ def run_vivado_xvlog(
 	cmd = [xvlog_bin, "-sv", "-incr", "-work", xsim_lib, *fileset, *extra_files]
 	logger.info("Running: %s", " ".join(cmd))
 	os.makedirs(target_dir, exist_ok=True)
-	
+
 	if cfg.get_vivado().dry_run:
 		return
 
@@ -47,9 +47,6 @@ def run_vivado_xelab(
 		xelab_bin,
 		f"{xsim_lib}.{top}",
 		f"{xsim_lib}.glbl",
-		# "-L", "unifast_ver",
-		# "-L", "unisims_ver",
-		"-L", "simprims_ver",
 		"-L", "unimacro_ver",
 		"-L", "secureip",
 		"-debug", "typical",
@@ -61,12 +58,18 @@ def run_vivado_xelab(
 	for i in sdfmax_entries:
 		cmd += ['-sdfmax', i]
 
+	if sdfmax_entries:
+		cmd.append(["-L", "simprims_ver"])
+	else:
+		cmd.append(["-L", "unifast_ver"])
+		cmd.append(["-L", "unisims_ver"])
+
 	if run_all:
 		cmd.append("-R")
 
 	logger.info("Running: %s", " ".join(cmd))
 	os.makedirs(target_dir, exist_ok=True)
-	
+
 	if cfg.get_vivado().dry_run:
 		return
 
@@ -88,7 +91,7 @@ def run_vivado_xsim(
 	popen = False
 ) -> int | None:
 	xsim_bin = os.path.join(cfg.get_vivado().path, "bin", "xsim")
-	
+
 	if config_tcl is None:
 		return
 
@@ -111,7 +114,7 @@ def run_vivado_xsim(
 
 	logger.info("Running: %s", " ".join(cmd))
 	os.makedirs(target_dir, exist_ok=True)
-	
+
 	if cfg.get_vivado().dry_run:
 		return
 

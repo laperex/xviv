@@ -39,24 +39,24 @@ def cmd_simulate(cfg: XvivConfig, *,
 				case 'post_synth_functional':
 					assert_file_exists(synth_cfg.synth_functional_netlist_file)
 					sim_files.append(synth_cfg.synth_functional_netlist_file)
-				
+
 				case 'post_synth_timing':
 					assert_file_exists(synth_cfg.synth_timing_netlist_file)
 					sim_files.append(synth_cfg.synth_timing_netlist_file)
-				
+
 				case 'post_impl_functional':
 					assert_file_exists(synth_cfg.impl_functional_netlist_file)
 					sim_files.append(synth_cfg.impl_functional_netlist_file)
-				
+
 				case 'post_impl_timing':
 					assert_file_exists(synth_cfg.impl_timing_sdf_file)
-					
+
 					for s in sim_cfg.sdfmax:
 						sdfmax_entries.append(f'{s}={synth_cfg.impl_timing_sdf_file}')
-					
+
 					assert_file_exists(synth_cfg.impl_timing_netlist_file)
 					sim_files.append(synth_cfg.impl_timing_netlist_file)
-				
+
 				case _:
 					raise RuntimeError(f'ERROR: Unknown simulation mode: {mode}')
 
@@ -122,7 +122,7 @@ def cmd_wdb_reload(cfg: XvivConfig, *,
 	sim_cfg = cfg.get_sim(sim_name)
 
 	fifo_file = os.path.join(sim_cfg.work_dir, f'{sim_cfg.top}.fifo')
-	
+
 	assert_file_exists(fifo_file)
 
 	cmd = (
