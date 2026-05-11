@@ -202,6 +202,9 @@ class ConfigTclBuilder:
 
 	def _upgrade_ip(self, cells: str):
 		self._push(f'upgrade_ip {cells}')
+		
+	def _upgrade_ip_get_ips(self, name: str):
+		self._upgrade_ip(f'[get_ips {name}]')
 
 	def _get_ips(self, name: str):
 		self._push(f"get_ips {name}")

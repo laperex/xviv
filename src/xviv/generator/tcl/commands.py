@@ -421,7 +421,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 
 	def generate_bd(self, bd_name: str, *,
-		force: bool = False
+		force: bool = True
 	) -> typing.Self:
 		bd_cfg = self._cfg.get_bd(bd_name)
 
@@ -650,6 +650,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 		self._require_project(fpga_ref=core_cfg.fpga_ref)
 
 		self._read_ip(core_cfg.xci_file)
+		self._upgrade_ip_get_ips(core_name)
 		self._generate_target_get_files(core_cfg.xci_file)
 
 		return self
