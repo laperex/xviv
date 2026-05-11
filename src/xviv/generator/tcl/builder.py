@@ -84,11 +84,6 @@ class ConfigTclBuilder:
 			f"-dir \"{dir}\""
 		])
 
-		bd_subdir = os.path.join(dir, name)
-
-		if os.path.isdir(bd_subdir):
-			self._file_delete(bd_subdir, force=True)
-
 		self._push(f"create_bd_design {' '.join(params)} {name}")
 
 	def _open_bd_design(self, file: str):

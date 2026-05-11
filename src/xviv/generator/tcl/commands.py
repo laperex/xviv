@@ -346,7 +346,11 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 		self._require_project(fpga_ref=bd_cfg.fpga_ref)
 
-		self._file_delete(bd_subdir, force=True)
+		if os.path.isdir(bd_subdir):
+			self._file_delete(bd_subdir, force=True)
+		
+		if not os.path.isdir(self._cfg.bd_dir):
+			self._file_mkdir(self._cfg.bd_dir)
 
 		self._create_bd_design(bd_name, dir=self._cfg.bd_dir)
 
@@ -359,7 +363,6 @@ class ConfigTclCommands(ConfigTclBuilder):
 			self._save_bd_design()
 
 			if generate:
-				# self.generate_bd(bd_name, check=False, force=True)
 				self._generate_target_get_files(bd_cfg.bd_file)
 		else:
 			self._override_save_bd_design(bd_name, bd_cfg.save_file)
@@ -372,8 +375,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 	def edit_bd(self, bd_name: str, nogui: bool = False) -> typing.Self:
 		bd_cfg = self._cfg.get_bd(bd_name)
 
-		if not os.path.exists(bd_cfg.bd_file):
-			raise RuntimeError(f"ERROR: BD File does not exist at path: {bd_cfg.bd_file}")
+		assert_file_exists(bd_cfg.bd_file)
 
 		self._require_project(fpga_ref=bd_cfg.fpga_ref)
 		self._read_bd(bd_cfg.bd_file)
@@ -389,16 +391,15 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 
 	def generate_bd(self, bd_name: str, *,
-		check: bool = True,
 		force: bool = False
 	) -> typing.Self:
 		bd_cfg = self._cfg.get_bd(bd_name)
 
-		if check and not os.path.exists(bd_cfg.bd_file):
-			raise RuntimeError(f"ERROR: BD File does not exist at path: {bd_cfg.bd_file}")
+		assert_file_exists(bd_cfg.bd_file)
 
 		if not force and not is_stale(bd_cfg.bd_file, bd_cfg.bd_wrapper_file):
 			logger.info("INFO: Output products are up to date")
+			self._clear()
 			return self
 
 		# tcl begin
@@ -424,9 +425,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 		ip_edit_project_dir = os.path.join("/dev/shm/build", ip_vid)
 		ip_edit_project_name = f'edit_{ip_vid}'
 
-		if not os.path.exists(ip_component_xml_file):
-			#! EditIp - IpNotExists
-			raise RuntimeError(f'ERROR: Ip - {ip_name}: does not exist')
+		assert_file_exists(ip_component_xml_file)
 
 		# tcl begin
 
@@ -576,10 +575,6 @@ class ConfigTclCommands(ConfigTclBuilder):
 	def create_core(self, core_name: str) -> typing.Self:
 		core_cfg = self._cfg.get_core(core_name)
 
-		if self._cfg.get_catalog().lookup_optional(id=core_cfg.vlnv) is None:
-			#! IpNotCreated
-			raise RuntimeError(f'ERROR: Core: {core_cfg.name} with IP: {core_cfg.vlnv}. IP not created / unable to resolve')
-
 		# tcl begin
 
 		self._require_project(fpga_ref=core_cfg.fpga_ref)
@@ -593,15 +588,11 @@ class ConfigTclCommands(ConfigTclBuilder):
 	def edit_core(self, core_name: str, nogui: bool = False) -> typing.Self:
 		core_cfg = self._cfg.get_core(core_name)
 
-
-		if not os.path.exists(core_cfg.xci_file):
-			#! EditCore - CoreNotExists
-			raise RuntimeError(f'ERROR: Core - {core_name}: does not exist - {core_cfg.xci_file}')
-
 		# tcl begin
 
 		self._require_project(fpga_ref=core_cfg.fpga_ref)
 
+		assert_file_exists(core_cfg.xci_file)
 		self._read_ip(core_cfg.xci_file)
 
 		if not nogui:
