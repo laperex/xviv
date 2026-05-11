@@ -364,8 +364,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 	def create_bd(self, bd_name: str, generate: bool = True) -> typing.Self:
 		bd_cfg = self._cfg.get_bd(bd_name)
 		bd_subdir = os.path.join(self._cfg.bd_dir, bd_name)
-
-		# tcl begin
+		
 
 		self._require_project(fpga_ref=bd_cfg.fpga_ref)
 
@@ -424,8 +423,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 			logger.info("INFO: Output products are up to date")
 			self._clear()
 			return self
-
-		# tcl begin
+			
 
 		self._require_project(fpga_ref=bd_cfg.fpga_ref)
 
@@ -451,8 +449,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 		ip_edit_project_dir = os.path.join("/dev/shm/build", ip_vid)
 		ip_edit_project_name = f'edit_{ip_vid}'
-
-		# tcl begin
+		
 
 		self._require_project(fpga_ref=ip_cfg.fpga_ref)
 
@@ -581,8 +578,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 		ip_edit_project_name = f'edit_{ip_vid}'
 
 		assert_file_exists(ip_component_xml_file)
-
-		# tcl begin
+		
 
 		self._require_project(fpga_ref=ip_cfg.fpga_ref)
 
@@ -605,8 +601,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 	def create_core(self, core_name: str) -> typing.Self:
 		core_cfg = self._cfg.get_core(core_name)
-
-		# tcl begin
+		
 
 		self._require_project(fpga_ref=core_cfg.fpga_ref)
 
@@ -618,8 +613,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 	def edit_core(self, core_name: str, nogui: bool = False) -> typing.Self:
 		core_cfg = self._cfg.get_core(core_name)
-
-		# tcl begin
+		
 
 		self._require_project(fpga_ref=core_cfg.fpga_ref)
 
@@ -647,8 +641,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 		core: str | None = None,
 	):
 		synth_cfg = self._cfg.get_synth(bd_name=bd, design_name=design, core_name=core)
-
-		# tcl begin
+		
 
 		self._require_project(fpga_ref=synth_cfg.fpga_ref)
 

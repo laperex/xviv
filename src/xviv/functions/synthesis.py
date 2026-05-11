@@ -12,7 +12,7 @@ def cmd_synth(cfg: XvivConfig, *,
 	bd_name: str | None = None,
 	core_name: str | None = None,
 ):
-	synth_cfg = cfg.get_synth(bd_name=bd_name, design_name=design_name)
+	synth_cfg = cfg.get_synth(bd_name=bd_name, design_name=design_name, core_name=core_name)
 
 	if synth_cfg.out_of_context_subcores:
 		for i in cfg.get_subcore_list(bd_name=bd_name, design_name=design_name):

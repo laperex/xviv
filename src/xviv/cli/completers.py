@@ -142,18 +142,22 @@ def target_group(parser, *,
 		arg(mg, "--platform", metavar="NAME", help="Platform name", completer=c_platform)
 	if app:
 		arg(mg, "--app", metavar="NAME", help="App name", completer=c_app)
+
 	if sim:
 		arg(mg, "--target", metavar="NAME", help="Simulation name", completer=c_sim_target)
-	if design:
-		arg(mg, "--design", metavar="NAME", help="Design name", completer=c_design)
-	if ip:
-		arg(mg, "--ip", metavar="NAME", help="IP name", completer=c_ip)
-	if bd:
-		arg(mg, "--bd", metavar="NAME", help="BD name", completer=c_bd)
 	if wdb:
 		arg(mg, "--wdb", metavar="NAME", help="Simulation target name in config", completer=c_sim_target)
+
 	if dcp:
 		arg(mg, "--dcp", metavar="NAME", help="Checkpoint file", completer=c_dcp_file)
+
+	if ip:
+		arg(mg, "--ip", metavar="NAME", help="IP name", completer=c_ip)
+
+	if design:
+		arg(mg, "--design", metavar="NAME", help="Design name", completer=c_design)
+	if bd:
+		arg(mg, "--bd", metavar="NAME", help="BD name", completer=c_bd)
 	if core:
 		arg(mg, "--core", metavar="NAME", help="Core name", completer=c_core)
 

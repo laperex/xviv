@@ -62,33 +62,6 @@ class XvivConfig:
 	
 	def build(self) -> typing.Self:
 		os.makedirs(self.work_dir, exist_ok=True)
-		
-		self.build_bd_subcores()
-
-		return self
-
-	def build_bd_subcores(self) -> typing.Self:
-		for bd_cfg in self._bd_list:
-			if os.path.exists(bd_cfg.bd_file):
-				for xci_name, xci_file, vlnv, inst_hier_path in get_bd_core_list(bd_cfg.bd_file):
-					# print(vlnv, xci_name)
-
-					# self._subcore_list.append(
-					# 	SubCoreConfig(
-					# 		name=xci_name,
-					# 		vlnv=vlnv,
-					# 		xci_file=xci_file,
-					# 		fpga_ref=bd_cfg.fpga_ref,
-
-					# 		inst_hier_path=inst_hier_path,
-
-					# 		bd=bd_cfg.name,
-					# 		design=None,
-					# 	)
-					# )
-
-					# self.add_core_cfg()
-					pass
 
 		return self
 

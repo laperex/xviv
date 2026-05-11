@@ -3,9 +3,10 @@ from abc import ABC, abstractmethod
 import sys
 from typing import Any
 
-from xviv.cli.completers import arg, target_group, c_ip, c_bd, c_app, c_platform, c_core, c_core_instance, c_sim_target
+from xviv.cli.completers import target_group
 from xviv.config.project import XvivConfig
-from xviv.functions.bd import cmd_bd_create, cmd_bd_edit, cmd_bd_generate, cmd_bd_synth
+
+from xviv.functions.bd import cmd_bd_create, cmd_bd_edit, cmd_bd_generate
 from xviv.functions.core import cmd_core_create, cmd_core_edit, cmd_search_core
 from xviv.functions.graph import cmd_graph
 from xviv.functions.ip import cmd_ip_create, cmd_ip_edit
@@ -111,7 +112,7 @@ class GenerateCommand(Command):
 	def register(cls, sub: argparse._SubParsersAction) -> None:
 		super().register(sub)
 		c = cls.c
-		arg(c, "--bd", required=True, metavar="NAME", help="BD name", completer=c_bd)
+		target_group(c, bd=True)
 
 	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
 		super().run(cfg, args)
