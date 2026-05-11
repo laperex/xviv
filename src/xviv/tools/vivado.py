@@ -59,10 +59,10 @@ def run_vivado_xelab(
 		cmd += ['-sdfmax', i]
 
 	if sdfmax_entries:
-		cmd.append(["-L", "simprims_ver"])
+		cmd += ["-L", "simprims_ver"]
 	else:
-		cmd.append(["-L", "unifast_ver"])
-		cmd.append(["-L", "unisims_ver"])
+		cmd += ["-L", "unifast_ver"]
+		cmd += ["-L", "unisims_ver"]
 
 	if run_all:
 		cmd.append("-R")
