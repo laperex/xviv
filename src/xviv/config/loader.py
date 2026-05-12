@@ -50,10 +50,10 @@ def load_config(path: str) -> XvivConfig:
 		('bd',         cfg.add_bd_cfg),
 		('design',     cfg.add_design_cfg),
 		('simulation', cfg.add_sim_cfg),
+		('subcore',    cfg.add_subcore_cfg),
 		('synth',      cfg.add_synth_cfg),
 		('platform',   cfg.add_platform_cfg),
 		('app',        cfg.add_app_cfg),
-		('subcore',    cfg.add_subcore_cfg),
 	]:
 		for entry in data.get(section, []):
 			method(**entry)

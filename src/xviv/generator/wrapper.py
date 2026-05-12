@@ -645,6 +645,8 @@ class SystemVerilogWrapper:
 		self.top = top
 		self.wrapper_top = wrapper_top
 		self.wrapper_file = wrapper_file
+		
+		logger.debug(f'wrapper sources: {sources}')
 
 		os.makedirs(os.path.dirname(self.wrapper_file), exist_ok=True)
 

@@ -32,6 +32,7 @@ class IpConfig:
 
 @dataclasses.dataclass
 class IpWrapperConfig:
+	wrapper_top: str
 	wrapper_file: str
 
 	ip_name:      str

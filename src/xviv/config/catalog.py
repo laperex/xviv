@@ -10,6 +10,7 @@ import typing
 from xviv.config.model import CatalogCoreEntry
 from xviv.parsers import vv_index_xml
 from xviv.parsers import component_xml
+from xviv.utils.error import AmbiguousCoreError
 
 logger = logging.getLogger(__name__)
 
@@ -51,18 +52,14 @@ class Catalog:
 			logger.debug("Resolved %r → %s", id, matches[0].vlnv)
 			return matches[0]
 		if len(matches) > 1:
-			candidates = ", ".join(e.vlnv for e in matches[:5])
-			sys.exit(f"ERROR: Unable to resolve core: {id!r} is ambiguous: {candidates}...")
+			raise AmbiguousCoreError(id, [e.vlnv for e in matches])
 
 		return None
 
 	def find_by_name(self, ip_name: str) -> list[CatalogCoreEntry]:
 		return [e for e in self._cores.values() if e.name == ip_name]
 
-	def search(
-		self,
-		prefix: str,
-		*,
+	def search(self, prefix: str, *,
 		include_hidden: bool = False,
 	) -> list[CatalogCoreEntry]:
 		needle = prefix.lower()

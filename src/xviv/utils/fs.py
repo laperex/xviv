@@ -8,10 +8,16 @@ logger = logging.getLogger(__name__)
 
 def resolve_globs(patterns: list[str], base: str) -> list[str]:
 	files: list[str] = []
+
 	for pat in patterns:
 		full_pat = os.path.join(base, pat)
-		hits = sorted(glob.glob(full_pat, recursive=True))
-		files.extend(os.path.abspath(h) for h in hits if os.path.isfile(h))
+
+		if glob.escape(full_pat) == full_pat:
+			files.append(os.path.abspath(full_pat))
+		else:
+			hits = sorted(glob.glob(full_pat, recursive=True))
+			files.extend(os.path.abspath(h) for h in hits if os.path.isfile(h))
+
 	return files
 
 def is_stale_list(srcfile: str, dstfilelist: list[str], exit_on_fail: bool=True) -> bool:
@@ -39,12 +45,14 @@ def is_stale(srcfile: str, dstfile: str, exit_on_fail=True) -> bool:
 	return False
 
 def combined_checksum(files: list[str], algorithm: str = "sha256") -> str:
-    h = hashlib.new(algorithm)
-    for path in files:
-        with open(path, "rb") as f:
-            for chunk in iter(lambda: f.read(65536), b""):
-                h.update(chunk)
-    return h.hexdigest()
+	h = hashlib.new(algorithm)
+
+	for path in files:
+		with open(path, "rb") as f:
+			for chunk in iter(lambda: f.read(65536), b""):
+				h.update(chunk)
+
+	return h.hexdigest()
 
 def assert_file_exists(path: str) -> None:
-    assert os.path.exists(path), f"File not found: {path}"
+	assert os.path.exists(path), f"File not found: {path}"

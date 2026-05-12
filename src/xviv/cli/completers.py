@@ -101,11 +101,11 @@ def c_dcp_file(prefix, parsed_args, **kwargs):
 
 def c_sim_modes(prefix, parsed_args, **kwargs):
     return [
-		'default',
 		'post_synth_functional',
 		'post_synth_timing',
 		'post_impl_functional',
 		'post_impl_timing'
+		'default',
 	]
 
 # ---------------------------------------------------------------------------

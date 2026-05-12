@@ -1,9 +1,6 @@
 import os
-import sys
-import typing
 from xviv.config.project import XvivConfig
 from xviv.generator.tcl.commands import ConfigTclCommands
-from xviv.generator.wrapper import SystemVerilogWrapper
 from xviv.tools import vivado
 from xviv.utils.parallel import run_parallel
 
@@ -14,7 +11,7 @@ from xviv.utils.parallel import run_parallel
 def cmd_ip_create(cfg: XvivConfig, *,
 	ip_name: str | None = None
 ):
-	cfg = cfg.build_wrappers()
+	cfg.build_attach_ip_wrapper(ip_name)
 
 	config = (
 		ConfigTclCommands(cfg)

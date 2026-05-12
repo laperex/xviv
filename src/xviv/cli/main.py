@@ -1,26 +1,12 @@
 import argparse
-import argcomplete
 import os
 
-from xviv.cli.commands import Command, CreateCommand, GraphCommand, SearchCommand, EditCommand, GenerateCommand, StatusCommand, SynthCommand, OpenCommand, SimulateCommand, ReloadCommand, BuildCommand, ProgramCommand, ProcessorCommand
+import argcomplete
+
+from xviv.cli import commands
 from xviv.config.loader import load_config, resolve_config
 from xviv.utils.log import _setup_logging
 
-_COMMANDS: list[type[Command]] = [
-	CreateCommand,
-	SearchCommand,
-	EditCommand,
-	GenerateCommand,
-	SynthCommand,
-	OpenCommand,
-	GraphCommand,
-	SimulateCommand,
-	ReloadCommand,
-	BuildCommand,
-	ProgramCommand,
-	ProcessorCommand,
-	StatusCommand,
-]
 
 def run() -> None:
 	p = argparse.ArgumentParser(
@@ -35,8 +21,22 @@ def run() -> None:
 	sub = p.add_subparsers(dest="command", required=True)
 	# sub.add_argument("--dry-run", action="store_true", default=False, help="Dry Run")
 
-	registry: dict[str, Command] = {}
-	for cls in _COMMANDS:
+	registry: dict[str, commands.Command] = {}
+	for cls in [
+		commands.CreateCommand,
+		commands.SearchCommand,
+		commands.EditCommand,
+		commands.GenerateCommand,
+		commands.SynthCommand,
+		commands.OpenCommand,
+		commands.GraphCommand,
+		commands.SimulateCommand,
+		commands.ReloadCommand,
+		commands.BuildCommand,
+		commands.ProgramCommand,
+		commands.ProcessorCommand,
+		commands.StatusCommand,
+	]:
 		cls.register(sub)        # sets up the sub-parser
 		registry[cls.name] = cls()  # one instance per command
 
