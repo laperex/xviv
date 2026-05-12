@@ -34,7 +34,7 @@ def cmd_ip_create(cfg: XvivConfig, *,
 				.build()
 			), label=ip_name),
 			i.name,
-		) for i in cfg._core_list if i.vlnv == ip_cfg.vlnv
+		) for i in cfg._core_list if i.vlnv == ip_cfg.vlnv and os.path.exists(i.xci_file)
 	])
 
 
