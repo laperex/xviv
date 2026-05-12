@@ -11,6 +11,8 @@ from xviv.utils.parallel import run_parallel
 def cmd_ip_create(cfg: XvivConfig, *,
 	ip_name: str | None = None
 ):
+	cfg.validate_ip(ip_name)
+
 	cfg.build_attach_ip_wrapper(ip_name)
 
 	config = (

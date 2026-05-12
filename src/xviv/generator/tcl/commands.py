@@ -660,11 +660,18 @@ class ConfigTclCommands(ConfigTclBuilder):
 	# Synthesis
 	# ------------------------------------------------------
 
+	def _incremental(self, stage: str, dcp_file: str | None):
+		if dcp_file:
+			if not os.path.exists(dcp_file):
+				logger.info(f'dcp does not exist at: {dcp_file} -> skipping incremental {stage}')
+			else:
+				self._read_checkpoint(dcp_file, incremental=True)
+				
 	def synth(self, *,
 		bd: str | None = None,
 		design: str | None = None,
 		core: str | None = None,
-	):
+	) -> typing.Self:
 		synth_cfg = self._cfg.get_synth(bd_name=bd, design_name=design, core_name=core)
 		
 		out_files = [i for i in filter(None, [
@@ -750,225 +757,104 @@ class ConfigTclCommands(ConfigTclBuilder):
 		# self._set_property_current_fileset('TOP', synth_cfg.top)
 		# self._update_compile_order(fileset='constsr_1')
 
-		self._synthesis(
-			top = synth_cfg.top,
-
-			out_of_context_hier_dcp_map = out_of_context_hier_dcp_map,
-
-			synth_incremental = synth_cfg.synth_incremental,
-
-			run_synth = synth_cfg.run_synth,
-			synth_dcp_file = synth_cfg.synth_dcp_file,
-
-			run_opt = synth_cfg.run_opt,
-			impl_incremental = synth_cfg.impl_incremental,
-			run_place = synth_cfg.run_place,
-			place_dcp_file = synth_cfg.place_dcp_file,
-
-			run_phys_opt = synth_cfg.run_phys_opt,
-			run_route = synth_cfg.run_route,
-
-			route_dcp_file = synth_cfg.route_dcp_file,
-
-			bitstream_file = synth_cfg.bitstream_file,
-			hw_platform_xsa_file = synth_cfg.hw_platform_xsa_file,
-
-			synth_report_timing_summary_file = synth_cfg.synth_report_timing_summary_file,
-			synth_report_utilization_file = synth_cfg.synth_report_utilization_file,
-			synth_report_incremental_reuse_file = synth_cfg.synth_report_incremental_reuse_file,
-			route_report_drc_file = synth_cfg.route_report_drc_file,
-			route_report_methodology_file = synth_cfg.route_report_methodology_file,
-			route_report_power_file = synth_cfg.route_report_power_file,
-			route_report_route_status_file = synth_cfg.route_report_route_status_file,
-			route_report_timing_summary_file = synth_cfg.route_report_timing_summary_file,
-			impl_report_incremental_reuse_file = synth_cfg.impl_report_incremental_reuse_file,
-
-			synth_functional_netlist_file = synth_cfg.synth_functional_netlist_file,
-			synth_timing_netlist_file = synth_cfg.synth_timing_netlist_file,
-			impl_functional_netlist_file = synth_cfg.impl_functional_netlist_file,
-			impl_timing_netlist_file = synth_cfg.impl_timing_netlist_file,
-			impl_timing_sdf_file = synth_cfg.impl_timing_sdf_file,
-
-			synth_stub_file = synth_cfg.synth_stub_file,
-
-			synth_directive = synth_cfg.synth_directive,
-			synth_mode = synth_cfg.synth_mode,
-			synth_flatten_hierarchy = synth_cfg.synth_flatten_hierarchy,
-			synth_fsm_extraction = synth_cfg.synth_fsm_extraction,
-			opt_directive = synth_cfg.opt_directive,
-			place_directive = synth_cfg.place_directive,
-			phys_opt_directive = synth_cfg.phys_opt_directive,
-			route_directive = synth_cfg.route_directive,
-
-			usr_access_value = synth_cfg.usr_access_value,
-		)
-
-		return self
-
-	def _synthesis(self, top: str, *,
-		synth_incremental: bool = False,
-
-		out_of_context_hier_dcp_map: dict[str, str] = {},
-
-		#* synth
-		run_synth: bool = False,
-		synth_directive: str = 'default',
-		synth_mode: str = 'default',
-		synth_flatten_hierarchy: str = 'rebuilt',
-		synth_fsm_extraction: str = 'auto',
-
-		synth_report_timing_summary_file: str | None = None,
-		synth_report_utilization_file: str | None = None,
-		synth_report_incremental_reuse_file: str | None = None,
-
-		synth_dcp_file: str | None = None,
-		synth_stub_file: str | None = None,
-		synth_functional_netlist_file: str | None = None,
-		synth_timing_netlist_file: str | None = None,
-
-
-		#+ opt
-		run_opt: bool = False,
-		opt_directive: str = 'default',
-
-
-		impl_incremental: bool = False,
-
-		#* place
-		run_place: bool = False,
-		place_directive: str = 'default',
-		place_dcp_file: str | None = None,
-
-
-		#+ phys_opt
-		run_phys_opt: bool = False,
-		phys_opt_directive: str = 'default',
-
-
-		#* route
-		run_route: bool = False,
-		route_directive: str = 'default',
-		route_dcp_file: str | None = None,
-
-		route_report_drc_file: str | None = None,
-		route_report_methodology_file: str | None = None,
-		route_report_power_file: str | None = None,
-		route_report_route_status_file: str | None = None,
-		route_report_timing_summary_file: str | None = None,
-
-		impl_report_incremental_reuse_file: str | None = None,
-
-		impl_functional_netlist_file: str | None = None,
-		impl_timing_netlist_file: str | None = None,
-		impl_timing_sdf_file: str | None = None,
-
-		usr_access_value: int | None = None,
-
-		bitstream_file: str | None = None,
-
-		hw_platform_xsa_file: str | None = None,
-	):
-		def _incremental(stage: str, dcp_file: str | None):
-			if dcp_file:
-				if not os.path.exists(dcp_file):
-					logger.info(f'dcp does not exist at: {dcp_file} -> skipping incremental {stage}')
-				else:
-					self._read_checkpoint(dcp_file, incremental=True)
+		#* tcl synthesis begin
 
 		if self._require_project(exists_ok=True):
 			#! Synthesis - ProjectNotCreated
 			raise RuntimeError('Error: Project Not Created before calling Synthesis')
 
 		#* synth_design
-		if synth_incremental:
-			_incremental('synthesis', dcp_file=synth_dcp_file)
+		if synth_cfg.synth_incremental:
+			self._incremental('synthesis', dcp_file=synth_cfg.synth_dcp_file)
 
-		if run_synth:
+		if synth_cfg.run_synth:
 			self._synth_design(
-				top=top,
-				mode=synth_mode,
-				directive=synth_directive,
-				flatten_hierarchy=synth_flatten_hierarchy,
-				fsm_extraction=synth_fsm_extraction
+				top=synth_cfg.top,
+				mode=synth_cfg.synth_mode,
+				directive=synth_cfg.synth_directive,
+				flatten_hierarchy=synth_cfg.synth_flatten_hierarchy,
+				fsm_extraction=synth_cfg.synth_fsm_extraction
 			)
 
 		for inst_hier_path, dcp_file in out_of_context_hier_dcp_map.items():
 			self._read_checkpoint(dcp_file, cell=inst_hier_path)
 
-		if synth_dcp_file:
-			self._write_checkpoint(synth_dcp_file, force=True)
+		if synth_cfg.synth_dcp_file:
+			self._write_checkpoint(synth_cfg.synth_dcp_file, force=True)
 
-		if synth_report_timing_summary_file:
-			self._report('timing_summary', file=synth_report_timing_summary_file)
-		if synth_report_utilization_file:
-			self._report('utilization', file=synth_report_utilization_file, hierarchical=True)
-		if synth_report_incremental_reuse_file:
-			self._report('incremental_reuse', file=synth_report_incremental_reuse_file)
+		if synth_cfg.synth_report_timing_summary_file:
+			self._report('timing_summary', file=synth_cfg.synth_report_timing_summary_file)
+		if synth_cfg.synth_report_utilization_file:
+			self._report('utilization', file=synth_cfg.synth_report_utilization_file, hierarchical=True)
+		if synth_cfg.synth_report_incremental_reuse_file:
+			self._report('incremental_reuse', file=synth_cfg.synth_report_incremental_reuse_file)
 
-		if synth_functional_netlist_file:
-			self._write_verilog(synth_functional_netlist_file, mode='funcsim', force=True)
-		if synth_timing_netlist_file:
-			self._write_verilog(synth_timing_netlist_file, mode='timesim', force=True, sdf_anno=True)
-		if synth_stub_file:
-			self._write_verilog(synth_stub_file, mode='synth_stub', force=True)
+		if synth_cfg.synth_functional_netlist_file:
+			self._write_verilog(synth_cfg.synth_functional_netlist_file, mode='funcsim', force=True)
+		if synth_cfg.synth_timing_netlist_file:
+			self._write_verilog(synth_cfg.synth_timing_netlist_file, mode='timesim', force=True, sdf_anno=True)
+		if synth_cfg.synth_stub_file:
+			self._write_verilog(synth_cfg.synth_stub_file, mode='synth_stub', force=True)
 
 
 		# opt_design
-		if run_opt:
-			self._opt_design(directive=opt_directive)
+		if synth_cfg.run_opt:
+			self._opt_design(directive=synth_cfg.opt_directive)
 
 
-		if impl_incremental:
-			_incremental('implementation', dcp_file=route_dcp_file)
+		if synth_cfg.impl_incremental:
+			self._incremental('implementation', dcp_file=synth_cfg.route_dcp_file)
 
 		#* place_design
-		if run_place:
-			self._place_design(directive=place_directive)
+		if synth_cfg.run_place:
+			self._place_design(directive=synth_cfg.place_directive)
 
-		if place_dcp_file:
-			self._write_checkpoint(place_dcp_file, force=True)
+		if synth_cfg.place_dcp_file:
+			self._write_checkpoint(synth_cfg.place_dcp_file, force=True)
 
 
 		# phys_opt
-		if run_phys_opt:
-			self._phys_opt_design(directive=phys_opt_directive)
+		if synth_cfg.run_phys_opt:
+			self._phys_opt_design(directive=synth_cfg.phys_opt_directive)
 
 
 		#* route_design
-		if run_route:
-			self._route_design(directive=route_directive)
+		if synth_cfg.run_route:
+			self._route_design(directive=synth_cfg.route_directive)
 
-		if route_dcp_file:
-			self._write_checkpoint(route_dcp_file, force=True)
+		if synth_cfg.route_dcp_file:
+			self._write_checkpoint(synth_cfg.route_dcp_file, force=True)
 
-		if route_report_drc_file:
-			self._report('drc', file=route_report_drc_file)
-		if route_report_methodology_file:
-			self._report('methodology', file=route_report_methodology_file)
-		if route_report_power_file:
-			self._report('power', file=route_report_power_file)
-		if route_report_route_status_file:
-			self._report('route_status', file=route_report_route_status_file)
-		if route_report_timing_summary_file:
-			self._report('timing_summary', file=route_report_timing_summary_file)
-		if impl_report_incremental_reuse_file:
-			self._report('incremental_reuse', file=impl_report_incremental_reuse_file)
+		if synth_cfg.route_report_drc_file:
+			self._report('drc', file=synth_cfg.route_report_drc_file)
+		if synth_cfg.route_report_methodology_file:
+			self._report('methodology', file=synth_cfg.route_report_methodology_file)
+		if synth_cfg.route_report_power_file:
+			self._report('power', file=synth_cfg.route_report_power_file)
+		if synth_cfg.route_report_route_status_file:
+			self._report('route_status', file=synth_cfg.route_report_route_status_file)
+		if synth_cfg.route_report_timing_summary_file:
+			self._report('timing_summary', file=synth_cfg.route_report_timing_summary_file)
+		if synth_cfg.impl_report_incremental_reuse_file:
+			self._report('incremental_reuse', file=synth_cfg.impl_report_incremental_reuse_file)
 
-		if impl_functional_netlist_file:
-			self._write_verilog(impl_functional_netlist_file, mode='funcsim', force=True)
-		if impl_timing_netlist_file:
-			self._write_verilog(impl_timing_netlist_file, mode='timesim', force=True, sdf_anno=True)
-		if impl_timing_sdf_file:
-			self._write_sdf(impl_timing_sdf_file, mode='timesim', force=True)
+		if synth_cfg.impl_functional_netlist_file:
+			self._write_verilog(synth_cfg.impl_functional_netlist_file, mode='funcsim', force=True)
+		if synth_cfg.impl_timing_netlist_file:
+			self._write_verilog(synth_cfg.impl_timing_netlist_file, mode='timesim', force=True, sdf_anno=True)
+		if synth_cfg.impl_timing_sdf_file:
+			self._write_sdf(synth_cfg.impl_timing_sdf_file, mode='timesim', force=True)
 
 		# set usr_access_value
-		if usr_access_value:
-			self._set_property_current_design('BITSTREAM.CONFIG.USR_ACCESS', f'0x{usr_access_value}')
+		if synth_cfg.usr_access_value:
+			self._set_property_current_design('BITSTREAM.CONFIG.USR_ACCESS', f'0x{synth_cfg.usr_access_value}')
 
 		# bitstream
-		if bitstream_file:
-			self._write_bitstream(bitstream_file, force=True)
+		if synth_cfg.bitstream_file:
+			self._write_bitstream(synth_cfg.bitstream_file, force=True)
 
 		# hw_platform
-		if hw_platform_xsa_file:
-			self._write_hw_platform(hw_platform_xsa_file, force=True, include_bit=True, fixed=True)
+		if synth_cfg.hw_platform_xsa_file:
+			self._write_hw_platform(synth_cfg.hw_platform_xsa_file, force=True, include_bit=True, fixed=True)
+
+		return self

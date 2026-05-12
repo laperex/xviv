@@ -58,6 +58,15 @@ class VlnvResolveError(ResolveError):
     def __str__(self) -> str:
         return f"Unable to resolve VLNV '{self.vlnv}' - check your IP repos and catalog entries"
 
+class CoreVlnvResolveError(ResolveError):
+    def __init__(self, name: str, vlnv: str):
+        self.name = name
+        self.vlnv = vlnv
+        super().__init__(vlnv)
+
+    def __str__(self) -> str:
+        return f"Core '{self.name}' Unable to resolve VLNV '{self.vlnv}' - check your IP repos and catalog entries"
+
 
 class FpgaResolveError(ResolveError):
     def __init__(self, fpga: str):
@@ -172,10 +181,6 @@ class AppAlreadyExistsError(AlreadyExistsError):
     def __init__(self, name: str) -> None:
         super().__init__("AppConfig", name)
 
-
-class SubCoreAlreadyExistsError(AlreadyExistsError):
-    def __init__(self, name: str) -> None:
-        super().__init__("SubCore", name)
 
 
 # =============================================================================
@@ -319,26 +324,77 @@ class WrapperSourcesEmptyError(SourceEmptyError):
     def __init__(self, name: str) -> None:
         super().__init__('Wrapper for IP', name)
 
-class IpSourcesEmptyError(SourceEmptyError):
-    def __init__(self, name: str) -> None:
-        super().__init__('IP', name)
-
-
 class WrapperSourcesMissingError(SourceMissingError):
     def __init__(self, name: str, path: str) -> None:
         super().__init__('Wrapper for IP', name, path)
+
+
+
+class IpSourcesEmptyError(SourceEmptyError):
+    def __init__(self, name: str) -> None:
+        super().__init__('IP', name)
 
 class IpSourcesMissingError(SourceMissingError):
     def __init__(self, name: str, path: str) -> None:
         super().__init__('IP', name, path)
 
-class SynthConstraintsSourcesMissingError(SourceMissingError):
+
+class DesignSourcesMissingError(SourceMissingError):
+    def __init__(self, name: str, path: str) -> None:
+        super().__init__('Design', name, path)
+
+
+class AppSourcesEmptyError(SourceEmptyError):
+    def __init__(self, name: str) -> None:
+        super().__init__('App', name)
+
+class AppSourcesMissingError(SourceMissingError):
+    def __init__(self, name: str, path: str) -> None:
+        super().__init__('App', name, path)
+
+class AppElfMissingError(SourceMissingError):
+    def __init__(self, name: str, path: str) -> None:
+        super().__init__('App', name, path, file_type='ELF')
+
+
+class PlatformXsaMissingError(SourceMissingError):
+    def __init__(self, name: str, path: str) -> None:
+        super().__init__('Platform', name, path, file_type='XSA')
+
+class PlatformBitstreamMissingError(SourceMissingError):
+    def __init__(self, name: str, path: str) -> None:
+        super().__init__('Platform', name, path, file_type='bitstream')
+
+
+class SynthConstraintsMissingError(SourceMissingError):
     def __init__(self, name: str, name_type: str, path: str) -> None:
         super().__init__(f'Synth for {name_type}', name, path, file_type='constraints')
 
 # =============================================================================
 # SubCore identifier
 # =============================================================================
+
+class SubCoreBdAlreadyExistsError(ConfigError):
+    def __init__(self, inst_hier_path: str, core: str, bd: str) -> None:
+        self.inst_hier_path = inst_hier_path
+        self.core = core
+        self.bd = bd
+        super().__init__(core)
+
+    def __str__(self) -> str:
+        return f"SubCore '{self.core}' at '{self.inst_hier_path}' with bd='{self.bd}' is already specified"
+
+
+class SubCoreDesignAlreadyExistsError(ConfigError):
+    def __init__(self, inst_hier_path: str, core: str, design: str) -> None:
+        self.inst_hier_path = inst_hier_path
+        self.core = core
+        self.design = design
+        super().__init__(core)
+
+    def __str__(self) -> str:
+        return f"SubCore '{self.core}' at '{self.inst_hier_path}' with design='{self.design}' is already specified"
+
 
 class SubCoreIdentifierError(ConfigError):
     """Base for subcore bd/design identifier problems."""
@@ -355,17 +411,32 @@ class SubCoreIdentifierUnspecifiedError(SubCoreIdentifierError):
 
 
 class SubCoreIdentifierMultipleError(SubCoreIdentifierError):
-    def __init__(self, core: str, bd: str, design: str) -> None:
-        # self.inst_hier_path = inst_hier_path
+    def __init__(self, inst_hier_path: str, core: str, bd: str, design: str) -> None:
+        self.inst_hier_path = inst_hier_path
         self.core = core
         self.bd = bd
         self.design = design
         super().__init__(core)
 
     def __str__(self) -> str:
-        # return f"SubCore '{self.core}' at '{self.inst_hier_path}' specifies both bd='{self.bd}' and design='{self.design}' - pick one"
-        return f"SubCore '{self.core}' specifies both bd='{self.bd}' and design='{self.design}' - pick one"
+        return f"SubCore '{self.core}' at '{self.inst_hier_path}' specifies both bd='{self.bd}' and design='{self.design}' - pick one"
 
+class SubCoreListIdentifierUnspecifiedError(SubCoreIdentifierError):
+    def __init__(self) -> None:
+        super().__init__()
+
+    def __str__(self) -> str:
+        return "requires exactly one of: bd, design"
+
+
+class SubCoreListIdentifierMultipleError(SubCoreIdentifierError):
+    def __init__(self, bd: str, design: str) -> None:
+        self.bd = bd
+        self.design = design
+        super().__init__()
+
+    def __str__(self) -> str:
+        return f"specifies both bd='{self.bd}' and design='{self.design}' - pick one"
 
 # =============================================================================
 # Synth identifier
@@ -381,12 +452,21 @@ class SynthIdentifierUnspecifiedError(SynthIdentifierError):
 
 
 class SynthIdentifierMultipleError(SynthIdentifierError):
-    def __init__(self, ids: list[str]) -> None:
-        self.ids = ids
-        super().__init__(ids)
+    def __init__(self, design: str | None, core: str | None, bd: str | None) -> None:
+        self.design = design
+        self.core = core
+        self.bd = bd
+        super().__init__()
 
     def __str__(self) -> str:
-        return f"SynthConfig received multiple identifiers: {self.ids} - specify exactly one"
+        parts = []
+        if self.design:
+            parts.append(f"design='{self.design}'")
+        if self.core:
+            parts.append(f"core='{self.core}'")
+        if self.bd:
+            parts.append(f"bd='{self.bd}'")
+        return f"SynthConfig received multiple identifiers: {', '.join(parts)} - specify exactly one"
 
 
 # =============================================================================
@@ -398,17 +478,31 @@ class PlatformIdentifierError(ConfigError):
 
 
 class PlatformIdentifierUnspecifiedError(PlatformIdentifierError):
+    def __init__(self, name: str) -> None:
+        self.name = name
+        super().__init__()
+
     def __str__(self) -> str:
-        return "PlatformConfig requires exactly one of: bd, design, xsa"
+        return f"PlatformConfig '{self.name}' requires exactly one of: bd, design, xsa"
 
 
 class PlatformIdentifierMultipleError(PlatformIdentifierError):
-    def __init__(self, ids: list[str]) -> None:
-        self.ids = ids
-        super().__init__(ids)
+    def __init__(self, name: str, design: str | None, bd: str | None, xsa: str | None) -> None:
+        self.design = design
+        self.bd = bd
+        self.xsa = xsa
+        self.name = name
+        super().__init__()
 
     def __str__(self) -> str:
-        return f"PlatformConfig received multiple identifiers: {self.ids} - specify exactly one"
+        parts = []
+        if self.design:
+            parts.append(f"design='{self.design}'")
+        if self.bd:
+            parts.append(f"bd='{self.bd}'")
+        if self.xsa:
+            parts.append(f"xsa='{self.xsa}'")
+        return f"SynthConfig '{self.name}' received multiple identifiers: {', '.join(parts)} - specify exactly one"
 
 
 # =============================================================================
@@ -442,3 +536,34 @@ class AmbiguousCoreError(AmbiguousIdentifierError):
     def __init__(self, id: str, candidates: list[str]) -> None:
         super().__init__("CoreConfig", id, candidates)
 
+
+# Core specific
+
+class CoreIdentifierError(ConfigError):
+    """Base for Core identifier problems."""
+
+class CoreIdentifierMultipleError(CoreIdentifierError):
+    def __init__(self, name: str, ip: str, vlnv: str) -> None:
+        self.ip = ip
+        self.vlnv = vlnv
+        self.name = name
+        super().__init__()
+
+    def __str__(self) -> str:
+        return f"Core '{self.name}' received multiple identifiers: ip={self.ip}, vlnv={self.vlnv} - specify exactly one"
+
+class CoreIdentifierUnspecifiedError(CoreIdentifierError):
+    def __init__(self, name: str) -> None:
+        self.name = name
+        super().__init__(name)
+
+    def __str__(self) -> str:
+        return f"CoreConfig '{self.name}' requires at least one of: ip, vlnv"
+
+class CoreVlnvUnspecifiedError(ConfigError):
+    def __init__(self, name: str) -> None:
+        self.name = name
+        super().__init__(name)
+
+    def __str__(self) -> str:
+        return f"CoreConfig '{self.name}' requires: vlnv"

@@ -17,6 +17,8 @@ logger = logging.getLogger(__name__)
 def cmd_platform_create(cfg: XvivConfig, *,
 	platform_name: str
 ):
+	cfg.validate_platform(platform_name=platform_name)
+
 	config = (
 		ConfigTclCommands(cfg)
 		.create_platform(platform_name)
@@ -30,6 +32,7 @@ def cmd_platform_create(cfg: XvivConfig, *,
 # -----------------------------------------------------------------------------
 def cmd_platform_build(cfg: XvivConfig, platform_name: str):
 	platform_cfg = cfg.get_platform(platform_name)
+	cfg.validate_platform(platform_name=platform_name)
 
 	if not os.path.isdir(platform_cfg.dir):
 		#! BspDirectoryNotFound
@@ -61,9 +64,12 @@ def cmd_app_create(cfg: XvivConfig, *,
 
 	if template:
 		app_cfg.template = template
-	
+
 	if platform_name:
 		app_cfg.platform = platform_name
+
+	cfg.validate_app(app_name=app_name)
+	cfg.validate_platform(platform_name=app_cfg.platform)
 
 	platform_cfg = cfg.get_platform(app_cfg.platform)
 
@@ -88,6 +94,11 @@ def cmd_app_create(cfg: XvivConfig, *,
 def cmd_app_build(cfg: XvivConfig, app_name: str, info: bool | None):
 	app_cfg = cfg.get_app(app_name)
 	platform_cfg = cfg.get_platform(app_cfg.platform)
+
+	if app_name:
+		cfg.validate_app(app_name=app_name)
+	if platform_cfg.name:
+		cfg.validate_platform(platform_name=platform_cfg.name)
 
 	_transform_app_makefile(os.path.join(app_cfg.dir, "Makefile"))
 
@@ -129,12 +140,18 @@ def cmd_program(cfg: XvivConfig, *,
 	app_name: str | None = None,
 	platform_name: str | None = None
 ):
+	if app_name:
+		cfg.validate_app(app_name=app_name, check_sources=False)
+
 	if bitstream_file is None:
 		if platform_name is None:
 			if app_name is not None:
 				platform_name = cfg.get_app(app_name).platform
 
 		bitstream_file = cfg.get_platform(platform_name).bitstream_file
+
+	if platform_name:
+		cfg.validate_platform(platform_name=platform_name)
 
 	if elf_file is None:
 		if app_name is not None:
