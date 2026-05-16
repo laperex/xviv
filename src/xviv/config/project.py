@@ -14,6 +14,7 @@ from xviv.config.model import (
 	IpWrapperConfig,
 	PlatformConfig,
 	SimulationConfig,
+	SourceFile,
 	SubCoreConfig,
 	SynthConfig,
 	VitisConfig,
@@ -103,29 +104,29 @@ class XvivConfig:
 	# -------------------------------------------------------------------------
 	# Build methods
 	# -------------------------------------------------------------------------
-	
+
 	def validate_design(self, design_name: str):
 		design_cfg = self.get_design(design_name)
-		
+
 		for i in design_cfg.sources:
-			if not os.path.exists(i):
-				raise error.DesignSourcesMissingError(design_name, i)
+			if not os.path.exists(i.file):
+				raise error.DesignSourcesMissingError(design_name, i.file)
 
 	def validate_sim(self, sim_name: str):
 		sim_cfg = self.get_sim(sim_name)
-		
-		
-			
+
+
+
 
 	def validate_app(self, app_name: str, check_sources: bool = True):
 		app_cfg = self.get_app(app_name)
-		
+
 		if not os.path.exists(app_cfg.elf_file):
 			raise error.AppElfMissingError(app_name, app_cfg.elf_file)
 
 		if check_sources:
 			for i in app_cfg.sources:
-				if not os.path.exists(i):
+				if not os.path.exists(i.file):
 					raise error.AppSourcesMissingError
 
 			if app_cfg.sources:
@@ -160,8 +161,8 @@ class XvivConfig:
 		ip_cfg = self.get_ip(ip_name)
 
 		for i in ip_cfg.sources:
-			if not os.path.exists(i):
-				raise error.IpSourcesMissingError(ip_name, i)
+			if not os.path.exists(i.file):
+				raise error.IpSourcesMissingError(ip_name, i.file)
 
 		if not ip_cfg.sources:
 			raise error.IpSourcesEmptyError(ip_name)
@@ -170,7 +171,7 @@ class XvivConfig:
 		wrapper_cfg = self.get_wrapper(ip_name)
 
 		for i in wrapper_cfg.sources:
-			if not os.path.exists(i):
+			if not os.path.exists(i.file):
 				raise error.WrapperSourceMissingError(ip_name, i)
 
 		if not wrapper_cfg.sources:
@@ -183,13 +184,13 @@ class XvivConfig:
 			self.validate_wrapper(ip_name=ip_name)
 
 			ip_cfg.top = wrapper_cfg.wrapper_top
-			ip_cfg.sources.append(wrapper_cfg.wrapper_file)
+			ip_cfg.sources += self._resolve_sources([wrapper_cfg.wrapper_file])
 
 			SystemVerilogWrapper(
 				top=wrapper_cfg.ip_top,
 				wrapper_top=wrapper_cfg.wrapper_top,
 				wrapper_file=wrapper_cfg.wrapper_file,
-				sources=wrapper_cfg.sources
+				sources=[i.file for i in wrapper_cfg.sources]
 			)
 
 	# -------------------------------------------------------------------------
@@ -263,7 +264,7 @@ class XvivConfig:
 		version: str = '1.0',
 
 		top: str | None = None,
-		sources: list[str] = [],
+		sources: list[typing.Any] = [],
 
 		fpga: str | None = None,
 		vlnv: str | None = None,
@@ -299,7 +300,7 @@ class XvivConfig:
 				repo=repo,
 				top=top,
 				fpga_ref=fpga,
-				sources=resolve_globs(sources, self.base_dir)
+				sources=self._resolve_sources(sources)
 			)
 		)
 
@@ -307,7 +308,7 @@ class XvivConfig:
 
 	def add_wrapper_cfg(self, *,
 		ip: str,
-		sources: list[str],
+		sources: list[typing.Any],
 		wrapper_top: str | None = None,
 		wrapper_file: str | None = None
 	) -> typing.Self:
@@ -331,7 +332,7 @@ class XvivConfig:
 				ip_top=ip_cfg.top,
 				wrapper_top=wrapper_top,
 				wrapper_file=wrapper_file,
-				sources=resolve_globs(sources, self.base_dir)
+				sources=self._resolve_sources(sources)
 			)
 		)
 
@@ -473,7 +474,7 @@ class XvivConfig:
 		return self
 
 	def add_design_cfg(self, name: str, *,
-		sources: list[str],
+		sources: list[typing.Any],
 		top: str | None = None,
 		fpga: str | None = None,
 	) -> typing.Self:
@@ -491,7 +492,8 @@ class XvivConfig:
 			DesignConfig(
 				name=name,
 				top=top,
-				sources=resolve_globs(sources, self.base_dir),
+				# sources=resolve_globs(sources, self.base_dir),
+				sources=self._resolve_sources(sources),
 				fpga_ref=fpga
 			)
 		)
@@ -508,7 +510,7 @@ class XvivConfig:
 
 		top: str | None = None,
 
-		constraints: dict = {},
+		sources: list[typing.Any] = [],
 
 		run_synth: bool = True,
 		run_place: bool = True,
@@ -603,18 +605,29 @@ class XvivConfig:
 			if hw_platform is None:
 				hw_platform = False
 
-		constr_list: list[str] = []
+		constraints_list: list[str] = []
 
 		if synth_mode == 'out_of_context':
 			bitstream = False
 			hw_platform = False
 			usr_access_value = None
 
-			if 'ooc' in constraints:
-				constr_list = constraints['ooc'].get('sources', [])
-		else:
-			if constraints:
-				constr_list = constraints.get('sources', [])
+		# print(sources)
+
+		for i in self._resolve_sources(sources,
+			# used_in_ooc=False,
+			used_in_sim=False,
+			used_in_impl=True,
+			used_in_synth=True
+		):
+			print(i, i.is_constraint_file, i.used_in_ooc)
+			if i.is_constraint_file:
+				if synth_mode == 'out_of_context':
+					if i.used_in_ooc:
+						constraints_list.append(i.file)
+				else:
+					if not i.used_in_ooc:
+						constraints_list.append(i.file)
 
 		if synth_mode is None:
 			synth_mode = 'default'
@@ -631,7 +644,6 @@ class XvivConfig:
 		assert top is not None
 		assert fpga is not None
 
-
 		synth_subdir = os.path.join(self.synth_dir, id_name)
 		synth_reports_subdir = os.path.join(synth_subdir, 'reports')
 		synth_netlists_subdir = os.path.join(synth_subdir, 'netlists')
@@ -647,7 +659,7 @@ class XvivConfig:
 
 				out_of_context_subcores=out_of_context_subcores,
 
-				constraints=resolve_globs(constr_list, self.base_dir),
+				constraints=constraints_list,
 
 				synth_incremental=synth_incremental,
 				run_synth=run_synth,
@@ -700,7 +712,7 @@ class XvivConfig:
 		return self
 
 	def add_sim_cfg(self, name: str, *,
-		sources: list[str],
+		sources: list[typing.Any],
 		top: str | None = None,
 		backend: str = 'xsim',
 		sdfmax: list[str] = [],
@@ -723,8 +735,9 @@ class XvivConfig:
 			SimulationConfig(
 				name=name,
 				top=top,
+				bd=bd,
 				design=design,
-				sources=resolve_globs(sources, self.base_dir),
+				sources=self._resolve_sources(sources),
 				backend=backend,
 				timescale=timescale,
 				work_dir=sim_subdir,
@@ -786,7 +799,7 @@ class XvivConfig:
 	def add_app_cfg(self, name: str, *,
 		platform: str,
 		template: str = 'empty_application',
-		sources: list[str] = []
+		sources: list[typing.Any] = []
 	) -> typing.Self:
 		# TODO: throw error for invalid name ''
 
@@ -803,7 +816,7 @@ class XvivConfig:
 				name=name,
 				platform=platform,
 				template=template,
-				sources=resolve_globs(sources, self.base_dir),
+				sources=self._resolve_sources(sources),
 				dir=app_subdir,
 				elf_file=elf
 			)
@@ -1017,6 +1030,41 @@ class XvivConfig:
 				raise error.FpgaRefMismatchError(mismatch_check, mismatch_name, default_fpga_ref, fpga_ref)
 
 		return fpga_ref
+
+	def _resolve_sources(self, sources: list[typing.Any], *,
+		used_in_synth: bool = True,
+		used_in_impl: bool = True,
+		used_in_ooc: bool = True,
+		used_in_sim: bool = True,
+	) -> list[SourceFile]:
+		is_constraint_file: bool = False
+
+		_VALID_STAGES = frozenset({'synth', 'impl', 'ooc', 'sim'})
+
+		default_stages = {
+			s for s, v in (
+				('synth', used_in_synth),
+				('impl',  used_in_impl),
+				('ooc',   used_in_ooc),
+				('sim',   used_in_sim),
+			) if v
+		}
+
+		res: list[SourceFile] = []
+		for i in sources:
+			if isinstance(i, str):
+				files, stages = [i], default_stages
+			else:
+				stages = set(i.get('used_in', []))
+				if unknown := stages - _VALID_STAGES:
+					raise ValueError(f"Unknown stages: {unknown}")
+				files = i['files']
+				is_constraint_file = bool(i.get('constraints', False))
+
+			for k in resolve_globs(files, self.base_dir):
+				res.append(SourceFile.from_stages(k, stages, is_constraint_file))
+
+		return res
 
 	# -------------------------------------------------------------------------
 	# Properties - default getters

@@ -109,7 +109,7 @@ def cmd_app_build(cfg: XvivConfig, app_name: str, info: bool | None):
 		[
 			"make", f"-j{os.cpu_count() or 4}",
 			f"INCLUDEPATH=-I{bsp_include} -I{platform_cfg.dir}",
-			f"c_SOURCES={' '.join(app_cfg.sources)}",
+			f"c_SOURCES={' '.join([i.file for i in app_cfg.sources])}",
 			f"LIBPATH=-L{bsp_lib}",
 		],
 		check=True,

@@ -1,5 +1,6 @@
 import dataclasses
 import shutil
+import typing
 
 
 @dataclasses.dataclass
@@ -16,6 +17,35 @@ class VitisConfig:
 
 	# xsct_bin: str | None
 
+
+@dataclasses.dataclass
+class SourceFile:
+	file: str
+	used_in: frozenset[str]
+	is_constraint_file: bool
+
+	@property
+	def used_in_synth(self) -> bool:
+		return 'synth' in self.used_in
+
+	@property
+	def used_in_impl(self)  -> bool:
+		return 'impl' in self.used_in
+
+	@property
+	def used_in_ooc(self)   -> bool:
+		return 'ooc' in self.used_in
+
+	@property
+	def used_in_sim(self)   -> bool:
+		return 'sim' in self.used_in
+
+
+	@classmethod
+	def from_stages(cls, file: str, stages: typing.Iterable[str], is_constraint_file: bool) -> 'SourceFile':
+		return cls(file=file, used_in=frozenset(stages), is_constraint_file=is_constraint_file)
+
+
 @dataclasses.dataclass
 class IpConfig:
 	vendor:   str
@@ -26,7 +56,7 @@ class IpConfig:
 
 	name:     str
 	top:      str
-	sources:  list[str]
+	sources:  list[SourceFile]
 	fpga_ref: str
 
 
@@ -37,7 +67,7 @@ class IpWrapperConfig:
 
 	ip_name:      str
 	ip_top:       str
-	sources:      list[str]
+	sources:      list[SourceFile]
 
 
 @dataclasses.dataclass
@@ -52,7 +82,7 @@ class FpgaConfig:
 class DesignConfig:
 	name:    str
 	top:     str
-	sources: list[str]
+	sources: list[SourceFile]
 	fpga_ref: str
 
 
@@ -162,14 +192,16 @@ class SynthConfig:
 class SimulationConfig:
 	name:      str
 	top:       str
-	sources:   list[str]
+	sources:   list[SourceFile]
 	backend:   str
-	design:    str | None
 	timescale: str
 	
 	work_dir:  str | None
 	
 	sdfmax:    list[str]
+
+	design:    str | None
+	bd:        str | None
 
 
 @dataclasses.dataclass
@@ -186,7 +218,7 @@ class AppConfig:
 	name:     str
 	platform: str
 	template: str
-	sources:  list[str]
+	sources:  list[SourceFile]
 	dir:      str
 	elf_file: str
 
@@ -231,6 +263,5 @@ class CatalogCoreEntry:
 			parts.append("  ".join(flags))
 		elif self.short_desc:
 			parts.append(self.short_desc)
-		
-		return "  ".join(parts)
 
+		return "  ".join(parts)

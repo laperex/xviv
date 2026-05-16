@@ -29,13 +29,13 @@ def run() -> None:
 		commands.GenerateCommand,
 		commands.SynthCommand,
 		commands.OpenCommand,
-		commands.GraphCommand,
 		commands.SimulateCommand,
 		commands.ReloadCommand,
 		commands.BuildCommand,
 		commands.ProgramCommand,
 		commands.ProcessorCommand,
-		commands.StatusCommand,
+		# commands.GraphCommand,
+		# commands.StatusCommand,
 	]:
 		cls.register(sub)        # sets up the sub-parser
 		registry[cls.name] = cls()  # one instance per command

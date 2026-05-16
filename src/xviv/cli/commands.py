@@ -8,10 +8,10 @@ from xviv.config.project import XvivConfig
 
 from xviv.functions.bd import cmd_bd_create, cmd_bd_edit, cmd_bd_generate
 from xviv.functions.core import cmd_core_create, cmd_core_edit, cmd_core_generate, cmd_search_core
-from xviv.functions.graph import cmd_graph
+# from xviv.functions.graph import cmd_graph
 from xviv.functions.ip import cmd_ip_create, cmd_ip_edit
 from xviv.functions.simulation import cmd_simulate, cmd_wdb_open, cmd_wdb_reload
-from xviv.functions.status import cmd_status
+# from xviv.functions.status import cmd_status
 from xviv.functions.synthesis import cmd_dcp_open, cmd_synth
 from xviv.functions.xsct import cmd_app_build, cmd_app_create, cmd_platform_build, cmd_platform_create, cmd_processor, cmd_program
 
@@ -253,71 +253,71 @@ class SynthCommand(Command):
 		cmd_synth(cfg, design_name=args.design, bd_name=args.bd, core_name=args.core)
 
 
-# ---------------------------------------------------------------------------
-# GraphCommand
-# ---------------------------------------------------------------------------
+# # ---------------------------------------------------------------------------
+# # GraphCommand
+# # ---------------------------------------------------------------------------
 
-class GraphCommand(Command):
-	name = "graph"
-	help = "Print a tree of all project entities and their relationships"
+# class GraphCommand(Command):
+# 	name = "graph"
+# 	help = "Print a tree of all project entities and their relationships"
 
-	@classmethod
-	def register(cls, sub: argparse._SubParsersAction) -> None:
-		super().register(sub)
-		c = cls.c
-		c.add_argument(
-			"--filter", "-f",
-			metavar="KIND",
-			help=(
-				"Show only this entity kind: "
-				"fpga | ip | core | bd | design | synth | sim | platform | app"
-			),
-		)
-		c.add_argument(
-			"--no-deps",
-			action="store_true",
-			help="Omit the dependency-chain summary at the bottom",
-		)
+# 	@classmethod
+# 	def register(cls, sub: argparse._SubParsersAction) -> None:
+# 		super().register(sub)
+# 		c = cls.c
+# 		c.add_argument(
+# 			"--filter", "-f",
+# 			metavar="KIND",
+# 			help=(
+# 				"Show only this entity kind: "
+# 				"fpga | ip | core | bd | design | synth | sim | platform | app"
+# 			),
+# 		)
+# 		c.add_argument(
+# 			"--no-deps",
+# 			action="store_true",
+# 			help="Omit the dependency-chain summary at the bottom",
+# 		)
 
-	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
-		cmd_graph(cfg, args)
-
-
-# ---------------------------------------------------------------------------
-# StatusCommand
-# ---------------------------------------------------------------------------
+# 	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
+# 		cmd_graph(cfg, args)
 
 
-class StatusCommand(Command):
-	name = "status"
-	help = "Show build state of all project entities"
+# # ---------------------------------------------------------------------------
+# # StatusCommand
+# # ---------------------------------------------------------------------------
 
-	@classmethod
-	def register(cls, sub: argparse._SubParsersAction) -> None:
-		super().register(sub)
 
-		_ALL_KINDS = ("fpga", "ip", "core", "bd", "design", "synth", "sim", "platform", "app")
+# class StatusCommand(Command):
+# 	name = "status"
+# 	help = "Show build state of all project entities"
 
-		c = cls.c
-		c.add_argument(
-			"--verbose", "-v",
-			action="store_true",
-			help="Show per-artifact breakdown and stale source details",
-		)
-		c.add_argument(
-			"--filter", "-f",
-			metavar="KIND",
-			choices=_ALL_KINDS,
-			help=(
-				"Show only this entity kind: "
-				+ " | ".join(_ALL_KINDS)
-			),
-		)
-		c.add_argument(
-			"--stale",
-			action="store_true",
-			help="Show only entities that are stale or missing",
-		)
+# 	@classmethod
+# 	def register(cls, sub: argparse._SubParsersAction) -> None:
+# 		super().register(sub)
 
-	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
-		cmd_status(cfg, args)
+# 		_ALL_KINDS = ("fpga", "ip", "core", "bd", "design", "synth", "sim", "platform", "app")
+
+# 		c = cls.c
+# 		c.add_argument(
+# 			"--verbose", "-v",
+# 			action="store_true",
+# 			help="Show per-artifact breakdown and stale source details",
+# 		)
+# 		c.add_argument(
+# 			"--filter", "-f",
+# 			metavar="KIND",
+# 			choices=_ALL_KINDS,
+# 			help=(
+# 				"Show only this entity kind: "
+# 				+ " | ".join(_ALL_KINDS)
+# 			),
+# 		)
+# 		c.add_argument(
+# 			"--stale",
+# 			action="store_true",
+# 			help="Show only entities that are stale or missing",
+# 		)
+
+# 	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
+# 		cmd_status(cfg, args)

@@ -16,6 +16,8 @@ def cmd_core_create(cfg: XvivConfig, *,
 		.build()
 	)
 
+	cfg.get_vivado().mode = 'tcl'
+	
 	vivado.run_vivado(cfg, config_tcl=config)
 
 # -----------------------------------------------------------------------------

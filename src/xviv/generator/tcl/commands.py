@@ -499,7 +499,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 		self._file_delete(os.path.join(ip_dir, 'hdl'), force=True)
 
 		for s in ip_cfg.sources:
-			self._add_files(s, scan_for_includes=True)
+			self._add_files(s.file, scan_for_includes=True)
 
 		self._set_property_current_fileset('TOP', ip_cfg.top)
 
@@ -618,6 +618,8 @@ class ConfigTclCommands(ConfigTclBuilder):
 		self._create_core(core_name, dir=self._cfg.core_dir, vlnv=core_cfg.vlnv)
 		self._generate_target_get_files(core_cfg.xci_file, reset=False)
 
+		self._push(f'puts [get_files -compile_order sources -used_in simulation -of_objects [get_ips {core_name}]]')
+
 		return self
 
 
@@ -714,9 +716,9 @@ class ConfigTclCommands(ConfigTclBuilder):
 			design_cfg = self._cfg.get_design(synth_cfg.design_name)
 
 			for i in design_cfg.sources:
-				assert_file_exists(i)
-
-				self._add_files(i, scan_for_includes=True)
+				if i.used_in_impl or i.used_in_ooc or i.used_in_synth:
+					assert_file_exists(i.file)
+					self._add_files(i.file, scan_for_includes=True)
 
 		if core:
 			core_cfg = self._cfg.get_core(synth_cfg.core_name)

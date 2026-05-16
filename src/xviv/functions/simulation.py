@@ -31,7 +31,7 @@ def cmd_simulate(cfg: XvivConfig, *,
 		if mode == 'default':
 			design_cfg = cfg.get_design(sim_cfg.design)
 
-			sim_files += design_cfg.sources
+			sim_files += [i.file for i in design_cfg.sources]
 		else:
 			synth_cfg = cfg.get_synth(design_name=sim_cfg.design)
 
@@ -58,6 +58,7 @@ def cmd_simulate(cfg: XvivConfig, *,
 					sim_files.append(synth_cfg.impl_timing_netlist_file)
 
 				case _:
+					#! UnknownSimulationMode
 					raise RuntimeError(f'ERROR: Unknown simulation mode: {mode}')
 
 	sim_files += sim_cfg.sources
