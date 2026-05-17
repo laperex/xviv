@@ -8,6 +8,7 @@ import tomllib
 
 from xviv.config import model
 from xviv.config.project import XvivConfig
+from xviv.config.sections import get_sections
 from xviv.utils.tools import find_vitis_dir_path, find_vivado_dir_path
 
 
@@ -25,37 +26,22 @@ def resolve_config(explicit: str) -> str:
 	raise RuntimeError("ERROR: project.toml not found in current directory.")
 
 def load_config(path: str) -> XvivConfig:
-	with open(path, 'rb') as f:
-		data = tomllib.load(f)
+    with open(path, 'rb') as f:
+        data = tomllib.load(f)
 
-	cfg = (
-		XvivConfig(
+    cfg = (
+        XvivConfig(
 			path,
 			data['project'].get('build_dir', None),
 			data['project'].get('board_repo_paths', []),
 		)
-		.add_vivado_cfg(
-			path=find_vivado_dir_path()
-		)
-		.add_vitis_cfg(
-			path=find_vitis_dir_path()
-		)
-	)
+        .add_vivado_cfg(path=find_vivado_dir_path())
+        .add_vitis_cfg(path=find_vitis_dir_path())
+    )
 
-	for section, method in [
-		('fpga',       cfg.add_fpga_cfg),
-		('ip',         cfg.add_ip_cfg),
-		('wrapper',    cfg.add_wrapper_cfg),
-		('core',       cfg.add_core_cfg),
-		('bd',         cfg.add_bd_cfg),
-		('design',     cfg.add_design_cfg),
-		('simulation', cfg.add_sim_cfg),
-		('subcore',    cfg.add_subcore_cfg),
-		('synth',      cfg.add_synth_cfg),
-		('platform',   cfg.add_platform_cfg),
-		('app',        cfg.add_app_cfg),
-	]:
-		for entry in data.get(section, []):
-			method(**entry)
+    for spec in get_sections():
+        method = getattr(cfg, spec.add_method)
+        for entry in data.get(spec.toml_key, []):
+            method(**entry)
 
-	return cfg
+    return cfg
