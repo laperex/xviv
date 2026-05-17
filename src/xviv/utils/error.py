@@ -567,3 +567,26 @@ class CoreVlnvUnspecifiedError(ConfigError):
 
     def __str__(self) -> str:
         return f"CoreConfig '{self.name}' requires: vlnv"
+
+class ModeError(BaseException):
+    "Invalid modes passed though CLI"
+
+class InvalidSimulationMode(ModeError):
+    def __init__(self, mode: str) -> None:
+        self.mode = mode
+        super().__init__()
+
+    def __str__(self) -> str:
+        return f"Invalid Simulation Mode '{self.mode}'"
+	
+class BackendError(BaseException):
+    "Backend Related Errors"
+    
+
+class InvalidSimulationBackend(BackendError):
+    def __init__(self, name: str) -> None:
+        self.name = name
+        super().__init__()
+
+    def __str__(self) -> str:
+        return f"Invalid Simulation Backend '{self.name}'"

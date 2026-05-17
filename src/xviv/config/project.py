@@ -620,7 +620,7 @@ class XvivConfig:
 			used_in_impl=True,
 			used_in_synth=True
 		):
-			print(i, i.is_constraint_file, i.used_in_ooc)
+			# print(i, i.is_constraint_file, i.used_in_ooc)
 			if i.is_constraint_file:
 				if synth_mode == 'out_of_context':
 					if i.used_in_ooc:
@@ -716,6 +716,7 @@ class XvivConfig:
 		top: str | None = None,
 		backend: str = 'xsim',
 		sdfmax: list[str] = [],
+		sdfmin: list[str] = [],
 		timescale: str = '1ns/1ps',
 
 		bd: str | None = None,
@@ -741,7 +742,8 @@ class XvivConfig:
 				backend=backend,
 				timescale=timescale,
 				work_dir=sim_subdir,
-				sdfmax=sdfmax
+				sdfmax=sdfmax,
+				sdfmin=sdfmin
 			)
 		)
 

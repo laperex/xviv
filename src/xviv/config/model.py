@@ -199,6 +199,7 @@ class SimulationConfig:
 	work_dir:  str | None
 	
 	sdfmax:    list[str]
+	sdfmin:    list[str]
 
 	design:    str | None
 	bd:        str | None

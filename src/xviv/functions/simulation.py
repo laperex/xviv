@@ -5,6 +5,7 @@ import subprocess
 import typing
 from xviv.config.project import XvivConfig
 from xviv.tools import vivado
+from xviv.utils import error
 from xviv.utils.fifo import _ensure_fifo, _fifo_send
 from xviv.utils.fs import assert_file_exists, combined_checksum
 
@@ -24,29 +25,30 @@ def cmd_simulate(cfg: XvivConfig, *,
 	if run is None:
 		run = 'all'
 
-	sim_files: list[str] = []
+	svlog_files: list[str] = []
 	sdfmax_entries: list[str] = []
+	sdfmin_entries: list[str] = []
 
 	if sim_cfg.design:
 		if mode == 'default':
 			design_cfg = cfg.get_design(sim_cfg.design)
 
-			sim_files += [i.file for i in design_cfg.sources]
+			svlog_files += [i.file for i in design_cfg.sources]
 		else:
 			synth_cfg = cfg.get_synth(design_name=sim_cfg.design)
 
 			match mode:
 				case 'post_synth_functional':
 					assert_file_exists(synth_cfg.synth_functional_netlist_file)
-					sim_files.append(synth_cfg.synth_functional_netlist_file)
+					svlog_files.append(synth_cfg.synth_functional_netlist_file)
 
 				case 'post_synth_timing':
 					assert_file_exists(synth_cfg.synth_timing_netlist_file)
-					sim_files.append(synth_cfg.synth_timing_netlist_file)
+					svlog_files.append(synth_cfg.synth_timing_netlist_file)
 
 				case 'post_impl_functional':
 					assert_file_exists(synth_cfg.impl_functional_netlist_file)
-					sim_files.append(synth_cfg.impl_functional_netlist_file)
+					svlog_files.append(synth_cfg.impl_functional_netlist_file)
 
 				case 'post_impl_timing':
 					assert_file_exists(synth_cfg.impl_timing_sdf_file)
@@ -54,19 +56,34 @@ def cmd_simulate(cfg: XvivConfig, *,
 					for s in sim_cfg.sdfmax:
 						sdfmax_entries.append(f'{s}={synth_cfg.impl_timing_sdf_file}')
 
+					for s in sim_cfg.sdfmin:
+						sdfmin_entries.append(f'{s}={synth_cfg.impl_timing_sdf_file}')
+
 					assert_file_exists(synth_cfg.impl_timing_netlist_file)
-					sim_files.append(synth_cfg.impl_timing_netlist_file)
+					svlog_files.append(synth_cfg.impl_timing_netlist_file)
 
 				case _:
-					#! UnknownSimulationMode
-					raise RuntimeError(f'ERROR: Unknown simulation mode: {mode}')
+					raise error.InvalidSimulationMode(mode)
 
-	sim_files += sim_cfg.sources
+	svlog_files += [i.file for i in sim_cfg.sources]
 
 	if sim_cfg.backend == 'xsim':
 		xsim_lib  = "xv_work"
-		vivado.run_vivado_xvlog(cfg, sim_cfg.work_dir, sim_files, xsim_lib=xsim_lib)
-		vivado.run_vivado_xelab(cfg, sim_cfg.work_dir, sim_cfg.top, timescale=sim_cfg.timescale, xsim_lib=xsim_lib, run_all=(run == 'all'), sdfmax_entries=sdfmax_entries)
+		print(svlog_files)
+		vivado.run_vivado_xvlog(cfg, sim_cfg.work_dir, svlog_files, xsim_lib=xsim_lib)
+
+		vivado.run_vivado_xelab(cfg, sim_cfg.work_dir, [f'{xsim_lib}.{sim_cfg.top}', f'{xsim_lib}.glbl'],
+			timescale=sim_cfg.timescale,
+			mt=f'{20}',
+			snapshot=sim_cfg.top,
+			lib=[
+				'secureip', 'unimacro_ver', 'unisims_ver'
+			],
+			debug='typical',
+			runall=(run == 'all'),
+			svlog=svlog_files,
+			sdfmax=sdfmax_entries[0] if sdfmax_entries else None
+		)
 
 		if not (run == 'all'):
 			x_simulate_tcl = f"""
@@ -77,8 +94,7 @@ def cmd_simulate(cfg: XvivConfig, *,
 
 			vivado.run_vivado_xsim(cfg, sim_cfg.work_dir, x_simulate_tcl, top=sim_cfg.top, stats=True, nogui=True, popen=False)
 	else:
-		#! InvalidSimulationBackend
-		raise RuntimeError(f'ERROR: invalid sim backend {sim_cfg.backend}')
+		raise error.InvalidSimulationBackend(sim_cfg.backend)
 
 # -----------------------------------------------------------------------------
 # open --wdb --top <top_name>
