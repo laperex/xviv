@@ -1,0 +1,196 @@
+from __future__ import annotations
+
+import os
+import shutil
+import subprocess
+from pathlib import Path
+
+from xviv.config.model import FormalConfig
+from xviv.config.project import XvivConfig
+from xviv.utils import error
+
+
+# ---------------------------------------------------------------------------
+# .sby generator
+# ---------------------------------------------------------------------------
+
+def generate_sby(cfg: FormalConfig) -> str:
+	"""Emit .sby content for the given FormalConfig.
+
+	Uses the [files] + basename model:
+	  - [files] lists original paths -> sby copies them into <taskdir>/src/
+	  - [script] references basenames only (never original paths)
+	"""
+	basenames = [os.path.basename(s) for s in cfg.sources]
+
+	# -- [options] ------------------------------------------------------------
+	options: list[str] = [f"mode {cfg.mode}", f"depth {cfg.depth}"]
+	if cfg.mode == "cover" and cfg.append:
+		options.append(f"append {cfg.append}")
+	if cfg.multiclock:
+		options.append("multiclock on")
+	options.extend(cfg.extra_opts)
+
+	# -- [script] -------------------------------------------------------------
+	# Global defines and include dirs go on the first read_verilog call;
+	# subsequent files only need -formal (defines persist in the Yosys session).
+	flags_global: list[str] = ["-formal"]
+	if cfg.sv:
+		flags_global.append("-sv")
+	flags_global += [f"-D {d}" for d in cfg.defines]
+	flags_global += [f"-I {d}" for d in cfg.include_dirs]
+	flags_global_str = " ".join(flags_global)
+
+	flags_extra = "-formal" + (" -sv" if cfg.sv else "")
+
+	script: list[str] = []
+	for i, bn in enumerate(basenames):
+		if i == 0:
+			script.append(f"read_verilog {flags_global_str} {bn}")
+		else:
+			script.append(f"read_verilog {flags_extra} {bn}")
+
+	script += [
+		f"hierarchy -check -top {cfg.top}",
+		"proc",
+		"opt -full",
+		"flatten",
+		"opt -full",
+		"setundef -zero",
+	]
+	if cfg.async2sync:
+		script.append("async2sync")
+		script.append("opt -full")
+
+	script.extend(cfg.extra_script)
+
+	# -- assemble -------------------------------------------------------------
+	lines: list[str] = [
+		"[options]",
+		*options,
+		"",
+		"[engines]",
+		cfg.engine,
+		"",
+		"[script]",
+		*script,
+		"",
+		"[files]",
+		*cfg.sources,
+		"",
+	]
+	return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Result type
+# ---------------------------------------------------------------------------
+
+class FormalResult:
+	def __init__(self, name: str, passed: bool, last_line: str, vcd: str | None) -> None:
+		self.name      = name
+		self.passed    = passed
+		self.last_line = last_line
+		self.vcd       = vcd
+
+	def __repr__(self) -> str:
+		status = "PASS" if self.passed else "FAIL"
+		return f"FormalResult({self.name!r}, {status})"
+
+
+# ---------------------------------------------------------------------------
+# Runner
+# ---------------------------------------------------------------------------
+
+def run_formal(cfg: FormalConfig, *, dry_run: bool = False) -> FormalResult:
+	"""Generate .sby, optionally run sby, return structured result."""
+	work_dir = Path(cfg.work_dir)
+	sby_dir  = work_dir.parent          # sby file lives one level up from taskdir
+	sby_dir.mkdir(parents=True, exist_ok=True)
+
+	sby_path = sby_dir / f"{cfg.name}.sby"
+	sby_path.write_text(generate_sby(cfg))
+
+	if dry_run:
+		print(f"[formal] wrote {sby_path}  (dry-run, not executing)")
+		print(sby_path.read_text())
+		return FormalResult(cfg.name, passed=True, last_line="(dry-run)", vcd=None)
+
+	sby_bin = shutil.which("sby")
+	if sby_bin is None:
+		raise error.FormalSbyNotFoundError()
+
+	# -f = force-overwrite existing task directory
+	cmd = ["sby", "-f", str(sby_path)]
+	last_line = ""
+
+	with subprocess.Popen(
+		cmd,
+		cwd=str(sby_dir),
+		stdout=subprocess.PIPE,
+		stderr=subprocess.STDOUT,
+		text=True,
+	) as proc:
+		for line in proc.stdout:		# type: ignore[union-attr]
+			print(line, end="", flush=True)
+			if line.strip():
+				last_line = line.strip()
+		proc.wait()
+
+	passed = proc.returncode == 0
+
+	# sby writes counterexample traces into <taskdir>/engine_0/
+	vcd: str | None = None
+	if not passed:
+		task_dir = sby_dir / cfg.name
+		candidates = list(task_dir.rglob("*.vcd")) if task_dir.exists() else []
+		if candidates:
+			vcd = str(candidates[0])
+
+	return FormalResult(
+		name      = cfg.name,
+		passed    = passed,
+		last_line = last_line,
+		vcd       = vcd,
+	)
+
+
+# ---------------------------------------------------------------------------
+# CLI entry points
+# ---------------------------------------------------------------------------
+
+def cmd_formal(cfg: XvivConfig, target: str | None = None) -> None:
+	all_cfgs = cfg.get_formal_list()
+
+	if not all_cfgs:
+		raise error.FormalNoTargetsError()
+
+	targets = (
+		[cfg.get_formal(target)] if target is not None
+		else all_cfgs
+	)
+
+	results: list[FormalResult] = []
+
+	for fcfg in targets:
+		cfg.validate_formal(fcfg.name)
+
+		header = f"-- formal: {fcfg.name}  [{fcfg.mode}, depth={fcfg.depth}]"
+		print(f"\n{header} {'-' * max(0, 60 - len(header))}")
+
+		result = run_formal(fcfg, dry_run=cfg.get_vivado().dry_run)
+		results.append(result)
+
+		if result.vcd:
+			print(f"   counterexample trace -> {result.vcd}")
+			print(f"   open with: gtkwave {result.vcd}")
+
+	# -- summary table --------------------------------------------------------
+	print("\n-- Formal Results " + "-" * 44)
+	for r in results:
+		status  = "\033[32mPASS\033[0m" if r.passed else "\033[31mFAIL\033[0m"
+		print(f"  {r.name:<30}  {status}")
+
+	failed = [r for r in results if not r.passed]
+	if failed:
+		raise SystemExit(1)

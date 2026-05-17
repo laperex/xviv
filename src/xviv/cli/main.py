@@ -33,6 +33,7 @@ def run() -> None:
 		commands.ReloadCommand,
 		commands.BuildCommand,
 		commands.ProgramCommand,
+		commands.FormalCommand,
 		commands.ProcessorCommand,
 		# commands.GraphCommand,
 		# commands.StatusCommand,

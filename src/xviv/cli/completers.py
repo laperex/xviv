@@ -119,6 +119,7 @@ c_platform      = _cfg_completer("_platform_list")
 c_core          = _cfg_completer("_core_list")
 c_design        = _cfg_completer("_design_list")
 c_sim_target    = _cfg_completer("_sim_list")
+c_formal_target = _cfg_completer("_formal_list")
 
 c_core_instance = core_instance_completer
 
@@ -138,6 +139,7 @@ def target_group(parser, *,
 	ip: bool = False,
 	bd: bool = False,
 	sim: bool = False,
+	formal: bool = False,
 	sim_mode: bool = False,
 	app: bool = False,
 	platform: bool = False,
@@ -154,7 +156,11 @@ def target_group(parser, *,
 		arg(mg, "--app", metavar="NAME", help="App name", completer=c_app)
 
 	if sim:
-		arg(mg, "--target", metavar="NAME", help="Simulation name", completer=c_sim_target)
+		arg(mg, "--target", metavar="NAME", help="Target name", completer=c_sim_target)
+	
+	if formal:
+		arg(mg, "--target", metavar="NAME", help="Target name", completer=c_formal_target)
+
 	if wdb:
 		arg(mg, "--wdb", metavar="NAME", help="Simulation target name in config", completer=c_sim_target)
 

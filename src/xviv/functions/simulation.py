@@ -68,7 +68,7 @@ def cmd_simulate(cfg: XvivConfig, *,
 	svlog_files += [i.file for i in sim_cfg.sources]
 
 	if sim_cfg.backend == 'xsim':
-		xsim_lib  = "xv_work"
+		xsim_lib = "xv_work"
 		print(svlog_files)
 		vivado.run_vivado_xvlog(cfg, sim_cfg.work_dir, svlog_files, xsim_lib=xsim_lib)
 

@@ -590,3 +590,58 @@ class InvalidSimulationBackend(BackendError):
 
     def __str__(self) -> str:
         return f"Invalid Simulation Backend '{self.name}'"
+
+
+# =============================================================================
+# Formal verification errors
+# =============================================================================
+ 
+class FormalError(XvivError):
+	"""Base class for formal verification errors."""
+ 
+class FormalAlreadyExistsError(FormalError):
+	def __init__(self, name: str) -> None:
+		self.name = name
+		super().__init__(name)
+ 
+	def __str__(self) -> str:
+		return f"Formal target '{self.name}' is already defined"
+ 
+class FormalDoesNotExistError(FormalError):
+	def __init__(self, name: str) -> None:
+		self.name = name
+		super().__init__(name)
+ 
+	def __str__(self) -> str:
+		return f"Formal target '{self.name}' is not defined in project.toml"
+ 
+class FormalNoTargetsError(FormalError):
+	def __str__(self) -> str:
+		return "No [[formal]] targets defined in project.toml"
+ 
+class FormalSbyNotFoundError(FormalError):
+	def __str__(self) -> str:
+		return (
+			"SymbiYosys (sby) not found on PATH.\n"
+			"Install it with:  pip install symbiyosys\n"
+			"or:               sudo apt install symbiyosys"
+		)
+ 
+class FormalSourceMissingError(FormalError):
+	def __init__(self, name: str, path: str) -> None:
+		self.name = name
+		self.path = path
+		super().__init__(path)
+ 
+	def __str__(self) -> str:
+		return f"Formal target '{self.name}': source file not found: '{self.path}'"
+ 
+class FormalInvalidModeError(FormalError):
+	def __init__(self, name: str, mode: str) -> None:
+		self.name = name
+		self.mode = mode
+		super().__init__(mode)
+ 
+	def __str__(self) -> str:
+		return f"Formal target '{self.name}': invalid mode '{self.mode}' - must be one of: bmc, prove, cover"
+ 

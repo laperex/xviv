@@ -9,6 +9,7 @@ from xviv.config.project import XvivConfig
 from xviv.functions.bd import cmd_bd_create, cmd_bd_edit, cmd_bd_generate
 from xviv.functions.core import cmd_core_create, cmd_core_edit, cmd_core_generate, cmd_search_core
 # from xviv.functions.graph import cmd_graph
+from xviv.functions.formal import cmd_formal
 from xviv.functions.ip import cmd_ip_create, cmd_ip_edit
 from xviv.functions.simulation import cmd_simulate, cmd_wdb_open, cmd_wdb_reload
 # from xviv.functions.status import cmd_status
@@ -321,3 +322,18 @@ class SynthCommand(Command):
 
 # 	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
 # 		cmd_status(cfg, args)
+
+class FormalCommand(Command):
+	name = "formal"
+	help = "Run SymbiYosys formal verification targets (no Vivado required)"
+ 
+	@classmethod
+	def register(cls, sub: argparse._SubParsersAction) -> None:
+		super().register(sub)
+		c = cls.c
+		target_group(c, formal=True)
+ 
+	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
+		# Intentionally does NOT call super().run() - no Vivado involved.
+		cmd_formal(cfg, target=args.target)
+ 

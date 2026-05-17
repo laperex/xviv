@@ -9,6 +9,7 @@ from xviv.config.model import (
 	BdConfig,
 	CoreConfig,
 	DesignConfig,
+	FormalConfig,
 	FpgaConfig,
 	IpConfig,
 	IpWrapperConfig,
@@ -67,6 +68,7 @@ class XvivConfig:
 		self._sim_list: list[SimulationConfig] = []
 		self._platform_list: list[PlatformConfig] = []
 		self._app_list: list[AppConfig] = []
+		self._formal_list: list[FormalConfig] = []
 
 		self._vivado_cfg: VivadoConfig | None = None
 		self._vitis_cfg: VitisConfig | None = None
@@ -510,7 +512,7 @@ class XvivConfig:
 
 		top: str | None = None,
 
-		sources: list[typing.Any] = [],
+		constraints: list[typing.Any] = [],
 
 		run_synth: bool = True,
 		run_place: bool = True,
@@ -612,22 +614,18 @@ class XvivConfig:
 			hw_platform = False
 			usr_access_value = None
 
-		# print(sources)
-
-		for i in self._resolve_sources(sources,
-			# used_in_ooc=False,
+		for i in self._resolve_sources(constraints,
+			used_in_ooc=False,
 			used_in_sim=False,
 			used_in_impl=True,
 			used_in_synth=True
 		):
-			# print(i, i.is_constraint_file, i.used_in_ooc)
-			if i.is_constraint_file:
-				if synth_mode == 'out_of_context':
-					if i.used_in_ooc:
-						constraints_list.append(i.file)
-				else:
-					if not i.used_in_ooc:
-						constraints_list.append(i.file)
+			if synth_mode == 'out_of_context':
+				if i.used_in_ooc:
+					constraints_list.append(i.file)
+			else:
+				if not i.used_in_ooc:
+					constraints_list.append(i.file)
 
 		if synth_mode is None:
 			synth_mode = 'default'
@@ -825,6 +823,67 @@ class XvivConfig:
 		)
 
 		return self
+	
+	def add_formal_cfg(self, name: str, *,
+		top: str,
+		mode: str,
+		sources: list[str],
+		depth: int = 20,
+		append: int = 0,
+		engine: str = "smtbmc yices z3",
+		defines: list[str] = [],
+		include_dirs: list[str] = [],
+		multiclock: bool = False,
+		async2sync: bool = False,
+		sv: bool = True,
+		extra_script: list[str] = [],
+		extra_opts: list[str] = [],
+	) -> typing.Self:
+		if self._get_formal_cfg_optional(name) is not None:
+			raise error.FormalAlreadyExistsError(name)
+ 
+		resolved = resolve_globs(sources, self.base_dir)
+ 
+		self._formal_list.append(
+			FormalConfig(
+				name=name,
+				top=top,
+				mode=mode,
+				sources=resolved,
+				work_dir=os.path.join(self.formal_dir, name),
+				depth=depth,
+				append=append,
+				engine=engine,
+				defines=list(defines),
+				include_dirs=list(include_dirs),
+				multiclock=multiclock,
+				async2sync=async2sync,
+				sv=sv,
+				extra_script=list(extra_script),
+				extra_opts=list(extra_opts),
+			)
+		)
+ 
+		return self
+ 
+	def get_formal(self, name: str) -> FormalConfig:
+		cfg = self._get_formal_cfg_optional(name)
+		if cfg is None:
+			raise error.FormalDoesNotExistError(name)
+		return cfg
+ 
+	def get_formal_list(self) -> list[FormalConfig]:
+		return list(self._formal_list)
+ 
+	def validate_formal(self, name: str) -> None:
+		cfg = self.get_formal(name)
+		for src in cfg.sources:
+			if not os.path.exists(src):
+				raise error.FormalSourceMissingError(name, src)
+ 
+	def _get_formal_cfg_optional(self, name: str) -> FormalConfig | None:
+		return next((i for i in self._formal_list if i.name == name), None)
+
 
 	# -------------------------------------------------------------------------
 	# Get methods (public)
@@ -1039,8 +1098,6 @@ class XvivConfig:
 		used_in_ooc: bool = True,
 		used_in_sim: bool = True,
 	) -> list[SourceFile]:
-		is_constraint_file: bool = False
-
 		_VALID_STAGES = frozenset({'synth', 'impl', 'ooc', 'sim'})
 
 		default_stages = {
@@ -1061,10 +1118,9 @@ class XvivConfig:
 				if unknown := stages - _VALID_STAGES:
 					raise ValueError(f"Unknown stages: {unknown}")
 				files = i['files']
-				is_constraint_file = bool(i.get('constraints', False))
 
 			for k in resolve_globs(files, self.base_dir):
-				res.append(SourceFile.from_stages(k, stages, is_constraint_file))
+				res.append(SourceFile.from_stages(k, stages))
 
 		return res
 
@@ -1106,6 +1162,11 @@ class XvivConfig:
 	@property
 	def scripts_dir(self):
 		return self.__path_from_base_dir(os.path.join('scripts', 'xviv'))
+	
+	@property
+	def formal_dir(self):
+		return self.__path_from_build_dir('formal') 
+
 
 	def __path_from_build_dir(self, path: str):
 		return os.path.join(self.work_dir, path)

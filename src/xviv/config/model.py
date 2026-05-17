@@ -22,7 +22,6 @@ class VitisConfig:
 class SourceFile:
 	file: str
 	used_in: frozenset[str]
-	is_constraint_file: bool
 
 	@property
 	def used_in_synth(self) -> bool:
@@ -42,8 +41,8 @@ class SourceFile:
 
 
 	@classmethod
-	def from_stages(cls, file: str, stages: typing.Iterable[str], is_constraint_file: bool) -> 'SourceFile':
-		return cls(file=file, used_in=frozenset(stages), is_constraint_file=is_constraint_file)
+	def from_stages(cls, file: str, stages: typing.Iterable[str]) -> 'SourceFile':
+		return cls(file=file, used_in=frozenset(stages))
 
 
 @dataclasses.dataclass
@@ -116,7 +115,7 @@ class SynthConfig:
 	design_name: str | None
 	core_name:   str | None
 	bd_name:     str | None
-	
+
 	out_of_context_subcores: bool
 
 	top: str
@@ -131,22 +130,22 @@ class SynthConfig:
 	run_place: bool
 	run_phys_opt: bool
 	run_route: bool
-	
+
 	bitstream_file: str | None
 	hw_platform_xsa_file: str | None
-	
+
 	# checkpoints
 
 	synth_dcp_file: str | None
 	place_dcp_file: str | None
 	route_dcp_file: str | None
-	
+
 	# reports
-	
+
 	synth_report_timing_summary_file: str | None
 	synth_report_utilization_file: str | None
 	synth_report_incremental_reuse_file: str | None
-	
+
 	route_report_drc_file: str | None
 	route_report_methodology_file: str | None
 	route_report_power_file: str | None
@@ -154,33 +153,33 @@ class SynthConfig:
 	route_report_timing_summary_file: str | None
 
 	impl_report_incremental_reuse_file: str | None
-	
+
 	# # netlists
-	
+
 	synth_functional_netlist_file: str | None
 	synth_timing_netlist_file: str | None
 	impl_functional_netlist_file: str | None
 	impl_timing_netlist_file: str | None
 
 	impl_timing_sdf_file: str | None
-	
+
 	# # stubs
-	
+
 	synth_stub_file: str | None
-	
+
 	# settings
-	
+
 	synth_directive: str
 	synth_mode: str
 	synth_flatten_hierarchy: str
 	synth_fsm_extraction: str
-	
+
 	opt_directive: str
-	
+
 	place_directive: str
-	
+
 	phys_opt_directive: str
-	
+
 	route_directive: str
 
 	# usr access val
@@ -195,9 +194,9 @@ class SimulationConfig:
 	sources:   list[SourceFile]
 	backend:   str
 	timescale: str
-	
+
 	work_dir:  str | None
-	
+
 	sdfmax:    list[str]
 	sdfmin:    list[str]
 
@@ -253,7 +252,7 @@ class CatalogCoreEntry:
 	def completion_description(self) -> str:
 		parts = [self.display_name, f"[{self.vendor}/{self.library}]"]
 		flags: list[str] = []
-		
+
 		if self.hidden:
 			flags.append("⚠ internal subcore")
 		if self.board_dependent:
@@ -266,3 +265,28 @@ class CatalogCoreEntry:
 			parts.append(self.short_desc)
 
 		return "  ".join(parts)
+
+
+@dataclasses.dataclass
+class FormalConfig:
+	name:         str
+	top:          str
+	mode:         str                              # bmc | prove | cover
+	sources:      list[str]
+	work_dir:     str
+
+	engine:       str
+	depth:        int
+	append:       int
+	defines:      list[str]
+	include_dirs: list[str]
+	multiclock:   bool
+	async2sync:   bool
+	sv:           bool
+	extra_script: list[str]
+	extra_opts:   list[str]
+
+	def __post_init__(self) -> None:
+		if self.mode not in ("bmc", "prove", "cover"):
+			from xviv.utils import error
+			raise error.FormalInvalidModeError(self.name, self.mode)
