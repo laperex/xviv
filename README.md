@@ -1,5 +1,9 @@
 # xviv
 
+[![PyPI](https://img.shields.io/pypi/v/xviv)](https://pypi.org/project/xviv/)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/xviv)](https://pypi.org/project/xviv/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 CLI project controller for Vivado and Vitis. Describe your whole project in a `project.toml`, run everything from the terminal, keep the GUI for the parts that actually need it.
 
 ```
@@ -24,14 +28,14 @@ The design is deliberately not GUI-free. Tools like Hog and Edalize route around
 pip install xviv
 ```
 
-Requires Python 3.10+. Vivado and Vitis must be on your PATH (source `settings64.sh`), or set `XVIV_VIVADO_SOURCE_SCRIPT` and xviv will source it for you:
+Requires Python 3.11+. Vivado and Vitis must be on your PATH (source `settings64.sh`), or set `XVIV_VIVADO_SOURCE_SCRIPT` and xviv will source it for you:
 
 ```sh
 # .env at project root works too
 XVIV_VIVADO_SOURCE_SCRIPT=/tools/Xilinx/Vivado/2024.1/settings64.sh
 ```
 
-Optional: `cue` for schema-validated project files, `pyslang` for SV wrapper generation.
+Optional: `pyslang` for SV wrapper generation.
 
 ---
 
@@ -220,7 +224,7 @@ Every command accepts `--dry-run` to print the generated TCL without executing.
 ## Shell completion
 
 ```sh
-activate-global-python-argcomplete        # system-wide
+activate-global-python-argcomplete          # system-wide
 eval "$(register-python-argcomplete xviv)"  # or per-shell (bash)
 ```
 
@@ -247,6 +251,32 @@ project/
 ```
 
 `scripts/xviv/` is the only generated directory that belongs in version control. Everything under `build/` is reproducible.
+
+---
+
+## Roadmap
+
+Roughly in order of priority.
+
+**Near-term**
+
+- **Simulation config restructure** — the `[[simulation]]` section has grown unwieldy and backend-specific fields don't map cleanly onto both xsim and Verilator. A cleaner split is needed, which may require command changes.
+- **DPI support** — C/C++ testbenches that call into the simulator via DPI-C. Follows naturally from the simulation restructure.
+- **Unit tests** — the TCL generator and config loader have almost no test coverage. Required before the API can be considered stable.
+- **Configurable HSI targets** — the FPGA part and processor target passed to `hsi` during BSP generation are currently hardcoded in the XSCT script. Should be driven from `[[platform]]` config.
+- **Subcore support for custom IPs** — declare that a custom IP depends on another IP internally (e.g. a `clk_wiz` sub-core), so the packager carries the dependency correctly. BDs get automatic subcore tracking already; standalone IPs don't.
+
+**Feature additions**
+
+- **ILA / debug core insertion** — add and configure Integrated Logic Analyzer cores during implementation, with an optional GUI mode for probe assignment.
+- **QSPI flash programming** — extend `program` to write bitstreams to QSPI flash over JTAG, not just direct FPGA configuration.
+- **HLS support** — bring Vitis HLS projects under the same `project.toml` and CLI. Synthesised HLS output would export as a first-class IP feeding directly into `[[ip]]` and the BD flow.
+- **Dependency graph** — `graph` command to print or visualise the full entity dependency tree (fpga → ip → core → bd → synth → platform → app). The skeleton is already in the codebase.
+
+**Infrastructure**
+
+- **CI/CD** — synthesis on push using xviv's own CLI, intended for a dedicated machine rather than shared runners given resource and license constraints.
+- **Remote synthesis server** — offload synthesis jobs to a networked machine with the Vivado license, while keeping the local CLI workflow unchanged.
 
 ---
 
