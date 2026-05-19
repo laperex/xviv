@@ -18,9 +18,9 @@ Vivado can be difficult to use in a team environment. Project files often contai
 
 xviv takes a different approach. Instead of relying on generated project files, the entire build is described in a single config file: FPGA target, IP cores, block designs, RTL sources, synthesis runs, simulations, and embedded platform configuration. A clean clone is enough to reproduce the project, while the build directory itself remains fully gitignored.
 
-For block designs, xviv exports re-runnable TCL snapshots that can be version-controlled and reviewed like normal source files. It also embeds git metadata directly into the generated bitstream using `USR_ACCESS` — bits [27:0] store the short commit SHA, while bit 28 indicates whether the working tree was dirty at build time. That makes it possible to trace any `.bit` file back to the exact source revision that produced it.
+For block designs, xviv exports re-runnable TCL snapshots that can be version-controlled and reviewed like normal source files. It also embeds git metadata directly into the generated bitstream using `USR_ACCESS` - bits [27:0] store the short commit SHA, while bit 28 indicates whether the working tree was dirty at build time. That makes it possible to trace any `.bit` file back to the exact source revision that produced it.
 
-The goal was never to eliminate the Vivado GUI entirely. Tools like Edalize focus primarily on non-project automation flows, which can make some Vivado workflows — especially block design editing and IP packaging — less convenient. xviv instead automates the parts Vivado handles well through scripting, while still allowing developers to use the GUI when it is actually useful.
+The goal was never to eliminate the Vivado GUI entirely. Tools like Edalize focus primarily on non-project automation flows, which can make some Vivado workflows - especially block design editing and IP packaging - less convenient. xviv instead automates the parts Vivado handles well through scripting, while still allowing developers to use the GUI when it is actually useful.
 
 ---
 
@@ -77,23 +77,23 @@ xviv open --dcp build/synth/top/checkpoints/route.dcp
 
 All sections are arrays of tables. A real project uses some combination of the following:
 
-**`[[fpga]]`** — part number and optional board definition. The first entry is the default; later sections can override with `fpga = "name"`.
+**`[[fpga]]`** - part number and optional board definition. The first entry is the default; later sections can override with `fpga = "name"`.
 
-**`[[design]]`** — RTL sources and top module for a synthesisable design.
+**`[[design]]`** - RTL sources and top module for a synthesisable design.
 
-**`[[ip]]`** — custom IP to package with the Vivado IP Packager. xviv handles the packaging and wires the IP repo into the project. Use `[[wrapper]]` alongside it if the IP has interface ports that need flattening (requires `pyslang`).
+**`[[ip]]`** - custom IP to package with the Vivado IP Packager. xviv handles the packaging and wires the IP repo into the project. Use `[[wrapper]]` alongside it if the IP has interface ports that need flattening (requires `pyslang`).
 
-**`[[core]]`** — an instance of a catalog IP (Xilinx built-in or custom). Identified by a partial VLNV that resolves against the live catalog; tab completion works here.
+**`[[core]]`** - an instance of a catalog IP (Xilinx built-in or custom). Identified by a partial VLNV that resolves against the live catalog; tab completion works here.
 
-**`[[bd]]`** — a block design. xviv creates it, opens the editor, and exports its state as a TCL snapshot under `scripts/xviv/bd/`. After that, `create --bd <name>` recreates it non-interactively from the snapshot on any machine.
+**`[[bd]]`** - a block design. xviv creates it, opens the editor, and exports its state as a TCL snapshot under `scripts/xviv/bd/`. After that, `create --bd <name>` recreates it non-interactively from the snapshot on any machine.
 
-**`[[synth]]`** — a synthesis run. Identified by one of `design`, `bd`, or `core`. Controls the full pipeline (which stages to run, incremental flows, directives, reports, output artifacts).
+**`[[synth]]`** - a synthesis run. Identified by one of `design`, `bd`, or `core`. Controls the full pipeline (which stages to run, incremental flows, directives, reports, output artifacts).
 
-**`[[simulation]]`** — a simulation target. Backends: `xsim` (default) or `verilator`. Supports UVM, SDF back-annotation, post-synthesis and post-implementation modes.
+**`[[simulation]]`** - a simulation target. Backends: `xsim` (default) or `verilator`. Supports UVM, SDF back-annotation, post-synthesis and post-implementation modes.
 
-**`[[platform]]` / `[[app]]`** — Vitis embedded flow. `platform` generates a BSP from the XSA produced by synthesis; `app` scaffolds and builds a Vitis application against it.
+**`[[platform]]` / `[[app]]`** - Vitis embedded flow. `platform` generates a BSP from the XSA produced by synthesis; `app` scaffolds and builds a Vitis application against it.
 
-**`[[formal]]`** — SymbiYosys formal verification target. Modes: `bmc`, `prove`, `cover`. Vivado not required.
+**`[[formal]]`** - SymbiYosys formal verification target. Modes: `bmc`, `prove`, `cover`. Vivado not required.
 
 The `[project]` table has two optional keys: `build_dir` (default: `"build"`) and `board_repo_paths`.
 
@@ -248,7 +248,7 @@ project/
 ├── scripts/
 │   └── xviv/
 │       └── bd/
-│           └── system.tcl    # BD TCL snapshot — version control this
+│           └── system.tcl    # BD TCL snapshot - version control this
 └── build/                    # gitignore everything here
 ```
 
@@ -262,23 +262,23 @@ Roughly in order of priority.
 
 **Near-term**
 
-- **Simulation config restructure** — the `[[simulation]]` section has grown unwieldy and backend-specific fields don't map cleanly onto both xsim and Verilator. A cleaner split is needed, which may require command changes.
-- **DPI support** — C/C++ testbenches that call into the simulator via DPI-C. Follows naturally from the simulation restructure.
-- **Unit tests** — the TCL generator and config loader have almost no test coverage. Required before the API can be considered stable.
-- **Configurable HSI targets** — the FPGA part and processor target passed to `hsi` during BSP generation are currently hardcoded in the XSCT script. Should be driven from `[[platform]]` config.
-- **Subcore support for custom IPs** — declare that a custom IP depends on another IP internally (e.g. a `clk_wiz` sub-core), so the packager carries the dependency correctly. BDs get automatic subcore tracking already; standalone IPs don't.
+- **Simulation config restructure** - the `[[simulation]]` section has grown unwieldy and backend-specific fields don't map cleanly onto both xsim and Verilator. A cleaner split is needed, which may require command changes.
+- **DPI support** - C/C++ testbenches that call into the simulator via DPI-C. Follows naturally from the simulation restructure.
+- **Unit tests** - the TCL generator and config loader have almost no test coverage. Required before the API can be considered stable.
+- **Configurable HSI targets** - the FPGA part and processor target passed to `hsi` during BSP generation are currently hardcoded in the XSCT script. Should be driven from `[[platform]]` config.
+- **Subcore support for custom IPs** - declare that a custom IP depends on another IP internally (e.g. a `clk_wiz` sub-core), so the packager carries the dependency correctly. BDs get automatic subcore tracking already; standalone IPs don't.
 
 **Feature additions**
 
-- **ILA / debug core insertion** — add and configure Integrated Logic Analyzer cores during implementation, with an optional GUI mode for probe assignment.
-- **QSPI flash programming** — extend `program` to write bitstreams to QSPI flash over JTAG, not just direct FPGA configuration.
-- **HLS support** — bring Vitis HLS projects under the same `project.toml` and CLI. Synthesised HLS output would export as a first-class IP feeding directly into `[[ip]]` and the BD flow.
-- **Dependency graph** — `graph` command to print or visualise the full entity dependency tree (fpga → ip → core → bd → synth → platform → app). The skeleton is already in the codebase.
+- **ILA / debug core insertion** - add and configure Integrated Logic Analyzer cores during implementation, with an optional GUI mode for probe assignment.
+- **QSPI flash programming** - extend `program` to write bitstreams to QSPI flash over JTAG, not just direct FPGA configuration.
+- **HLS support** - bring Vitis HLS projects under the same `project.toml` and CLI. Synthesised HLS output would export as a first-class IP feeding directly into `[[ip]]` and the BD flow.
+- **Dependency graph** - `graph` command to print or visualise the full entity dependency tree (fpga → ip → core → bd → synth → platform → app). The skeleton is already in the codebase.
 
 **Infrastructure**
 
-- **CI/CD** — synthesis on push using xviv's own CLI, intended for a dedicated machine rather than shared runners given resource and license constraints.
-- **Remote synthesis server** — offload synthesis jobs to a networked machine with the Vivado license, while keeping the local CLI workflow unchanged.
+- **CI/CD** - synthesis on push using xviv's own CLI, intended for a dedicated machine rather than shared runners given resource and license constraints.
+- **Remote synthesis server** - offload synthesis jobs to a networked machine with the Vivado license, while keeping the local CLI workflow unchanged.
 
 ---
 
