@@ -13,70 +13,41 @@ logger = logging.getLogger(__name__)
 
 
 def run_vivado_xvlog(
-	cfg: XvivConfig, target_dir: str, fileset: list[str], xsim_lib: str
+	cfg: XvivConfig, target_dir: str, fileset: list[str], xsim_lib: str,
+	lib: list[str] | None = None,
+	defines: list[str] = [],
+	include_dirs: list[str] = [],
 ) -> None:
-	xvlog_bin = os.path.join(cfg.get_vivado().path, "bin", "xvlog")
-
+	xvlog_bin  = os.path.join(cfg.get_vivado().path, "bin", "xvlog")
 	extra_files = [os.path.join(cfg.get_vivado().path, "data/verilog/src/glbl.v")]
+ 
+	define_flags  = [f"-d {d}" for d in defines]
+	include_flags = [f"-i {i}" for i in include_dirs]
+ 
+	cmd = [
+		xvlog_bin, "-sv", "-incr",
+		"-work", xsim_lib,
+		*define_flags,
+		*include_flags,
+		*fileset,
+		*extra_files,
+	]
+	
+	for x in (lib or []):
+		cmd += ['--lib', x]
 
-	cmd = [xvlog_bin, "-sv", "-incr", "-work", xsim_lib, *fileset, *extra_files]
 	logger.info("Running: %s", " ".join(cmd))
 	os.makedirs(target_dir, exist_ok=True)
-
+ 
 	if cfg.get_vivado().dry_run:
 		return
-
+ 
 	try:
 		subprocess.run(cmd, check=True, cwd=target_dir)
 	except subprocess.CalledProcessError as e:
 		sys.exit(e.returncode)
+ 
 
-
-# def run_vivado_xelab(
-# 	cfg: XvivConfig,
-# 	target_dir: str,
-# 	top: str,
-# 	timescale: str,
-# 	xsim_lib: str,
-# 	run_all=False,
-# 	sdfmax_entries: list[str] = [],
-# ) -> None:
-# 	xelab_bin = os.path.join(cfg.get_vivado().path, "bin", "xelab")
-
-# 	cmd = [
-# 		xelab_bin,
-# 		f"{xsim_lib}.{top}",
-# 		f"{xsim_lib}.glbl",
-# 		"-L", "unimacro_ver",
-# 		"-L", "secureip",
-# 		"-debug", "typical",
-# 		"-mt", "20",
-# 		"-s", top,
-# 		"-timescale", timescale
-# 	]
-
-# 	for i in sdfmax_entries:
-# 		cmd += ['-sdfmax', i]
-
-# 	if sdfmax_entries:
-# 		cmd += ["-L", "simprims_ver"]
-# 	else:
-# 		cmd += ["-L", "unifast_ver"]
-# 		cmd += ["-L", "unisims_ver"]
-
-# 	if run_all:
-# 		cmd.append("-R")
-
-# 	logger.info("Running: %s", " ".join(cmd))
-# 	os.makedirs(target_dir, exist_ok=True)
-
-# 	if cfg.get_vivado().dry_run:
-# 		return
-
-# 	try:
-# 		subprocess.run(cmd, check=True, cwd=target_dir)
-# 	except subprocess.CalledProcessError as e:
-# 		sys.exit(e.returncode)
 
 def run_vivado_xelab(cfg: XvivConfig, target_dir: str, units: list[str], *,
 	debug: str = 'off',
@@ -338,7 +309,9 @@ def run_vivado_xsim(
 	wdb_file: str | None = None,
 	stats: bool = True,
 	nogui: bool = False,
-	popen = False
+	runall: bool = False,
+	popen = False,
+	testplusarg: list[str] | None = None,
 ) -> int | None:
 	xsim_bin = os.path.join(cfg.get_vivado().path, "bin", "xsim")
 
@@ -361,6 +334,12 @@ def run_vivado_xsim(
 		"-t", config_tcl_path,
 		"-g" if not nogui else None,
 	]))
+
+	for x in (testplusarg or []):
+		cmd += ['--testplusarg', x]
+
+	if runall:
+		cmd += ['--runall']
 
 	logger.info("Running: %s", " ".join(cmd))
 	os.makedirs(target_dir, exist_ok=True)

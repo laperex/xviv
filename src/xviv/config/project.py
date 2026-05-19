@@ -716,20 +716,48 @@ class XvivConfig:
 		sdfmax: list[str] = [],
 		sdfmin: list[str] = [],
 		timescale: str = '1ns/1ps',
-
+ 
 		bd: str | None = None,
 		design: str | None = None,
+ 
+		# -- UVM ---------------------------------------------------------- #
+		uvm: bool = False,
+		uvm_version: str = '1.2',
+		uvm_test: str | None = None,
+		uvm_verbosity: str = 'UVM_MEDIUM',
+		uvm_max_quit_count: int | None = None,
+
+		# -- Generic plusargs ---------------------------------------------- #
+		plusargs: list[str] = [],
+ 
+		# -- Preprocessor / include ---------------------------------------- #
+		defines: list[str] = [],
+		include_dirs: list[str] = [],
+ 
+		# -- Verilator-specific -------------------------------------------- #
+		threads: int = 1,
+		trace: bool = False,
+		trace_fst: bool = False,
+		trace_depth: int | None = None,
+		verilator_args: list[str] = [],
+		uvm_pkg_dir: str | None = None,
 	) -> typing.Self:
 		# TODO: throw error for invalid name ''
-
+ 
 		if self._get_sim_cfg_optional(name) is not None:
 			raise error.SimDoesNotExistError(name)
-
+ 
+		if backend not in ('xsim', 'verilator'):
+			raise error.InvalidSimulationBackend(backend)
+ 
+		if uvm and backend == 'verilator' and uvm_pkg_dir is None:
+			raise error.UvmPkgDirRequiredError(name)
+ 
 		if top is None:
 			top = name
-
+ 
 		sim_subdir = os.path.join(self.work_dir, 'sim', name)
-
+ 
 		self._sim_list.append(
 			SimulationConfig(
 				name=name,
@@ -741,11 +769,29 @@ class XvivConfig:
 				timescale=timescale,
 				work_dir=sim_subdir,
 				sdfmax=sdfmax,
-				sdfmin=sdfmin
+				sdfmin=sdfmin,
+ 
+				uvm=uvm,
+				uvm_version=uvm_version,
+				uvm_test=uvm_test,
+				uvm_verbosity=uvm_verbosity,
+				uvm_max_quit_count=uvm_max_quit_count,
+ 
+				plusargs=list(plusargs),
+				defines=list(defines),
+				include_dirs=list(include_dirs),
+
+				threads=threads,
+				trace=trace,
+				trace_fst=trace_fst,
+				trace_depth=trace_depth,
+				verilator_args=list(verilator_args),
+				uvm_pkg_dir=uvm_pkg_dir,
 			)
 		)
-
+ 
 		return self
+
 
 	def add_platform_cfg(self, name: str, *,
 		bd: str | None = None,

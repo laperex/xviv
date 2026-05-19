@@ -194,14 +194,44 @@ class SimulationConfig:
 	sources:   list[SourceFile]
 	backend:   str
 	timescale: str
-
+ 
 	work_dir:  str | None
-
+ 
 	sdfmax:    list[str]
 	sdfmin:    list[str]
-
+ 
 	design:    str | None
 	bd:        str | None
+ 
+	# -- UVM -------------------------------------------------------------- #
+	# Vivado ships UVM 1.1d and 1.2 pre-compiled.  Set uvm=True and xelab
+	# links -L uvm automatically; xsim receives the plusargs below.
+ 
+	uvm:              bool
+	uvm_version:      str
+	uvm_test:         str | None
+	uvm_verbosity:    str
+	uvm_max_quit_count: int | None
+ 
+	# -- Generic plusargs (passed verbatim to xsim / verilated binary) -- #
+	plusargs:     list[str]
+ 
+	# -- Preprocessor / include (xsim xvlog + verilator) --------------- #
+	defines:      list[str]
+	include_dirs: list[str]
+ 
+	# -- Verilator-specific ---------------------------------------------  #
+	threads:      int
+	trace:        bool
+	trace_fst:    bool
+	trace_depth:  int | None
+	verilator_args: list[str]
+ 
+	# UVM with verilator: user must supply UVM source files in `sources`
+	# and point uvm_pkg_dir at a verilator-compatible UVM package root.
+	uvm_pkg_dir: str | None
+ 
+
 
 
 @dataclasses.dataclass

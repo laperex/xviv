@@ -645,3 +645,44 @@ class FormalInvalidModeError(FormalError):
 	def __str__(self) -> str:
 		return f"Formal target '{self.name}': invalid mode '{self.mode}' - must be one of: bmc, prove, cover"
  
+ 
+# -- Verilator ------------------------------------------------------------ #
+ 
+class VerilatorNotFoundError(XvivError):
+	"""verilator binary not found on PATH."""
+	def __init__(self):
+		super().__init__(
+			"verilator not found on PATH — install verilator or add it to PATH"
+		)
+ 
+class VerilatorCompileError(XvivError):
+	"""verilator exited non-zero during compilation."""
+	def __init__(self, top: str, returncode: int):
+		super().__init__(
+			f"verilator compilation of '{top}' failed (exit {returncode})"
+		)
+ 
+class VerilatorBinaryMissingError(XvivError):
+	"""Compiled verilated binary does not exist at expected path."""
+	def __init__(self, path: str):
+		super().__init__(
+			f"verilated binary not found: {path} — run compile step first"
+		)
+ 
+# -- UVM ------------------------------------------------------------------ #
+ 
+class UvmPkgDirRequiredError(XvivError):
+	"""UVM requested for verilator backend but no uvm_pkg_dir supplied."""
+	def __init__(self, sim_name: str):
+		super().__init__(
+			f"sim '{sim_name}': uvm=True with backend='verilator' requires "
+			f"uvm_pkg_dir to be set (verilator does not ship a pre-compiled UVM library)"
+		)
+ 
+class UvmNotSupportedError(XvivError):
+	"""UVM requested for a backend that does not support it."""
+	def __init__(self, backend: str):
+		super().__init__(
+			f"UVM is not supported by backend '{backend}'"
+		)
+ 
