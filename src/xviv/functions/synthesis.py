@@ -17,6 +17,11 @@ def cmd_synth(cfg: XvivConfig, *,
 
 	synth_cfg = cfg.get_synth(bd_name=bd_name, design_name=design_name, core_name=core_name)
 
+	if synth_cfg.bitstream_file:
+		sha, dirty, tag = _git_sha_tag()
+		if sha and synth_cfg.usr_access_value is None:
+			synth_cfg.usr_access_value = int(sha, 16) | (0x10000000 if dirty else 0)
+
 	if synth_cfg.out_of_context_subcores:
 		run_parallel([
 			(

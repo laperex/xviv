@@ -5,6 +5,7 @@ import typing
 
 from xviv.generator.tcl.builder import ConfigTclBuilder, _tcl_list
 from xviv.utils.fs import assert_file_exists, is_stale, is_stale_list
+from xviv.utils.git import _git_sha_tag
 
 
 logger = logging.getLogger(__name__)
@@ -819,7 +820,6 @@ class ConfigTclCommands(ConfigTclBuilder):
 		if synth_cfg.run_phys_opt:
 			self._phys_opt_design(directive=synth_cfg.phys_opt_directive)
 
-
 		#* route_design
 		if synth_cfg.run_route:
 			self._route_design(directive=synth_cfg.route_directive)
@@ -848,8 +848,8 @@ class ConfigTclCommands(ConfigTclBuilder):
 			self._write_sdf(synth_cfg.impl_timing_sdf_file, mode='timesim', force=True)
 
 		# set usr_access_value
-		if synth_cfg.usr_access_value:
-			self._set_property_current_design('BITSTREAM.CONFIG.USR_ACCESS', f'0x{synth_cfg.usr_access_value}')
+		if synth_cfg.usr_access_value is not None:
+			self._set_property_current_design('BITSTREAM.CONFIG.USR_ACCESS', f'0x{synth_cfg.usr_access_value:08X}')
 
 		# bitstream
 		if synth_cfg.bitstream_file:
