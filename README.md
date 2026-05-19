@@ -14,11 +14,13 @@ pip install xviv
 
 ---
 
-Vivado is hard to use across a team. Project files embed absolute paths, block designs don't diff cleanly, and there's no real CLI surface for automation. The standard workaround is to commit the build directory and hope nobody's on a different version.
+Vivado can be difficult to use in a team environment. Project files often contain absolute paths, block designs are hard to review cleanly in git, and automation usually depends on generated TCL scripts rather than a clean, reproducible CLI workflow. As a result, teams often end up either committing large amounts of generated project state or maintaining custom rebuild scripts to keep projects portable across machines and Vivado versions.
 
-xviv fixes this with a single config file that describes the FPGA target, IP cores, block designs, RTL sources, synthesis runs, simulations, and embedded platform — everything needed to reproduce a build from a clean clone. The build directory is fully gitignored. Block design state is exported as re-runnable TCL snapshots that live in version control. Every bitstream gets the git SHA burned into `USR_ACCESS` (bits [27:0] = short SHA, bit 28 = dirty flag), so any `.bit` file on a bench is traceable to its commit.
+xviv takes a different approach. Instead of relying on generated project files, the entire build is described in a single config file: FPGA target, IP cores, block designs, RTL sources, synthesis runs, simulations, and embedded platform configuration. A clean clone is enough to reproduce the project, while the build directory itself remains fully gitignored.
 
-The design is deliberately not GUI-free. Tools like Hog and Edalize route around Vivado's GUI entirely, which loses a lot — especially for block designs and IP packaging. xviv drives the scriptable parts from the CLI and opens the GUI when you actually need it.
+For block designs, xviv exports re-runnable TCL snapshots that can be version-controlled and reviewed like normal source files. It also embeds git metadata directly into the generated bitstream using `USR_ACCESS` — bits [27:0] store the short commit SHA, while bit 28 indicates whether the working tree was dirty at build time. That makes it possible to trace any `.bit` file back to the exact source revision that produced it.
+
+The goal was never to eliminate the Vivado GUI entirely. Tools like Edalize focus primarily on non-project automation flows, which can make some Vivado workflows — especially block design editing and IP packaging — less convenient. xviv instead automates the parts Vivado handles well through scripting, while still allowing developers to use the GUI when it is actually useful.
 
 ---
 
