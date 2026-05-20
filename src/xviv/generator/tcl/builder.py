@@ -133,12 +133,17 @@ class ConfigTclBuilder:
 		]
 		self._push(f'get_bd_cells {" ".join([i for i in params if i])}')
 
-	def _write_bd_tcl(self, path: str, *, force: bool = False, no_project_wrapper: bool = False):
+	def _write_bd_tcl(self, path: str, *,
+		force: bool = False,
+		no_project_wrapper: bool = False,
+		make_local: bool = False,
+	):
 		params = filter(None, [
-			'-force'               if force               else None,
-			'-no_project_wrapper'  if no_project_wrapper  else None,
+			'-force'               if force else None,
+			'-no_project_wrapper'  if no_project_wrapper else None,
+			'-make_local'          if make_local else None,
 		])
-		self._push(f'write_bd_tcl {" ".join(params)} {path}')
+		self._push(f'write_bd_tcl {" ".join(params)} "{path}"')
 
 	# -------------------------------------------------------------------------
 	# Waveform / Simulation
@@ -948,7 +953,10 @@ class ConfigTclBuilder:
 
 	def _proc(self, name: str, args: str, body_func = None):
 		child = type(self)(self._cfg).__inherit(self)
-		body_func(child)
+		if body_func is None:
+			child._push('')
+		else:
+			body_func(child)
 		self._push(f'proc {name} {{{args}}} {{\n{ child.build() }}}')
 
 	def catch(self, func=None, *, result_var: str | None = None):
@@ -986,6 +994,9 @@ class ConfigTclBuilder:
 
 	def _return(self):
 		self._push('return')
+	
+	def _rename(self, name: str, change: str):
+		self._push(f'rename {name} {change}')
 
 	# -------------------------------------------------------------------------
 	# Tcl I/O

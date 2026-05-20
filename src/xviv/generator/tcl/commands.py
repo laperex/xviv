@@ -296,46 +296,11 @@ class ConfigTclCommands(ConfigTclBuilder):
 	# ------------------------------------------------------
 
 	@ConfigTclBuilder._fn_def
-	def _override_save_bd_design(self, bd_name: str, bd_state_tcl_file: str):
+	def _override_save_bd_design(self, bd_state_tcl_file: str):
 		if not bd_state_tcl_file:
 			raise RuntimeError("ERROR: bd_state_tcl_file is required")
 
-		self._proc_bd_save_tcl()
-		self._override("save_bd_design", post_call=lambda x: x._call_bd_save_tcl(bd_name, bd_state_tcl_file))
-
-
-	@ConfigTclBuilder._fn_def
-	def _proc_bd_save_tcl(self):
-		def __bd_save_tcl(x: typing.Self):
-			x._set_exec('path_dirname', lambda _: _._file_dirname('$path'))
-			x._file_mkdir('$path_dirname')
-
-			x._write_bd_tcl('$path', force=True, no_project_wrapper=True)
-
-			x._set_exec('f', lambda m: m._open('$path', 'r'))
-			x._set_exec('data', lambda m: m._read_file('$f'))
-			x._close('$f')
-
-			x._set_exec('start', lambda m: m._string_first('"set bCheckIPsPassed"', '$data'))
-			x._set_exec('end', lambda m: m._string_first('"save_bd_design"',      '$data'))
-
-			x._if('$start == -1 || $end == -1', lambda c: c._error('"Could not find expected markers in state BD TCL"'))
-
-			x._set_exec('f', lambda m: m._open('$path', 'w'))
-			x._puts_exec(lambda m: m._join('$prefix', '"\\n"'), channel='$f')
-			x._puts('""', channel='$f')
-			x._puts_exec(lambda m: m._string_range('$data', '$start', '[expr {$end - 1}]'), channel='$f')
-			x._close('$f')
-
-		self._proc("bd_save_tcl", "path prefix", __bd_save_tcl)
-
-
-	def _call_bd_save_tcl(self, bd_name, bd_state_tcl_file: str):
-		self._proc_bd_save_tcl()
-
-		self._call('bd_save_tcl', [
-			f'"{bd_state_tcl_file}"', rf'"#{bd_name}\n\n"'
-		])
+		self._override("save_bd_design", post_call=lambda x: x._write_bd_tcl(bd_state_tcl_file, force=True, no_project_wrapper=True, make_local=True))
 
 	def _bd_refresh_addresses(self):
 		self._delete_bd_objs('[get_bd_addr_segs]', '[get_bd_addr_segs -excluded]')
@@ -379,10 +344,18 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 		# TODO: add a new flag --import=true flag to make this if explicit
 		if os.path.exists(bd_cfg.save_file):
-			self._set('parentCell', '""')
-			
+			self._rename('create_bd_design', '_xviv_create_bd_design')
+			self._proc('create_bd_design', 'args')
 			self._source(bd_cfg.save_file)
-			
+
+			self._set_exec('_cr_bd_proc', lambda x: x._push('lindex [info procs cr_bd_*] 0'))
+			self._call('$_cr_bd_proc', ['""'])
+
+			self._rename('create_bd_design', '{}')
+			self._rename('_xviv_create_bd_design', 'create_bd_design')
+
+			self._open_bd_design(bd_cfg.bd_file)
+
 			def __body(c: typing.Self):
 				c._puts('"ERROR: BD script failed"')
 				c._exit(1)
@@ -396,7 +369,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 			if generate:
 				self._generate_target_get_files(bd_cfg.bd_file)
 		else:
-			self._override_save_bd_design(bd_name, bd_cfg.save_file)
+			self._override_save_bd_design(bd_cfg.save_file)
 
 			self._start_gui()
 
@@ -412,8 +385,8 @@ class ConfigTclCommands(ConfigTclBuilder):
 		self._read_bd(bd_cfg.bd_file)
 		self._open_bd_design(bd_cfg.bd_file)
 
-		self._override_save_bd_design(bd_name, bd_cfg.save_file)
-		self._call_bd_save_tcl(bd_name, bd_cfg.save_file)
+		self._override_save_bd_design(bd_cfg.save_file)
+		self._write_bd_tcl(bd_cfg.save_file, force=True, no_project_wrapper=True, make_local=True)
 
 		if not nogui:
 			self._start_gui()
