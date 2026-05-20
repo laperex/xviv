@@ -327,7 +327,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 		self._close('$fd')
 
-	def create_bd(self, bd_name: str, generate: bool = True) -> typing.Self:
+	def create_bd(self, bd_name: str, generate: bool = True, source_file: str | bool = True) -> typing.Self:
 		bd_cfg = self._cfg.get_bd(bd_name)
 		bd_subdir = os.path.join(self._cfg.bd_dir, bd_name)
 		
@@ -343,18 +343,27 @@ class ConfigTclCommands(ConfigTclBuilder):
 		self._create_bd_design(bd_name, dir=self._cfg.bd_dir)
 
 		# TODO: add a new flag --import=true flag to make this if explicit
-		if os.path.exists(bd_cfg.save_file):
+		if os.path.exists(bd_cfg.save_file) and source_file:
+			save_file = bd_cfg.save_file
+			
+			if isinstance(source_file, str):
+				assert_file_exists(source_file)
+				
+				save_file = source_file
+			
 			self._rename('create_bd_design', '_xviv_create_bd_design')
+			self._rename('close_bd_design', '_xviv_close_bd_design')
 			self._proc('create_bd_design', 'args')
-			self._source(bd_cfg.save_file)
+			self._proc('close_bd_design', 'args')
+			self._source(save_file)
 
 			self._set_exec('_cr_bd_proc', lambda x: x._push('lindex [info procs cr_bd_*] 0'))
 			self._call('$_cr_bd_proc', ['""'])
 
 			self._rename('create_bd_design', '{}')
+			self._rename('close_bd_design', '{}')
 			self._rename('_xviv_create_bd_design', 'create_bd_design')
-
-			self._open_bd_design(bd_cfg.bd_file)
+			self._rename('_xviv_close_bd_design', 'close_bd_design')
 
 			def __body(c: typing.Self):
 				c._puts('"ERROR: BD script failed"')
