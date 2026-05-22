@@ -66,47 +66,82 @@ def core_instance_completer(prefix: str, parsed_args, **kwargs) -> dict[str, str
 		return {}
 
 def c_dcp_file(prefix, parsed_args, **kwargs):
-    try:
-        config_path = os.path.abspath(resolve_config_completer(prefix, parsed_args))
-        cfg = load_config(config_path)
-        config_dir = os.path.dirname(config_path)
+	try:
+		config_path = os.path.abspath(resolve_config_completer(prefix, parsed_args))
+		cfg = load_config(config_path)
+		config_dir = os.path.dirname(config_path)
 
-        result: dict[str, str] = {}
+		result: dict[str, str] = {}
 
-        for synth in cfg._synth_list:
-            ids = [(kind, name) for kind, name in [
-                ('Design', synth.design_name),
-                ('Core', synth.core_name),
-                ('BD', synth.bd_name),
-            ] if name]
+		for synth in cfg._synth_list:
+			ids = [(kind, name) for kind, name in [
+				('Design', synth.design_name),
+				('Core', synth.core_name),
+				('BD', synth.bd_name),
+			] if name]
 
-            if len(ids) != 1:
-                continue
+			if len(ids) != 1:
+				continue
 
-            kind, name = ids[0]
+			kind, name = ids[0]
 
-            for phase, file in [
-                ('synth', synth.synth_dcp_file),
-                ('place', synth.place_dcp_file),
-                ('route', synth.route_dcp_file),
-            ]:
-                if file:
-                    rel = os.path.relpath(file, config_dir)
-                    result[rel] = f'{phase} — {kind} — {name}'
+			for phase, file in [
+				('synth', synth.synth_dcp_file),
+				('place', synth.place_dcp_file),
+				('route', synth.route_dcp_file),
+			]:
+				if file:
+					rel = os.path.relpath(file, config_dir)
+					result[rel] = f'{phase} — {kind} — {name}'
 
-        return result
+		return result
 
-    except Exception:
-        return {}
+	except Exception:
+		return {}
 
-def c_sim_modes(prefix, parsed_args, **kwargs):
-    return [
-		'post_synth_functional',
-		'post_synth_timing',
-		'post_impl_functional',
-		'post_impl_timing'
-		'default',
-	]
+# def c_sim_modes(prefix, parsed_args, **kwargs):
+# 	return [
+# 		'post_synth_functional',
+# 		'post_synth_timing',
+# 		'post_impl_functional',
+# 		'post_impl_timing'
+# 		'default',
+# 	]
+
+def c_bitstream(prefix, parsed_args, **kwargs):
+	try:
+		config_path = os.path.abspath(resolve_config_completer(prefix, parsed_args))
+		cfg = load_config(config_path)
+
+		result: list[str] = []
+
+		for platform in cfg._platform_list:
+			result.append(os.path.relpath(platform.bitstream_file, os.path.dirname(config_path)))
+		
+		for synth in cfg._synth_list:
+			if synth.bitstream_file:
+				if synth.bitstream_file not in result:
+					result.append(os.path.relpath(synth.bitstream_file, os.path.dirname(config_path)))
+
+		return result
+
+	except Exception:
+		return {}
+
+def c_elf(prefix, parsed_args, **kwargs):
+	try:
+		config_path = os.path.abspath(resolve_config_completer(prefix, parsed_args))
+		cfg = load_config(config_path)
+
+		result: list[str] = []
+
+		for app in cfg._app_list:
+			result.append(os.path.relpath(app.elf_file, os.path.dirname(config_path)))
+
+		return result
+
+	except Exception:
+		return {}
 
 # ---------------------------------------------------------------------------
 # Public completers
@@ -134,50 +169,60 @@ def arg(container, *flags, completer=None, **kwargs):
 	return action
 
 
-def target_group(parser, *,
+def target_group(parser, exclusive: bool = True, required: bool = True, *,
 	design: bool = False,
 	ip: bool = False,
 	bd: bool = False,
-	sim: bool = False,
-	formal: bool = False,
-	sim_mode: bool = False,
+	sim_target: bool = False,
+	formal_target: bool = False,
+	# sim_mode: bool = False,
 	app: bool = False,
 	platform: bool = False,
 	wdb: bool = False,
 	dcp: bool = False,
 	core: bool = False,
-	required: bool = True
+	bitstream: bool = False,
+	elf: bool = False,
 ):
-	mg = parser.add_mutually_exclusive_group(required=required)
-	
-	if platform:
-		arg(mg, "--platform", metavar="NAME", help="Platform name", completer=c_platform)
-	if app:
-		arg(mg, "--app", metavar="NAME", help="App name", completer=c_app)
+	grp = parser
 
-	if sim:
-		arg(mg, "--target", metavar="NAME", help="Target name", completer=c_sim_target)
-	
-	if formal:
-		arg(mg, "--target", metavar="NAME", help="Target name", completer=c_formal_target)
+	if exclusive:
+		grp = parser.add_mutually_exclusive_group(required=required)
+		required = False
+
+	if app:
+		arg(grp, "--app", metavar="NAME", help="App name", completer=c_app, required=required)
+	if platform:
+		arg(grp, "--platform", metavar="NAME", help="Platform name", completer=c_platform, required=required)
+
+	if sim_target:
+		arg(grp, "--target", metavar="NAME", help="Simulation Target name", completer=c_sim_target, required=required)
+	# if sim_mode:
+	# 	arg(grp, "--mode", metavar="NAME", help="Core name", completer=c_sim_modes, required=required)
+
+	if formal_target:
+		arg(grp, "--target", metavar="NAME", help="Formal Target name", completer=c_formal_target, required=required)
 
 	if wdb:
-		arg(mg, "--wdb", metavar="NAME", help="Simulation target name in config", completer=c_sim_target)
+		arg(grp, "--wdb", metavar="NAME", help="Simulation Target name", completer=c_sim_target, required=required)
 
 	if dcp:
-		arg(mg, "--dcp", metavar="NAME", help="Checkpoint file", completer=c_dcp_file)
+		arg(grp, "--dcp", metavar="NAME", help="Checkpoint File", completer=c_dcp_file, required=required)
 
 	if ip:
-		arg(mg, "--ip", metavar="NAME", help="IP name", completer=c_ip)
+		arg(grp, "--ip", metavar="NAME", help="IP name", completer=c_ip, required=required)
 
 	if design:
-		arg(mg, "--design", metavar="NAME", help="Design name", completer=c_design)
+		arg(grp, "--design", metavar="NAME", help="Design name", completer=c_design, required=required)
 	if bd:
-		arg(mg, "--bd", metavar="NAME", help="BD name", completer=c_bd)
+		arg(grp, "--bd", metavar="NAME", help="BD name", completer=c_bd, required=required)
 	if core:
-		arg(mg, "--core", metavar="NAME", help="Core name", completer=c_core)
+		arg(grp, "--core", metavar="NAME", help="Core name", completer=c_core, required=required)
 
-	if sim_mode:
-		arg(parser, "--mode", metavar="NAME", help="Core name", completer=c_sim_modes)
+	if bitstream:
+		arg(grp, "--bitstream", metavar="PATH", help="Explicit path to .bit file", completer=c_bitstream, required=required)
 
-	return mg
+	if elf:
+		arg(grp, "--elf", metavar="PATH", help="Explicit path to .elf file", completer=c_elf, required=required)
+
+	return grp

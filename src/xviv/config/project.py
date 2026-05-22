@@ -120,10 +120,10 @@ class XvivConfig:
 
 
 
-	def validate_app(self, app_name: str, check_sources: bool = True):
+	def validate_app(self, app_name: str, check_sources: bool = True, check_elf: bool = True):
 		app_cfg = self.get_app(app_name)
 
-		if not os.path.exists(app_cfg.elf_file):
+		if not os.path.exists(app_cfg.elf_file) and check_elf:
 			raise error.AppElfMissingError(app_name, app_cfg.elf_file)
 
 		if check_sources:
@@ -131,8 +131,8 @@ class XvivConfig:
 				if not os.path.exists(i.file):
 					raise error.AppSourcesMissingError
 
-			if app_cfg.sources:
-				raise error.AppSourcesEmptyError
+			if not app_cfg.sources:
+				raise error.AppSourcesEmptyError(app_name)
 
 	def validate_platform(self, platform_name: str):
 		platform_cfg = self.get_platform(platform_name)
@@ -151,13 +151,13 @@ class XvivConfig:
 		synth_cfg = self.get_synth(design_name=design, core_name=core, bd_name=bd)
 
 		for i in synth_cfg.constraints:
-			if not os.path.exists(i):
+			if not os.path.exists(i.file):
 				if bd:
-					raise error.SynthConstraintsMissingError(bd, 'BD', i)
+					raise error.SynthConstraintsMissingError(bd, 'BD', i.file)
 				if design:
-					raise error.SynthConstraintsMissingError(design, 'Design', i)
+					raise error.SynthConstraintsMissingError(design, 'Design', i.file)
 				if core:
-					raise error.SynthConstraintsMissingError(core, 'Core', i)
+					raise error.SynthConstraintsMissingError(core, 'Core', i.file)
 
 	def validate_ip(self, ip_name: str):
 		ip_cfg = self.get_ip(ip_name)
@@ -607,25 +607,10 @@ class XvivConfig:
 			if hw_platform is None:
 				hw_platform = False
 
-		constraints_list: list[str] = []
-
 		if synth_mode == 'out_of_context':
-			bitstream = False
-			hw_platform = False
-			usr_access_value = None
-
-		for i in self._resolve_sources(constraints,
-			used_in_ooc=False,
-			used_in_sim=False,
-			used_in_impl=True,
-			used_in_synth=True
-		):
-			if synth_mode == 'out_of_context':
-				if i.used_in_ooc:
-					constraints_list.append(i.file)
-			else:
-				if not i.used_in_ooc:
-					constraints_list.append(i.file)
+			bitstream = bitstream or False
+			hw_platform = hw_platform or False
+			usr_access_value = usr_access_value or None
 
 		if synth_mode is None:
 			synth_mode = 'default'
@@ -657,7 +642,12 @@ class XvivConfig:
 
 				out_of_context_subcores=out_of_context_subcores,
 
-				constraints=constraints_list,
+				constraints=self._resolve_sources(constraints,
+					used_in_ooc=False,
+					used_in_sim=False,
+					used_in_impl=True,
+					used_in_synth=True
+				),
 
 				synth_incremental=synth_incremental,
 				run_synth=run_synth,
@@ -799,6 +789,8 @@ class XvivConfig:
 
 		xsa: str | None = None,
 		bitstream: str | None = None,
+		
+		properties: dict[typing.Any] | None = None,
 
 		cpu: str = 'microblaze_0',
 		os: str = 'standalone',
@@ -836,11 +828,24 @@ class XvivConfig:
 				os=os,
 				xsa_file=xsa,
 				bitstream_file=bitstream,
-				dir=platform_subdir
+				dir=platform_subdir,
+				properties=self._resolve_properties(properties)
 			)
 		)
 
 		return self
+	
+	def _resolve_properties(self, properties_dict: dict[typing.Any] | None = None) -> list[tuple[str, str]]:
+		def __flatten(d, prefix: str = "") -> typing.Generator[str, str]:
+			for key, value in d.items():
+				new_prefix = f"{prefix}.{key}" if prefix else key
+
+				if isinstance(value, dict):
+					yield from __flatten(value, new_prefix)
+				else:
+					yield (new_prefix, value)
+
+		return [(i, k) for i, k in __flatten(properties_dict)]
 
 	def add_app_cfg(self, name: str, *,
 		platform: str,
@@ -1160,7 +1165,12 @@ class XvivConfig:
 			if isinstance(i, str):
 				files, stages = [i], default_stages
 			else:
-				stages = set(i.get('used_in', []))
+				if 'used_in' not in i:
+					raise RuntimeError(f'Error \'used_in\' param not specified: {i}\n{sources}')
+				if 'files' not in i:
+					raise RuntimeError(f'Error \'used_in\' param not specified: {i}\n{sources}')
+
+				stages = set(i['used_in'])
 				if unknown := stages - _VALID_STAGES:
 					raise ValueError(f"Unknown stages: {unknown}")
 				files = i['files']

@@ -12,7 +12,6 @@ from xviv.tools import vivado
 from xviv.utils.git import _git_sha_tag
 from xviv.utils.parallel import run_parallel
 
-logger = logging.getLogger(__name__)
 
 
 # -----------------------------------------------------------------------------

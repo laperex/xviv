@@ -21,11 +21,12 @@ def run_xsct(cfg: XvivConfig, config_tcl: str, args: list[str] = []) -> None:
 		#! ConfigPathInvalid
 		raise RuntimeError("ERROR: config_tcl_path is invalid (None)")
 
+	cmd = [_xsct_bin(cfg), config_tcl_path, *args]
+	logger.info("Running: %s", " ".join(cmd))
+
 	if cfg.get_vivado().dry_run:
 		return
 
-	cmd = [_xsct_bin(cfg), config_tcl_path, *args]
-	logger.info("Running: %s", " ".join(cmd))
 	subprocess.run(cmd, check=True)
 
 

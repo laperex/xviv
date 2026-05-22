@@ -1,7 +1,6 @@
 import argparse
 from abc import ABC, abstractmethod
-import sys
-from typing import Any
+import typing
 
 from xviv.cli.completers import target_group
 from xviv.config.project import XvivConfig
@@ -20,29 +19,46 @@ from xviv.functions.xsct import cmd_app_build, cmd_app_create, cmd_platform_buil
 class Command(ABC):
 	name: str
 	help: str
-	c: Any
+	c: typing.Any
+
+	_command_class_registry: typing.ClassVar[list[type[typing.Self]]] = []
+
+	def __init_subclass__(cls, **kwargs):
+		super().__init_subclass__(**kwargs)
+		Command._command_class_registry.append(cls)
 
 	@classmethod
 	@abstractmethod
 	def register(cls, sub: argparse._SubParsersAction) -> None:
 		cls.c = sub.add_parser(cls.name, help=cls.help)
-		cls.c.add_argument("--dry-run", action="store_true",
-			help="Print TCL without executing")
+		cls.c.add_argument("--dry-run", action="store_true", help="Print TCL without executing")
+		cls.c.add_argument("--check", action="store_true", help="Check TCL generated outputs")
 
 	@abstractmethod
 	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
 		cfg.get_vivado().dry_run = args.dry_run
+		cfg.check = args.check
+
+def register_commands(sub) -> dict[str, Command]:
+	registry: dict[str, Command] = {}
+
+	for cls in Command._command_class_registry:
+		cls.register(sub)
+		registry[cls.name] = cls()
+	
+	return registry
 
 
 class CreateCommand(Command):
 	name = "create"
-	help = "Create an IP, BD, platform, or app"
+	help = "Create an IP, BD, core, platform, or app"
 
 	@classmethod
 	def register(cls, sub: argparse._SubParsersAction) -> None:
 		super().register(sub)
 		c = cls.c
-		target_group(c, ip=True, bd=True, app=True, platform=True, core=True)
+
+		target_group(c, exclusive=True, required=True, ip=True, bd=True, app=True, platform=True, core=True)
 
 	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
 		super().run(cfg, args)
@@ -57,29 +73,7 @@ class CreateCommand(Command):
 			cmd_app_create(cfg, app_name=args.app, platform_name=args.platform)
 		elif args.platform:
 			cmd_platform_create(cfg, platform_name=args.platform)
-		else:
-			raise RuntimeError("ERROR: one of --ip / --bd / --core / --app / --platform is required")
 
-
-class BuildCommand(Command):
-	name = "build"
-	help = "Compile a BSP platform or application"
-
-	@classmethod
-	def register(cls, sub: argparse._SubParsersAction) -> None:
-		super().register(sub)
-		c = cls.c
-		target_group(c, app=True, platform=True)
-
-		c.add_argument("--info", action="store_true", help="Print ELF section sizes after build (used with --app)")
-
-	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
-		super().run(cfg, args)
-
-		if args.platform:
-			cmd_platform_build(cfg, args.platform)
-		elif args.app:
-			cmd_app_build(cfg, args.app, args.info)
 
 
 class EditCommand(Command):
@@ -90,7 +84,8 @@ class EditCommand(Command):
 	def register(cls, sub: argparse._SubParsersAction) -> None:
 		super().register(sub)
 		c = cls.c
-		target_group(c, ip=True, bd=True, core=True)
+
+		target_group(c, exclusive=True, required=True, ip=True, bd=True, core=True)
 
 		c.add_argument("--nogui", action="store_true", help="Do not edit in GUI")
 
@@ -107,13 +102,14 @@ class EditCommand(Command):
 
 class GenerateCommand(Command):
 	name = "generate"
-	help = "Generate output products for a BD"
+	help = "Generate output products for a BD or core"
 
 	@classmethod
 	def register(cls, sub: argparse._SubParsersAction) -> None:
 		super().register(sub)
 		c = cls.c
-		target_group(c, bd=True, core=True)
+
+		target_group(c, exclusive=True, required=True, bd=True, core=True)
 
 	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
 		super().run(cfg, args)
@@ -126,13 +122,14 @@ class GenerateCommand(Command):
 
 class OpenCommand(Command):
 	name = "open"
-	help = "Open a checkpoint, or waveform DB"
+	help = "Open a DCP checkpoint or WDB waveform"
 
 	@classmethod
 	def register(cls, sub: argparse._SubParsersAction) -> None:
 		super().register(sub)
 		c = cls.c
-		target_group(c, wdb=True, dcp=True)
+
+		target_group(c, exclusive=True, required=True, wdb=True, dcp=True)
 
 		c.add_argument("--nogui", action="store_true", help="Do not open in GUI (TCL mode)")
 
@@ -147,13 +144,14 @@ class OpenCommand(Command):
 
 class ReloadCommand(Command):
 	name = "reload"
-	help = "Reload a live waveform"
+	help = "Reload a live WDB waveform"
 
 	@classmethod
 	def register(cls, sub: argparse._SubParsersAction) -> None:
 		super().register(sub)
 		c = cls.c
-		target_group(c, sim=True)
+
+		target_group(c, exclusive=True, required=True, sim_target=True)
 
 	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
 		super().run(cfg, args)
@@ -179,6 +177,28 @@ class ProcessorCommand(Command):
 		cmd_processor(cfg, reset=args.reset, status=args.status)
 
 
+class BuildCommand(Command):
+	name = "build"
+	help = "Compile a platform or app"
+
+	@classmethod
+	def register(cls, sub: argparse._SubParsersAction) -> None:
+		super().register(sub)
+		c = cls.c
+
+		target_group(c, exclusive=False, required=True, app=True, platform=True)
+
+		c.add_argument("--info", action="store_true", help="Print ELF section sizes after build")
+
+	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
+		super().run(cfg, args)
+
+		if args.platform:
+			cmd_platform_build(cfg, args.platform)
+		elif args.app:
+			cmd_app_build(cfg, args.app, args.info)
+
+
 class ProgramCommand(Command):
 	name = "program"
 	help = "Download bitstream and/or ELF to FPGA"
@@ -187,20 +207,30 @@ class ProgramCommand(Command):
 	def register(cls, sub: argparse._SubParsersAction) -> None:
 		super().register(sub)
 		c = cls.c
-		target_group(c, platform=True, app=True)
 
-		c.add_argument("--bitstream", metavar="PATH", help="Explicit path to .bit file")
-		c.add_argument("--elf", metavar="PATH", help="Explicit path to .elf file")
+		target_group(c, exclusive=True, required=False, platform=True, bitstream=True)
+		target_group(c, exclusive=True, required=False, app=True, elf=True)
+
+		c.add_argument("--fpga", metavar="NAME", help="Filter to select FPGA (default: %(default)s)", default='xc7a*', required=False)
+		c.add_argument("--processor", metavar="NAME", help="Filter to select soft processor (default: %(default)s)", default='Microblaze #0*', required=False)
+		c.add_argument("--reset-duration", metavar="MS", type=int, help="Soft-reset duration in ms (default: %(default)s)", default=500, required=False)
 
 	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
 		super().run(cfg, args)
 
-		cmd_program(cfg,
-			bitstream_file=args.bitstream,
-			elf_file=args.elf,
-			app_name=args.app,
-			platform_name=args.platform,
-		)
+		try:
+			cmd_program(cfg,
+				bitstream_file=args.bitstream,
+				elf_file=args.elf,
+				app_name=args.app,
+				platform_name=args.platform,
+				processor_target_filter=args.processor,
+				processor_reset_duration=args.reset_duration,
+				fpga_target_filter=args.fpga,
+			)
+		except RuntimeError as e:
+			self.c.print_help()
+			self.c.exit(2, f"\n{e}\n")
 
 
 class SearchCommand(Command):
@@ -210,8 +240,8 @@ class SearchCommand(Command):
 	@classmethod
 	def register(cls, sub: argparse._SubParsersAction) -> None:
 		super().register(sub)
-
 		c = cls.c
+
 		c.add_argument("query", metavar="QUERY", help="IP name, partial VLNV, or keyword")
 
 	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
@@ -228,9 +258,23 @@ class SimulateCommand(Command):
 	def register(cls, sub: argparse._SubParsersAction) -> None:
 		super().register(sub)
 		c = cls.c
-		target_group(c, sim=True, sim_mode=True)
 
-		c.add_argument("--run", metavar="TIME", help="Simulation run time, e.g. 1000ns")
+		target_group(c, exclusive=True, required=True, sim_target=True)
+		c.add_argument("--mode",
+			metavar="MODE",
+			choices=[
+				'post_synth_functional',
+				'post_synth_timing',
+				'post_impl_functional',
+				'post_impl_timing',
+				'default',
+			],
+			default='default',
+			help="simulation mode (default: %(default)s)",
+			required=False,
+		)
+
+		c.add_argument("--run", metavar="TIME", help="Simulation run time (default: %(default)s)", default='all', required=False)
 
 	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
 		super().run(cfg, args)
@@ -240,100 +284,45 @@ class SimulateCommand(Command):
 
 class SynthCommand(Command):
 	name = "synth"
-	help = "Synthesise a BD, Design module"
+	help = "Synthesize a BD, core, or design"
 
 	@classmethod
 	def register(cls, sub: argparse._SubParsersAction) -> None:
 		super().register(sub)
 		c = cls.c
-		target_group(c, bd=True, design=True, core=True)
+
+		target_group(c, exclusive=True, required=True, bd=True, design=True, core=True)
+
+		c.add_argument("--usr-access-type", metavar="", help="Type of value to embed in bitstream (default: %(default)s)", default='git', required=False)
+		c.add_argument("--resume",
+			metavar="STAGE",
+			choices=["auto", "synth", "place", "route"],
+			default=None,
+			help="resume synthesis from an existing checkpoint ('auto' detects latest)",
+			required=False,
+		)
 
 	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
 		super().run(cfg, args)
 
-		cmd_synth(cfg, design_name=args.design, bd_name=args.bd, core_name=args.core)
-
-
-# # ---------------------------------------------------------------------------
-# # GraphCommand
-# # ---------------------------------------------------------------------------
-
-# class GraphCommand(Command):
-# 	name = "graph"
-# 	help = "Print a tree of all project entities and their relationships"
-
-# 	@classmethod
-# 	def register(cls, sub: argparse._SubParsersAction) -> None:
-# 		super().register(sub)
-# 		c = cls.c
-# 		c.add_argument(
-# 			"--filter", "-f",
-# 			metavar="KIND",
-# 			help=(
-# 				"Show only this entity kind: "
-# 				"fpga | ip | core | bd | design | synth | sim | platform | app"
-# 			),
-# 		)
-# 		c.add_argument(
-# 			"--no-deps",
-# 			action="store_true",
-# 			help="Omit the dependency-chain summary at the bottom",
-# 		)
-
-# 	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
-# 		cmd_graph(cfg, args)
-
-
-# # ---------------------------------------------------------------------------
-# # StatusCommand
-# # ---------------------------------------------------------------------------
-
-
-# class StatusCommand(Command):
-# 	name = "status"
-# 	help = "Show build state of all project entities"
-
-# 	@classmethod
-# 	def register(cls, sub: argparse._SubParsersAction) -> None:
-# 		super().register(sub)
-
-# 		_ALL_KINDS = ("fpga", "ip", "core", "bd", "design", "synth", "sim", "platform", "app")
-
-# 		c = cls.c
-# 		c.add_argument(
-# 			"--verbose", "-v",
-# 			action="store_true",
-# 			help="Show per-artifact breakdown and stale source details",
-# 		)
-# 		c.add_argument(
-# 			"--filter", "-f",
-# 			metavar="KIND",
-# 			choices=_ALL_KINDS,
-# 			help=(
-# 				"Show only this entity kind: "
-# 				+ " | ".join(_ALL_KINDS)
-# 			),
-# 		)
-# 		c.add_argument(
-# 			"--stale",
-# 			action="store_true",
-# 			help="Show only entities that are stale or missing",
-# 		)
-
-# 	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
-# 		cmd_status(cfg, args)
+		cmd_synth(cfg, design_name=args.design, bd_name=args.bd, core_name=args.core,
+			usr_access_type=args.usr_access_type,
+			resume=args.resume
+		)
 
 class FormalCommand(Command):
 	name = "formal"
-	help = "Run SymbiYosys formal verification targets (no Vivado required)"
- 
+	help = "Run SymbiYosys formal verification targets"
+
 	@classmethod
 	def register(cls, sub: argparse._SubParsersAction) -> None:
 		super().register(sub)
 		c = cls.c
-		target_group(c, formal=True)
- 
+
+		target_group(c, exclusive=True, required=True, formal_target=True)
+
 	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
-		# Intentionally does NOT call super().run() - no Vivado involved.
+		super().run()
+
 		cmd_formal(cfg, target=args.target)
- 
+

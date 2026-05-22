@@ -159,7 +159,9 @@ def run_formal(cfg: FormalConfig, *, dry_run: bool = False) -> FormalResult:
 # CLI entry points
 # ---------------------------------------------------------------------------
 
-def cmd_formal(cfg: XvivConfig, target: str | None = None) -> None:
+def cmd_formal(cfg: XvivConfig, *,
+	target: str | None = None
+) -> None:
 	all_cfgs = cfg.get_formal_list()
 
 	if not all_cfgs:

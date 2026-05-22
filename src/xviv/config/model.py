@@ -120,7 +120,7 @@ class SynthConfig:
 
 	top: str
 	fpga_ref:    str
-	constraints: list[str]
+	constraints: list[SourceFile]
 
 	synth_incremental: bool
 	run_synth: bool
@@ -241,6 +241,7 @@ class PlatformConfig:
 	os:        str
 	xsa_file:  str
 	bitstream_file:  str
+	properties:  list[tuple[str, str]]
 	dir:       str
 
 @dataclasses.dataclass

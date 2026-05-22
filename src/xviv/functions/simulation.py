@@ -142,10 +142,7 @@ def _run_xsim(cfg: XvivConfig, sim_cfg: SimulationConfig, svlog_files, sdfmax_en
 	xsim_lib = "xv_work"
 
 	# -- 1. xvlog - compile source files ------------------------------- #
-	vivado.run_vivado_xvlog(
-		cfg,
-		sim_cfg.work_dir,
-		svlog_files,
+	vivado.run_vivado_xvlog(cfg, sim_cfg.work_dir, svlog_files,
 		lib=filter(None, [
 			"uvm" if sim_cfg.uvm else None
 		]),
@@ -183,10 +180,9 @@ def _run_xsim(cfg: XvivConfig, sim_cfg: SimulationConfig, svlog_files, sdfmax_en
 			"exit",
 		])
 
-		vivado.run_vivado_xsim(
-			cfg,
-			sim_cfg.work_dir,
-			'\n'.join(x_simulate_tcl),
+		vivado.run_vivado_xsim(cfg,
+			target_dir=sim_cfg.work_dir,
+			config_tcl='\n'.join(x_simulate_tcl),
 			top=sim_cfg.top,
 			stats=True,
 			nogui=True,
@@ -272,8 +268,8 @@ def cmd_wdb_open(cfg: XvivConfig, *,
 
 	_ensure_fifo(fifo_file)
 
-	pid = vivado.run_vivado_xsim(
-		cfg, sim_cfg.work_dir,
+	pid = vivado.run_vivado_xsim(cfg,
+		target_dir=sim_cfg.work_dir,
 		config_tcl=config,
 		stats=False,
 		wdb_file=wdb_file,

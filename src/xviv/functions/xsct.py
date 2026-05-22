@@ -41,7 +41,10 @@ def cmd_platform_build(cfg: XvivConfig, platform_name: str):
 			f"  Run: xviv create --platform {platform_name}"
 		)
 
-	logger.info("Building BSP: %s", platform_cfg.dir)
+	logger.info("Platform Build: %s", platform_cfg.dir)
+
+	if cfg.get_vivado().dry_run:
+		return
 
 	subprocess.run(
 		["make", f"-j{os.cpu_count() or 4}"],
@@ -50,7 +53,7 @@ def cmd_platform_build(cfg: XvivConfig, platform_name: str):
 		env=get_vitis_env()
 	)
 
-	logger.info("BSP build complete")
+	logger.info("Platform build complete")
 
 # -----------------------------------------------------------------------------
 # create --app <app_name> [--platform <platform_name>] [--template <template>]
@@ -68,14 +71,14 @@ def cmd_app_create(cfg: XvivConfig, *,
 	if platform_name:
 		app_cfg.platform = platform_name
 
-	cfg.validate_app(app_name=app_name)
+	cfg.validate_app(app_name=app_name, check_elf=False)
 	cfg.validate_platform(platform_name=app_cfg.platform)
 
 	platform_cfg = cfg.get_platform(app_cfg.platform)
 
 	if not os.path.isdir(platform_cfg.dir):
 		logger.info("BSP not found - creating platform '%s' first", app_cfg.platform)
-		cmd_platform_create(cfg, app_cfg.platform)
+		cmd_platform_create(cfg, platform_name=app_cfg.platform)
 
 	config = (
 		ConfigTclCommands(cfg)
@@ -95,23 +98,27 @@ def cmd_app_build(cfg: XvivConfig, app_name: str, info: bool | None):
 	app_cfg = cfg.get_app(app_name)
 	platform_cfg = cfg.get_platform(app_cfg.platform)
 
-	if app_name:
-		cfg.validate_app(app_name=app_name)
-	if platform_cfg.name:
-		cfg.validate_platform(platform_name=platform_cfg.name)
+	cfg.validate_app(app_name=app_name, check_elf=False)
+	cfg.validate_platform(platform_name=platform_cfg.name)
 
 	_transform_app_makefile(os.path.join(app_cfg.dir, "Makefile"))
 
 	bsp_include = os.path.join(platform_cfg.dir, platform_cfg.cpu, "include")
 	bsp_lib = os.path.join(platform_cfg.dir, platform_cfg.cpu, "lib")
+	
+	cmd = [
+		"make", f"-j{os.cpu_count() or 4}",
+		f"INCLUDEPATH=-I{bsp_include} -I{platform_cfg.dir}",
+		f"c_SOURCES={' '.join([i.file for i in app_cfg.sources])}",
+		f"LIBPATH=-L{bsp_lib}",
+	]
+	logger.info("App Build: %s", " ".join(cmd))
+
+	if cfg.get_vivado().dry_run:
+		return
 
 	subprocess.run(
-		[
-			"make", f"-j{os.cpu_count() or 4}",
-			f"INCLUDEPATH=-I{bsp_include} -I{platform_cfg.dir}",
-			f"c_SOURCES={' '.join([i.file for i in app_cfg.sources])}",
-			f"LIBPATH=-L{bsp_lib}",
-		],
+		cmd,
 		check=True,
 		cwd=app_cfg.dir,
 		env=get_vitis_env(),
@@ -138,7 +145,10 @@ def cmd_program(cfg: XvivConfig, *,
 	bitstream_file: str | None = None,
 	elf_file: str | None = None,
 	app_name: str | None = None,
-	platform_name: str | None = None
+	platform_name: str | None = None,
+	processor_target_filter: str | None = None,
+	processor_reset_duration: int | None = None,
+	fpga_target_filter: str | None = None,
 ):
 	if app_name:
 		cfg.validate_app(app_name=app_name, check_sources=False)
@@ -148,7 +158,8 @@ def cmd_program(cfg: XvivConfig, *,
 			if app_name is not None:
 				platform_name = cfg.get_app(app_name).platform
 
-		bitstream_file = cfg.get_platform(platform_name).bitstream_file
+		if platform_cfg := cfg._get_platform_cfg_optional(platform_name):
+			bitstream_file = platform_cfg.bitstream_file
 
 	if platform_name:
 		cfg.validate_platform(platform_name=platform_name)
@@ -157,15 +168,25 @@ def cmd_program(cfg: XvivConfig, *,
 		if app_name is not None:
 			elf_file = cfg.get_app(app_name).elf_file
 
+	if elf_file is None and bitstream_file is None:
+		raise RuntimeError("ERROR: specify (app_name | elf_file) and/or (platform_name | bitstream_file)")
+
 	config = (
 		ConfigTclCommands(cfg)
-		.program(bitstream_file=bitstream_file, elf_file=elf_file)
+		.program(
+			bitstream_file=bitstream_file,
+			elf_file=elf_file,
+			processor_target_filter=processor_target_filter,
+			processor_reset_duration=processor_reset_duration,
+			fpga_target_filter=fpga_target_filter,
+		)
 		.build()
 	)
 
-	logger.info("Bitstream : %s", bitstream_file)
+	if bitstream_file:
+		logger.info("Bitstream: %s", bitstream_file)
 	if elf_file:
-		logger.info("ELF : %s", elf_file)
+		logger.info("ELF: %s", elf_file)
 
 	run_xsct(cfg, config_tcl=config)
 

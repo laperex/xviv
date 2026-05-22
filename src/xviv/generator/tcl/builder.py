@@ -651,6 +651,16 @@ class ConfigTclBuilder:
 
 	def _source(self, filename: str):
 		self._push(f"source \"{filename}\"")
+	
+	def _read_xdc(self, file: str, *,
+		unmanaged: bool = False,
+		mode: str | None = None,
+	) -> None:
+		params = filter(None, [
+			"-unmanaged" if unmanaged else None,
+			f"-mode {mode}" if mode else None,
+		])
+		self._push(f'read_xdc {" ".join(params)} "{file}"')
 
 	def _add_files(self, file: str, *,
 		norecurse = False,

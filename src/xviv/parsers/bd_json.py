@@ -36,7 +36,6 @@ def get_bd_core_list(bd_file: str) -> list[tuple[str, str, str, str]]:
 					if xci_file:
 						xci_file = os.path.join(os.path.dirname(bd_file), xci_file)
 
-					
 					resolved_components.append(
 						(xci_name, xci_file, vlnv, inst_hier_path)
 					)

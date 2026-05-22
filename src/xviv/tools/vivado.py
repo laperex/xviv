@@ -12,8 +12,7 @@ from xviv.config.project import XvivConfig
 logger = logging.getLogger(__name__)
 
 
-def run_vivado_xvlog(
-	cfg: XvivConfig, target_dir: str, fileset: list[str], xsim_lib: str,
+def run_vivado_xvlog(cfg: XvivConfig, target_dir: str, fileset: list[str], xsim_lib: str, *,
 	lib: list[str] | None = None,
 	defines: list[str] = [],
 	include_dirs: list[str] = [],
@@ -300,8 +299,7 @@ def run_vivado_xelab(cfg: XvivConfig, target_dir: str, units: list[str], *,
 		sys.exit(e.returncode)
 
 
-def run_vivado_xsim(
-	cfg: XvivConfig,
+def run_vivado_xsim(cfg: XvivConfig, *,
 	target_dir: str,
 	config_tcl: str | None,
 
@@ -310,7 +308,7 @@ def run_vivado_xsim(
 	stats: bool = True,
 	nogui: bool = False,
 	runall: bool = False,
-	popen = False,
+	popen: bool = False,
 	testplusarg: list[str] | None = None,
 ) -> int | None:
 	xsim_bin = os.path.join(cfg.get_vivado().path, "bin", "xsim")
@@ -360,8 +358,7 @@ def run_vivado_xsim(
 	return pid
 
 
-def run_vivado(
-	cfg: XvivConfig,
+def run_vivado(cfg: XvivConfig, *,
 	config_tcl: str | None,
 	extra_args: list[str] | None = None,
 	label: str | None = None,
@@ -370,8 +367,7 @@ def run_vivado(
 	if config_tcl is None:
 		return
 
-	vivado = cfg.get_vivado()
-	vivado_bin = os.path.join(vivado.path, "bin", "vivado")
+	vivado_bin = os.path.join(cfg.get_vivado().path, "bin", "vivado")
 	job_log = logger.getChild(label) if label else logger
 
 	config_tcl_path: str | None = None
@@ -385,14 +381,14 @@ def run_vivado(
 			tmp.write(config_tcl)
 			config_tcl_path = tmp.name
 
-		if vivado.dry_run:
+		if cfg.get_vivado().dry_run:
 			job_log.info("[dry-run] TCL written to: %s", config_tcl_path)
 			job_log.debug("[dry-run] TCL contents:\n%s", config_tcl)
 			return
 
 		cmd = [
 			vivado_bin,
-			"-mode", vivado.mode,
+			"-mode", cfg.get_vivado().mode,
 			"-nolog", "-nojournal", "-notrace", "-quiet",
 			"-source", config_tcl_path,
 			*(extra_args or []),
@@ -400,7 +396,7 @@ def run_vivado(
 		job_log.info("Running: %s", " ".join(cmd))
 
 		# TCL interactive mode - attach directly to terminal
-		if vivado.mode == "tcl":
+		if cfg.get_vivado().mode == "tcl":
 			result = subprocess.run(cmd)
 			if result.returncode != 0:
 				raise subprocess.CalledProcessError(result.returncode, cmd)
@@ -426,7 +422,8 @@ def run_vivado(
 
 			for line in proc.stdout:
 				stripped = line.rstrip()
-				job_log.info(stripped)
+				print(stripped)
+				job_log.debug(stripped)
 				log_file.write(line)
 				log_file.flush()
 			proc.wait()
@@ -438,6 +435,6 @@ def run_vivado(
 	finally:
 		if log_file:
 			log_file.close()
-		if config_tcl_path and not vivado.dry_run:
+		if config_tcl_path and not cfg.get_vivado().dry_run:
 			with contextlib.suppress(OSError):
 				os.unlink(config_tcl_path)
