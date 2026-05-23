@@ -1,9 +1,9 @@
 repos:
-      - repo: https://github.com/astral-sh/ruff-pre-commit
-        rev: v0.4.4 # Use the current version of Ruff you have installed
-        hooks:
-          # Sort imports and remove unused variables
-          - id: ruff
-            args: [ --fix ]
-          # Format the code (tabs, quotes, spacing)
-          - id: ruff-format
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.4.4 # Use the current version of Ruff you have installed
+    hooks:
+      # Sort imports and remove unused variables
+      - id: ruff
+        args: [ --fix ]
+      # Format the code (tabs, quotes, spacing)
+      - id: ruff-format

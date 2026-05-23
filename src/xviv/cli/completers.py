@@ -143,7 +143,6 @@ def c_elf(prefix, parsed_args, **kwargs):
 
 
 def c_uvm_test(prefix, parsed_args, **kwargs):
-
 	try:
 		config_path = os.path.abspath(resolve_config_completer(prefix, parsed_args))
 		cfg = load_config(config_path)
