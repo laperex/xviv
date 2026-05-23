@@ -23,21 +23,21 @@ def resolve_config(explicit: str) -> str:
 
 
 def load_config(path: str) -> XvivConfig:
-	with open(path, 'rb') as f:
+	with open(path, "rb") as f:
 		data = tomllib.load(f)
 
 	cfg = (
 		XvivConfig(
 			path,
-			data['project'].get('build_dir', None),
-			data['project'].get('board_repo_paths', []),
+			data["project"].get("build_dir", None),
+			data["project"].get("board_repo_paths", []),
 		)
 		.add_vivado_cfg(path=find_vivado_dir_path())
 		.add_vitis_cfg(path=find_vitis_dir_path())
 	)
 
 	for key, entries in data.items():
-		if key == 'project':
+		if key == "project":
 			continue
 
 		if not isinstance(entries, list):

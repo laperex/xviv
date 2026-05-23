@@ -3,7 +3,6 @@ import xml.etree.ElementTree as ET
 
 from xviv.config.model import CatalogCoreEntry
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -19,9 +18,9 @@ def parser(xml_path: str) -> CatalogCoreEntry | None:
 			el = root.find(f"{{{_SPIRIT_NS}}}{tag}")
 			return el.text.strip() if el is not None and el.text else ""
 
-		vendor  = _s("vendor")
+		vendor = _s("vendor")
 		library = _s("library")
-		name    = _s("name")
+		name = _s("name")
 		version = _s("version")
 		if not all([vendor, library, name, version]):
 			return None
@@ -30,15 +29,9 @@ def parser(xml_path: str) -> CatalogCoreEntry | None:
 		description = _s("description")
 
 		display_name_el = root.find(
-			f"{{{_SPIRIT_NS}}}vendorExtensions"
-			f"/{{{_XILINX_NS}}}coreExtensions"
-			f"/{{{_XILINX_NS}}}displayName"
+			f"{{{_SPIRIT_NS}}}vendorExtensions/{{{_XILINX_NS}}}coreExtensions/{{{_XILINX_NS}}}displayName"
 		)
-		display_name = (
-			display_name_el.text.strip()
-			if display_name_el is not None and display_name_el.text
-			else name
-		)
+		display_name = display_name_el.text.strip() if display_name_el is not None and display_name_el.text else name
 
 		return CatalogCoreEntry(
 			vlnv=vlnv,

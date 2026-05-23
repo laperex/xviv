@@ -1,4 +1,3 @@
-
 import logging
 import os
 import typing
@@ -31,12 +30,13 @@ logger = logging.getLogger(__name__)
 
 
 class XvivConfig:
-
-	def __init__(self, config_file_path: str, work_dir: str | None, board_repo_list: list[str] = [], ip_repo_list: list[str] = []):
+	def __init__(
+		self, config_file_path: str, work_dir: str | None, board_repo_list: list[str] = [], ip_repo_list: list[str] = []
+	):
 		self.base_dir = os.path.abspath(os.path.dirname(config_file_path))
 
 		if work_dir is None:
-			work_dir = 'build'
+			work_dir = "build"
 
 		self.work_dir = os.path.join(self.base_dir, work_dir)
 
@@ -81,10 +81,10 @@ class XvivConfig:
 		os.makedirs(self.work_dir, exist_ok=True)
 
 		if not os.path.exists(self._vivado_cfg.path):
-			raise error.InvalidPathError(self._vivado_cfg.path, 'Vivado')
+			raise error.InvalidPathError(self._vivado_cfg.path, "Vivado")
 
 		if not os.path.exists(self._vitis_cfg.path):
-			raise error.InvalidPathError(self._vitis_cfg.path, 'Vitis')
+			raise error.InvalidPathError(self._vitis_cfg.path, "Vitis")
 
 		for i in self._core_list:
 			try:
@@ -119,9 +119,6 @@ class XvivConfig:
 	def validate_sim(self, sim_name: str):
 		sim_cfg = self.get_sim(sim_name)
 
-
-
-
 	def validate_app(self, app_name: str, check_sources: bool = True, check_elf: bool = True):
 		app_cfg = self.get_app(app_name)
 
@@ -145,21 +142,17 @@ class XvivConfig:
 		if not os.path.exists(platform_cfg.bitstream_file):
 			raise error.PlatformBitstreamMissingError(platform_name, platform_cfg.bitstream_file)
 
-	def validate_synth(self, *,
-		design: str | None = None,
-		core: str | None = None,
-		bd: str | None = None
-	):
+	def validate_synth(self, *, design: str | None = None, core: str | None = None, bd: str | None = None):
 		synth_cfg = self.get_synth(design_name=design, core_name=core, bd_name=bd)
 
 		for i in synth_cfg.constraints:
 			if not os.path.exists(i.file):
 				if bd:
-					raise error.SynthConstraintsMissingError(bd, 'BD', i.file)
+					raise error.SynthConstraintsMissingError(bd, "BD", i.file)
 				if design:
-					raise error.SynthConstraintsMissingError(design, 'Design', i.file)
+					raise error.SynthConstraintsMissingError(design, "Design", i.file)
 				if core:
-					raise error.SynthConstraintsMissingError(core, 'Core', i.file)
+					raise error.SynthConstraintsMissingError(core, "Core", i.file)
 
 	def validate_ip(self, ip_name: str):
 		ip_cfg = self.get_ip(ip_name)
@@ -194,18 +187,15 @@ class XvivConfig:
 				top=wrapper_cfg.ip_top,
 				wrapper_top=wrapper_cfg.wrapper_top,
 				wrapper_file=wrapper_cfg.wrapper_file,
-				sources=[i.file for i in wrapper_cfg.sources]
+				sources=[i.file for i in wrapper_cfg.sources],
 			)
 
 	# -------------------------------------------------------------------------
 	# Add methods
 	# -------------------------------------------------------------------------
 
-	def add_vivado_cfg(self,
-		path: str,
-		mode: str = 'batch',
-		max_threads: int = 10,
-		hw_server: str = 'localhost:3121'
+	def add_vivado_cfg(
+		self, path: str, mode: str = "batch", max_threads: int = 10, hw_server: str = "localhost:3121"
 	) -> typing.Self:
 		if self._vivado_cfg is not None:
 			raise error.VivadoAlreadySpecifiedError()
@@ -214,36 +204,25 @@ class XvivConfig:
 			raise error.CoreCatalogAlreadySpecifiedError()
 
 		self._vivado_cfg = VivadoConfig(
-			path=path,
-			mode=mode,
-			max_threads=max_threads,
-			hw_server=hw_server,
-			dry_run=False
+			path=path, mode=mode, max_threads=max_threads, hw_server=hw_server, dry_run=False
 		)
 
-		self._catalog_cfg = Catalog(
-			vivado_path=path,
-			ip_repos=self.ip_repo_list
-		)
+		self._catalog_cfg = Catalog(vivado_path=path, ip_repos=self.ip_repo_list)
 
 		return self
 
-	def add_vitis_cfg(self,
+	def add_vitis_cfg(
+		self,
 		path: str,
 	) -> typing.Self:
 		if self._vitis_cfg is not None:
 			raise error.VitisAlreadySpecifiedError()
 
-		self._vitis_cfg = VitisConfig(
-			path=path
-		)
+		self._vitis_cfg = VitisConfig(path=path)
 
 		return self
 
-	def add_fpga_cfg(self, name: str, *,
-		fpga_part: str | None = None,
-		board_part: str | None = None
-	) -> typing.Self:
+	def add_fpga_cfg(self, name: str, *, fpga_part: str | None = None, board_part: str | None = None) -> typing.Self:
 		# TODO: throw error for invalid name ''
 
 		if self._get_fpga_cfg_optional(name) is not None:
@@ -252,24 +231,19 @@ class XvivConfig:
 		if fpga_part is None and board_part is None:
 			raise error.FpgaPartUnspecifiedError(name)
 
-		self._fpga_list.append(
-			FpgaConfig(
-				name=name,
-				fpga_part=fpga_part,
-				board_part=board_part
-			)
-		)
+		self._fpga_list.append(FpgaConfig(name=name, fpga_part=fpga_part, board_part=board_part))
 
 		return self
 
-	def add_ip_cfg(self, name: str, *,
-		vendor: str = 'xviv.org',
-		library: str = 'xviv',
-		version: str = '1.0',
-
+	def add_ip_cfg(
+		self,
+		name: str,
+		*,
+		vendor: str = "xviv.org",
+		library: str = "xviv",
+		version: str = "1.0",
 		top: str | None = None,
 		sources: list[typing.Any] = [],
-
 		fpga: str | None = None,
 		vlnv: str | None = None,
 		repo: str | None = None,
@@ -304,17 +278,14 @@ class XvivConfig:
 				repo=repo,
 				top=top,
 				fpga_ref=fpga,
-				sources=self._resolve_sources(sources)
+				sources=self._resolve_sources(sources),
 			)
 		)
 
 		return self
 
-	def add_wrapper_cfg(self, *,
-		ip: str,
-		sources: list[typing.Any],
-		wrapper_top: str | None = None,
-		wrapper_file: str | None = None
+	def add_wrapper_cfg(
+		self, *, ip: str, sources: list[typing.Any], wrapper_top: str | None = None, wrapper_file: str | None = None
 	) -> typing.Self:
 		if self._get_wrapper_cfg_optional(ip) is not None:
 			raise error.WrapperAlreadyExistsError(ip)
@@ -325,7 +296,7 @@ class XvivConfig:
 			raise error.WrapperIpMissing(ip_name=ip)
 
 		if wrapper_top is None:
-			wrapper_top = f'{ip_cfg.top}_wrapper'
+			wrapper_top = f"{ip_cfg.top}_wrapper"
 
 		if wrapper_file is None:
 			wrapper_file = os.path.join(self.wrapper_dir, f"{wrapper_top}.sv")
@@ -336,13 +307,16 @@ class XvivConfig:
 				ip_top=ip_cfg.top,
 				wrapper_top=wrapper_top,
 				wrapper_file=wrapper_file,
-				sources=self._resolve_sources(sources)
+				sources=self._resolve_sources(sources),
 			)
 		)
 
 		return self
 
-	def add_bd_cfg(self, name: str, *,
+	def add_bd_cfg(
+		self,
+		name: str,
+		*,
 		save_file: str | None = None,
 		bd_file: str | None = None,
 		fpga: str | None = None,
@@ -356,38 +330,26 @@ class XvivConfig:
 		fpga = self._resolve_fpga(fpga)
 
 		if save_file is None:
-			save_file = os.path.join(self.scripts_dir, 'bd', f'{name}.tcl')
+			save_file = os.path.join(self.scripts_dir, "bd", f"{name}.tcl")
 
 		if bd_file is None:
-			bd_file = os.path.join(self.bd_dir, name, f'{name}.bd')
+			bd_file = os.path.join(self.bd_dir, name, f"{name}.bd")
 
 		if bd_wrapper_file is None:
-			bd_wrapper_file = os.path.join(self.bd_dir, name, 'hdl', f"{name}_wrapper.v")
+			bd_wrapper_file = os.path.join(self.bd_dir, name, "hdl", f"{name}_wrapper.v")
 
 		if os.path.exists(bd_file):
 			for xci_name, xci_file, vlnv, inst_hier_path in get_bd_core_list(bd_file):
-				self.add_core_cfg(
-					name=xci_name,
-					vlnv=vlnv,
-					xci_file=xci_file,
-					fpga=fpga
-				)
+				self.add_core_cfg(name=xci_name, vlnv=vlnv, xci_file=xci_file, fpga=fpga)
 
-				self.add_subcore_cfg(
-					bd=name,
-					inst_hier_path=inst_hier_path,
-					core=xci_name
-				)
+				self.add_subcore_cfg(bd=name, inst_hier_path=inst_hier_path, core=xci_name)
 
 				self.add_synth_cfg(
 					core=xci_name,
-
 					run_place=False,
 					place_dcp=False,
-
 					run_route=False,
 					route_dcp=False,
-
 					run_phys_opt=False,
 					run_opt=False,
 				)
@@ -398,18 +360,17 @@ class XvivConfig:
 				save_file=save_file,
 				fpga_ref=fpga,
 				bd_file=bd_file,
-
 				bd_wrapper_file=bd_wrapper_file,
 			)
 		)
 
 		return self
 
-
-	def add_subcore_cfg(self, *,
+	def add_subcore_cfg(
+		self,
+		*,
 		core: str,
 		inst_hier_path: str,
-
 		bd: str | None = None,
 		design: str | None = None,
 	) -> typing.Self:
@@ -426,19 +387,14 @@ class XvivConfig:
 				if design:
 					raise error.SubCoreDesignAlreadyExistsError(inst_hier_path, core, design)
 
-		self._subcore_list.append(
-			SubCoreConfig(
-				inst_hier_path=inst_hier_path,
-				bd=bd,
-				design=design,
-				core=core
-			)
-		)
+		self._subcore_list.append(SubCoreConfig(inst_hier_path=inst_hier_path, bd=bd, design=design, core=core))
 
 		return self
 
-
-	def add_core_cfg(self, name: str, *,
+	def add_core_cfg(
+		self,
+		name: str,
+		*,
 		ip: str | None = None,
 		vlnv: str | None = None,
 		xci_file: str | None = None,
@@ -450,7 +406,7 @@ class XvivConfig:
 			raise error.CoreAlreadyExistsError(name)
 
 		if xci_file is None:
-			xci_file = os.path.join(self.core_dir, name, f'{name}.xci')
+			xci_file = os.path.join(self.core_dir, name, f"{name}.xci")
 
 		fpga = self._resolve_fpga(fpga)
 
@@ -466,18 +422,14 @@ class XvivConfig:
 		if vlnv is None:
 			raise error.CoreVlnvUnspecifiedError(name)
 
-		self._core_list.append(
-			CoreConfig(
-				name=name,
-				vlnv=vlnv,
-				xci_file=xci_file,
-				fpga_ref=fpga
-			)
-		)
+		self._core_list.append(CoreConfig(name=name, vlnv=vlnv, xci_file=xci_file, fpga_ref=fpga))
 
 		return self
 
-	def add_design_cfg(self, name: str, *,
+	def add_design_cfg(
+		self,
+		name: str,
+		*,
 		sources: list[typing.Any],
 		top: str | None = None,
 		fpga: str | None = None,
@@ -498,74 +450,57 @@ class XvivConfig:
 				top=top,
 				# sources=resolve_globs(sources, self.base_dir),
 				sources=self._resolve_sources(sources),
-				fpga_ref=fpga
+				fpga_ref=fpga,
 			)
 		)
 
 		return self
 
-	def add_synth_cfg(self, *,
+	def add_synth_cfg(
+		self,
+		*,
 		design: str | None = None,
 		core: str | None = None,
 		bd: str | None = None,
 		fpga: str | None = None,
-
 		out_of_context_subcores: bool = False,
-
 		top: str | None = None,
-
 		constraints: list[typing.Any] = [],
-
 		run_synth: bool = True,
 		run_place: bool = True,
 		run_route: bool = True,
-
 		synth_incremental: bool = True,
 		run_opt: bool = True,
 		impl_incremental: bool = True,
 		run_phys_opt: bool = True,
-
 		synth_dcp: bool | str | None = True,
 		place_dcp: bool | str | None = True,
 		route_dcp: bool | str | None = True,
-
 		bitstream: bool | str | None = None,
 		hw_platform: bool | str | None = None,
-
 		synth_report_timing_summary: bool | str | None = False,
 		synth_report_utilization: bool | str | None = False,
-
 		route_report_drc: bool | str | None = False,
 		route_report_methodology: bool | str | None = False,
 		route_report_power: bool | str | None = False,
 		route_report_route_status: bool | str | None = False,
 		route_report_timing_summary: bool | str | None = False,
-
 		synth_report_incremental_reuse: bool | str | None = False,
 		impl_report_incremental_reuse: bool | str | None = False,
-
 		synth_functional_netlist: bool | str | None = False,
 		synth_timing_netlist: bool | str | None = False,
 		impl_functional_netlist: bool | str | None = False,
 		impl_timing_netlist: bool | str | None = False,
-
 		impl_timing_sdf: bool | str | None = None,
-
 		synth_stub: bool | str | None = False,
-
-		synth_directive: str = 'default',
+		synth_directive: str = "default",
 		synth_mode: str | None = None,
-		synth_flatten_hierarchy: str = 'rebuilt',
-		synth_fsm_extraction: str = 'auto',
-
-		opt_directive: str = 'default',
-
-		place_directive: str = 'default',
-
-		phys_opt_directive: str = 'default',
-
-		route_directive: str = 'default',
-
+		synth_flatten_hierarchy: str = "rebuilt",
+		synth_fsm_extraction: str = "auto",
+		opt_directive: str = "default",
+		place_directive: str = "default",
+		phys_opt_directive: str = "default",
+		route_directive: str = "default",
 		usr_access_value: int | None = None,
 	) -> typing.Self:
 		param_ids = [i for i in [design, core, bd] if i]
@@ -578,20 +513,20 @@ class XvivConfig:
 		if bd:
 			bd_cfg = self.get_bd(bd)
 
-			fpga = self._resolve_fpga(fpga, bd_cfg.fpga_ref, 'BD', bd_cfg.name)
+			fpga = self._resolve_fpga(fpga, bd_cfg.fpga_ref, "BD", bd_cfg.name)
 
 			if top is None:
-				top = f'{bd}_wrapper'
+				top = f"{bd}_wrapper"
 
 		if core:
 			core_cfg = self.get_core(core)
-			fpga = self._resolve_fpga(fpga, core_cfg.fpga_ref, 'Core', core_cfg.name)
+			fpga = self._resolve_fpga(fpga, core_cfg.fpga_ref, "Core", core_cfg.name)
 
 			if top is None:
 				top = core
 
 			if synth_mode is None:
-				synth_mode = 'out_of_context'
+				synth_mode = "out_of_context"
 
 			if not isinstance(synth_stub, str):
 				synth_stub = True
@@ -601,7 +536,7 @@ class XvivConfig:
 
 		if design:
 			design_cfg = self.get_design(design)
-			fpga = self._resolve_fpga(fpga, design_cfg.fpga_ref, 'Design', design_cfg.name)
+			fpga = self._resolve_fpga(fpga, design_cfg.fpga_ref, "Design", design_cfg.name)
 
 			if top is None:
 				top = design_cfg.top
@@ -609,13 +544,13 @@ class XvivConfig:
 			if hw_platform is None:
 				hw_platform = False
 
-		if synth_mode == 'out_of_context':
+		if synth_mode == "out_of_context":
 			bitstream = bitstream or False
 			hw_platform = hw_platform or False
 			usr_access_value = usr_access_value or None
 
 		if synth_mode is None:
-			synth_mode = 'default'
+			synth_mode = "default"
 
 		if bitstream is None:
 			bitstream = True
@@ -630,9 +565,9 @@ class XvivConfig:
 		assert fpga is not None
 
 		synth_subdir = os.path.join(self.synth_dir, id_name)
-		synth_reports_subdir = os.path.join(synth_subdir, 'reports')
-		synth_netlists_subdir = os.path.join(synth_subdir, 'netlists')
-		synth_checkpoints_subdir = os.path.join(synth_subdir, 'checkpoints')
+		synth_reports_subdir = os.path.join(synth_subdir, "reports")
+		synth_netlists_subdir = os.path.join(synth_subdir, "netlists")
+		synth_checkpoints_subdir = os.path.join(synth_subdir, "checkpoints")
 
 		self._synth_list.append(
 			SynthConfig(
@@ -641,51 +576,70 @@ class XvivConfig:
 				bd_name=bd,
 				fpga_ref=fpga,
 				top=top,
-
 				out_of_context_subcores=out_of_context_subcores,
-
-				constraints=self._resolve_sources(constraints,
-					used_in_ooc=False,
-					used_in_sim=False,
-					used_in_impl=True,
-					used_in_synth=True
+				constraints=self._resolve_sources(
+					constraints, used_in_ooc=False, used_in_sim=False, used_in_impl=True, used_in_synth=True
 				),
-
 				synth_incremental=synth_incremental,
 				run_synth=run_synth,
 				run_opt=run_opt,
-
 				impl_incremental=impl_incremental,
 				run_place=run_place,
 				run_phys_opt=run_phys_opt,
 				run_route=run_route,
-
-				synth_dcp_file=_resolve_val(synth_dcp, os.path.join(synth_checkpoints_subdir, 'synth.dcp')),
-				place_dcp_file=_resolve_val(place_dcp, os.path.join(synth_checkpoints_subdir, 'place.dcp')),
-				route_dcp_file=_resolve_val(route_dcp, os.path.join(synth_checkpoints_subdir, 'route.dcp')),
-
-				bitstream_file=_resolve_val(bitstream, os.path.join(synth_subdir, f'{id_name}.bit')),
-				hw_platform_xsa_file=_resolve_val(hw_platform, os.path.join(synth_subdir, f'{id_name}.xsa')),
-
-				synth_report_timing_summary_file=_resolve_val(synth_report_timing_summary, os.path.join(synth_reports_subdir, 'synth_report_timing_summary_file.rpt')),
-				synth_report_utilization_file=_resolve_val(synth_report_utilization, os.path.join(synth_reports_subdir, 'synth_report_utilization_file.rpt')),
-				synth_report_incremental_reuse_file=_resolve_val(synth_report_incremental_reuse, os.path.join(synth_reports_subdir, 'synth_report_incremental_reuse_file.rpt')),
-				route_report_drc_file=_resolve_val(route_report_drc, os.path.join(synth_reports_subdir, 'route_report_drc_file.rpt')),
-				route_report_methodology_file=_resolve_val(route_report_methodology, os.path.join(synth_reports_subdir, 'route_report_methodology_file.rpt')),
-				route_report_power_file=_resolve_val(route_report_power, os.path.join(synth_reports_subdir, 'route_report_power_file.rpt')),
-				route_report_route_status_file=_resolve_val(route_report_route_status, os.path.join(synth_reports_subdir, 'route_report_route_status_file.rpt')),
-				route_report_timing_summary_file=_resolve_val(route_report_timing_summary, os.path.join(synth_reports_subdir, 'route_report_timing_summary_file.rpt')),
-				impl_report_incremental_reuse_file=_resolve_val(impl_report_incremental_reuse, os.path.join(synth_reports_subdir, 'impl_report_incremental_reuse_file.rpt')),
-
-				synth_functional_netlist_file=_resolve_val(synth_functional_netlist, os.path.join(synth_netlists_subdir, f'{id_name}_synth_functional_netlist.v')),
-				synth_timing_netlist_file=_resolve_val(synth_timing_netlist, os.path.join(synth_netlists_subdir, f'{id_name}_synth_timing_netlist.v')),
-				impl_functional_netlist_file=_resolve_val(impl_functional_netlist, os.path.join(synth_netlists_subdir, f'{id_name}_impl_functional_netlist.v')),
-				impl_timing_netlist_file=_resolve_val(impl_timing_netlist, os.path.join(synth_netlists_subdir, f'{id_name}_impl_timing_netlist.v')),
-
-				impl_timing_sdf_file=_resolve_val(impl_timing_sdf, os.path.join(synth_netlists_subdir, f'{id_name}_impl_timing.sdf')),
-
-				synth_stub_file=_resolve_val(synth_stub, os.path.join(synth_subdir, f'{id_name}_stub.v')),
-
+				synth_dcp_file=_resolve_val(synth_dcp, os.path.join(synth_checkpoints_subdir, "synth.dcp")),
+				place_dcp_file=_resolve_val(place_dcp, os.path.join(synth_checkpoints_subdir, "place.dcp")),
+				route_dcp_file=_resolve_val(route_dcp, os.path.join(synth_checkpoints_subdir, "route.dcp")),
+				bitstream_file=_resolve_val(bitstream, os.path.join(synth_subdir, f"{id_name}.bit")),
+				hw_platform_xsa_file=_resolve_val(hw_platform, os.path.join(synth_subdir, f"{id_name}.xsa")),
+				synth_report_timing_summary_file=_resolve_val(
+					synth_report_timing_summary,
+					os.path.join(synth_reports_subdir, "synth_report_timing_summary_file.rpt"),
+				),
+				synth_report_utilization_file=_resolve_val(
+					synth_report_utilization, os.path.join(synth_reports_subdir, "synth_report_utilization_file.rpt")
+				),
+				synth_report_incremental_reuse_file=_resolve_val(
+					synth_report_incremental_reuse,
+					os.path.join(synth_reports_subdir, "synth_report_incremental_reuse_file.rpt"),
+				),
+				route_report_drc_file=_resolve_val(
+					route_report_drc, os.path.join(synth_reports_subdir, "route_report_drc_file.rpt")
+				),
+				route_report_methodology_file=_resolve_val(
+					route_report_methodology, os.path.join(synth_reports_subdir, "route_report_methodology_file.rpt")
+				),
+				route_report_power_file=_resolve_val(
+					route_report_power, os.path.join(synth_reports_subdir, "route_report_power_file.rpt")
+				),
+				route_report_route_status_file=_resolve_val(
+					route_report_route_status, os.path.join(synth_reports_subdir, "route_report_route_status_file.rpt")
+				),
+				route_report_timing_summary_file=_resolve_val(
+					route_report_timing_summary,
+					os.path.join(synth_reports_subdir, "route_report_timing_summary_file.rpt"),
+				),
+				impl_report_incremental_reuse_file=_resolve_val(
+					impl_report_incremental_reuse,
+					os.path.join(synth_reports_subdir, "impl_report_incremental_reuse_file.rpt"),
+				),
+				synth_functional_netlist_file=_resolve_val(
+					synth_functional_netlist,
+					os.path.join(synth_netlists_subdir, f"{id_name}_synth_functional_netlist.v"),
+				),
+				synth_timing_netlist_file=_resolve_val(
+					synth_timing_netlist, os.path.join(synth_netlists_subdir, f"{id_name}_synth_timing_netlist.v")
+				),
+				impl_functional_netlist_file=_resolve_val(
+					impl_functional_netlist, os.path.join(synth_netlists_subdir, f"{id_name}_impl_functional_netlist.v")
+				),
+				impl_timing_netlist_file=_resolve_val(
+					impl_timing_netlist, os.path.join(synth_netlists_subdir, f"{id_name}_impl_timing_netlist.v")
+				),
+				impl_timing_sdf_file=_resolve_val(
+					impl_timing_sdf, os.path.join(synth_netlists_subdir, f"{id_name}_impl_timing.sdf")
+				),
+				synth_stub_file=_resolve_val(synth_stub, os.path.join(synth_subdir, f"{id_name}_stub.v")),
 				synth_directive=synth_directive,
 				synth_mode=synth_mode,
 				synth_flatten_hierarchy=synth_flatten_hierarchy,
@@ -694,14 +648,17 @@ class XvivConfig:
 				place_directive=place_directive,
 				phys_opt_directive=phys_opt_directive,
 				route_directive=route_directive,
-
-				usr_access_value=usr_access_value
+				usr_access_value=usr_access_value,
 			)
 		)
 
 		return self
 
-	def add_uvm_cfg(self, test: str, simulation: str, *,
+	def add_uvm_cfg(
+		self,
+		test: str,
+		simulation: str,
+		*,
 		top: str | None = None,
 		timescale: str | None = None,
 		verbosity: str | None = None,
@@ -710,7 +667,7 @@ class XvivConfig:
 	) -> typing.Self:
 		sim_cfg = self.get_sim(simulation)
 
-		if sim_cfg.backend == 'verilator' and sim_cfg.uvm_pkg_dir is None:
+		if sim_cfg.backend == "verilator" and sim_cfg.uvm_pkg_dir is None:
 			raise error.UvmPkgDirRequiredError(sim_cfg.name)
 
 		if top is None:
@@ -721,7 +678,7 @@ class XvivConfig:
 
 		if verbosity is None:
 			verbosity = sim_cfg.uvm_verbosity
-		
+
 		if version is None:
 			version = sim_cfg.uvm_version
 
@@ -736,38 +693,36 @@ class XvivConfig:
 				test=test,
 				verbosity=verbosity,
 				version=version,
-				max_quit_count=max_quit_count
+				max_quit_count=max_quit_count,
 			)
 		)
 
 		return self
 
-	def add_sim_cfg(self, name: str, *,
+	def add_sim_cfg(
+		self,
+		name: str,
+		*,
 		sources: list[typing.Any],
 		top: str | None = None,
-		backend: str = 'xsim',
+		backend: str = "xsim",
 		sdfmax: list[str] = [],
 		sdfmin: list[str] = [],
-		timescale: str = '1ns/1ps',
- 
+		timescale: str = "1ns/1ps",
 		bd: str | None = None,
 		design: str | None = None,
- 
 		# -- UVM ---------------------------------------------------------- #
 		# uvm: bool = False,
 		uvm: list[typing.Any] = [],
-		uvm_version: str = '1.2',
+		uvm_version: str = "1.2",
 		uvm_test: str | None = None,
-		uvm_verbosity: str = 'UVM_MEDIUM',
+		uvm_verbosity: str = "UVM_MEDIUM",
 		uvm_max_quit_count: int | None = None,
-
 		# -- Generic plusargs ---------------------------------------------- #
 		plusargs: list[str] = [],
- 
 		# -- Preprocessor / include ---------------------------------------- #
 		defines: list[str] = [],
 		include_dirs: list[str] = [],
- 
 		# -- Verilator-specific -------------------------------------------- #
 		threads: int = 1,
 		trace: bool = False,
@@ -777,18 +732,18 @@ class XvivConfig:
 		uvm_pkg_dir: str | None = None,
 	) -> typing.Self:
 		# TODO: throw error for invalid name ''
- 
+
 		if self._get_sim_cfg_optional(name) is not None:
 			raise error.SimAlreadyExistsError(name)
- 
-		if backend not in ('xsim', 'verilator'):
+
+		if backend not in ("xsim", "verilator"):
 			raise error.InvalidSimulationBackend(backend)
- 
+
 		if top is None:
 			top = name
- 
-		sim_subdir = os.path.join(self.work_dir, 'sim', name)
- 
+
+		sim_subdir = os.path.join(self.work_dir, "sim", name)
+
 		self._sim_list.append(
 			SimulationConfig(
 				name=name,
@@ -801,17 +756,14 @@ class XvivConfig:
 				work_dir=sim_subdir,
 				sdfmax=sdfmax,
 				sdfmin=sdfmin,
- 
 				# uvm=uvm,
 				uvm_version=uvm_version,
 				# uvm_test=uvm_test,
 				uvm_verbosity=uvm_verbosity,
 				uvm_max_quit_count=uvm_max_quit_count,
- 
 				plusargs=list(plusargs),
 				defines=list(defines),
 				include_dirs=list(include_dirs),
-
 				threads=threads,
 				trace=trace,
 				trace_fst=trace_fst,
@@ -822,23 +774,22 @@ class XvivConfig:
 		)
 
 		for i in uvm:
-			i |= { 'simulation': name }
+			i |= {"simulation": name}
 			self.add_uvm_cfg(**i)
- 
+
 		return self
 
-
-	def add_platform_cfg(self, name: str, *,
+	def add_platform_cfg(
+		self,
+		name: str,
+		*,
 		bd: str | None = None,
 		design: str | None = None,
-
 		xsa: str | None = None,
 		bitstream: str | None = None,
-		
 		properties: dict[typing.Any] = {},
-
-		cpu: str = 'microblaze_0',
-		os: str = 'standalone',
+		cpu: str = "microblaze_0",
+		os: str = "standalone",
 	) -> typing.Self:
 		# TODO: throw error for invalid name ''
 
@@ -864,7 +815,8 @@ class XvivConfig:
 			bitstream = synth_cfg.bitstream_file
 
 		import os as _os
-		platform_subdir = _os.path.join(self.work_dir, 'platform', name)
+
+		platform_subdir = _os.path.join(self.work_dir, "platform", name)
 
 		self._platform_list.append(
 			PlatformConfig(
@@ -874,12 +826,12 @@ class XvivConfig:
 				xsa_file=xsa,
 				bitstream_file=bitstream,
 				dir=platform_subdir,
-				properties=self._resolve_properties(properties)
+				properties=self._resolve_properties(properties),
 			)
 		)
 
 		return self
-	
+
 	def _resolve_properties(self, properties_dict: dict[typing.Any] = {}) -> list[tuple[str, str]]:
 		def __flatten(d, prefix: str = "") -> typing.Generator[str, str]:
 			for key, value in d.items():
@@ -892,20 +844,18 @@ class XvivConfig:
 
 		return [(i, k) for i, k in __flatten(properties_dict)]
 
-	def add_app_cfg(self, name: str, *,
-		platform: str,
-		template: str = 'empty_application',
-		sources: list[typing.Any] = []
+	def add_app_cfg(
+		self, name: str, *, platform: str, template: str = "empty_application", sources: list[typing.Any] = []
 	) -> typing.Self:
 		# TODO: throw error for invalid name ''
 
 		if self._get_app_cfg_optional(name) is not None:
 			raise error.AppAlreadyExistsError(name)
 
-		app_subdir = os.path.join(self.work_dir, 'app', name)
+		app_subdir = os.path.join(self.work_dir, "app", name)
 
 		# TODO: Remove Hardcoded - Requires editing generated Makefile
-		elf = os.path.join(app_subdir, 'executable.elf')
+		elf = os.path.join(app_subdir, "executable.elf")
 
 		self._app_list.append(
 			AppConfig(
@@ -914,13 +864,16 @@ class XvivConfig:
 				template=template,
 				sources=self._resolve_sources(sources),
 				dir=app_subdir,
-				elf_file=elf
+				elf_file=elf,
 			)
 		)
 
 		return self
-	
-	def add_formal_cfg(self, name: str, *,
+
+	def add_formal_cfg(
+		self,
+		name: str,
+		*,
 		top: str,
 		mode: str,
 		sources: list[str],
@@ -937,9 +890,9 @@ class XvivConfig:
 	) -> typing.Self:
 		if self._get_formal_cfg_optional(name) is not None:
 			raise error.FormalAlreadyExistsError(name)
- 
+
 		resolved = resolve_globs(sources, self.base_dir)
- 
+
 		self._formal_list.append(
 			FormalConfig(
 				name=name,
@@ -959,27 +912,26 @@ class XvivConfig:
 				extra_opts=list(extra_opts),
 			)
 		)
- 
+
 		return self
- 
+
 	def get_formal(self, name: str) -> FormalConfig:
 		cfg = self._get_formal_cfg_optional(name)
 		if cfg is None:
 			raise error.FormalDoesNotExistError(name)
 		return cfg
- 
+
 	def get_formal_list(self) -> list[FormalConfig]:
 		return list(self._formal_list)
- 
+
 	def validate_formal(self, name: str) -> None:
 		cfg = self.get_formal(name)
 		for src in cfg.sources:
 			if not os.path.exists(src):
 				raise error.FormalSourceMissingError(name, src)
- 
+
 	def _get_formal_cfg_optional(self, name: str) -> FormalConfig | None:
 		return next((i for i in self._formal_list if i.name == name), None)
-
 
 	# -------------------------------------------------------------------------
 	# Get methods (public)
@@ -1042,10 +994,8 @@ class XvivConfig:
 
 		raise error.DesignDoesNotExistError(name)
 
-	def get_synth(self,
-		design_name: str | None = None,
-		core_name: str | None = None,
-		bd_name: str | None = None
+	def get_synth(
+		self, design_name: str | None = None, core_name: str | None = None, bd_name: str | None = None
 	) -> SynthConfig:
 		if cfg := self._get_synth_cfg_optional(design_name=design_name, core_name=core_name, bd_name=bd_name):
 			return cfg
@@ -1055,9 +1005,9 @@ class XvivConfig:
 	def get_sim(self, name: str) -> SimulationConfig:
 		if cfg := self._get_sim_cfg_optional(name):
 			return cfg
-		
+
 		raise error.SimDoesNotExistError(name)
-	
+
 	def get_uvm(self, test: str, simulation: str | None = None) -> UvmConfig:
 		if cfg := self._get_uvm_cfg_optional(test, simulation):
 			return cfg
@@ -1067,13 +1017,13 @@ class XvivConfig:
 	def get_platform(self, name: str) -> PlatformConfig:
 		if cfg := self._get_platform_cfg_optional(name):
 			return cfg
-		
+
 		raise error.PlatformDoesNotExistError(name)
 
 	def get_app(self, name: str) -> AppConfig:
 		if cfg := self._get_app_cfg_optional(name):
 			return cfg
-		
+
 		raise error.AppDoesNotExistError(name)
 
 	def get_subcore_list(self, bd_name: str | None = None, design_name: str | None = None) -> list[SubCoreConfig]:
@@ -1099,9 +1049,16 @@ class XvivConfig:
 	# -------------------------------------------------------------------------
 	# Private helpers - optional lookups
 	# -------------------------------------------------------------------------
-	
+
 	def _get_uvm_cfg_optional(self, test: str, simulation: str | None = None) -> UvmConfig | None:
-		return next((i for i in self._uvm_list if i.test == test and (i.simulation == simulation if simulation is not None else True)), None)
+		return next(
+			(
+				i
+				for i in self._uvm_list
+				if i.test == test and (i.simulation == simulation if simulation is not None else True)
+			),
+			None,
+		)
 
 	def _get_fpga_cfg_optional(self, name: str) -> FpgaConfig | None:
 		return next((i for i in self._fpga_list if i.name == name), None)
@@ -1121,25 +1078,23 @@ class XvivConfig:
 	def _get_design_cfg_optional(self, name: str) -> DesignConfig | None:
 		return next((i for i in self._design_list if i.name == name), None)
 
-	def _get_synth_cfg_optional(self,
-		design_name: str | None = None,
-		core_name: str | None = None,
-		bd_name: str | None = None
+	def _get_synth_cfg_optional(
+		self, design_name: str | None = None, core_name: str | None = None, bd_name: str | None = None
 	) -> SynthConfig | None:
-		ids = [
-			i for i in [design_name, core_name, bd_name] if i
-		]
+		ids = [i for i in [design_name, core_name, bd_name] if i]
 
 		if len(ids) == 0:
 			raise error.SynthIdentifierUnspecifiedError()
 		elif len(ids) != 1:
 			raise error.SynthIdentifierMultipleError(design=design_name, core=core_name, bd=bd_name)
 
-		return next((
-				i for i in self._synth_list
-					if (bd_name is not None and i.bd_name == bd_name) or
-						(design_name is not None and i.design_name == design_name) or
-						(core_name is not None and i.core_name == core_name)
+		return next(
+			(
+				i
+				for i in self._synth_list
+				if (bd_name is not None and i.bd_name == bd_name)
+				or (design_name is not None and i.design_name == design_name)
+				or (core_name is not None and i.core_name == core_name)
 			),
 			None,
 		)
@@ -1157,7 +1112,13 @@ class XvivConfig:
 	# Private helpers - resolvers
 	# -------------------------------------------------------------------------
 
-	def _resolve_fpga(self, fpga_ref: str | None, default_fpga_ref: str | None = None, mismatch_check: str | None = None, mismatch_name: str = '') -> str:
+	def _resolve_fpga(
+		self,
+		fpga_ref: str | None,
+		default_fpga_ref: str | None = None,
+		mismatch_check: str | None = None,
+		mismatch_name: str = "",
+	) -> str:
 		if fpga_ref is None:
 			if default_fpga_ref is None:
 				fpga_ref = self._get_fpga_cfg_default.name
@@ -1173,21 +1134,26 @@ class XvivConfig:
 
 		return fpga_ref
 
-	def _resolve_sources(self, sources: list[typing.Any], *,
+	def _resolve_sources(
+		self,
+		sources: list[typing.Any],
+		*,
 		used_in_synth: bool = True,
 		used_in_impl: bool = True,
 		used_in_ooc: bool = True,
 		used_in_sim: bool = True,
 	) -> list[SourceFile]:
-		_VALID_STAGES = frozenset({'synth', 'impl', 'ooc', 'sim'})
+		_VALID_STAGES = frozenset({"synth", "impl", "ooc", "sim"})
 
 		default_stages = {
-			s for s, v in (
-				('synth', used_in_synth),
-				('impl',  used_in_impl),
-				('ooc',   used_in_ooc),
-				('sim',   used_in_sim),
-			) if v
+			s
+			for s, v in (
+				("synth", used_in_synth),
+				("impl", used_in_impl),
+				("ooc", used_in_ooc),
+				("sim", used_in_sim),
+			)
+			if v
 		}
 
 		res: list[SourceFile] = []
@@ -1195,15 +1161,15 @@ class XvivConfig:
 			if isinstance(i, str):
 				files, stages = [i], default_stages
 			else:
-				if 'used_in' not in i:
-					raise error.SourceSpecMissingKeyError('used_in', i, sources)
-				if 'files' not in i:
-					raise error.SourceSpecMissingKeyError('files', i, sources)
+				if "used_in" not in i:
+					raise error.SourceSpecMissingKeyError("used_in", i, sources)
+				if "files" not in i:
+					raise error.SourceSpecMissingKeyError("files", i, sources)
 
-				stages = set(i['used_in'])
+				stages = set(i["used_in"])
 				if unknown := stages - _VALID_STAGES:
 					raise error.SourceSpecUnknownStageError(unknown, i)
-				files = i['files']
+				files = i["files"]
 
 			for k in resolve_globs(files, self.base_dir):
 				res.append(SourceFile.from_stages(k, stages))
@@ -1216,7 +1182,7 @@ class XvivConfig:
 
 	@property
 	def _get_ip_repo_default(self) -> str:
-		return self.__path_from_build_dir('ip')
+		return self.__path_from_build_dir("ip")
 
 	@property
 	def _get_fpga_cfg_default(self) -> FpgaConfig:
@@ -1231,28 +1197,27 @@ class XvivConfig:
 
 	@property
 	def wrapper_dir(self):
-		return self.__path_from_build_dir('wrapper')
+		return self.__path_from_build_dir("wrapper")
 
 	@property
 	def core_dir(self):
-		return self.__path_from_build_dir('core')
+		return self.__path_from_build_dir("core")
 
 	@property
 	def synth_dir(self):
-		return self.__path_from_build_dir('synth')
+		return self.__path_from_build_dir("synth")
 
 	@property
 	def bd_dir(self):
-		return self.__path_from_build_dir('bd')
+		return self.__path_from_build_dir("bd")
 
 	@property
 	def scripts_dir(self):
-		return self.__path_from_base_dir(os.path.join('scripts', 'xviv'))
-	
+		return self.__path_from_base_dir(os.path.join("scripts", "xviv"))
+
 	@property
 	def formal_dir(self):
-		return self.__path_from_build_dir('formal') 
-
+		return self.__path_from_build_dir("formal")
 
 	def __path_from_build_dir(self, path: str):
 		return os.path.join(self.work_dir, path)
@@ -1261,10 +1226,7 @@ class XvivConfig:
 		return os.path.join(self.base_dir, path)
 
 
-def _resolve_val(
-	field: bool | str | None,
-	default: str
-) -> str | None:
+def _resolve_val(field: bool | str | None, default: str) -> str | None:
 	if isinstance(field, str):
 		return field
 	if field:

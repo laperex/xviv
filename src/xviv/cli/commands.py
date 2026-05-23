@@ -1,19 +1,27 @@
 import argparse
-from abc import ABC, abstractmethod
 import typing
+from abc import ABC, abstractmethod
 
 from xviv.cli.completers import target_group
 from xviv.config.project import XvivConfig
-
 from xviv.functions.bd import cmd_bd_create, cmd_bd_edit, cmd_bd_generate
 from xviv.functions.core import cmd_core_create, cmd_core_edit, cmd_core_generate, cmd_search_core
+
 # from xviv.functions.graph import cmd_graph
 from xviv.functions.formal import cmd_formal
 from xviv.functions.ip import cmd_ip_create, cmd_ip_edit
 from xviv.functions.simulation import cmd_simulate, cmd_wdb_open, cmd_wdb_reload
+
 # from xviv.functions.status import cmd_status
 from xviv.functions.synthesis import cmd_dcp_open, cmd_synth
-from xviv.functions.xsct import cmd_app_build, cmd_app_create, cmd_platform_build, cmd_platform_create, cmd_processor, cmd_program
+from xviv.functions.xsct import (
+	cmd_app_build,
+	cmd_app_create,
+	cmd_platform_build,
+	cmd_platform_create,
+	cmd_processor,
+	cmd_program,
+)
 
 
 class Command(ABC):
@@ -39,13 +47,14 @@ class Command(ABC):
 		cfg.get_vivado().dry_run = args.dry_run
 		cfg.check = args.check
 
+
 def register_commands(sub) -> dict[str, Command]:
 	registry: dict[str, Command] = {}
 
 	for cls in Command._command_class_registry:
 		cls.register(sub)
 		registry[cls.name] = cls()
-	
+
 	return registry
 
 
@@ -73,7 +82,6 @@ class CreateCommand(Command):
 			cmd_app_create(cfg, app_name=args.app, platform_name=args.platform)
 		elif args.platform:
 			cmd_platform_create(cfg, platform_name=args.platform)
-
 
 
 class EditCommand(Command):
@@ -168,7 +176,7 @@ class ProcessorCommand(Command):
 		super().register(sub)
 		c = cls.c
 
-		c.add_argument("--reset",  action="store_true", help="Soft-reset the processor")
+		c.add_argument("--reset", action="store_true", help="Soft-reset the processor")
 		c.add_argument("--status", action="store_true", help="Print processor state and registers")
 
 	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
@@ -211,15 +219,35 @@ class ProgramCommand(Command):
 		target_group(c, exclusive=True, required=False, platform=True, bitstream=True)
 		target_group(c, exclusive=True, required=False, app=True, elf=True)
 
-		c.add_argument("--fpga", metavar="NAME", help="Filter to select FPGA (default: %(default)s)", default='xc7a*', required=False)
-		c.add_argument("--processor", metavar="NAME", help="Filter to select soft processor (default: %(default)s)", default='Microblaze #0*', required=False)
-		c.add_argument("--reset-duration", metavar="MS", type=int, help="Soft-reset duration in ms (default: %(default)s)", default=500, required=False)
+		c.add_argument(
+			"--fpga",
+			metavar="NAME",
+			help="Filter to select FPGA (default: %(default)s)",
+			default="xc7a*",
+			required=False,
+		)
+		c.add_argument(
+			"--processor",
+			metavar="NAME",
+			help="Filter to select soft processor (default: %(default)s)",
+			default="Microblaze #0*",
+			required=False,
+		)
+		c.add_argument(
+			"--reset-duration",
+			metavar="MS",
+			type=int,
+			help="Soft-reset duration in ms (default: %(default)s)",
+			default=500,
+			required=False,
+		)
 
 	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
 		super().run(cfg, args)
 
 		try:
-			cmd_program(cfg,
+			cmd_program(
+				cfg,
 				bitstream_file=args.bitstream,
 				elf_file=args.elf,
 				app_name=args.app,
@@ -261,21 +289,24 @@ class SimulateCommand(Command):
 
 		target_group(c, exclusive=True, required=True, sim_target=True)
 		target_group(c, exclusive=True, required=False, uvm_test=True)
-		c.add_argument("--mode",
+		c.add_argument(
+			"--mode",
 			metavar="MODE",
 			choices=[
-				'post_synth_functional',
-				'post_synth_timing',
-				'post_impl_functional',
-				'post_impl_timing',
-				'default',
+				"post_synth_functional",
+				"post_synth_timing",
+				"post_impl_functional",
+				"post_impl_timing",
+				"default",
 			],
-			default='default',
+			default="default",
 			help="simulation mode (default: %(default)s)",
 			required=False,
 		)
 
-		c.add_argument("--run", metavar="TIME", help="Simulation run time (default: %(default)s)", default='all', required=False)
+		c.add_argument(
+			"--run", metavar="TIME", help="Simulation run time (default: %(default)s)", default="all", required=False
+		)
 
 	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
 		super().run(cfg, args)
@@ -294,8 +325,15 @@ class SynthCommand(Command):
 
 		target_group(c, exclusive=True, required=True, bd=True, design=True, core=True)
 
-		c.add_argument("--usr-access-type", metavar="", help="Type of value to embed in bitstream (default: %(default)s)", default='git', required=False)
-		c.add_argument("--resume",
+		c.add_argument(
+			"--usr-access-type",
+			metavar="",
+			help="Type of value to embed in bitstream (default: %(default)s)",
+			default="git",
+			required=False,
+		)
+		c.add_argument(
+			"--resume",
 			metavar="STAGE",
 			choices=["auto", "synth", "place", "route"],
 			default=None,
@@ -306,10 +344,15 @@ class SynthCommand(Command):
 	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
 		super().run(cfg, args)
 
-		cmd_synth(cfg, design_name=args.design, bd_name=args.bd, core_name=args.core,
+		cmd_synth(
+			cfg,
+			design_name=args.design,
+			bd_name=args.bd,
+			core_name=args.core,
 			usr_access_type=args.usr_access_type,
-			resume=args.resume
+			resume=args.resume,
 		)
+
 
 class FormalCommand(Command):
 	name = "formal"
@@ -326,4 +369,3 @@ class FormalCommand(Command):
 		super().run()
 
 		cmd_formal(cfg, target=args.target)
-

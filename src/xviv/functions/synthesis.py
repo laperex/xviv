@@ -1,18 +1,22 @@
 import logging
+
 from xviv.config.project import XvivConfig
-from xviv.tools import vivado
-from xviv.utils.git import _git_sha_tag
 from xviv.generator.tcl.commands import ConfigTclCommands
-from xviv.utils.parallel import run_parallel
+from xviv.tools import vivado
 from xviv.utils import error
+from xviv.utils.git import _git_sha_tag
+from xviv.utils.parallel import run_parallel
 
 logger = logging.getLogger(__name__)
 
+
 # -----------------------------------------------------------------------------
 # synth (--design <design_name> | --bd <bd_name> | --core <core_name>) |
-#	--usr-access-type <usr_access_type>
+# --usr-access-type <usr_access_type>
 # -----------------------------------------------------------------------------
-def cmd_synth(cfg: XvivConfig, *,
+def cmd_synth(
+	cfg: XvivConfig,
+	*,
 	design_name: str | None = None,
 	bd_name: str | None = None,
 	core_name: str | None = None,
@@ -26,36 +30,33 @@ def cmd_synth(cfg: XvivConfig, *,
 	if synth_cfg.bitstream_file:
 		if synth_cfg.usr_access_value is None:
 			match usr_access_type:
-				case 'git':
+				case "git":
 					sha, dirty, _ = _git_sha_tag()
 
 					if not sha:
 						raise error.SynthUsrAccessValueEmbedGitShaError()
 
 					if dirty:
-						logger.warning("The Git working directory has uncommitted changes. It is highly recommended to commit before running synthesis.")
+						logger.warning(
+							"The Git working directory has uncommitted changes. It is highly recommended to commit before running synthesis."
+						)
 
 					synth_cfg.usr_access_value = int(sha, 16) | (0x10000000 if dirty else 0)
 
 	if synth_cfg.out_of_context_subcores:
-		run_parallel([
-			(
-				lambda i=i: vivado.run_vivado(cfg, config_tcl=(
-					ConfigTclCommands(cfg)
-					.synth(core=i.core)
-					.build()
-				), label=bd_name),
-				i.core,
-			) for i in cfg.get_subcore_list(bd_name=bd_name, design_name=design_name)
-		])
-
-	config = (
-		ConfigTclCommands(cfg)
-		.synth(design=design_name, bd=bd_name, core=core_name,
-		 	resume=resume
+		run_parallel(
+			[
+				(
+					lambda i=i: vivado.run_vivado(
+						cfg, config_tcl=(ConfigTclCommands(cfg).synth(core=i.core).build()), label=bd_name
+					),
+					i.core,
+				)
+				for i in cfg.get_subcore_list(bd_name=bd_name, design_name=design_name)
+			]
 		)
-		.build()
-	)
+
+	config = ConfigTclCommands(cfg).synth(design=design_name, bd=bd_name, core=core_name, resume=resume).build()
 
 	vivado.run_vivado(cfg, config_tcl=config)
 
@@ -63,15 +64,8 @@ def cmd_synth(cfg: XvivConfig, *,
 # -----------------------------------------------------------------------------
 # open --dcp <dcp_file> | --nogui <False>
 # -----------------------------------------------------------------------------
-def cmd_dcp_open(cfg: XvivConfig, *,
-	dcp_file: str | None,
-	nogui: bool = False
-):
-	config = (
-		ConfigTclCommands(cfg)
-		.open_dcp(dcp_file=dcp_file)
-		.build()
-	)
+def cmd_dcp_open(cfg: XvivConfig, *, dcp_file: str | None, nogui: bool = False):
+	config = ConfigTclCommands(cfg).open_dcp(dcp_file=dcp_file).build()
 
 	if nogui:
 		cfg.get_vivado().mode = "tcl"

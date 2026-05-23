@@ -1,9 +1,11 @@
 from __future__ import annotations
 
-
 # --- Root --------------------------------------------------------------------
 
+
 class XvivError(Exception): ...
+
+
 class UninitializedError(XvivError): ...
 
 
@@ -24,6 +26,7 @@ class UninitializedCoreCatalogError(UninitializedError):
 
 # --- Path --------------------------------------------------------------------
 
+
 class InvalidPathError(XvivError):
 	def __init__(self, path: str, context: str = "") -> None:
 		self.path = path
@@ -36,6 +39,7 @@ class InvalidPathError(XvivError):
 
 
 # --- Resolve -----------------------------------------------------------------
+
 
 class ResolveError(XvivError): ...
 
@@ -70,6 +74,7 @@ class FpgaResolveError(ResolveError):
 
 # --- Config base -------------------------------------------------------------
 
+
 class ConfigError(XvivError): ...
 
 
@@ -94,6 +99,7 @@ class DoesNotExistError(ConfigError):
 
 
 # --- AlreadyExists -----------------------------------------------------------
+
 
 class CoreCatalogAlreadySpecifiedError(AlreadyExistsError):
 	def __init__(self) -> None:
@@ -171,6 +177,7 @@ class AppAlreadyExistsError(AlreadyExistsError):
 
 # --- DoesNotExist ------------------------------------------------------------
 
+
 class FpgaDoesNotExistError(DoesNotExistError):
 	def __init__(self, name: str) -> None:
 		super().__init__("FpgaConfig", name)
@@ -221,9 +228,12 @@ class SynthDoesNotExistError(DoesNotExistError):
 
 	def __str__(self) -> str:
 		parts = []
-		if self.design: parts.append(f"design='{self.design}'")
-		if self.core:   parts.append(f"core='{self.core}'")
-		if self.bd:     parts.append(f"bd='{self.bd}'")
+		if self.design:
+			parts.append(f"design='{self.design}'")
+		if self.core:
+			parts.append(f"core='{self.core}'")
+		if self.bd:
+			parts.append(f"bd='{self.bd}'")
 		return f"SynthConfig not found for: {', '.join(parts)}"
 
 
@@ -243,6 +253,7 @@ class AppDoesNotExistError(DoesNotExistError):
 
 
 # --- FPGA --------------------------------------------------------------------
+
 
 class FpgaPartUnspecifiedError(ConfigError):
 	def __init__(self, name: str) -> None:
@@ -275,6 +286,7 @@ class FpgaRefMismatchError(ConfigError):
 
 # --- Wrapper -----------------------------------------------------------------
 
+
 class WrapperIpMissing(ConfigError):
 	def __init__(self, ip_name: str) -> None:
 		self.ip_name = ip_name
@@ -285,6 +297,7 @@ class WrapperIpMissing(ConfigError):
 
 
 # --- Sources -----------------------------------------------------------------
+
 
 class SourceError(ConfigError): ...
 
@@ -313,6 +326,7 @@ class SourceMissingError(SourceError):
 
 # Source spec errors raised by _resolve_sources
 
+
 class SourceSpecError(SourceError): ...
 
 
@@ -325,9 +339,7 @@ class SourceSpecMissingKeyError(SourceSpecError):
 
 	def __str__(self) -> str:
 		return (
-			f"Source spec missing required key '{self.key}'.\n"
-			f"  Entry   : {self.entry!r}\n"
-			f"  Sources : {self.sources!r}"
+			f"Source spec missing required key '{self.key}'.\n  Entry   : {self.entry!r}\n  Sources : {self.sources!r}"
 		)
 
 
@@ -341,12 +353,8 @@ class SourceSpecUnknownStageError(SourceSpecError):
 
 	def __str__(self) -> str:
 		listed = ", ".join(f"'{s}'" for s in sorted(self.unknown))
-		valid  = ", ".join(f"'{s}'" for s in sorted(self.VALID_STAGES))
-		return (
-			f"Source spec unknown stage(s): {listed}.\n"
-			f"  Valid : {valid}\n"
-			f"  Entry : {self.entry!r}"
-		)
+		valid = ", ".join(f"'{s}'" for s in sorted(self.VALID_STAGES))
+		return f"Source spec unknown stage(s): {listed}.\n  Valid : {valid}\n  Entry : {self.entry!r}"
 
 
 class WrapperSourcesEmptyError(SourceEmptyError):
@@ -406,6 +414,7 @@ class SynthConstraintsMissingError(SourceMissingError):
 
 # --- Properties --------------------------------------------------------------
 
+
 class PropertiesError(ConfigError): ...
 
 
@@ -437,6 +446,7 @@ class PropertiesInvalidValueError(PropertiesError):
 
 
 # --- SubCore identifier ------------------------------------------------------
+
 
 class SubCoreBdAlreadyExistsError(ConfigError):
 	def __init__(self, inst_hier_path: str, core: str, bd: str) -> None:
@@ -502,6 +512,7 @@ class SubCoreListIdentifierMultipleError(SubCoreIdentifierError):
 
 # --- Synth identifier --------------------------------------------------------
 
+
 class SynthIdentifierError(ConfigError): ...
 
 
@@ -519,13 +530,17 @@ class SynthIdentifierMultipleError(SynthIdentifierError):
 
 	def __str__(self) -> str:
 		parts = []
-		if self.design: parts.append(f"design='{self.design}'")
-		if self.core:   parts.append(f"core='{self.core}'")
-		if self.bd:     parts.append(f"bd='{self.bd}'")
+		if self.design:
+			parts.append(f"design='{self.design}'")
+		if self.core:
+			parts.append(f"core='{self.core}'")
+		if self.bd:
+			parts.append(f"bd='{self.bd}'")
 		return f"SynthConfig received multiple identifiers: {', '.join(parts)} - specify exactly one"
 
 
 # --- Platform identifier -----------------------------------------------------
+
 
 class PlatformIdentifierError(ConfigError): ...
 
@@ -549,13 +564,17 @@ class PlatformIdentifierMultipleError(PlatformIdentifierError):
 
 	def __str__(self) -> str:
 		parts = []
-		if self.design: parts.append(f"design='{self.design}'")
-		if self.bd:     parts.append(f"bd='{self.bd}'")
-		if self.xsa:    parts.append(f"xsa='{self.xsa}'")
+		if self.design:
+			parts.append(f"design='{self.design}'")
+		if self.bd:
+			parts.append(f"bd='{self.bd}'")
+		if self.xsa:
+			parts.append(f"xsa='{self.xsa}'")
 		return f"PlatformConfig '{self.name}' received multiple identifiers: {', '.join(parts)} - specify exactly one"
 
 
 # --- App ---------------------------------------------------------------------
+
 
 class AppPlatformUnspecifiedError(ConfigError):
 	def __init__(self, app_name: str) -> None:
@@ -567,6 +586,7 @@ class AppPlatformUnspecifiedError(ConfigError):
 
 
 # --- Ambiguous ---------------------------------------------------------------
+
 
 class AmbiguousIdentifierError(ConfigError):
 	def __init__(self, kind: str, id: str, candidates: list[str]) -> None:
@@ -586,6 +606,7 @@ class AmbiguousCoreError(AmbiguousIdentifierError):
 
 
 # --- Core identifier ---------------------------------------------------------
+
 
 class CoreIdentifierError(ConfigError): ...
 
@@ -621,7 +642,10 @@ class CoreVlnvUnspecifiedError(ConfigError):
 
 # --- Mode / backend ----------------------------------------------------------
 
+
 class ModeError(BaseException): ...
+
+
 class BackendError(BaseException): ...
 
 
@@ -644,6 +668,7 @@ class InvalidSimulationBackend(BackendError):
 
 
 # --- Formal ------------------------------------------------------------------
+
 
 class FormalError(XvivError): ...
 
@@ -702,6 +727,7 @@ class FormalInvalidModeError(FormalError):
 
 # --- Verilator ---------------------------------------------------------------
 
+
 class VerilatorNotFoundError(XvivError):
 	def __init__(self) -> None:
 		super().__init__("verilator not found on PATH — install verilator or add it to PATH")
@@ -722,6 +748,7 @@ class VerilatorBinaryMissingError(XvivError):
 
 # --- UVM ---------------------------------------------------------------------
 
+
 class UvmPkgDirRequiredError(XvivError):
 	def __init__(self, sim_name: str) -> None:
 		self.sim_name = sim_name
@@ -739,6 +766,7 @@ class UvmNotSupportedError(XvivError):
 
 # --- TCL project -------------------------------------------------------------
 
+
 class InMemoryProjectAlreadyExistsError(XvivError):
 	def __init__(self, name: str) -> None:
 		self.name = name
@@ -749,6 +777,7 @@ class InMemoryProjectAlreadyExistsError(XvivError):
 
 
 # --- Target filter -----------------------------------------------------------
+
 
 class TargetFilterUnspecifiedError(XvivError): ...
 
@@ -765,12 +794,14 @@ class FpgaTargetFilterUnspecifiedError(TargetFilterUnspecifiedError):
 
 # --- Hardware programming ----------------------------------------------------
 
+
 class ResetDurationUnspecifiedError(XvivError):
 	def __str__(self) -> str:
 		return "processor_reset_duration must be set when programming both bitstream and ELF"
 
 
 # --- Catalog -----------------------------------------------------------------
+
 
 class CoreVlnvNotInCatalogError(XvivError):
 	def __init__(self, name: str, vlnv: str) -> None:
@@ -783,6 +814,7 @@ class CoreVlnvNotInCatalogError(XvivError):
 
 
 # --- Synth (builder) ---------------------------------------------------------
+
 
 class SynthNoIdentifierError(XvivError):
 	def __str__(self) -> str:
@@ -813,7 +845,7 @@ class SynthResumeDcpMissingError(XvivError):
 
 
 class SynthResumeInvalidError(XvivError):
-	def __init__(self, stage: str, VALID = ("auto", "synth", "place", "route")) -> None:
+	def __init__(self, stage: str, VALID=("auto", "synth", "place", "route")) -> None:
 		self.stage = stage
 		self.VALID = VALID
 		super().__init__(stage)
@@ -835,8 +867,10 @@ class OocStubMissingError(XvivError):
 			f"  hint: run 'xviv synth --core {self.core}' first"
 		)
 
+
 # cmd - Synthesis
 
+
 class SynthUsrAccessValueEmbedGitShaError(XvivError):
-    def __str__(self) -> str:
-        return "usr_access_type='git' requires a valid Git SHA. Verify that this project is inside an initialized Git repository."
+	def __str__(self) -> str:
+		return "usr_access_type='git' requires a valid Git SHA. Verify that this project is inside an initialized Git repository."

@@ -6,6 +6,7 @@ import sys
 
 logger = logging.getLogger(__name__)
 
+
 def resolve_globs(patterns: list[str], base: str) -> list[str]:
 	files: list[str] = []
 
@@ -20,12 +21,14 @@ def resolve_globs(patterns: list[str], base: str) -> list[str]:
 
 	return files
 
-def is_stale_list(srcfile: str, dstfilelist: list[str], exit_on_fail: bool=True) -> bool:
+
+def is_stale_list(srcfile: str, dstfilelist: list[str], exit_on_fail: bool = True) -> bool:
 	for i in dstfilelist:
 		if is_stale(srcfile, i, exit_on_fail=exit_on_fail):
 			return True
 
 	return False
+
 
 def is_stale(srcfile: str, dstfile: str, exit_on_fail=True) -> bool:
 	if not os.path.exists(dstfile):
@@ -44,6 +47,7 @@ def is_stale(srcfile: str, dstfile: str, exit_on_fail=True) -> bool:
 	logger.info(f"[stale_checker] {srcfile}: up to date, skipping")
 	return False
 
+
 def combined_checksum(files: list[str], algorithm: str = "sha256") -> str:
 	h = hashlib.new(algorithm)
 
@@ -53,6 +57,7 @@ def combined_checksum(files: list[str], algorithm: str = "sha256") -> str:
 				h.update(chunk)
 
 	return h.hexdigest()
+
 
 def assert_file_exists(path: str) -> None:
 	assert os.path.exists(path), f"File not found: {path}"

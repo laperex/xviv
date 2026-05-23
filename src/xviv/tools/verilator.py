@@ -12,7 +12,6 @@
 #   b) include UVM source files directly in the `sources` list.
 # Either way, pass --uvm-prefix to verilator so it finds the C++ stubs.
 
-import dataclasses
 import logging
 import os
 import shutil
@@ -27,6 +26,7 @@ logger = logging.getLogger(__name__)
 # Version probe
 # ---------------------------------------------------------------------------
 
+
 def find_verilator_bin() -> str:
 	path = shutil.which("verilator")
 	if path is None:
@@ -36,9 +36,7 @@ def find_verilator_bin() -> str:
 
 def verilator_version(verilator_bin: str) -> tuple[int, int]:
 	try:
-		out = subprocess.check_output(
-			[verilator_bin, "--version"], text=True, stderr=subprocess.STDOUT
-		)
+		out = subprocess.check_output([verilator_bin, "--version"], text=True, stderr=subprocess.STDOUT)
 
 		token = out.split()[1]
 		major, minor = token.split(".")[:2]
@@ -51,6 +49,7 @@ def verilator_version(verilator_bin: str) -> tuple[int, int]:
 # ---------------------------------------------------------------------------
 # Step 1: compile
 # ---------------------------------------------------------------------------
+
 
 def run_verilator_compile(
 	work_dir: str,
@@ -71,18 +70,21 @@ def run_verilator_compile(
 ) -> str:
 	verilator_bin = find_verilator_bin()
 
-	obj_dir   = os.path.join(work_dir, "obj_dir")
-	binary    = os.path.join(obj_dir, f"V{top}")
+	obj_dir = os.path.join(work_dir, "obj_dir")
+	binary = os.path.join(obj_dir, f"V{top}")
 
 	cmd: list[str] = [
 		verilator_bin,
 		"--cc",
-        "--exe",
-        "--build",
+		"--exe",
+		"--build",
 		"-sv",
-		"--top-module", top,
-		"--Mdir", obj_dir,
-		"-o", f"V{top}",
+		"--top-module",
+		top,
+		"--Mdir",
+		obj_dir,
+		"-o",
+		f"V{top}",
 	]
 
 	# -- Threads ---------------------------------------------------------- #
@@ -102,7 +104,7 @@ def run_verilator_compile(
 	if uvm:
 		if uvm_pkg_dir is not None:
 			cmd += [f"-I{uvm_pkg_dir}"]
-		cmd += ["--uvm-prefix", "uvm_"]   # C++ stub prefix expected by verilator-uvm
+		cmd += ["--uvm-prefix", "uvm_"]  # C++ stub prefix expected by verilator-uvm
 
 	# -- Preprocessor ------------------------------------------------- #
 	for d in defines:
@@ -139,6 +141,7 @@ def run_verilator_compile(
 # Step 2: run
 # ---------------------------------------------------------------------------
 
+
 def run_verilator_sim(
 	binary: str,
 	work_dir: str,
@@ -169,7 +172,7 @@ def run_verilator_sim(
 	# -- Trace output file ----------------------------------------------- #
 	if trace or trace_fst:
 		tf = trace_file or os.path.join(work_dir, "dump.vcd" if trace else "dump.fst")
-		cmd += ["+verilator+rand+reset+2"]   # randomise uninitialised regs
+		cmd += ["+verilator+rand+reset+2"]  # randomise uninitialised regs
 		# verilated binary reads VERILATOR_TRACE_FILE from env, or via --trace
 		# The actual filename can also be set via --trace-file at compile time;
 		# here we use the env-var approach for maximum flexibility.

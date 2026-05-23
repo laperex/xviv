@@ -9,34 +9,28 @@ from xviv.config.model import FormalConfig
 from xviv.config.project import XvivConfig
 from xviv.utils import error
 
-
 # ---------------------------------------------------------------------------
 # .sby generator
 # ---------------------------------------------------------------------------
 
-def generate_sby(cfg: FormalConfig) -> str:
-	"""Emit .sby content for the given FormalConfig.
 
-	Uses the [files] + basename model:
-	  - [files] lists original paths -> sby copies them into <taskdir>/src/
-	  - [script] references basenames only (never original paths)
-	"""
+def generate_sby(cfg: FormalConfig) -> str:
 	basenames = [os.path.basename(s) for s in cfg.sources]
 
-	# -- [options] ------------------------------------------------------------
 	options: list[str] = [f"mode {cfg.mode}", f"depth {cfg.depth}"]
+
 	if cfg.mode == "cover" and cfg.append:
 		options.append(f"append {cfg.append}")
 	if cfg.multiclock:
 		options.append("multiclock on")
+
 	options.extend(cfg.extra_opts)
 
-	# -- [script] -------------------------------------------------------------
-	# Global defines and include dirs go on the first read_verilog call;
-	# subsequent files only need -formal (defines persist in the Yosys session).
 	flags_global: list[str] = ["-formal"]
+
 	if cfg.sv:
 		flags_global.append("-sv")
+
 	flags_global += [f"-D {d}" for d in cfg.defines]
 	flags_global += [f"-I {d}" for d in cfg.include_dirs]
 	flags_global_str = " ".join(flags_global)
@@ -44,6 +38,7 @@ def generate_sby(cfg: FormalConfig) -> str:
 	flags_extra = "-formal" + (" -sv" if cfg.sv else "")
 
 	script: list[str] = []
+
 	for i, bn in enumerate(basenames):
 		if i == 0:
 			script.append(f"read_verilog {flags_global_str} {bn}")
@@ -58,6 +53,7 @@ def generate_sby(cfg: FormalConfig) -> str:
 		"opt -full",
 		"setundef -zero",
 	]
+
 	if cfg.async2sync:
 		script.append("async2sync")
 		script.append("opt -full")
@@ -86,12 +82,13 @@ def generate_sby(cfg: FormalConfig) -> str:
 # Result type
 # ---------------------------------------------------------------------------
 
+
 class FormalResult:
 	def __init__(self, name: str, passed: bool, last_line: str, vcd: str | None) -> None:
-		self.name      = name
-		self.passed    = passed
+		self.name = name
+		self.passed = passed
 		self.last_line = last_line
-		self.vcd       = vcd
+		self.vcd = vcd
 
 	def __repr__(self) -> str:
 		status = "PASS" if self.passed else "FAIL"
@@ -102,10 +99,10 @@ class FormalResult:
 # Runner
 # ---------------------------------------------------------------------------
 
+
 def run_formal(cfg: FormalConfig, *, dry_run: bool = False) -> FormalResult:
-	"""Generate .sby, optionally run sby, return structured result."""
 	work_dir = Path(cfg.work_dir)
-	sby_dir  = work_dir.parent          # sby file lives one level up from taskdir
+	sby_dir = work_dir.parent  # sby file lives one level up from taskdir
 	sby_dir.mkdir(parents=True, exist_ok=True)
 
 	sby_path = sby_dir / f"{cfg.name}.sby"
@@ -117,10 +114,10 @@ def run_formal(cfg: FormalConfig, *, dry_run: bool = False) -> FormalResult:
 		return FormalResult(cfg.name, passed=True, last_line="(dry-run)", vcd=None)
 
 	sby_bin = shutil.which("sby")
+
 	if sby_bin is None:
 		raise error.FormalSbyNotFoundError()
 
-	# -f = force-overwrite existing task directory
 	cmd = ["sby", "-f", str(sby_path)]
 	last_line = ""
 
@@ -131,7 +128,7 @@ def run_formal(cfg: FormalConfig, *, dry_run: bool = False) -> FormalResult:
 		stderr=subprocess.STDOUT,
 		text=True,
 	) as proc:
-		for line in proc.stdout:		# type: ignore[union-attr]
+		for line in proc.stdout:
 			print(line, end="", flush=True)
 			if line.strip():
 				last_line = line.strip()
@@ -139,7 +136,6 @@ def run_formal(cfg: FormalConfig, *, dry_run: bool = False) -> FormalResult:
 
 	passed = proc.returncode == 0
 
-	# sby writes counterexample traces into <taskdir>/engine_0/
 	vcd: str | None = None
 	if not passed:
 		task_dir = sby_dir / cfg.name
@@ -148,10 +144,10 @@ def run_formal(cfg: FormalConfig, *, dry_run: bool = False) -> FormalResult:
 			vcd = str(candidates[0])
 
 	return FormalResult(
-		name      = cfg.name,
-		passed    = passed,
-		last_line = last_line,
-		vcd       = vcd,
+		name=cfg.name,
+		passed=passed,
+		last_line=last_line,
+		vcd=vcd,
 	)
 
 
@@ -159,18 +155,14 @@ def run_formal(cfg: FormalConfig, *, dry_run: bool = False) -> FormalResult:
 # CLI entry points
 # ---------------------------------------------------------------------------
 
-def cmd_formal(cfg: XvivConfig, *,
-	target: str | None = None
-) -> None:
+
+def cmd_formal(cfg: XvivConfig, *, target: str | None = None) -> None:
 	all_cfgs = cfg.get_formal_list()
 
 	if not all_cfgs:
 		raise error.FormalNoTargetsError()
 
-	targets = (
-		[cfg.get_formal(target)] if target is not None
-		else all_cfgs
-	)
+	targets = [cfg.get_formal(target)] if target is not None else all_cfgs
 
 	results: list[FormalResult] = []
 
@@ -190,7 +182,7 @@ def cmd_formal(cfg: XvivConfig, *,
 	# -- summary table --------------------------------------------------------
 	print("\n-- Formal Results " + "-" * 44)
 	for r in results:
-		status  = "\033[32mPASS\033[0m" if r.passed else "\033[31mFAIL\033[0m"
+		status = "\033[32mPASS\033[0m" if r.passed else "\033[31mFAIL\033[0m"
 		print(f"  {r.name:<30}  {status}")
 
 	failed = [r for r in results if not r.passed]

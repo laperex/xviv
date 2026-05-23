@@ -56,28 +56,22 @@ def parser(xml_path: str) -> dict[str, CatalogCoreEntry]:
 				if part_el.get("status", "") == "Not-Supported":
 					unsupported.add(fam_el.get("name", ""))
 
-		upgrades_from = tuple(
-			u.get("value", "")
-			for u in ip_el.findall("UpgradesFrom/Upgrade")
-			if u.get("value")
-		)
+		upgrades_from = tuple(u.get("value", "") for u in ip_el.findall("UpgradesFrom/Upgrade") if u.get("value"))
 
 		catalog[vlnv] = CatalogCoreEntry(
-			vlnv                 = vlnv,
-			vendor               = vendor,
-			library              = library,
-			name                 = name,
-			version              = version,
-			display_name         = _val("DisplayName"),
-			description          = _val("Description"),
-			hidden               = hidden,
-			board_dependent      = board_dependent,
-			ipi_only             = ipi_only,
-			unsupported_families = frozenset(unsupported),
-			upgrades_from        = upgrades_from,
+			vlnv=vlnv,
+			vendor=vendor,
+			library=library,
+			name=name,
+			version=version,
+			display_name=_val("DisplayName"),
+			description=_val("Description"),
+			hidden=hidden,
+			board_dependent=board_dependent,
+			ipi_only=ipi_only,
+			unsupported_families=frozenset(unsupported),
+			upgrades_from=upgrades_from,
 		)
 
 	logger.debug("vv_index.xml: parsed %d entries from %s", len(catalog), xml_path)
 	return catalog
-
-

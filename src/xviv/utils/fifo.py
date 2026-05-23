@@ -4,6 +4,7 @@ import stat
 
 logger = logging.getLogger(__name__)
 
+
 def _ensure_fifo(path: str) -> None:
 	if os.path.exists(path):
 		if not stat.S_ISFIFO(os.stat(path).st_mode):

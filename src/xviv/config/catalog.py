@@ -1,18 +1,16 @@
 from __future__ import annotations
 
-from collections.abc import ValuesView
 import logging
 import os
-import sys
+from collections.abc import ValuesView
 from typing import Iterator
-import typing
 
 from xviv.config.model import CatalogCoreEntry
-from xviv.parsers import vv_index_xml
-from xviv.parsers import component_xml
+from xviv.parsers import component_xml, vv_index_xml
 from xviv.utils.error import AmbiguousCoreError
 
 logger = logging.getLogger(__name__)
+
 
 class Catalog:
 	def __init__(self, vivado_path: str, ip_repos: list[str] | None = None) -> None:
@@ -59,18 +57,18 @@ class Catalog:
 	def find_by_name(self, ip_name: str) -> list[CatalogCoreEntry]:
 		return [e for e in self._cores.values() if e.name == ip_name]
 
-	def search(self, prefix: str, *,
+	def search(
+		self,
+		prefix: str,
+		*,
 		include_hidden: bool = False,
 	) -> list[CatalogCoreEntry]:
 		needle = prefix.lower()
 		return [
-			e for e in self._cores.values()
+			e
+			for e in self._cores.values()
 			if (include_hidden or not e.hidden)
-			and (
-				needle in e.vlnv.lower()
-				or needle in e.display_name.lower()
-				or needle in e.description.lower()
-			)
+			and (needle in e.vlnv.lower() or needle in e.display_name.lower() or needle in e.description.lower())
 		]
 
 	def items(self) -> Iterator[tuple[str, CatalogCoreEntry]]:

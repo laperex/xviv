@@ -1,11 +1,8 @@
-import glob
 import os
 import pathlib
 import shutil
-import sys
 
-from xviv.config.loader import resolve_config_completer, load_config
-
+from xviv.config.loader import load_config, resolve_config_completer
 
 # ---------------------------------------------------------------------------
 # Internal helpers
@@ -19,6 +16,7 @@ def _cfg_completer(collection: str, attr: str = "name"):
 			return [getattr(item, attr) for item in getattr(cfg, collection)]
 		except Exception:
 			return []
+
 	return completer
 
 
@@ -41,7 +39,7 @@ def core_instance_completer(prefix: str, parsed_args, **kwargs) -> dict[str, str
 		avail = _term_width() - sum(len(p) + 2 for p in parts)
 		if avail > 10 and desc_text:
 			if len(desc_text) > avail:
-				desc_text = desc_text[:avail - 1] + "…"
+				desc_text = desc_text[: avail - 1] + "…"
 			parts.append(f"— {desc_text}")
 		return "  ".join(parts)
 
@@ -67,6 +65,7 @@ def core_instance_completer(prefix: str, parsed_args, **kwargs) -> dict[str, str
 	except Exception:
 		return {}
 
+
 def c_dcp_file(prefix, parsed_args, **kwargs):
 	try:
 		config_path = os.path.abspath(resolve_config_completer(prefix, parsed_args))
@@ -76,11 +75,15 @@ def c_dcp_file(prefix, parsed_args, **kwargs):
 		result: dict[str, str] = {}
 
 		for synth in cfg._synth_list:
-			ids = [(kind, name) for kind, name in [
-				('Design', synth.design_name),
-				('Core', synth.core_name),
-				('BD', synth.bd_name),
-			] if name]
+			ids = [
+				(kind, name)
+				for kind, name in [
+					("Design", synth.design_name),
+					("Core", synth.core_name),
+					("BD", synth.bd_name),
+				]
+				if name
+			]
 
 			if len(ids) != 1:
 				continue
@@ -88,18 +91,19 @@ def c_dcp_file(prefix, parsed_args, **kwargs):
 			kind, name = ids[0]
 
 			for phase, file in [
-				('synth', synth.synth_dcp_file),
-				('place', synth.place_dcp_file),
-				('route', synth.route_dcp_file),
+				("synth", synth.synth_dcp_file),
+				("place", synth.place_dcp_file),
+				("route", synth.route_dcp_file),
 			]:
 				if file:
 					rel = os.path.relpath(file, config_dir)
-					result[rel] = f'{phase} — {kind} — {name}'
+					result[rel] = f"{phase} — {kind} — {name}"
 
 		return result
 
 	except Exception:
 		return {}
+
 
 def c_bitstream(prefix, parsed_args, **kwargs):
 	try:
@@ -110,7 +114,7 @@ def c_bitstream(prefix, parsed_args, **kwargs):
 
 		for platform in cfg._platform_list:
 			result.append(os.path.relpath(platform.bitstream_file, os.path.dirname(config_path)))
-		
+
 		for synth in cfg._synth_list:
 			if synth.bitstream_file:
 				if synth.bitstream_file not in result:
@@ -120,6 +124,7 @@ def c_bitstream(prefix, parsed_args, **kwargs):
 
 	except Exception:
 		return {}
+
 
 def c_elf(prefix, parsed_args, **kwargs):
 	try:
@@ -136,44 +141,45 @@ def c_elf(prefix, parsed_args, **kwargs):
 	except Exception:
 		return {}
 
+
 def c_uvm_test(prefix, parsed_args, **kwargs):
-    import pathlib
-    try:
-        config_path = os.path.abspath(resolve_config_completer(prefix, parsed_args))
-        cfg = load_config(config_path)
-        result: dict[str, str] = {}
 
-        target = vars(parsed_args).get('target', None)
+	try:
+		config_path = os.path.abspath(resolve_config_completer(prefix, parsed_args))
+		cfg = load_config(config_path)
+		result: dict[str, str] = {}
 
-        pathlib.Path("/tmp/xviv_debug.log").write_text(
-            f"target={target!r}\n"
-            f"uvm_simulations={[uvm.simulation for uvm in cfg._uvm_list]}\n"
-        )
+		target = vars(parsed_args).get("target", None)
 
-        if target:
-            for uvm in cfg._uvm_list:
-                if uvm.simulation == target:
-                    result[uvm.test] = f'{uvm.test} : {uvm.verbosity}'
-        else:
-            for uvm in cfg._uvm_list:
-                result[uvm.test] = f'{uvm.simulation} - {uvm.test} : {uvm.verbosity}'
+		pathlib.Path("/tmp/xviv_debug.log").write_text(
+			f"target={target!r}\nuvm_simulations={[uvm.simulation for uvm in cfg._uvm_list]}\n"
+		)
 
-        return result
-    except Exception as e:
-        pathlib.Path("/tmp/xviv_debug.log").write_text(f"EXCEPTION: {e}\n")
-        return []
+		if target:
+			for uvm in cfg._uvm_list:
+				if uvm.simulation == target:
+					result[uvm.test] = f"{uvm.test} : {uvm.verbosity}"
+		else:
+			for uvm in cfg._uvm_list:
+				result[uvm.test] = f"{uvm.simulation} - {uvm.test} : {uvm.verbosity}"
+
+		return result
+	except Exception as e:
+		pathlib.Path("/tmp/xviv_debug.log").write_text(f"EXCEPTION: {e}\n")
+		return []
+
 
 # ---------------------------------------------------------------------------
 # Public completers
 # ---------------------------------------------------------------------------
 
-c_ip            = _cfg_completer("_ip_list")
-c_bd            = _cfg_completer("_bd_list")
-c_app           = _cfg_completer("_app_list")
-c_platform      = _cfg_completer("_platform_list")
-c_core          = _cfg_completer("_core_list")
-c_design        = _cfg_completer("_design_list")
-c_sim_target    = _cfg_completer("_sim_list")
+c_ip = _cfg_completer("_ip_list")
+c_bd = _cfg_completer("_bd_list")
+c_app = _cfg_completer("_app_list")
+c_platform = _cfg_completer("_platform_list")
+c_core = _cfg_completer("_core_list")
+c_design = _cfg_completer("_design_list")
+c_sim_target = _cfg_completer("_sim_list")
 c_formal_target = _cfg_completer("_formal_list")
 
 c_core_instance = core_instance_completer
@@ -182,6 +188,7 @@ c_core_instance = core_instance_completer
 # Parser-building helpers
 # ---------------------------------------------------------------------------
 
+
 def arg(container, *flags, completer=None, **kwargs):
 	action = container.add_argument(*flags, **kwargs)
 	if completer is not None:
@@ -189,7 +196,11 @@ def arg(container, *flags, completer=None, **kwargs):
 	return action
 
 
-def target_group(parser, exclusive: bool = True, required: bool = True, *,
+def target_group(
+	parser,
+	exclusive: bool = True,
+	required: bool = True,
+	*,
 	design: bool = False,
 	ip: bool = False,
 	bd: bool = False,
@@ -242,7 +253,14 @@ def target_group(parser, exclusive: bool = True, required: bool = True, *,
 		arg(grp, "--core", metavar="NAME", help="Core name", completer=c_core, required=required)
 
 	if bitstream:
-		arg(grp, "--bitstream", metavar="PATH", help="Explicit path to .bit file", completer=c_bitstream, required=required)
+		arg(
+			grp,
+			"--bitstream",
+			metavar="PATH",
+			help="Explicit path to .bit file",
+			completer=c_bitstream,
+			required=required,
+		)
 
 	if elf:
 		arg(grp, "--elf", metavar="PATH", help="Explicit path to .elf file", completer=c_elf, required=required)

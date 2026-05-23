@@ -1,11 +1,11 @@
-from enum import IntEnum
 import logging
 import os
 import typing
+from enum import IntEnum
 
 from xviv.generator.tcl.builder import ConfigTclBuilder, _tcl_list
-from xviv.utils.fs import assert_file_exists, is_stale, is_stale_list
 from xviv.utils import error
+from xviv.utils.fs import assert_file_exists, is_stale, is_stale_list
 
 logger = logging.getLogger(__name__)
 
@@ -41,9 +41,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 		self._create_project(name=name, in_memory=True, part=fpga_cfg.fpga_part)
 
 		if self._cfg.ip_repo_list:
-			self._set_property_current_project(
-				"ip_repo_paths", _tcl_list(self._cfg.ip_repo_list)
-			)
+			self._set_property_current_project("ip_repo_paths", _tcl_list(self._cfg.ip_repo_list))
 
 		if fpga_cfg.board_part:
 			self._set_property_current_project("board_part", fpga_cfg.board_part)
@@ -72,9 +70,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 	def waveform_reload(self) -> typing.Self:
 		def __after_body(x: typing.Self):
-			x._set_exec(
-				"_wcfg", lambda m: m._get_property("FILE_PATH", "[current_wave_config]")
-			)
+			x._set_exec("_wcfg", lambda m: m._get_property("FILE_PATH", "[current_wave_config]"))
 			x._save_wave_config("[current_wave_config]")
 			# x._close_sim()
 			x._close_wave_config("[current_wave_config]")
@@ -85,9 +81,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 		return self
 
-	def waveform_setup(
-		self, wdb_file: str, wcfg_file: str, top_name: str, fifo_file: str
-	) -> typing.Self:
+	def waveform_setup(self, wdb_file: str, wcfg_file: str, top_name: str, fifo_file: str) -> typing.Self:
 		if os.path.exists(wcfg_file):
 			self.catch(lambda c: c._open_wave_config(wcfg_file))
 		else:
@@ -269,9 +263,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 		self._set_exec("hw", lambda _: _._hsi__open_hw_design(platform_cfg.xsa_file))
 
-		self._hsi__create_sw_design(
-			"bsp_design", proc=platform_cfg.cpu, os=platform_cfg.os
-		)
+		self._hsi__create_sw_design("bsp_design", proc=platform_cfg.cpu, os=platform_cfg.os)
 
 		for key, val in platform_cfg.properties:
 			self._hsi__set_property_hsi__get_os(key, val)
@@ -345,16 +337,12 @@ class ConfigTclCommands(ConfigTclBuilder):
 				of_objects=f"[get_ips {core_name}]",
 				filter='{USED_IN =~ "*simulation*"}',
 			),
-			body_func=lambda x: x._puts_exec(
-				lambda m: m._file_normalize("$f"), channel="$fd"
-			),
+			body_func=lambda x: x._puts_exec(lambda m: m._file_normalize("$f"), channel="$fd"),
 		)
 
 		self._close("$fd")
 
-	def create_bd(
-		self, bd_name: str, generate: bool = True, source_file: str | bool = True
-	) -> typing.Self:
+	def create_bd(self, bd_name: str, generate: bool = True, source_file: str | bool = True) -> typing.Self:
 		bd_cfg = self._cfg.get_bd(bd_name)
 		bd_subdir = os.path.join(self._cfg.bd_dir, bd_name)
 
@@ -383,9 +371,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 			self._proc("close_bd_design", "args")
 			self._source(save_file)
 
-			self._set_exec(
-				"_cr_bd_proc", lambda x: x._push("lindex [info procs cr_bd_*] 0")
-			)
+			self._set_exec("_cr_bd_proc", lambda x: x._push("lindex [info procs cr_bd_*] 0"))
 			self._call("$_cr_bd_proc", ['""'])
 
 			self._rename("create_bd_design", "{}")
@@ -422,9 +408,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 		self._open_bd_design(bd_cfg.bd_file)
 
 		self._override_save_bd_design(bd_cfg.save_file)
-		self._write_bd_tcl(
-			bd_cfg.save_file, force=True, no_project_wrapper=True, make_local=True
-		)
+		self._write_bd_tcl(bd_cfg.save_file, force=True, no_project_wrapper=True, make_local=True)
 
 		if not nogui:
 			self._start_gui()
@@ -541,9 +525,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 			x._set_exec(
 				"pparent",
-				lambda _: _._ipgui__get_pagespec(
-					name="Page 0", component=ipx_current_core
-				),
+				lambda _: _._ipgui__get_pagespec(name="Page 0", component=ipx_current_core),
 			)
 			x._set_exec(
 				"widget",
@@ -559,9 +541,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 		self._foreach(
 			"param",
-			iter_lambda=lambda x: x._ipx__get_user_parameters(
-				of_objects=ipx_current_core
-			),
+			iter_lambda=lambda x: x._ipx__get_user_parameters(of_objects=ipx_current_core),
 			body_func=__expose_params_body,
 		)
 
@@ -575,15 +555,11 @@ class ConfigTclCommands(ConfigTclBuilder):
 				x._ipx__add_memory_map_ipx__current_core("$ifc_name")
 				x._set_exec(
 					"ifc_memmap",
-					lambda m: m._ipx__get_memory_maps(
-						name="$ifc_name", of_objects=ipx_current_core
-					),
+					lambda m: m._ipx__get_memory_maps(name="$ifc_name", of_objects=ipx_current_core),
 				)
 				x._set_exec(
 					"ifc_addr_block",
-					lambda m: m._ipx__add_address_block(
-						"${ifc_name}_reg", "$ifc_memmap"
-					),
+					lambda m: m._ipx__add_address_block("${ifc_name}_reg", "$ifc_memmap"),
 				)
 
 				for i in ["OFFSET_HIGH_PARAM", "OFFSET_BASE_PARAM"]:
@@ -592,21 +568,15 @@ class ConfigTclCommands(ConfigTclBuilder):
 				x._set_property("usage", "register", "$ifc_addr_block")
 				x._set_exec(
 					"ifc_bus_ifs",
-					lambda m: m._ipx__get_bus_interfaces(
-						name="$ifc_name", of_objects=ipx_current_core
-					),
+					lambda m: m._ipx__get_bus_interfaces(name="$ifc_name", of_objects=ipx_current_core),
 				)
 				x._set_property("slave_memory_map_ref", "$ifc_name", "$ifc_bus_ifs")
 
-			x._if(
-				'$ifc_intf eq "slave" && [string match *axi_lite* $ifc_mode]', __if_body
-			)
+			x._if('$ifc_intf eq "slave" && [string match *axi_lite* $ifc_mode]', __if_body)
 
 		self._foreach(
 			"ifc",
-			iter_lambda=lambda x: x._ipx__get_bus_interfaces(
-				of_objects=ipx_current_core
-			),
+			iter_lambda=lambda x: x._ipx__get_bus_interfaces(of_objects=ipx_current_core),
 			body_func=__ip_wire_memory_maps_body,
 		)
 
@@ -664,9 +634,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 		self._create_core(core_name, dir=self._cfg.core_dir, vlnv=core_cfg.vlnv)
 		self._generate_target_get_files(core_cfg.xci_file, reset=False)
 
-		self._push(
-			f"puts [get_files -compile_order sources -used_in simulation -of_objects [get_ips {core_name}]]"
-		)
+		self._push(f"puts [get_files -compile_order sources -used_in simulation -of_objects [get_ips {core_name}]]")
 
 		return self
 
@@ -682,9 +650,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 			self._foreach(
 				"{key val}",
 				iter_lambda=lambda _: _._start_ip_gui(f"[get_ips {core_name}]"),
-				body_func=lambda _: _._set_property(
-					"CONFIG.$key", "[lindex $val 0]", f"[get_ips {core_name}]"
-				),
+				body_func=lambda _: _._set_property("CONFIG.$key", "[lindex $val 0]", f"[get_ips {core_name}]"),
 			)
 
 			self._generate_target_get_files(core_cfg.xci_file, reset=False)
@@ -711,9 +677,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 	def _incremental(self, stage: str, dcp_file: str | None):
 		if dcp_file:
 			if not os.path.exists(dcp_file):
-				logger.info(
-					f"dcp does not exist at: {dcp_file} -> skipping incremental {stage}"
-				)
+				logger.info(f"dcp does not exist at: {dcp_file} -> skipping incremental {stage}")
 			else:
 				self._read_checkpoint(dcp_file, incremental=True)
 
@@ -865,9 +829,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 					subcore_synth_cfg = self._cfg.get_synth(core_name=i.core)
 
 					if not os.path.exists(subcore_synth_cfg.synth_stub_file):
-						raise error.OocStubMissingError(
-							i.core, subcore_synth_cfg.synth_stub_file
-						)
+						raise error.OocStubMissingError(i.core, subcore_synth_cfg.synth_stub_file)
 
 					self._add_files(subcore_synth_cfg.synth_stub_file, norecurse=True)
 					self._set_property_get_files(
@@ -912,9 +874,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 				self._write_checkpoint(synth_cfg.synth_dcp_file, force=True)
 
 			if synth_cfg.synth_report_timing_summary_file:
-				self._report(
-					"timing_summary", file=synth_cfg.synth_report_timing_summary_file
-				)
+				self._report("timing_summary", file=synth_cfg.synth_report_timing_summary_file)
 			if synth_cfg.synth_report_utilization_file:
 				self._report(
 					"utilization",
@@ -928,9 +888,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 				)
 
 			if synth_cfg.synth_functional_netlist_file:
-				self._write_verilog(
-					synth_cfg.synth_functional_netlist_file, mode="funcsim", force=True
-				)
+				self._write_verilog(synth_cfg.synth_functional_netlist_file, mode="funcsim", force=True)
 			if synth_cfg.synth_timing_netlist_file:
 				self._write_verilog(
 					synth_cfg.synth_timing_netlist_file,
@@ -939,9 +897,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 					sdf_anno=True,
 				)
 			if synth_cfg.synth_stub_file:
-				self._write_verilog(
-					synth_cfg.synth_stub_file, mode="synth_stub", force=True
-				)
+				self._write_verilog(synth_cfg.synth_stub_file, mode="synth_stub", force=True)
 
 		# Load Impl Only Contraints
 		for i in synth_cfg.constraints:
@@ -1016,18 +972,12 @@ class ConfigTclCommands(ConfigTclBuilder):
 		if synth_cfg.route_report_route_status_file:
 			self._report("route_status", file=synth_cfg.route_report_route_status_file)
 		if synth_cfg.route_report_timing_summary_file:
-			self._report(
-				"timing_summary", file=synth_cfg.route_report_timing_summary_file
-			)
+			self._report("timing_summary", file=synth_cfg.route_report_timing_summary_file)
 		if synth_cfg.impl_report_incremental_reuse_file:
-			self._report(
-				"incremental_reuse", file=synth_cfg.impl_report_incremental_reuse_file
-			)
+			self._report("incremental_reuse", file=synth_cfg.impl_report_incremental_reuse_file)
 
 		if synth_cfg.impl_functional_netlist_file:
-			self._write_verilog(
-				synth_cfg.impl_functional_netlist_file, mode="funcsim", force=True
-			)
+			self._write_verilog(synth_cfg.impl_functional_netlist_file, mode="funcsim", force=True)
 		if synth_cfg.impl_timing_netlist_file:
 			self._write_verilog(
 				synth_cfg.impl_timing_netlist_file,
@@ -1043,9 +993,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 		# -------------------------------------------------------------------------
 
 		if synth_cfg.usr_access_value is not None:
-			self._set_property_current_design(
-				"BITSTREAM.CONFIG.USR_ACCESS", f"0x{synth_cfg.usr_access_value:08X}"
-			)
+			self._set_property_current_design("BITSTREAM.CONFIG.USR_ACCESS", f"0x{synth_cfg.usr_access_value:08X}")
 
 		if synth_cfg.bitstream_file:
 			logger.info(f"writing bitstream: {synth_cfg.bitstream_file}")
@@ -1053,8 +1001,6 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 		if synth_cfg.hw_platform_xsa_file:
 			logger.info(f"writing XSA: {synth_cfg.hw_platform_xsa_file}")
-			self._write_hw_platform(
-				synth_cfg.hw_platform_xsa_file, force=True, include_bit=True, fixed=True
-			)
+			self._write_hw_platform(synth_cfg.hw_platform_xsa_file, force=True, include_bit=True, fixed=True)
 
 		return self

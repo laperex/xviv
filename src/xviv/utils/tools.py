@@ -3,7 +3,6 @@ import shutil
 import subprocess
 import sys
 
-
 _HINT = """\
 ERROR: '{tool}' not found on PATH.
 Source the Vivado settings script to add it to PATH, e.g.:
@@ -15,6 +14,7 @@ Or let xviv source it automatically:
 
 _settings_sourced: set[str] = set()
 _sourced_env: dict[str, str] = {}
+
 
 def _source_settings(settings_path: str) -> None:
 	if settings_path in _settings_sourced:
@@ -30,17 +30,14 @@ def _source_settings(settings_path: str) -> None:
 	if result.returncode != 0 or not result.stdout:
 		sys.exit(f"ERROR: failed to source {settings_path!r}:\n{result.stderr}")
 
-	sourced_env = dict(
-		entry.partition("=")[::2]
-		for entry in result.stdout.split("\0")
-		if "=" in entry
-	)
+	sourced_env = dict(entry.partition("=")[::2] for entry in result.stdout.split("\0") if "=" in entry)
 
 	for k, v in sourced_env.items():
 		if os.environ.get(k) != v:
 			os.environ[k] = v
 
 	_settings_sourced.add(settings_path)
+
 
 def _load_dotenv(path: str = ".env") -> None:
 	"""Load KEY=VALUE pairs from a .env file into os.environ (no-op if absent)."""
@@ -56,6 +53,7 @@ def _load_dotenv(path: str = ".env") -> None:
 					os.environ[key] = val
 	except FileNotFoundError:
 		pass
+
 
 def _source_settings_from_env(tool: str) -> None:
 	if not shutil.which("bash"):
@@ -92,20 +90,25 @@ def find_vivado_dir_path() -> str:
 def find_vitis_dir_path() -> str:
 	return _find_tool_dir("xsct")
 
-def get_vitis_env() -> dict:
-    env = os.environ.copy()
-    extra_paths = [
-        f"{find_vitis_dir_path()}/gnu/microblaze/lin/bin",      # mb-gcc lives here
-        f"{find_vitis_dir_path()}/bin",
-        f"{find_vitis_dir_path()}/lib/lnx64.o",
-    ]
-    env["PATH"] = ":".join(extra_paths) + ":" + env.get("PATH", "")
 
-    return env
+def get_vitis_env() -> dict:
+	env = os.environ.copy()
+	extra_paths = [
+		f"{find_vitis_dir_path()}/gnu/microblaze/lin/bin",  # mb-gcc lives here
+		f"{find_vitis_dir_path()}/bin",
+		f"{find_vitis_dir_path()}/lib/lnx64.o",
+	]
+	env["PATH"] = ":".join(extra_paths) + ":" + env.get("PATH", "")
+
+	return env
 
 
 def mb_tool(tool: str) -> str:
-    return os.path.join(
-        find_vitis_dir_path(), "gnu", "microblaze", "lin", "bin",
-        f"microblaze-xilinx-elf-{tool}",
-    )
+	return os.path.join(
+		find_vitis_dir_path(),
+		"gnu",
+		"microblaze",
+		"lin",
+		"bin",
+		f"microblaze-xilinx-elf-{tool}",
+	)

@@ -1,17 +1,17 @@
-"""Tests for every error raised in ConfigTclCommands (commands.py)."""
 from __future__ import annotations
 
-import pytest
 from unittest.mock import MagicMock, patch
 
-from xviv.generator.tcl.commands import ConfigTclCommands
-from xviv.config.project import XvivConfig
-from xviv.utils import error
+import pytest
 
+from xviv.config.project import XvivConfig
+from xviv.generator.tcl.commands import ConfigTclCommands
+from xviv.utils import error
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def cfg(tmp_path):
@@ -44,6 +44,7 @@ def _prime_project(cmd, cfg, vivado_mock):
 # _require_project
 # ---------------------------------------------------------------------------
 
+
 class TestRequireProject:
 	def test_already_exists(self, cmd, cfg, vivado_mock):
 		_prime_project(cmd, cfg, vivado_mock)
@@ -59,6 +60,7 @@ class TestRequireProject:
 # _processor_status
 # ---------------------------------------------------------------------------
 
+
 class TestProcessorStatus:
 	def test_filter_unspecified(self, cmd):
 		with pytest.raises(error.ProcessorTargetFilterUnspecifiedError):
@@ -68,6 +70,7 @@ class TestProcessorStatus:
 # ---------------------------------------------------------------------------
 # program
 # ---------------------------------------------------------------------------
+
 
 class TestProgram:
 	def test_fpga_filter_unspecified(self, cmd):
@@ -105,14 +108,17 @@ class TestProgram:
 # processor_cntrl
 # ---------------------------------------------------------------------------
 
+
 class TestProcessorCntrl:
 	def test_filter_unspecified(self, cmd):
 		with pytest.raises(error.ProcessorTargetFilterUnspecifiedError):
 			cmd.processor_cntrl(reset=True, status=False)
 
+
 # ---------------------------------------------------------------------------
 # create_core
 # ---------------------------------------------------------------------------
+
 
 class TestCreateCore:
 	def test_vlnv_not_in_catalog(self, cfg, cmd):
@@ -128,6 +134,7 @@ class TestCreateCore:
 # ---------------------------------------------------------------------------
 # synth - validation (all raised before _require_project)
 # ---------------------------------------------------------------------------
+
 
 class TestSynthValidation:
 	def test_no_identifier(self, cmd):
@@ -161,6 +168,7 @@ class TestSynthValidation:
 # synth - resume DCP missing (resume branches run before _require_project)
 # ---------------------------------------------------------------------------
 
+
 class TestSynthResumeDcp:
 	@pytest.fixture(autouse=True)
 	def _setup(self, cfg):
@@ -187,6 +195,7 @@ class TestSynthResumeDcp:
 # synth - OOC stub missing (runs after _require_project; mock vivado)
 # ---------------------------------------------------------------------------
 
+
 class TestSynthOocStub:
 	def test_stub_missing(self, cfg, vivado_mock):
 		cfg.add_design_cfg("my_design", sources=[])
@@ -200,9 +209,12 @@ class TestSynthOocStub:
 		cfg.add_subcore_cfg(core="sub_core", inst_hier_path="/top/u_sub", design="my_design")
 		cfg.add_synth_cfg(
 			core="sub_core",
-			run_place=False, place_dcp=False,
-			run_route=False, route_dcp=False,
-			run_phys_opt=False, run_opt=False,
+			run_place=False,
+			place_dcp=False,
+			run_route=False,
+			route_dcp=False,
+			run_phys_opt=False,
+			run_opt=False,
 		)
 
 		cmd = ConfigTclCommands(cfg)

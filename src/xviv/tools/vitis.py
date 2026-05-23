@@ -11,12 +11,10 @@ logger = logging.getLogger(__name__)
 def run_xsct(cfg: XvivConfig, config_tcl: str, args: list[str] = []) -> None:
 	config_tcl_path = None
 
-	with tempfile.NamedTemporaryFile(
-		mode="w", suffix="_xsct_config.tcl", delete=False, prefix="xviv_"
-	) as tmp:
+	with tempfile.NamedTemporaryFile(mode="w", suffix="_xsct_config.tcl", delete=False, prefix="xviv_") as tmp:
 		tmp.write(config_tcl)
 		config_tcl_path = tmp.name
-	
+
 	if config_tcl_path is None:
 		#! ConfigPathInvalid
 		raise RuntimeError("ERROR: config_tcl_path is invalid (None)")
@@ -39,9 +37,11 @@ def run_xsct_live(cfg: XvivConfig, tcl_script: str, args: list[str]) -> None:
 	except KeyboardInterrupt:
 		logger.info("jtag-monitor stopped by user")
 
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _xsct_bin(cfg: XvivConfig) -> str:
 	return os.path.join(cfg.get_vitis().path, "bin", "xsct")

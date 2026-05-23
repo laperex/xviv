@@ -6,26 +6,21 @@ import subprocess
 from xviv.config.project import XvivConfig
 from xviv.functions.bd import ConfigTclCommands
 from xviv.tools.vitis import run_xsct
-from xviv.utils.tools import mb_tool, get_vitis_env
-
+from xviv.utils.tools import get_vitis_env, mb_tool
 
 logger = logging.getLogger(__name__)
+
 
 # -----------------------------------------------------------------------------
 # create --platform <platform_name>
 # -----------------------------------------------------------------------------
-def cmd_platform_create(cfg: XvivConfig, *,
-	platform_name: str
-):
+def cmd_platform_create(cfg: XvivConfig, *, platform_name: str):
 	cfg.validate_platform(platform_name=platform_name)
 
-	config = (
-		ConfigTclCommands(cfg)
-		.create_platform(platform_name)
-		.build()
-	)
+	config = ConfigTclCommands(cfg).create_platform(platform_name).build()
 
 	run_xsct(cfg, config_tcl=config)
+
 
 # -----------------------------------------------------------------------------
 # build --platform <platform_name>
@@ -37,8 +32,7 @@ def cmd_platform_build(cfg: XvivConfig, platform_name: str):
 	if not os.path.isdir(platform_cfg.dir):
 		#! BspDirectoryNotFound
 		raise RuntimeError(
-			f"ERROR: BSP directory not found: {platform_cfg.dir}\n"
-			f"  Run: xviv create --platform {platform_name}"
+			f"ERROR: BSP directory not found: {platform_cfg.dir}\n  Run: xviv create --platform {platform_name}"
 		)
 
 	logger.info("Platform Build: %s", platform_cfg.dir)
@@ -46,19 +40,17 @@ def cmd_platform_build(cfg: XvivConfig, platform_name: str):
 	if cfg.get_vivado().dry_run:
 		return
 
-	subprocess.run(
-		["make", f"-j{os.cpu_count() or 4}"],
-		check=True,
-		cwd=platform_cfg.dir,
-		env=get_vitis_env()
-	)
+	subprocess.run(["make", f"-j{os.cpu_count() or 4}"], check=True, cwd=platform_cfg.dir, env=get_vitis_env())
 
 	logger.info("Platform build complete")
+
 
 # -----------------------------------------------------------------------------
 # create --app <app_name> [--platform <platform_name>] [--template <template>]
 # -----------------------------------------------------------------------------
-def cmd_app_create(cfg: XvivConfig, *,
+def cmd_app_create(
+	cfg: XvivConfig,
+	*,
 	app_name: str,
 	platform_name: str | None,
 	template: str | None = None,
@@ -80,11 +72,7 @@ def cmd_app_create(cfg: XvivConfig, *,
 		logger.info("BSP not found - creating platform '%s' first", app_cfg.platform)
 		cmd_platform_create(cfg, platform_name=app_cfg.platform)
 
-	config = (
-		ConfigTclCommands(cfg)
-		.create_app(app_name)
-		.build()
-	)
+	config = ConfigTclCommands(cfg).create_app(app_name).build()
 
 	run_xsct(cfg, config_tcl=config)
 
@@ -105,9 +93,10 @@ def cmd_app_build(cfg: XvivConfig, app_name: str, info: bool | None):
 
 	bsp_include = os.path.join(platform_cfg.dir, platform_cfg.cpu, "include")
 	bsp_lib = os.path.join(platform_cfg.dir, platform_cfg.cpu, "lib")
-	
+
 	cmd = [
-		"make", f"-j{os.cpu_count() or 4}",
+		"make",
+		f"-j{os.cpu_count() or 4}",
 		f"INCLUDEPATH=-I{bsp_include} -I{platform_cfg.dir}",
 		f"c_SOURCES={' '.join([i.file for i in app_cfg.sources])}",
 		f"LIBPATH=-L{bsp_lib}",
@@ -128,7 +117,7 @@ def cmd_app_build(cfg: XvivConfig, app_name: str, info: bool | None):
 
 	if not os.path.exists(app_cfg.elf_file):
 		#! ElfNotCreated
-		raise RuntimeError(f'ERROR: elf file not created for app: {app_name} at {app_cfg.elf_file} in {app_cfg.dir}')
+		raise RuntimeError(f"ERROR: elf file not created for app: {app_name} at {app_cfg.elf_file} in {app_cfg.dir}")
 
 	if info:
 		logger.info("ELF: %s", app_cfg.elf_file)
@@ -141,7 +130,9 @@ def cmd_app_build(cfg: XvivConfig, app_name: str, info: bool | None):
 # -----------------------------------------------------------------------------
 # program [--app | --platform | --elf | --bitstream]
 # -----------------------------------------------------------------------------
-def cmd_program(cfg: XvivConfig, *,
+def cmd_program(
+	cfg: XvivConfig,
+	*,
 	bitstream_file: str | None = None,
 	elf_file: str | None = None,
 	app_name: str | None = None,
@@ -194,41 +185,24 @@ def cmd_program(cfg: XvivConfig, *,
 # -----------------------------------------------------------------------------
 # processor --reset | --status
 # -----------------------------------------------------------------------------
-def cmd_processor(cfg: XvivConfig, *,
-	reset: bool | None,
-	status: bool | None
-):
-	config = (
-		ConfigTclCommands(cfg)
-		.processor_cntrl(reset=reset, status=status)
-		.build()
-	)
+def cmd_processor(cfg: XvivConfig, *, reset: bool | None, status: bool | None):
+	config = ConfigTclCommands(cfg).processor_cntrl(reset=reset, status=status).build()
 
 	run_xsct(cfg, config_tcl=config)
+
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _transform_app_makefile(path: str):
-    content = open(path, "rt").read()
+	content = open(path, "rt").read()
 
-    content = re.sub(
-        r'(patsubst\s+%\.\w+,\s*)(?!build/)%.o',
-        r'\1build/%.o',
-        content
-    )
+	content = re.sub(r"(patsubst\s+%\.\w+,\s*)(?!build/)%.o", r"\1build/%.o", content)
 
-    content = re.sub(
-        r'(?<!build/)%.o(:%\.[cSs])',
-        r'build/%.o\1',
-        content
-    )
+	content = re.sub(r"(?<!build/)%.o(:%\.[cSs])", r"build/%.o\1", content)
 
-    content = re.sub(
-        r'(build/%.o:%\.[cSs]\n)(?!\t@mkdir)',
-        r'\1\t@mkdir -p $(dir $@)\n',
-        content
-    )
+	content = re.sub(r"(build/%.o:%\.[cSs]\n)(?!\t@mkdir)", r"\1\t@mkdir -p $(dir $@)\n", content)
 
-    open(path, 'wt').write(content)
+	open(path, "wt").write(content)

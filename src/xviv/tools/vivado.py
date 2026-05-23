@@ -4,7 +4,6 @@ import os
 import subprocess
 import sys
 import tempfile
-import typing
 from pathlib import Path
 
 from xviv.config.project import XvivConfig
@@ -12,44 +11,55 @@ from xviv.config.project import XvivConfig
 logger = logging.getLogger(__name__)
 
 
-def run_vivado_xvlog(cfg: XvivConfig, target_dir: str, fileset: list[str], xsim_lib: str, *,
+def run_vivado_xvlog(
+	cfg: XvivConfig,
+	target_dir: str,
+	fileset: list[str],
+	xsim_lib: str,
+	*,
 	lib: list[str] | None = None,
 	defines: list[str] = [],
 	include_dirs: list[str] = [],
 ) -> None:
-	xvlog_bin  = os.path.join(cfg.get_vivado().path, "bin", "xvlog")
+	xvlog_bin = os.path.join(cfg.get_vivado().path, "bin", "xvlog")
 	extra_files = [os.path.join(cfg.get_vivado().path, "data/verilog/src/glbl.v")]
- 
-	define_flags  = [f"-d {d}" for d in defines]
+
+	define_flags = [f"-d {d}" for d in defines]
 	include_flags = [f"-i {i}" for i in include_dirs]
- 
+
 	cmd = [
-		xvlog_bin, "-sv", "-incr",
-		"-work", xsim_lib,
+		xvlog_bin,
+		"-sv",
+		"-incr",
+		"-work",
+		xsim_lib,
 		*define_flags,
 		*include_flags,
 		*fileset,
 		*extra_files,
 	]
-	
-	for x in (lib or []):
-		cmd += ['--lib', x]
+
+	for x in lib or []:
+		cmd += ["--lib", x]
 
 	logger.info("Running: %s", " ".join(cmd))
 	os.makedirs(target_dir, exist_ok=True)
- 
+
 	if cfg.get_vivado().dry_run:
 		return
- 
+
 	try:
 		subprocess.run(cmd, check=True, cwd=target_dir)
 	except subprocess.CalledProcessError as e:
 		sys.exit(e.returncode)
- 
 
 
-def run_vivado_xelab(cfg: XvivConfig, target_dir: str, units: list[str], *,
-	debug: str = 'off',
+def run_vivado_xelab(
+	cfg: XvivConfig,
+	target_dir: str,
+	units: list[str],
+	*,
+	debug: str = "off",
 	incr: bool = False,
 	run: bool = False,
 	runall: bool = False,
@@ -128,165 +138,165 @@ def run_vivado_xelab(cfg: XvivConfig, target_dir: str, units: list[str], *,
 ) -> None:
 	params: list[str] = []
 
-	params += ['--debug', debug]
+	params += ["--debug", debug]
 
 	if standalone:
-		params += ['--standalone']
+		params += ["--standalone"]
 	if run:
-		params += ['--run']
+		params += ["--run"]
 	if runall:
-		params += ['--runall']
+		params += ["--runall"]
 	if incr:
-		params += ['--incr']
+		params += ["--incr"]
 	if relax:
-		params += ['--relax']
+		params += ["--relax"]
 	if nolog:
-		params += ['--nolog']
+		params += ["--nolog"]
 	if stats:
-		params += ['--stats']
+		params += ["--stats"]
 	if override_timeunit:
-		params += ['--override_timeunit']
+		params += ["--override_timeunit"]
 	if override_timeprecision:
-		params += ['--override_timeprecision']
+		params += ["--override_timeprecision"]
 	if noname_unnamed_generate:
-		params += ['--noname_unnamed_generate']
+		params += ["--noname_unnamed_generate"]
 	if rangecheck:
-		params += ['--rangecheck']
+		params += ["--rangecheck"]
 	if transform_timing_checkers:
-		params += ['--transform_timing_checkers']
+		params += ["--transform_timing_checkers"]
 	if suppress_localparam_override_error:
-		params += ['--suppress_localparam_override_error']
+		params += ["--suppress_localparam_override_error"]
 	if ignore_assertions:
-		params += ['--ignore_assertions']
+		params += ["--ignore_assertions"]
 	if report_assertion_pass:
-		params += ['--report_assertion_pass']
+		params += ["--report_assertion_pass"]
 	if ignore_coverage:
-		params += ['--ignore_coverage']
+		params += ["--ignore_coverage"]
 	if nosdfinterconnectdelays:
-		params += ['--nosdfinterconnectdelays']
+		params += ["--nosdfinterconnectdelays"]
 	if nospecify:
-		params += ['--nospecify']
+		params += ["--nospecify"]
 	if notimingchecks:
-		params += ['--notimingchecks']
+		params += ["--notimingchecks"]
 	if mindelay:
-		params += ['--mindelay']
+		params += ["--mindelay"]
 	if maxdelay:
-		params += ['--maxdelay']
+		params += ["--maxdelay"]
 	if typdelay:
-		params += ['--typdelay']
+		params += ["--typdelay"]
 	if transport_int_delays:
-		params += ['--transport_int_delays']
+		params += ["--transport_int_delays"]
 	if sdfnoerror:
-		params += ['--sdfnoerror']
+		params += ["--sdfnoerror"]
 	if sdfnowarn:
-		params += ['--sdfnowarn']
+		params += ["--sdfnowarn"]
 	if dup_entity_as_module:
-		params += ['--dup_entity_as_module']
+		params += ["--dup_entity_as_module"]
 	if dpi_absolute:
-		params += ['--dpi_absolute']
+		params += ["--dpi_absolute"]
 	if cc_celldefines:
-		params += ['--cc_celldefines']
+		params += ["--cc_celldefines"]
 	if cc_libs:
-		params += ['--cc_libs']
+		params += ["--cc_libs"]
 	if O0:
-		params += ['--O0']
+		params += ["--O0"]
 
 	if file:
-		params += ['--file', file]
+		params += ["--file", file]
 	if log:
-		params += ['--log', log]
+		params += ["--log", log]
 	if prj:
-		params += ['--prj', prj]
+		params += ["--prj", prj]
 	if initfile:
-		params += ['--initfile', initfile]
+		params += ["--initfile", initfile]
 	if ccExclusionFile:
-		params += ['--ccExclusionFile', ccExclusionFile]
+		params += ["--ccExclusionFile", ccExclusionFile]
 	if uvm_version:
-		params += ['--uvm_version', uvm_version]
+		params += ["--uvm_version", uvm_version]
 	if timescale:
-		params += ['--timescale', timescale]
+		params += ["--timescale", timescale]
 	if timeprecision_vhdl:
-		params += ['--timeprecision_vhdl', timeprecision_vhdl]
+		params += ["--timeprecision_vhdl", timeprecision_vhdl]
 	if snapshot:
-		params += ['--snapshot', snapshot]
+		params += ["--snapshot", snapshot]
 	if mt:
-		params += ['--mt', str(mt)]
+		params += ["--mt", str(mt)]
 	if pulse_e_style:
-		params += ['--pulse_e_style', pulse_e_style]
+		params += ["--pulse_e_style", pulse_e_style]
 	if sdfmax:
-		params += ['--sdfmax', sdfmax]
+		params += ["--sdfmax", sdfmax]
 	if sdfmin:
-		params += ['--sdfmin', sdfmin]
+		params += ["--sdfmin", sdfmin]
 	if sdftyp:
-		params += ['--sdftyp', sdftyp]
+		params += ["--sdftyp", sdftyp]
 	if sdfroot:
-		params += ['--sdfroot', sdfroot]
+		params += ["--sdfroot", sdfroot]
 	if dpiheader:
-		params += ['--dpiheader', dpiheader]
+		params += ["--dpiheader", dpiheader]
 	if dpi_stacksize:
-		params += ['--dpi_stacksize', dpi_stacksize]
+		params += ["--dpi_stacksize", dpi_stacksize]
 	if sc_lib:
-		params += ['--sc_lib', sc_lib]
+		params += ["--sc_lib", sc_lib]
 	if sv_lib:
-		params += ['--sv_lib', sv_lib]
+		params += ["--sv_lib", sv_lib]
 	if sv_liblist:
-		params += ['--sv_liblist', sv_liblist]
+		params += ["--sv_liblist", sv_liblist]
 	if sc_root:
-		params += ['--sc_root', sc_root]
+		params += ["--sc_root", sc_root]
 	if sv_root:
-		params += ['--sv_root', sv_root]
+		params += ["--sv_root", sv_root]
 	if cov_db_dir:
-		params += ['--cov_db_dir', cov_db_dir]
+		params += ["--cov_db_dir", cov_db_dir]
 	if cov_db_name:
-		params += ['--cov_db_name', cov_db_name]
+		params += ["--cov_db_name", cov_db_name]
 	if cc_type:
-		params += ['--cc_type', cc_type]
+		params += ["--cc_type", cc_type]
 
 	if verbose is not None:
-		params += ['--verbose', str(verbose)]
+		params += ["--verbose", str(verbose)]
 	if maxarraysize is not None:
-		params += ['--maxarraysize', str(maxarraysize)]
+		params += ["--maxarraysize", str(maxarraysize)]
 	if maxdesigndepth is not None:
-		params += ['--maxdesigndepth', str(maxdesigndepth)]
+		params += ["--maxdesigndepth", str(maxdesigndepth)]
 	if driver_display_limit is not None:
-		params += ['--driver_display_limit', str(driver_display_limit)]
+		params += ["--driver_display_limit", str(driver_display_limit)]
 	if pulse_int_e is not None:
-		params += ['--pulse_int_e', str(pulse_int_e)]
+		params += ["--pulse_int_e", str(pulse_int_e)]
 	if pulse_int_r is not None:
-		params += ['--pulse_int_r', str(pulse_int_r)]
+		params += ["--pulse_int_r", str(pulse_int_r)]
 	if pulse_e is not None:
-		params += ['--pulse_e', str(pulse_e)]
+		params += ["--pulse_e", str(pulse_e)]
 	if pulse_r is not None:
-		params += ['--pulse_r', str(pulse_r)]
+		params += ["--pulse_r", str(pulse_r)]
 
-	for x in (lib or []):
-		params += ['--lib', x]
-	for x in (define or []):
-		params += ['--define', x]
-	for x in (svlog or []):
-		params += ['--svlog', x]
-	for x in (vlog or []):
-		params += ['--vlog', x]
-	for x in (vhdl or []):
-		params += ['--vhdl', x]
-	for x in (vhdl2008 or []):
-		params += ['--vhdl2008', x]
-	for x in (vhdl2019 or []):
-		params += ['--vhdl2019', x]
-	for x in (include or []):
-		params += ['--include', x]
-	for x in (generic_top or []):
-		params += ['--generic_top', x]
-	for x in (sourcelibdir or []):
-		params += ['--sourcelibdir', x]
-	for x in (sourcelibext or []):
-		params += ['--sourcelibext', x]
-	for x in (sourcelibfile or []):
-		params += ['--sourcelibfile', x]
+	for x in lib or []:
+		params += ["--lib", x]
+	for x in define or []:
+		params += ["--define", x]
+	for x in svlog or []:
+		params += ["--svlog", x]
+	for x in vlog or []:
+		params += ["--vlog", x]
+	for x in vhdl or []:
+		params += ["--vhdl", x]
+	for x in vhdl2008 or []:
+		params += ["--vhdl2008", x]
+	for x in vhdl2019 or []:
+		params += ["--vhdl2019", x]
+	for x in include or []:
+		params += ["--include", x]
+	for x in generic_top or []:
+		params += ["--generic_top", x]
+	for x in sourcelibdir or []:
+		params += ["--sourcelibdir", x]
+	for x in sourcelibext or []:
+		params += ["--sourcelibext", x]
+	for x in sourcelibfile or []:
+		params += ["--sourcelibfile", x]
 
-	cmd = [os.path.join(cfg.get_vivado().path, 'bin', 'xelab'), *units, *params]
+	cmd = [os.path.join(cfg.get_vivado().path, "bin", "xelab"), *units, *params]
 
-	logger.info("Running: %s", ' '.join(cmd))
+	logger.info("Running: %s", " ".join(cmd))
 
 	if cfg.get_vivado().dry_run:
 		return
@@ -299,10 +309,11 @@ def run_vivado_xelab(cfg: XvivConfig, target_dir: str, units: list[str], *,
 		sys.exit(e.returncode)
 
 
-def run_vivado_xsim(cfg: XvivConfig, *,
+def run_vivado_xsim(
+	cfg: XvivConfig,
+	*,
 	target_dir: str,
 	config_tcl: str | None,
-
 	top: str | None = None,
 	wdb_file: str | None = None,
 	stats: bool = True,
@@ -318,26 +329,30 @@ def run_vivado_xsim(cfg: XvivConfig, *,
 
 	pid = None
 
-	with tempfile.NamedTemporaryFile(
-		mode="w", suffix="_sim_config.tcl", delete=False, prefix="xviv_"
-	) as tmp:
+	with tempfile.NamedTemporaryFile(mode="w", suffix="_sim_config.tcl", delete=False, prefix="xviv_") as tmp:
 		tmp.write(config_tcl)
 		config_tcl_path = tmp.name
 
-	cmd = list(filter(None, [
-		xsim_bin,
-		"--stats" if stats else None,
-		top if top else None,
-		wdb_file if wdb_file else None,
-		"-t", config_tcl_path,
-		"-g" if not nogui else None,
-	]))
+	cmd = list(
+		filter(
+			None,
+			[
+				xsim_bin,
+				"--stats" if stats else None,
+				top if top else None,
+				wdb_file if wdb_file else None,
+				"-t",
+				config_tcl_path,
+				"-g" if not nogui else None,
+			],
+		)
+	)
 
-	for x in (testplusarg or []):
-		cmd += ['--testplusarg', x]
+	for x in testplusarg or []:
+		cmd += ["--testplusarg", x]
 
 	if runall:
-		cmd += ['--runall']
+		cmd += ["--runall"]
 
 	logger.info("Running: %s", " ".join(cmd))
 	os.makedirs(target_dir, exist_ok=True)
@@ -358,7 +373,9 @@ def run_vivado_xsim(cfg: XvivConfig, *,
 	return pid
 
 
-def run_vivado(cfg: XvivConfig, *,
+def run_vivado(
+	cfg: XvivConfig,
+	*,
 	config_tcl: str | None,
 	extra_args: list[str] | None = None,
 	label: str | None = None,
@@ -388,9 +405,14 @@ def run_vivado(cfg: XvivConfig, *,
 
 		cmd = [
 			vivado_bin,
-			"-mode", cfg.get_vivado().mode,
-			"-nolog", "-nojournal", "-notrace", "-quiet",
-			"-source", config_tcl_path,
+			"-mode",
+			cfg.get_vivado().mode,
+			"-nolog",
+			"-nojournal",
+			"-notrace",
+			"-quiet",
+			"-source",
+			config_tcl_path,
 			*(extra_args or []),
 		]
 		job_log.info("Running: %s", " ".join(cmd))

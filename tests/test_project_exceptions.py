@@ -1,15 +1,14 @@
 from __future__ import annotations
 
-import os
 import pytest
 
 from xviv.config.project import XvivConfig
 from xviv.utils import error
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def cfg(tmp_path) -> XvivConfig:
@@ -45,6 +44,7 @@ def cfg_full(cfg_with_vivado, tmp_path) -> XvivConfig:
 # Uninitialized
 # ---------------------------------------------------------------------------
 
+
 class TestUninitialized:
 	def test_vivado(self, cfg):
 		with pytest.raises(error.UninitializedVivadoError):
@@ -62,6 +62,7 @@ class TestUninitialized:
 # ---------------------------------------------------------------------------
 # InvalidPathError  (build())
 # ---------------------------------------------------------------------------
+
 
 class TestBuildInvalidPath:
 	def test_bad_vivado_path(self, tmp_path):
@@ -90,6 +91,7 @@ class TestBuildInvalidPath:
 # ---------------------------------------------------------------------------
 # FPGA
 # ---------------------------------------------------------------------------
+
 
 class TestFpga:
 	def test_no_fpga(self, cfg):
@@ -124,6 +126,7 @@ class TestFpga:
 # VivadoConfig / VitisConfig
 # ---------------------------------------------------------------------------
 
+
 class TestVivadoVitis:
 	def test_vivado_already_specified(self, cfg_with_vivado, tmp_path):
 		with pytest.raises(error.VivadoAlreadySpecifiedError):
@@ -137,6 +140,7 @@ class TestVivadoVitis:
 # ---------------------------------------------------------------------------
 # IP
 # ---------------------------------------------------------------------------
+
 
 class TestIp:
 	def test_already_exists(self, cfg_with_fpga, tmp_path):
@@ -164,6 +168,7 @@ class TestIp:
 # ---------------------------------------------------------------------------
 # Wrapper
 # ---------------------------------------------------------------------------
+
 
 class TestWrapper:
 	def _add_ip(self, cfg, tmp_path):
@@ -204,6 +209,7 @@ class TestWrapper:
 # BD
 # ---------------------------------------------------------------------------
 
+
 class TestBd:
 	def test_already_exists(self, cfg_with_fpga):
 		cfg_with_fpga.add_bd_cfg("my_bd")
@@ -218,6 +224,7 @@ class TestBd:
 # ---------------------------------------------------------------------------
 # Core
 # ---------------------------------------------------------------------------
+
 
 class TestCore:
 	def test_already_exists(self, cfg_with_fpga):
@@ -245,6 +252,7 @@ class TestCore:
 # Design
 # ---------------------------------------------------------------------------
 
+
 class TestDesign:
 	def test_already_exists(self, cfg_with_fpga):
 		cfg_with_fpga.add_design_cfg("my_design", sources=[])
@@ -264,6 +272,7 @@ class TestDesign:
 # ---------------------------------------------------------------------------
 # Synth
 # ---------------------------------------------------------------------------
+
 
 class TestSynth:
 	def test_already_exists(self, cfg_with_fpga):
@@ -297,6 +306,7 @@ class TestSynth:
 # Simulation
 # ---------------------------------------------------------------------------
 
+
 class TestSim:
 	def test_already_exists(self, cfg_with_fpga):
 		cfg_with_fpga.add_sim_cfg("my_sim", sources=[])
@@ -316,6 +326,7 @@ class TestSim:
 # UVM
 # ---------------------------------------------------------------------------
 
+
 class TestUvm:
 	def test_does_not_exist(self, cfg_with_fpga):
 		with pytest.raises(error.UvmDoesNotExistError):
@@ -330,6 +341,7 @@ class TestUvm:
 # ---------------------------------------------------------------------------
 # Platform
 # ---------------------------------------------------------------------------
+
 
 class TestPlatform:
 	def test_already_exists(self, cfg_with_fpga):
@@ -367,6 +379,7 @@ class TestPlatform:
 # ---------------------------------------------------------------------------
 # App
 # ---------------------------------------------------------------------------
+
 
 class TestApp:
 	def test_already_exists(self, cfg_with_fpga):
@@ -406,6 +419,7 @@ class TestApp:
 # SubCore
 # ---------------------------------------------------------------------------
 
+
 class TestSubCore:
 	def test_identifier_unspecified(self, cfg_with_fpga):
 		cfg_with_fpga.add_core_cfg("core_a", vlnv="a:b:c:1.0")
@@ -417,10 +431,7 @@ class TestSubCore:
 		cfg_with_fpga.add_bd_cfg("my_bd")
 		cfg_with_fpga.add_design_cfg("my_design", sources=[])
 		with pytest.raises(error.SubCoreIdentifierMultipleError):
-			cfg_with_fpga.add_subcore_cfg(
-				core="core_a", inst_hier_path="/top/inst",
-				bd="my_bd", design="my_design"
-			)
+			cfg_with_fpga.add_subcore_cfg(core="core_a", inst_hier_path="/top/inst", bd="my_bd", design="my_design")
 
 	def test_bd_already_exists(self, cfg_with_fpga):
 		cfg_with_fpga.add_core_cfg("core_a", vlnv="a:b:c:1.0")
@@ -449,6 +460,7 @@ class TestSubCore:
 # Formal
 # ---------------------------------------------------------------------------
 
+
 class TestFormal:
 	def test_already_exists(self, cfg_with_fpga, tmp_path):
 		src = tmp_path / "top.sv"
@@ -462,9 +474,7 @@ class TestFormal:
 			cfg_with_fpga.get_formal("missing")
 
 	def test_source_missing(self, cfg_with_fpga):
-		cfg_with_fpga.add_formal_cfg(
-			"my_formal", top="top", mode="bmc", sources=["/nonexistent/top.sv"]
-		)
+		cfg_with_fpga.add_formal_cfg("my_formal", top="top", mode="bmc", sources=["/nonexistent/top.sv"])
 		with pytest.raises(error.FormalSourceMissingError):
 			cfg_with_fpga.validate_formal("my_formal")
 
@@ -478,6 +488,7 @@ class TestFormal:
 # ---------------------------------------------------------------------------
 # _resolve_sources - SourceSpec errors
 # ---------------------------------------------------------------------------
+
 
 class TestResolveSourcesSpec:
 	def test_missing_used_in(self, cfg_with_fpga):
