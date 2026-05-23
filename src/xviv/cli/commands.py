@@ -260,6 +260,7 @@ class SimulateCommand(Command):
 		c = cls.c
 
 		target_group(c, exclusive=True, required=True, sim_target=True)
+		target_group(c, exclusive=True, required=False, uvm_test=True)
 		c.add_argument("--mode",
 			metavar="MODE",
 			choices=[
@@ -279,7 +280,7 @@ class SimulateCommand(Command):
 	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
 		super().run(cfg, args)
 
-		cmd_simulate(cfg, sim_name=args.target, run=args.run, mode=args.mode)
+		cmd_simulate(cfg, sim_name=args.target, uvm_name=args.uvm, run=args.run, mode=args.mode)
 
 
 class SynthCommand(Command):

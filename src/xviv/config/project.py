@@ -18,6 +18,7 @@ from xviv.config.model import (
 	SourceFile,
 	SubCoreConfig,
 	SynthConfig,
+	UvmConfig,
 	VitisConfig,
 	VivadoConfig,
 )
@@ -69,6 +70,7 @@ class XvivConfig:
 		self._platform_list: list[PlatformConfig] = []
 		self._app_list: list[AppConfig] = []
 		self._formal_list: list[FormalConfig] = []
+		self._uvm_list: list[UvmConfig] = []
 
 		self._vivado_cfg: VivadoConfig | None = None
 		self._vitis_cfg: VitisConfig | None = None
@@ -699,6 +701,47 @@ class XvivConfig:
 
 		return self
 
+	def add_uvm_cfg(self, test: str, simulation: str, *,
+		top: str | None = None,
+		timescale: str | None = None,
+		verbosity: str | None = None,
+		version: str | None = None,
+		max_quit_count: str | None = None,
+	) -> typing.Self:
+		sim_cfg = self.get_sim(simulation)
+
+		if sim_cfg.backend == 'verilator' and sim_cfg.uvm_pkg_dir is None:
+			raise error.UvmPkgDirRequiredError(sim_cfg.name)
+
+		if top is None:
+			top = sim_cfg.top
+
+		if timescale is None:
+			timescale = sim_cfg.timescale
+
+		if verbosity is None:
+			verbosity = sim_cfg.uvm_verbosity
+		
+		if version is None:
+			version = sim_cfg.uvm_version
+
+		if max_quit_count is None:
+			max_quit_count = sim_cfg.uvm_max_quit_count
+
+		self._uvm_list.append(
+			UvmConfig(
+				top=top,
+				timescale=timescale,
+				simulation=simulation,
+				test=test,
+				verbosity=verbosity,
+				version=version,
+				max_quit_count=max_quit_count
+			)
+		)
+
+		return self
+
 	def add_sim_cfg(self, name: str, *,
 		sources: list[typing.Any],
 		top: str | None = None,
@@ -711,7 +754,8 @@ class XvivConfig:
 		design: str | None = None,
  
 		# -- UVM ---------------------------------------------------------- #
-		uvm: bool = False,
+		# uvm: bool = False,
+		uvm: list[typing.Any] = [],
 		uvm_version: str = '1.2',
 		uvm_test: str | None = None,
 		uvm_verbosity: str = 'UVM_MEDIUM',
@@ -740,9 +784,6 @@ class XvivConfig:
 		if backend not in ('xsim', 'verilator'):
 			raise error.InvalidSimulationBackend(backend)
  
-		if uvm and backend == 'verilator' and uvm_pkg_dir is None:
-			raise error.UvmPkgDirRequiredError(name)
- 
 		if top is None:
 			top = name
  
@@ -761,9 +802,9 @@ class XvivConfig:
 				sdfmax=sdfmax,
 				sdfmin=sdfmin,
  
-				uvm=uvm,
+				# uvm=uvm,
 				uvm_version=uvm_version,
-				uvm_test=uvm_test,
+				# uvm_test=uvm_test,
 				uvm_verbosity=uvm_verbosity,
 				uvm_max_quit_count=uvm_max_quit_count,
  
@@ -779,6 +820,10 @@ class XvivConfig:
 				uvm_pkg_dir=uvm_pkg_dir,
 			)
 		)
+
+		for i in uvm:
+			i |= { 'simulation': name }
+			self.add_uvm_cfg(**i)
  
 		return self
 
@@ -962,92 +1007,74 @@ class XvivConfig:
 		if name is None:
 			return self._get_fpga_cfg_default
 
-		fpga_cfg = self._get_fpga_cfg_optional(name)
+		if cfg := self._get_fpga_cfg_optional(name):
+			return cfg
 
-		if fpga_cfg is None:
-			raise error.FpgaDoesNotExistError(name)
-
-		return fpga_cfg
+		raise error.FpgaDoesNotExistError(name)
 
 	def get_ip(self, name: str) -> IpConfig:
-		ip_cfg = self._get_ip_cfg_optional(name)
+		if cfg := self._get_ip_cfg_optional(name):
+			return cfg
 
-		if ip_cfg is None:
-			raise error.IpDoesNotExistError(name)
-
-		return ip_cfg
+		raise error.IpDoesNotExistError(name)
 
 	def get_wrapper(self, name: str) -> IpWrapperConfig:
-		wrapper = self._get_wrapper_cfg_optional(name)
+		if cfg := self._get_wrapper_cfg_optional(name):
+			return cfg
 
-		if wrapper is None:
-			raise error.WrapperDoesNotExistError(name)
-
-		return wrapper
+		raise error.WrapperDoesNotExistError(name)
 
 	def get_bd(self, name: str) -> BdConfig:
-		bd = self._get_bd_cfg_optional(name)
+		if cfg := self._get_bd_cfg_optional(name):
+			return cfg
 
-		if bd is None:
-			raise error.BdDoesNotExistError(name)
-
-		return bd
+		raise error.BdDoesNotExistError(name)
 
 	def get_core(self, name: str) -> CoreConfig:
-		core = self._get_core_cfg_optional(name)
+		if cfg := self._get_core_cfg_optional(name):
+			return cfg
 
-		if core is None:
-			raise error.CoreDoesNotExistError(name)
-
-		return core
+		raise error.CoreDoesNotExistError(name)
 
 	def get_design(self, name: str) -> DesignConfig:
-		design = self._get_design_cfg_optional(name)
+		if cfg := self._get_design_cfg_optional(name):
+			return cfg
 
-		if design is None:
-			raise error.DesignDoesNotExistError(name)
-
-		return design
+		raise error.DesignDoesNotExistError(name)
 
 	def get_synth(self,
 		design_name: str | None = None,
 		core_name: str | None = None,
 		bd_name: str | None = None
 	) -> SynthConfig:
-		synth = self._get_synth_cfg_optional(
-			design_name=design_name,
-			core_name=core_name,
-			bd_name=bd_name,
-		)
+		if cfg := self._get_synth_cfg_optional(design_name=design_name, core_name=core_name, bd_name=bd_name):
+			return cfg
 
-		if synth is None:
-			raise error.SynthDoesNotExistError(design=design_name, core=core_name, bd=bd_name)
-
-		return synth
+		raise error.SynthDoesNotExistError(design=design_name, core=core_name, bd=bd_name)
 
 	def get_sim(self, name: str) -> SimulationConfig:
-		sim = self._get_sim_cfg_optional(name)
+		if cfg := self._get_sim_cfg_optional(name):
+			return cfg
+		
+		raise error.SimDoesNotExistError(name)
+	
+	def get_uvm(self, test: str, simulation: str | None = None) -> UvmConfig:
+		if cfg := self._get_uvm_cfg_optional(test, simulation):
+			return cfg
 
-		if sim is None:
-			raise error.SimDoesNotExistError(name)
-
-		return sim
+		raise error.UvmDoesNotExistError(test, simulation)
 
 	def get_platform(self, name: str) -> PlatformConfig:
-		platform = self._get_platform_cfg_optional(name)
-
-		if platform is None:
-			raise error.PlatformDoesNotExistError(name)
-
-		return platform
+		if cfg := self._get_platform_cfg_optional(name):
+			return cfg
+		
+		raise error.PlatformDoesNotExistError(name)
 
 	def get_app(self, name: str) -> AppConfig:
-		app = self._get_app_cfg_optional(name)
-
-		if app is None:
-			raise error.AppDoesNotExistError(name)
-
-		return app
+		if cfg := self._get_app_cfg_optional(name):
+			return cfg
+		
+		raise error.AppDoesNotExistError(name)
 
 	def get_subcore_list(self, bd_name: str | None = None, design_name: str | None = None) -> list[SubCoreConfig]:
 		subcore_list: list[SubCoreConfig] = []
@@ -1072,6 +1099,9 @@ class XvivConfig:
 	# -------------------------------------------------------------------------
 	# Private helpers - optional lookups
 	# -------------------------------------------------------------------------
+	
+	def _get_uvm_cfg_optional(self, test: str, simulation: str | None = None) -> UvmConfig | None:
+		return next((i for i in self._uvm_list if i.test == test and (i.simulation == simulation if simulation is not None else True)), None)
 
 	def _get_fpga_cfg_optional(self, name: str) -> FpgaConfig | None:
 		return next((i for i in self._fpga_list if i.name == name), None)

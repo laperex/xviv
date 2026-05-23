@@ -1,6 +1,8 @@
 import glob
 import os
+import pathlib
 import shutil
+import sys
 
 from xviv.config.loader import resolve_config_completer, load_config
 
@@ -99,15 +101,6 @@ def c_dcp_file(prefix, parsed_args, **kwargs):
 	except Exception:
 		return {}
 
-# def c_sim_modes(prefix, parsed_args, **kwargs):
-# 	return [
-# 		'post_synth_functional',
-# 		'post_synth_timing',
-# 		'post_impl_functional',
-# 		'post_impl_timing'
-# 		'default',
-# 	]
-
 def c_bitstream(prefix, parsed_args, **kwargs):
 	try:
 		config_path = os.path.abspath(resolve_config_completer(prefix, parsed_args))
@@ -143,6 +136,33 @@ def c_elf(prefix, parsed_args, **kwargs):
 	except Exception:
 		return {}
 
+def c_uvm_test(prefix, parsed_args, **kwargs):
+    import pathlib
+    try:
+        config_path = os.path.abspath(resolve_config_completer(prefix, parsed_args))
+        cfg = load_config(config_path)
+        result: dict[str, str] = {}
+
+        target = vars(parsed_args).get('target', None)
+
+        pathlib.Path("/tmp/xviv_debug.log").write_text(
+            f"target={target!r}\n"
+            f"uvm_simulations={[uvm.simulation for uvm in cfg._uvm_list]}\n"
+        )
+
+        if target:
+            for uvm in cfg._uvm_list:
+                if uvm.simulation == target:
+                    result[uvm.test] = f'{uvm.test} : {uvm.verbosity}'
+        else:
+            for uvm in cfg._uvm_list:
+                result[uvm.test] = f'{uvm.simulation} - {uvm.test} : {uvm.verbosity}'
+
+        return result
+    except Exception as e:
+        pathlib.Path("/tmp/xviv_debug.log").write_text(f"EXCEPTION: {e}\n")
+        return []
+
 # ---------------------------------------------------------------------------
 # Public completers
 # ---------------------------------------------------------------------------
@@ -174,8 +194,8 @@ def target_group(parser, exclusive: bool = True, required: bool = True, *,
 	ip: bool = False,
 	bd: bool = False,
 	sim_target: bool = False,
+	uvm_test: bool = False,
 	formal_target: bool = False,
-	# sim_mode: bool = False,
 	app: bool = False,
 	platform: bool = False,
 	wdb: bool = False,
@@ -197,6 +217,8 @@ def target_group(parser, exclusive: bool = True, required: bool = True, *,
 
 	if sim_target:
 		arg(grp, "--target", metavar="NAME", help="Simulation Target name", completer=c_sim_target, required=required)
+	if uvm_test:
+		arg(grp, "--uvm", metavar="NAME", help="Uvm Test name", completer=c_uvm_test, required=required)
 	# if sim_mode:
 	# 	arg(grp, "--mode", metavar="NAME", help="Core name", completer=c_sim_modes, required=required)
 

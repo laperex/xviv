@@ -1,35 +1,16 @@
-# functions/simulation.py
-#
-# Three backends are supported:
+# Two backends are supported:
 #   xsim      - Vivado's xvlog/xelab/xsim toolchain  (with optional UVM)
-#   verilator - open-source verilator --binary flow    (with optional UVM)
-#
-# UVM / xsim
-# ----------
-# Vivado ships UVM 1.1d and 1.2 pre-compiled under
-# $XILINX_VIVADO/data/system_verilog/uvm/<version>/.
-# xvlog does not need extra flags for the pre-compiled library.
-# xelab links it via -L uvm and --uvm_version.
-# xsim receives UVM plusargs on the command line (--testplusarg).
-#
-# UVM / verilator
-# ---------------
-# Verilator does not ship a pre-compiled UVM library.  The user must
-# include UVM source files in `sources` or point `uvm_pkg_dir` at a
-# verilator-compatible UVM root (e.g. antmicro/verilator-uvm).
+#   verilator - open-source verilator
 
-from xviv.config.model import SimulationConfig
+from xviv.config.model import SimulationConfig, UvmConfig
 from xviv.generator.tcl.commands import ConfigTclCommands
 import logging
 import os
-import subprocess
-import typing
 from xviv.config.project import XvivConfig
 from xviv.tools import verilator, vivado
-# from xviv.tools import verilator as verilator_tool
 from xviv.utils import error
 from xviv.utils.fifo import _ensure_fifo, _fifo_send
-from xviv.utils.fs import assert_file_exists, combined_checksum
+from xviv.utils.fs import assert_file_exists
 
 logger = logging.getLogger(__name__)
 
@@ -38,23 +19,25 @@ logger = logging.getLogger(__name__)
 #  Helpers                                                                    #
 # --------------------------------------------------------------------------- #
 
-def _build_uvm_plusargs(sim_cfg) -> list[str]:
-	"""Collect the standard UVM CLI plusargs from a SimulationConfig."""
+def _build_uvm_plusargs(uvm_cfg: UvmConfig | None) -> list[str]:
 	args: list[str] = []
-	if sim_cfg.uvm:
-		if sim_cfg.uvm_test is not None:
-			args.append(f"UVM_TESTNAME={sim_cfg.uvm_test}")
-		args.append(f"UVM_VERBOSITY={sim_cfg.uvm_verbosity}")
-		if sim_cfg.uvm_max_quit_count is not None:
-			args.append(f"UVM_MAX_QUIT_COUNT={sim_cfg.uvm_max_quit_count}")
+
+	if uvm_cfg.test is not None:
+		args.append(f"UVM_TESTNAME={uvm_cfg.test}")
+
+	args.append(f"UVM_VERBOSITY={uvm_cfg.verbosity}")
+
+	if uvm_cfg.max_quit_count is not None:
+		args.append(f"UVM_MAX_QUIT_COUNT={uvm_cfg.max_quit_count}")
+
 	return args
 
+def _build_xsim_testplusargs(cfg: XvivConfig, sim_name: str, uvm_name: str | None) -> list[str]:
+	sim_cfg = cfg.get_sim(sim_name)
 
-def _build_xsim_testplusargs(sim_cfg) -> list[str]:
-	"""All plusargs for xsim: UVM standard args + user-defined plusargs."""
-	args = _build_uvm_plusargs(sim_cfg)
-	# User plusargs are stored without leading '+' in the config;
-	# strip any accidental '+' prefix for uniform handling.
+	if uvm_name:
+		args = _build_uvm_plusargs(cfg.get_uvm(uvm_name, sim_name))
+
 	args += [a.lstrip("+") for a in sim_cfg.plusargs]
 	return args
 
@@ -65,7 +48,8 @@ def _build_xsim_testplusargs(sim_cfg) -> list[str]:
 
 def cmd_simulate(cfg: XvivConfig, *,
 	sim_name: str,
-	run: str | None,
+	uvm_name: str | None = None,
+	run: str | None = None,
 	mode: str = 'default',
 	dry_run: bool = False,
 ):
@@ -119,9 +103,9 @@ def cmd_simulate(cfg: XvivConfig, *,
 	# -- Backend dispatch ------------------------------------------------ #
 	match sim_cfg.backend:
 		case 'xsim':
-			_run_xsim(cfg, sim_cfg, svlog_files, sdfmax_entries, sdfmin_entries, run, dry_run)
+			_run_xsim(cfg, sim_name, uvm_name, svlog_files, sdfmax_entries, sdfmin_entries, run)
 		case 'verilator':
-			_run_verilator(cfg, sim_cfg, svlog_files, dry_run)
+			_run_verilator(cfg, sim_name, uvm_name, svlog_files, dry_run)
 		case _:
 			raise error.InvalidSimulationBackend(sim_cfg.backend)
 
@@ -130,21 +114,27 @@ def cmd_simulate(cfg: XvivConfig, *,
 #  xsim backend (private)                                                    #
 # --------------------------------------------------------------------------- #
 
-def _run_xsim(cfg: XvivConfig, sim_cfg: SimulationConfig, svlog_files, sdfmax_entries, sdfmin_entries, run, dry_run):
-	"""
-	xvlog → xelab → xsim pipeline with full UVM support.
+def _run_xsim(cfg: XvivConfig, sim_name: str, uvm_name: str | None, svlog_files: list[str], sdfmax_entries: list[str], sdfmin_entries: list[str], run: str):
+	sim_cfg = cfg.get_sim(sim_name)
 
-	UVM library:
-	Vivado pre-compiles UVM.  xvlog does not need extra -L flags.
-	xelab links it with -L uvm and --uvm_version.
-	xsim receives UVM plusargs via --testplusarg on the CLI.
-	"""
+	top = sim_cfg.top
+	timescale = sim_cfg.timescale
+	uvm_version = None
+	
+	if uvm_name:
+		uvm_cfg = cfg.get_uvm(uvm_name, sim_name)
+
+		top = uvm_cfg.top
+		timescale = uvm_cfg.timescale
+		uvm_version = uvm_cfg.version
+
+
 	xsim_lib = "xv_work"
 
 	# -- 1. xvlog - compile source files ------------------------------- #
 	vivado.run_vivado_xvlog(cfg, sim_cfg.work_dir, svlog_files,
 		lib=filter(None, [
-			"uvm" if sim_cfg.uvm else None
+			"uvm" if uvm_name else None
 		]),
 		xsim_lib=xsim_lib,
 		defines=sim_cfg.defines,
@@ -153,27 +143,27 @@ def _run_xsim(cfg: XvivConfig, sim_cfg: SimulationConfig, svlog_files, sdfmax_en
 
 	# -- 2. xelab - elaborate ------------------------------------------- #
 	elab_libs = ['secureip', 'unimacro_ver', 'unisims_ver']
-	if sim_cfg.uvm:
+	if uvm_name:
 		elab_libs.append('uvm')
 
 	vivado.run_vivado_xelab(
 		cfg,
 		sim_cfg.work_dir,
-		[f'{xsim_lib}.{sim_cfg.top}', f'{xsim_lib}.glbl'],
-		timescale=sim_cfg.timescale,
+		[f'{xsim_lib}.{top}', f'{xsim_lib}.glbl'],
+		timescale=timescale,
 		mt=str(20),
-		snapshot=sim_cfg.top,
+		snapshot=top,
 		lib=elab_libs,
 		debug='typical',
 		incr=True,
-		runall=(run == 'all') and not sim_cfg.uvm,
+		runall=(run == 'all') and not uvm_name,
 		# svlog=svlog_files,
 		sdfmax=sdfmax_entries[0] if sdfmax_entries else None,
-		uvm_version=sim_cfg.uvm_version if sim_cfg.uvm else None,
+		uvm_version=uvm_version
 	)
 
 	# -- 3. xsim - simulate --------------------------------------------- #
-	if not (run == 'all') or sim_cfg.uvm:
+	if not (run == 'all') or uvm_name:
 		x_simulate_tcl = filter(None, [
 			"log_wave -recursive *",
 			f"run {run}",
@@ -183,27 +173,37 @@ def _run_xsim(cfg: XvivConfig, sim_cfg: SimulationConfig, svlog_files, sdfmax_en
 		vivado.run_vivado_xsim(cfg,
 			target_dir=sim_cfg.work_dir,
 			config_tcl='\n'.join(x_simulate_tcl),
-			top=sim_cfg.top,
+			top=top,
 			stats=True,
 			nogui=True,
 			popen=False,
-			testplusarg=_build_xsim_testplusargs(sim_cfg),
+			testplusarg=_build_xsim_testplusargs(cfg, sim_name, uvm_name),
 			runall=False
 		)
 
 
 # --------------------------------------------------------------------------- #
-#  verilator backend (private)                                               #
+#  verilator backend (private)                                                #
 # --------------------------------------------------------------------------- #
 
-def _run_verilator(cfg: XvivConfig, sim_cfg: SimulationConfig, svlog_files, dry_run):
-	"""
-	Verilator --binary flow: compile then execute.
+def _run_verilator(cfg: XvivConfig, sim_name: str, uvm_name: str | None, svlog_files, dry_run):
+	sim_cfg = cfg.get_sim(sim_name)
 
-	UVM with verilator requires either:
-	a) UVM source files included in sim_cfg.sources, OR
-	b) sim_cfg.uvm_pkg_dir pointing at a verilator-compatible UVM root.
-	"""
+	top = sim_cfg.top
+	timescale = sim_cfg.timescale
+	uvm_test = None
+	uvm_verbosity = sim_cfg.uvm_verbosity
+	uvm_max_quit_count = sim_cfg.uvm_max_quit_count
+
+	if uvm_name:
+		uvm_cfg = cfg.get_uvm(uvm_name, sim_name)
+		top = uvm_cfg.top
+		timescale = uvm_cfg.timescale
+		
+		uvm_test = uvm_cfg.test
+		uvm_verbosity = uvm_cfg.uvm_verbosity
+		uvm_max_quit_count = uvm_cfg.uvm_max_quit_count
+
 	# -- 1. Compile ----------------------------------------------------- #
 	include_dirs = list(sim_cfg.include_dirs)
 	if sim_cfg.uvm and sim_cfg.uvm_pkg_dir is not None:
@@ -212,15 +212,15 @@ def _run_verilator(cfg: XvivConfig, sim_cfg: SimulationConfig, svlog_files, dry_
 	binary = verilator.run_verilator_compile(
 		work_dir=sim_cfg.work_dir,
 		fileset=svlog_files,
-		top=sim_cfg.top,
+		top=top,
 		defines=sim_cfg.defines,
 		include_dirs=include_dirs,
-		timescale=sim_cfg.timescale,
+		timescale=timescale,
 		threads=sim_cfg.threads,
 		trace=sim_cfg.trace,
 		trace_fst=sim_cfg.trace_fst,
 		trace_depth=sim_cfg.trace_depth,
-		uvm=sim_cfg.uvm,
+		uvm=uvm_name is not None,
 		uvm_pkg_dir=sim_cfg.uvm_pkg_dir,
 		extra_args=sim_cfg.verilator_args,
 		dry_run=dry_run,
@@ -231,10 +231,10 @@ def _run_verilator(cfg: XvivConfig, sim_cfg: SimulationConfig, svlog_files, dry_
 		binary=binary,
 		work_dir=sim_cfg.work_dir,
 		plusargs=sim_cfg.plusargs,
-		uvm=sim_cfg.uvm,
-		uvm_test=sim_cfg.uvm_test,
-		uvm_verbosity=sim_cfg.uvm_verbosity,
-		uvm_max_quit_count=sim_cfg.uvm_max_quit_count,
+		uvm=uvm_name is not None,
+		uvm_test=uvm_test,
+		uvm_verbosity=uvm_verbosity,
+		uvm_max_quit_count=uvm_max_quit_count,
 		trace=sim_cfg.trace,
 		trace_fst=sim_cfg.trace_fst,
 		dry_run=dry_run,

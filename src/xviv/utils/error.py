@@ -215,6 +215,15 @@ class DesignDoesNotExistError(DoesNotExistError):
     def __init__(self, name: str) -> None:
         super().__init__("DesignConfig", name)
 
+class UvmDoesNotExistError(ConfigError):
+    def __init__(self, test_name: str, sim_name: str):
+        self.kind = 'UvmConfig'
+        self.test_name = test_name
+        self.sim_name = sim_name
+        super().__init__(test_name)
+
+    def __str__(self) -> str:
+        return f"{self.kind} entry not found for: '{self.test_name}' [SimulationConfig: '{self.sim_name}']"
 
 class SynthDoesNotExistError(DoesNotExistError):
     def __init__(self, design: str | None, core: str | None, bd: str | None) -> None:
