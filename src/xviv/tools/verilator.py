@@ -1,9 +1,7 @@
-# tools/verilator.py — Verilator backend helpers for xviv
-#
 # Verilator three-step flow
 # -------------------------
-# 1. verilator --binary  →  compiles SV and generates + builds the C++ binary
-#    (verilator ≥ 5.0; for older versions use --cc then make separately)
+# 1. verilator --binary  ->  compiles SV and generates + builds the C++ binary
+#    (verilator >= 5.0; for older versions use --cc then make separately)
 # 2. Run the generated binary with plusargs
 #
 # UVM with verilator
@@ -30,7 +28,6 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 def find_verilator_bin() -> str:
-	"""Return the path to the verilator binary or raise VerilatorNotFoundError."""
 	path = shutil.which("verilator")
 	if path is None:
 		raise error.VerilatorNotFoundError()
@@ -38,14 +35,14 @@ def find_verilator_bin() -> str:
 
 
 def verilator_version(verilator_bin: str) -> tuple[int, int]:
-	"""Return (major, minor) version tuple, e.g. (5, 26)."""
 	try:
 		out = subprocess.check_output(
 			[verilator_bin, "--version"], text=True, stderr=subprocess.STDOUT
 		)
-		# "Verilator 5.026 2024-01-01 rev …"
+
 		token = out.split()[1]
 		major, minor = token.split(".")[:2]
+
 		return int(major), int(minor)
 	except Exception:
 		return (0, 0)
@@ -72,13 +69,6 @@ def run_verilator_compile(
 	extra_args: list[str] = [],
 	dry_run: bool = False,
 ) -> str:
-	"""
-	Invoke verilator in --binary mode (one shot: compile + link + build).
-	Returns the path to the generated binary.
-
-	Raises VerilatorNotFoundError if verilator is not on PATH.
-	Raises VerilatorCompileError if verilator exits non-zero.
-	"""
 	verilator_bin = find_verilator_bin()
 
 	obj_dir   = os.path.join(work_dir, "obj_dir")
@@ -86,11 +76,10 @@ def run_verilator_compile(
 
 	cmd: list[str] = [
 		verilator_bin,
-		# "--binary",           # compile + build in one pass (verilator ≥ 5.0)
-		"--cc",       # ← was --binary
-        "--exe",      # ← new: link user .cpp into the binary
+		"--cc",
+        "--exe",
         "--build",
-		"-sv",                # SystemVerilog
+		"-sv",
 		"--top-module", top,
 		"--Mdir", obj_dir,
 		"-o", f"V{top}",
@@ -164,12 +153,6 @@ def run_verilator_sim(
 	trace_file: str | None = None,
 	dry_run: bool = False,
 ) -> None:
-	"""
-	Execute the verilated binary, passing UVM and user plusargs.
-
-	UVM plusargs follow the standard UVM CLI protocol so they work
-	with both pre-compiled and source-included UVM libraries.
-	"""
 	if not dry_run and not os.path.isfile(binary):
 		raise error.VerilatorBinaryMissingError(binary)
 
@@ -186,7 +169,7 @@ def run_verilator_sim(
 	# -- Trace output file ----------------------------------------------- #
 	if trace or trace_fst:
 		tf = trace_file or os.path.join(work_dir, "dump.vcd" if trace else "dump.fst")
-		cmd += [f"+verilator+rand+reset+2"]   # randomise uninitialised regs
+		cmd += ["+verilator+rand+reset+2"]   # randomise uninitialised regs
 		# verilated binary reads VERILATOR_TRACE_FILE from env, or via --trace
 		# The actual filename can also be set via --trace-file at compile time;
 		# here we use the env-var approach for maximum flexibility.
