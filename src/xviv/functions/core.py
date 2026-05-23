@@ -1,4 +1,3 @@
-
 from xviv.config.project import XvivConfig
 from xviv.generator.tcl.commands import ConfigTclCommands
 from xviv.tools import vivado

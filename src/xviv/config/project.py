@@ -711,19 +711,15 @@ class XvivConfig:
 		timescale: str = "1ns/1ps",
 		bd: str | None = None,
 		design: str | None = None,
-		# -- UVM ---------------------------------------------------------- #
-		# uvm: bool = False,
 		uvm: list[typing.Any] = [],
 		uvm_version: str = "1.2",
 		uvm_test: str | None = None,
 		uvm_verbosity: str = "UVM_MEDIUM",
 		uvm_max_quit_count: int | None = None,
-		# -- Generic plusargs ---------------------------------------------- #
 		plusargs: list[str] = [],
-		# -- Preprocessor / include ---------------------------------------- #
 		defines: list[str] = [],
 		include_dirs: list[str] = [],
-		# -- Verilator-specific -------------------------------------------- #
+		# verilator
 		threads: int = 1,
 		trace: bool = False,
 		trace_fst: bool = False,
