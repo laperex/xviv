@@ -38,3 +38,11 @@ packages = ["src/xviv"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.format]
+indent-style = "tab"
+quote-style = "preserve"
+skip-magic-trailing-comma = false

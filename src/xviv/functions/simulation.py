@@ -206,7 +206,7 @@ def _run_verilator(cfg: XvivConfig, sim_name: str, uvm_name: str | None, svlog_f
 
 	# -- 1. Compile ----------------------------------------------------- #
 	include_dirs = list(sim_cfg.include_dirs)
-	if sim_cfg.uvm and sim_cfg.uvm_pkg_dir is not None:
+	if uvm_name and sim_cfg.uvm_pkg_dir is not None:
 		include_dirs.insert(0, sim_cfg.uvm_pkg_dir)
 
 	binary = verilator.run_verilator_compile(

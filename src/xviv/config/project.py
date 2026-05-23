@@ -131,7 +131,7 @@ class XvivConfig:
 		if check_sources:
 			for i in app_cfg.sources:
 				if not os.path.exists(i.file):
-					raise error.AppSourcesMissingError
+					raise error.AppSourcesMissingError(app_name, i.file)
 
 			if not app_cfg.sources:
 				raise error.AppSourcesEmptyError(app_name)
@@ -176,7 +176,7 @@ class XvivConfig:
 
 		for i in wrapper_cfg.sources:
 			if not os.path.exists(i.file):
-				raise error.WrapperSourceMissingError(ip_name, i)
+				raise error.WrapperSourcesMissingError(ip_name, i)
 
 		if not wrapper_cfg.sources:
 			raise error.WrapperSourcesEmptyError(ip_name)
@@ -413,18 +413,18 @@ class XvivConfig:
 		bd: str | None = None,
 		design: str | None = None,
 	) -> typing.Self:
+		if bd is None and design is None:
+			raise error.SubCoreIdentifierUnspecifiedError(inst_hier_path, core)
+
+		if bd is not None and design is not None:
+			raise error.SubCoreIdentifierMultipleError(inst_hier_path, core, bd, design)
+
 		for entry in self.get_subcore_list(bd_name=bd, design_name=design):
 			if entry.inst_hier_path == inst_hier_path:
 				if bd:
 					raise error.SubCoreBdAlreadyExistsError(inst_hier_path, core, bd)
 				if design:
 					raise error.SubCoreDesignAlreadyExistsError(inst_hier_path, core, design)
-
-		if bd is None and design is None:
-			raise error.SubCoreIdentifierUnspecifiedError(inst_hier_path, core)
-
-		if bd is not None and design is not None:
-			raise error.SubCoreIdentifierMultipleError(inst_hier_path, core, bd, design)
 
 		self._subcore_list.append(
 			SubCoreConfig(
@@ -779,7 +779,7 @@ class XvivConfig:
 		# TODO: throw error for invalid name ''
  
 		if self._get_sim_cfg_optional(name) is not None:
-			raise error.SimDoesNotExistError(name)
+			raise error.SimAlreadyExistsError(name)
  
 		if backend not in ('xsim', 'verilator'):
 			raise error.InvalidSimulationBackend(backend)
@@ -835,7 +835,7 @@ class XvivConfig:
 		xsa: str | None = None,
 		bitstream: str | None = None,
 		
-		properties: dict[typing.Any] | None = None,
+		properties: dict[typing.Any] = {},
 
 		cpu: str = 'microblaze_0',
 		os: str = 'standalone',
@@ -843,7 +843,7 @@ class XvivConfig:
 		# TODO: throw error for invalid name ''
 
 		if self._get_platform_cfg_optional(name) is not None:
-			raise error.PlatformDoesNotExistError(name)
+			raise error.PlatformAlreadyExistsError(name)
 
 		param_ids = [i for i in [bd, design, xsa] if i]
 
@@ -880,7 +880,7 @@ class XvivConfig:
 
 		return self
 	
-	def _resolve_properties(self, properties_dict: dict[typing.Any] | None = None) -> list[tuple[str, str]]:
+	def _resolve_properties(self, properties_dict: dict[typing.Any] = {}) -> list[tuple[str, str]]:
 		def __flatten(d, prefix: str = "") -> typing.Generator[str, str]:
 			for key, value in d.items():
 				new_prefix = f"{prefix}.{key}" if prefix else key
@@ -1196,13 +1196,13 @@ class XvivConfig:
 				files, stages = [i], default_stages
 			else:
 				if 'used_in' not in i:
-					raise RuntimeError(f'Error \'used_in\' param not specified: {i}\n{sources}')
+					raise error.SourceSpecMissingKeyError('used_in', i, sources)
 				if 'files' not in i:
-					raise RuntimeError(f'Error \'used_in\' param not specified: {i}\n{sources}')
+					raise error.SourceSpecMissingKeyError('files', i, sources)
 
 				stages = set(i['used_in'])
 				if unknown := stages - _VALID_STAGES:
-					raise ValueError(f"Unknown stages: {unknown}")
+					raise error.SourceSpecUnknownStageError(unknown, i)
 				files = i['files']
 
 			for k in resolve_globs(files, self.base_dir):

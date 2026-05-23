@@ -22,7 +22,7 @@ def cmd_ip_create(cfg: XvivConfig, *,
 	)
 
 	vivado.run_vivado(cfg, config_tcl=config)
-	
+
 	ip_cfg = cfg.get_ip(ip_name)
 
 	run_parallel([

@@ -238,7 +238,6 @@ class SimulationConfig:
 	# UVM with verilator: user must supply UVM source files in `sources`
 	# and point uvm_pkg_dir at a verilator-compatible UVM package root.
 	uvm_pkg_dir: str | None
-	uvm:            bool = True
 
 
 @dataclasses.dataclass
