@@ -47,7 +47,7 @@ class Catalog:
 		matches = [e for key, e in self._cores.items() if id in key]
 
 		if len(matches) == 1:
-			logger.debug("Resolved %r → %s", id, matches[0].vlnv)
+			logger.debug("Resolved %r -- %s", id, matches[0].vlnv)
 			return matches[0]
 		if len(matches) > 1:
 			raise AmbiguousCoreError(id, [e.vlnv for e in matches])

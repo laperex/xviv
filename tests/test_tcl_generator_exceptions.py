@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 import time
 from unittest.mock import MagicMock, patch
 
@@ -40,6 +41,22 @@ def _prime_project(cmd, cfg, vivado_mock):
 	"""Satisfy _require_project once so subsequent calls see the guard flag."""
 	with patch.object(cfg, "get_vivado", return_value=vivado_mock):
 		cmd._require_project()
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def _has_cmd(result: str, command: str) -> bool:
+	"""Return True iff *command* appears as a TCL command (line start, optional
+	indentation).  This avoids false matches when the command word happens to
+	appear inside an embedded file-path string."""
+	return re.search(rf"^\s*{re.escape(command)}\b", result, re.MULTILINE) is not None
+
+
+def _lacks_cmd(result: str, command: str) -> bool:
+	return not _has_cmd(result, command)
 
 
 # ---------------------------------------------------------------------------
@@ -307,7 +324,7 @@ class TestOpenDcp:
 		dcp = tmp_path / "design.dcp"
 		dcp.touch()
 		cmd.open_dcp(str(dcp), nogui=True)
-		assert "open_checkpoint" in cmd.build()
+		assert _has_cmd(cmd.build(), "open_checkpoint")
 
 	def test_dcp_path_is_absolute_in_output(self, cmd, tmp_path):
 		dcp = tmp_path / "design.dcp"
@@ -316,16 +333,22 @@ class TestOpenDcp:
 		assert str(dcp.resolve()) in cmd.build()
 
 	def test_start_gui_included_by_default(self, cmd, tmp_path):
+		# NOTE: test name intentionally does NOT contain "start_gui" to avoid
+		# path contamination; the _has_cmd helper anchors to line-start so
+		# path fragments inside quoted strings never match.
 		dcp = tmp_path / "design.dcp"
 		dcp.touch()
 		cmd.open_dcp(str(dcp))
-		assert "start_gui" in cmd.build()
+		# start_gui must appear as a standalone TCL command, not just in a path.
+		assert _has_cmd(cmd.build(), "start_gui")
 
-	def test_nogui_excludes_start_gui(self, cmd, tmp_path):
+	def test_nogui_omits_start_gui(self, cmd, tmp_path):
+		# Renamed from test_nogui_excludes_start_gui to avoid embedding
+		# "start_gui" in the pytest tmp_path directory name.
 		dcp = tmp_path / "design.dcp"
 		dcp.touch()
 		cmd.open_dcp(str(dcp), nogui=True)
-		assert "start_gui" not in cmd.build().split()
+		assert _lacks_cmd(cmd.build(), "start_gui")
 
 
 # ===========================================================================
@@ -445,13 +468,15 @@ class TestEditBd:
 		assert "read_bd" in result
 		assert "open_bd_design" in result
 
-	def test_nogui_excludes_start_gui(self, cfg, cmd, tmp_path, vivado_mock):
+	def test_nogui_omits_start_gui(self, cfg, cmd, tmp_path, vivado_mock):
+		# Renamed from test_nogui_excludes_start_gui to keep "start_gui" out
+		# of the pytest tmp_path directory name.
 		bd_file = tmp_path / "my_bd.bd"
 		bd_file.touch()
 		cfg.add_bd_cfg("my_bd", bd_file=str(bd_file))
 		with patch.object(cfg, "get_vivado", return_value=vivado_mock):
 			cmd.edit_bd("my_bd", nogui=True)
-		assert "start_gui" not in cmd.build().split()
+		assert _lacks_cmd(cmd.build(), "start_gui")
 
 	def test_default_opens_gui(self, cfg, cmd, tmp_path, vivado_mock):
 		bd_file = tmp_path / "my_bd.bd"
@@ -459,7 +484,7 @@ class TestEditBd:
 		cfg.add_bd_cfg("my_bd", bd_file=str(bd_file))
 		with patch.object(cfg, "get_vivado", return_value=vivado_mock):
 			cmd.edit_bd("my_bd")
-		assert "start_gui" in cmd.build()
+		assert _has_cmd(cmd.build(), "start_gui")
 
 	def test_output_includes_write_bd_tcl(self, cfg, cmd, tmp_path, vivado_mock):
 		bd_file = tmp_path / "my_bd.bd"
@@ -476,24 +501,24 @@ class TestEditBd:
 
 
 class TestCreateBd:
-	def test_starts_gui_when_save_file_does_not_exist(self, cfg, cmd, tmp_path, vivado_mock):
+	def test_opens_gui_when_save_file_absent(self, cfg, cmd, tmp_path, vivado_mock):
 		# auto-resolved save_file path will not exist
 		cfg.add_bd_cfg("my_bd")
 		with patch.object(cfg, "get_vivado", return_value=vivado_mock):
 			cmd.create_bd("my_bd")
-		assert "start_gui" in cmd.build()
+		assert _has_cmd(cmd.build(), "start_gui")
 
 	def test_output_contains_create_bd_design(self, cfg, cmd, tmp_path, vivado_mock):
 		cfg.add_bd_cfg("my_bd")
 		with patch.object(cfg, "get_vivado", return_value=vivado_mock):
 			cmd.create_bd("my_bd")
-		assert "create_bd_design" in cmd.build()
+		assert _has_cmd(cmd.build(), "create_bd_design")
 
 	def test_output_contains_create_project(self, cfg, cmd, tmp_path, vivado_mock):
 		cfg.add_bd_cfg("my_bd")
 		with patch.object(cfg, "get_vivado", return_value=vivado_mock):
 			cmd.create_bd("my_bd")
-		assert "create_project" in cmd.build()
+		assert _has_cmd(cmd.build(), "create_project")
 
 
 # ===========================================================================
@@ -635,21 +660,26 @@ class TestProcessorCntrlTcl:
 			cmd.processor_cntrl(reset=None, status=True)
 
 	def test_connect_and_disconnect_always_present(self, cmd):
-		# reset=None, status=None → only connect + disconnect
+		# "connect" is a substring of "disconnect", so a plain `in` check
+		# would pass even if only disconnect were present.  Use word boundaries.
 		cmd.processor_cntrl(reset=None, status=None)
 		result = cmd.build()
-		assert "connect" in result
-		assert "disconnect" in result
+		assert re.search(r"\bconnect\b", result)
+		assert re.search(r"\bdisconnect\b", result)
 
 	def test_reset_with_filter_includes_rst(self, cmd):
+		# "rst" appears inside words such as "first"; \b ensures only the
+		# standalone TCL command is matched.
 		cmd.processor_cntrl(reset=True, status=None, processor_target_filter="mb*")
 		result = cmd.build()
-		assert "rst" in result
+		assert re.search(r"\brst\b", result)
 		assert "mb*" in result
 
 	def test_reset_with_filter_includes_con(self, cmd):
+		# "con" is a substring of "connect" and "disconnect"; \b prevents
+		# matching those occurrences.
 		cmd.processor_cntrl(reset=True, status=None, processor_target_filter="mb*")
-		assert "con" in cmd.build()
+		assert re.search(r"\bcon\b", cmd.build())
 
 
 # ===========================================================================
@@ -663,14 +693,18 @@ class TestProgramTcl:
 		bitstream.touch()
 		cmd.program(bitstream_file=str(bitstream), fpga_target_filter="fpga*")
 		result = cmd.build()
-		assert "connect" in result
-		assert "disconnect" in result
+		# "connect" is a substring of "disconnect"; use \b to match only the
+		# standalone connect command.
+		assert re.search(r"\bconnect\b", result)
+		assert re.search(r"\bdisconnect\b", result)
 
 	def test_bitstream_includes_fpga_command(self, cmd, tmp_path):
 		bitstream = tmp_path / "top.bit"
 		bitstream.touch()
 		cmd.program(bitstream_file=str(bitstream), fpga_target_filter="fpga*")
-		assert "fpga" in cmd.build()
+		# "fpga" can appear in file-path fragments embedded in the TCL output;
+		# \b anchors to the start of the TCL command token.
+		assert re.search(r"\bfpga\b", cmd.build())
 
 	def test_bitstream_filter_appears_in_target_selection(self, cmd, tmp_path):
 		bitstream = tmp_path / "top.bit"
@@ -683,14 +717,18 @@ class TestProgramTcl:
 		elf.touch()
 		cmd.program(elf_file=str(elf), processor_target_filter="mb*")
 		result = cmd.build()
-		assert "dow" in result
-		assert "con" in result
+		# "dow" can appear in path fragments ("shadow", etc.); "con" is a
+		# substring of "connect"/"disconnect".  Word boundaries fix both.
+		assert re.search(r"\bdow\b", result)
+		assert re.search(r"\bcon\b", result)
 
 	def test_elf_includes_rst(self, cmd, tmp_path):
 		elf = tmp_path / "app.elf"
 		elf.touch()
 		cmd.program(elf_file=str(elf), processor_target_filter="mb*")
-		assert "rst" in cmd.build()
+		# "rst" appears inside "first" and other words; \b matches only the
+		# standalone TCL rst command.
+		assert re.search(r"\brst\b", cmd.build())
 
 	def test_after_delay_emitted_when_reset_duration_set(self, cmd, tmp_path):
 		bitstream = tmp_path / "top.bit"
@@ -742,12 +780,14 @@ class TestSynthAutoResume:
 		)
 
 	def test_no_dcps_found_starts_from_synth(self, cmd, cfg, vivado_mock):
-		# No DCP files exist → auto detects SYNTH as start stage
+		# No DCP files exist -> auto detects SYNTH as start stage
 		with patch.object(cfg, "get_vivado", return_value=vivado_mock):
 			cmd.synth(design="my_design", resume="auto")
-		assert "synth_design" in cmd.build()
+		assert _has_cmd(cmd.build(), "synth_design")
 
-	def test_synth_dcp_found_skips_synth_design(self, cmd, cfg, tmp_path):
+	def test_synth_dcp_skips_synth_design(self, cmd, cfg, tmp_path):
+		# Renamed from test_synth_dcp_found_skips_synth_design: the old name
+		# embedded "synth_design" in tmp_path, poisoning the not-in assertion.
 		synth_cfg = cfg.get_synth(design_name="my_design")
 		dcp = tmp_path / "synth.dcp"
 		dcp.touch()
@@ -757,8 +797,8 @@ class TestSynthAutoResume:
 		# Auto-resume from checkpoint - _require_project is NOT called
 		cmd.synth(design="my_design", resume="auto")
 		result = cmd.build()
-		assert "open_checkpoint" in result
-		assert "synth_design" not in result
+		assert _has_cmd(result, "open_checkpoint")
+		assert _lacks_cmd(result, "synth_design")
 
 	def test_place_dcp_found_skips_synth_and_place(self, cmd, cfg, tmp_path):
 		synth_cfg = cfg.get_synth(design_name="my_design")
@@ -769,9 +809,9 @@ class TestSynthAutoResume:
 		synth_cfg.route_dcp_file = str(tmp_path / "no_route.dcp")
 		cmd.synth(design="my_design", resume="auto")
 		result = cmd.build()
-		assert "open_checkpoint" in result
-		assert "synth_design" not in result
-		assert "\nplace_design" not in result
+		assert _has_cmd(result, "open_checkpoint")
+		assert _lacks_cmd(result, "synth_design")
+		assert _lacks_cmd(result, "place_design")
 
 	def test_route_dcp_found_skips_to_write_stage(self, cmd, cfg, tmp_path):
 		synth_cfg = cfg.get_synth(design_name="my_design")
@@ -782,9 +822,9 @@ class TestSynthAutoResume:
 		synth_cfg.route_dcp_file = str(dcp)
 		cmd.synth(design="my_design", resume="auto")
 		result = cmd.build()
-		assert "open_checkpoint" in result
-		assert "route_design" not in result
-		assert "synth_design" not in result
+		assert _has_cmd(result, "open_checkpoint")
+		assert _lacks_cmd(result, "route_design")
+		assert _lacks_cmd(result, "synth_design")
 
 
 # ===========================================================================
@@ -813,12 +853,14 @@ class TestSynthTclOutput:
 		defaults.update(synth_kwargs)
 		cfg.add_synth_cfg(**defaults)
 
-	def test_synth_design_command_present_by_default(self, cfg, tmp_path, vivado_mock):
+	def test_synth_design_emitted_by_default(self, cfg, tmp_path, vivado_mock):
+		# Renamed from test_synth_design_command_present_by_default: the old
+		# name embedded "synth_design" in tmp_path, giving a false positive.
 		self._setup_design(cfg, tmp_path)
 		cmd = ConfigTclCommands(cfg)
 		with patch.object(cfg, "get_vivado", return_value=vivado_mock):
 			cmd.synth(design="my_design")
-		assert "synth_design" in cmd.build()
+		assert _has_cmd(cmd.build(), "synth_design")
 
 	def test_design_top_appears_in_synth_design(self, cfg, tmp_path, vivado_mock):
 		self._setup_design(cfg, tmp_path)
@@ -827,61 +869,76 @@ class TestSynthTclOutput:
 			cmd.synth(design="my_design")
 		assert "my_design" in cmd.build()
 
-	def test_run_synth_false_omits_synth_design(self, cfg, tmp_path, vivado_mock):
+	def test_run_synth_false_omits_synth(self, cfg, tmp_path, vivado_mock):
+		# Renamed from test_run_synth_false_omits_synth_design: the old name
+		# embedded "synth_design" in tmp_path, poisoning the not-in assertion.
 		self._setup_design(cfg, tmp_path, run_synth=False)
 		cmd = ConfigTclCommands(cfg)
 		with patch.object(cfg, "get_vivado", return_value=vivado_mock):
 			cmd.synth(design="my_design")
-		assert "\nsynth_design" not in cmd.build()
+		assert _lacks_cmd(cmd.build(), "synth_design")
 
 	def test_run_opt_false_omits_opt_design(self, cfg, tmp_path, vivado_mock):
 		self._setup_design(cfg, tmp_path, run_opt=False)
 		cmd = ConfigTclCommands(cfg)
 		with patch.object(cfg, "get_vivado", return_value=vivado_mock):
 			cmd.synth(design="my_design")
-		assert "\nopt_design" not in cmd.build()
+		# "opt_design" is a substring of "phys_opt_design", so a plain `not in`
+		# check would fail whenever phys_opt runs.  Use \b to match only the
+		# standalone opt_design command.
+		assert re.search(r"\bopt_design\b", cmd.build()) is None
 
-	def test_run_place_false_omits_place_design(self, cfg, tmp_path, vivado_mock):
+	def test_run_place_false_omits_place(self, cfg, tmp_path, vivado_mock):
+		# Renamed from test_run_place_false_omits_place_design: the old name
+		# embedded "place_design" in tmp_path, poisoning the not-in assertion.
 		self._setup_design(cfg, tmp_path, run_place=False)
 		cmd = ConfigTclCommands(cfg)
 		with patch.object(cfg, "get_vivado", return_value=vivado_mock):
 			cmd.synth(design="my_design")
-		assert "\nplace_design" not in cmd.build()
+		assert _lacks_cmd(cmd.build(), "place_design")
 
 	def test_run_phys_opt_false_omits_phys_opt(self, cfg, tmp_path, vivado_mock):
 		self._setup_design(cfg, tmp_path, run_phys_opt=False)
 		cmd = ConfigTclCommands(cfg)
 		with patch.object(cfg, "get_vivado", return_value=vivado_mock):
 			cmd.synth(design="my_design")
-		assert "\nphys_opt_design" not in cmd.build()
+		assert "phys_opt_design" not in cmd.build()
 
-	def test_run_route_false_omits_route_design(self, cfg, tmp_path, vivado_mock):
+	def test_run_route_false_omits_route(self, cfg, tmp_path, vivado_mock):
+		# Renamed from test_run_route_false_omits_route_design: the old name
+		# embedded "route_design" in tmp_path, poisoning the not-in assertion.
 		self._setup_design(cfg, tmp_path, run_route=False)
 		cmd = ConfigTclCommands(cfg)
 		with patch.object(cfg, "get_vivado", return_value=vivado_mock):
 			cmd.synth(design="my_design")
-		assert "\nroute_design" not in cmd.build()
+		assert _lacks_cmd(cmd.build(), "route_design")
 
-	def test_write_bitstream_present_when_configured(self, cfg, tmp_path, vivado_mock):
+	def test_bitstream_emitted_when_configured(self, cfg, tmp_path, vivado_mock):
+		# Renamed from test_write_bitstream_present_when_configured: the old
+		# name embedded "write_bitstream" in tmp_path, giving a false positive.
 		self._setup_design(cfg, tmp_path, bitstream=True)
 		cmd = ConfigTclCommands(cfg)
 		with patch.object(cfg, "get_vivado", return_value=vivado_mock):
 			cmd.synth(design="my_design")
-		assert "\nwrite_bitstream" in cmd.build()
+		assert _has_cmd(cmd.build(), "write_bitstream")
 
-	def test_write_bitstream_absent_when_not_configured(self, cfg, tmp_path, vivado_mock):
+	def test_bitstream_absent_when_disabled(self, cfg, tmp_path, vivado_mock):
+		# Renamed from test_write_bitstream_absent_when_not_configured: the old
+		# name embedded "write_bitstream" in tmp_path, poisoning the not-in assertion.
 		self._setup_design(cfg, tmp_path, bitstream=False, hw_platform=False)
 		cmd = ConfigTclCommands(cfg)
 		with patch.object(cfg, "get_vivado", return_value=vivado_mock):
 			cmd.synth(design="my_design")
-		assert "\nwrite_bitstream" not in cmd.build()
+		assert _lacks_cmd(cmd.build(), "write_bitstream")
 
-	def test_synth_dcp_emits_write_checkpoint(self, cfg, tmp_path, vivado_mock):
+	def test_synth_dcp_produces_checkpoint(self, cfg, tmp_path, vivado_mock):
+		# Renamed from test_synth_dcp_emits_write_checkpoint: the old name
+		# embedded "write_checkpoint" in tmp_path, giving a false positive.
 		self._setup_design(cfg, tmp_path, synth_dcp=True)
 		cmd = ConfigTclCommands(cfg)
 		with patch.object(cfg, "get_vivado", return_value=vivado_mock):
 			cmd.synth(design="my_design")
-		assert "write_checkpoint" in cmd.build()
+		assert _has_cmd(cmd.build(), "write_checkpoint")
 
 	def test_no_checkpoint_when_synth_dcp_false(self, cfg, tmp_path, vivado_mock):
 		# With synth_dcp=False, place_dcp=False, route_dcp=False - no write_checkpoint
@@ -889,7 +946,7 @@ class TestSynthTclOutput:
 		cmd = ConfigTclCommands(cfg)
 		with patch.object(cfg, "get_vivado", return_value=vivado_mock):
 			cmd.synth(design="my_design")
-		assert "write_checkpoint" not in cmd.build()
+		assert _lacks_cmd(cmd.build(), "write_checkpoint")
 
 	def test_usr_access_sets_design_property(self, cfg, tmp_path, vivado_mock):
 		self._setup_design(cfg, tmp_path)
@@ -902,11 +959,13 @@ class TestSynthTclOutput:
 		assert "BITSTREAM.CONFIG.USR_ACCESS" in result
 		assert "DEADBEEF" in result.upper()
 
-	def test_add_files_called_for_design_sources(self, cfg, tmp_path, vivado_mock):
+	def test_design_sources_added(self, cfg, tmp_path, vivado_mock):
+		# Renamed from test_add_files_called_for_design_sources: the old name
+		# embedded "add_files" in tmp_path, giving a false positive.
 		self._setup_design(cfg, tmp_path)
 		cmd = ConfigTclCommands(cfg)
 		with patch.object(cfg, "get_vivado", return_value=vivado_mock):
 			cmd.synth(design="my_design")
 		result = cmd.build()
-		assert "add_files" in result
+		assert _has_cmd(result, "add_files")
 		assert "top.v" in result

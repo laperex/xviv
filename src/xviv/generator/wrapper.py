@@ -1,12 +1,3 @@
-#!/usr/bin/env python3
-"""
-wrapper.py - SystemVerilog wrapper generator for xviv.
-
-Parses a top-level SV module (and any interface ports it uses) via pyslang,
-then emits a flat wrapper module that exposes every signal as a plain I/O port
-instead of an interface port.
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -39,7 +30,6 @@ TreeData = dict
 
 
 def _get_all_tokens(node: pyslang.SyntaxNode):
-	"""Yield every Token reachable under *node* (depth-first)."""
 	for child in node:
 		if isinstance(child, pyslang.Token):
 			yield child
@@ -48,17 +38,6 @@ def _get_all_tokens(node: pyslang.SyntaxNode):
 
 
 def filter_comments_from_tree(tree: pyslang.SyntaxTree) -> pyslang.SyntaxTree:
-	"""Return a new SyntaxTree with all line- and block-comments stripped.
-
-	Notes
-	-----
-	``SyntaxTree.fromText`` returns a ``ModuleDeclarationSyntax`` root when the
-	text contains exactly one module, but a ``CompilationUnitSyntax`` root when
-	it contains more than one top-level item.  To guarantee a
-	``CompilationUnitSyntax`` root (required by :func:`resolve_tree`) we write
-	the reconstructed text to a temporary file and re-parse with
-	``SyntaxTree.fromFiles``, which *always* wraps in a CompilationUnit.
-	"""
 	_COMMENT_KINDS = (pyslang.TriviaKind.LineComment, pyslang.TriviaKind.BlockComment)
 
 	clean_parts: list[str] = []
@@ -87,11 +66,6 @@ def filter_comments_from_tree(tree: pyslang.SyntaxTree) -> pyslang.SyntaxTree:
 
 
 def get_datatype_info(node) -> DatatypeInfo:
-	"""Return a normalised dict describing a datatype syntax node.
-
-	Returns an empty dict for ``None`` or string inputs (defensive; callers
-	should not pass these).
-	"""
 	if node is None or isinstance(node, str):
 		return {}
 
@@ -129,11 +103,6 @@ def get_datatype_info(node) -> DatatypeInfo:
 
 
 def get_declarator(declarator: pyslang.DeclaratorSyntax) -> tuple[pyslang.Token | None, dict]:
-	"""Return ``(name_token, decl_dict)`` for a DeclaratorSyntax node.
-
-	Returns ``(None, {})`` when *declarator* is falsy, so callers can safely
-	unpack without a ``ValueError``.
-	"""
 	if not declarator or isinstance(declarator, str):
 		return None, {}
 
@@ -155,7 +124,6 @@ def get_declarator(declarator: pyslang.DeclaratorSyntax) -> tuple[pyslang.Token 
 
 
 def get_port_header_info(node) -> PortInfo:
-	"""Return a normalised dict describing a port-header syntax node."""
 	if node is None or isinstance(node, str):
 		return {}
 
@@ -197,7 +165,6 @@ def get_port_header_info(node) -> PortInfo:
 
 
 def resolve_parameters(param_list) -> dict[str, ParamInfo]:
-	"""Parse a ParameterPortListSyntax (or None) into a name → info dict."""
 	params: dict[str, ParamInfo] = {}
 
 	for decl in getattr(param_list, "declarations", []):
@@ -246,7 +213,6 @@ def resolve_parameters(param_list) -> dict[str, ParamInfo]:
 def resolve_ports(
 	port_list: pyslang.AnsiPortListSyntax | pyslang.NonAnsiPortListSyntax | pyslang.WildcardPortListSyntax | None,
 ) -> dict[str, PortInfo]:
-	"""Parse any port-list syntax node into a name → info dict."""
 	ports: dict[str, PortInfo] = {}
 
 	if port_list is None:
@@ -378,7 +344,6 @@ def resolve_ports(
 
 
 def resolve_members(members) -> MemberInfo:
-	"""Parse module-body members into categorised dicts."""
 	port_dict: dict = {}
 	decl_dict: dict = {}
 	inst_dict: dict = {}
@@ -491,7 +456,6 @@ def resolve_members(members) -> MemberInfo:
 
 
 def resolve_header(header: pyslang.ModuleHeaderSyntax) -> tuple:
-	"""Return ``(name_token, header_dict)``."""
 	imports = getattr(header, "imports", "")
 	lifetime = getattr(header, "lifetime", "")
 	keyword = getattr(header, "moduleKeyword", "")
@@ -509,7 +473,6 @@ def resolve_header(header: pyslang.ModuleHeaderSyntax) -> tuple:
 
 
 def resolve_module(node: pyslang.ModuleDeclarationSyntax) -> tuple:
-	"""Return ``(name_token, module_dict)``."""
 	block_name = getattr(node, "blockName", None)
 	header = getattr(node, "header", None)
 	members = getattr(node, "members", [])
@@ -527,7 +490,6 @@ def resolve_module(node: pyslang.ModuleDeclarationSyntax) -> tuple:
 
 
 def resolve_tree(node: pyslang.CompilationUnitSyntax | pyslang.ModuleDeclarationSyntax) -> TreeData:
-	"""Walk a syntax tree root and return all module definitions as a dict."""
 	tree_data: TreeData = {}
 
 	# Handle the case where fromText returns a bare ModuleDeclarationSyntax.
@@ -556,7 +518,6 @@ def resolve_tree(node: pyslang.CompilationUnitSyntax | pyslang.ModuleDeclaration
 
 
 def resolve_files(fileset: list[str]) -> tuple[TreeData, list[str]]:
-	"""Parse *fileset*, strip comments, and return ``(tree_data, resolved_fileset)``."""
 	tree = pyslang.SyntaxTree.fromFiles(fileset)
 
 	resolved: list[str] = []
@@ -575,7 +536,6 @@ def resolve_files(fileset: list[str]) -> tuple[TreeData, list[str]]:
 
 
 def construct_datatype(info: DatatypeInfo) -> tuple[tuple[str, str, str], tuple[int, int, int]]:
-	"""Return ``((keyword, signing, dimensions), (len, len, len))``."""
 	match info.get("kind"):
 		case "IntegerTypeSyntax":
 			kw = info["keyword"]
@@ -603,7 +563,6 @@ def construct_datatype(info: DatatypeInfo) -> tuple[tuple[str, str, str], tuple[
 def construct_port_header_info(
 	info: PortInfo,
 ) -> tuple[tuple[str, str, str, str], tuple[int, int, int, int]]:
-	"""Return ``((parts...), (lengths...))`` for a port-header info dict."""
 	match info.get("kind"):
 		case "InterfacePortHeaderSyntax":
 			iface = info["interface"]
@@ -650,7 +609,7 @@ class SystemVerilogWrapper:
 		self.pyslang_data, self.fileset = resolve_files(fileset)
 
 	def _top_module_interface_ports(self) -> list[tuple[str, str, str]]:
-		"""Return ``[(port_name, interface_module, modport)]`` for interface ports."""
+
 		pdata = self.pyslang_data[self.top]["headers"]["ports"]
 		return [
 			(name, info["header"]["interface"], info["header"]["modport"])
