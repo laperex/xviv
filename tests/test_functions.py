@@ -65,7 +65,7 @@ def _make_sim_cfg(
 	return sim_cfg
 
 
-def _make_formal_result(*, passed: bool = True, vcd: str | None = None, name: str = 'test_formal') -> MagicMock:
+def _make_formal_result(*, passed: bool = True, vcd: str | None = None, name: str = "test_formal") -> MagicMock:
 	r = MagicMock()
 	r.name = name
 	r.passed = passed
