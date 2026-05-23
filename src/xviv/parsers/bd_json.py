@@ -1,23 +1,9 @@
 import json
 import os
-import sys
 
 
 def get_bd_core_list(bd_file: str) -> list[tuple[str, str, str, str]]:
-	bd_dict = {}
-	if not os.path.exists(bd_file):
-		sys.exit(f"ERROR: BD File not found: {bd_file}")
-
 	resolved_components: list[tuple[str, str, str, str]] = []
-
-	with open(bd_file, "r") as f:
-		if txt := f.read().strip():
-			bd_dict = json.loads(txt)
-		else:
-			return resolved_components
-
-	if not bd_dict:
-		sys.exit(f"ERROR: BD data read from {bd_file} is empty")
 
 	def _recursive_find(components_dict: dict) -> None:
 		if not components_dict:
@@ -41,6 +27,9 @@ def get_bd_core_list(bd_file: str) -> list[tuple[str, str, str, str]]:
 
 					resolved_components.append((xci_name, xci_file, vlnv, inst_hier_path))
 
-	_recursive_find(bd_dict)
+	with open(bd_file, "r") as f:
+		if txt := f.read().strip():
+			if bd_dict := json.loads(txt):
+				_recursive_find(bd_dict)
 
 	return resolved_components

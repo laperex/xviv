@@ -1,7 +1,3 @@
-# Two backends are supported:
-#   xsim      - Vivado's xvlog/xelab/xsim toolchain  (with optional UVM)
-#   verilator - open-source verilator
-
 import logging
 import os
 
