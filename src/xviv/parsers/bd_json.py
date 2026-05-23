@@ -14,7 +14,7 @@ def get_bd_core_list(bd_file: str) -> list[tuple[str, str, str, str]]:
 		if txt := f.read().strip():
 			bd_dict = json.loads(txt)
 		else:
-			return []
+			return resolved_components
 
 	if not bd_dict:
 		sys.exit(f"ERROR: BD data read from {bd_file} is empty")
