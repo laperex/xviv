@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pytest
+
 from xviv.config.project import XvivConfig
 from xviv.utils import error
 

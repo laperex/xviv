@@ -7,6 +7,7 @@ import tempfile
 from pathlib import Path
 
 from xviv.config.project import XvivConfig
+from xviv.utils.process import run_tool
 
 logger = logging.getLogger(__name__)
 
@@ -24,32 +25,20 @@ def run_vivado_xvlog(
 	xvlog_bin = os.path.join(cfg.get_vivado().path, "bin", "xvlog")
 	extra_files = [os.path.join(cfg.get_vivado().path, "data/verilog/src/glbl.v")]
 
-	define_flags = [f"-d {d}" for d in defines]
-	include_flags = [f"-i {i}" for i in include_dirs]
+	cmd = [xvlog_bin, "--sv", "--incr", "--work", xsim_lib]
 
-	cmd = [
-		xvlog_bin,
-		"-sv",
-		"-incr",
-		"-work",
-		xsim_lib,
-		*define_flags,
-		*include_flags,
-		*fileset,
-		*extra_files,
-	]
-
+	for d in defines:
+		cmd += ["-d", d]
+	for i in include_dirs:
+		cmd += ["-i", i]
 	for x in lib or []:
-		cmd += ["--lib", x]
+		cmd += ["-L", x]
 
-	logger.info("Running: %s", " ".join(cmd))
-	os.makedirs(target_dir, exist_ok=True)
-
-	if cfg.get_vivado().dry_run:
-		return
+	cmd += fileset
+	cmd += extra_files
 
 	try:
-		subprocess.run(cmd, check=True, cwd=target_dir)
+		run_tool(cmd, cwd=target_dir, dry_run=cfg.get_vivado().dry_run)
 	except subprocess.CalledProcessError as e:
 		sys.exit(e.returncode)
 
@@ -136,175 +125,170 @@ def run_vivado_xelab(
 	sourcelibext: list[str] | None = None,
 	sourcelibfile: list[str] | None = None,
 ) -> None:
-	params: list[str] = []
+	cmd = [os.path.join(cfg.get_vivado().path, "bin", "xelab"), *units]
 
-	params += ["--debug", debug]
+	cmd += ["--debug", debug]
 
+	# Boolean flags
 	if standalone:
-		params += ["--standalone"]
+		cmd += ["--standalone"]
 	if run:
-		params += ["--run"]
+		cmd += ["--run"]
 	if runall:
-		params += ["--runall"]
+		cmd += ["--runall"]
 	if incr:
-		params += ["--incr"]
+		cmd += ["--incr"]
 	if relax:
-		params += ["--relax"]
+		cmd += ["--relax"]
 	if nolog:
-		params += ["--nolog"]
+		cmd += ["--nolog"]
 	if stats:
-		params += ["--stats"]
+		cmd += ["--stats"]
 	if override_timeunit:
-		params += ["--override_timeunit"]
+		cmd += ["--override_timeunit"]
 	if override_timeprecision:
-		params += ["--override_timeprecision"]
+		cmd += ["--override_timeprecision"]
 	if noname_unnamed_generate:
-		params += ["--noname_unnamed_generate"]
+		cmd += ["--noname_unnamed_generate"]
 	if rangecheck:
-		params += ["--rangecheck"]
+		cmd += ["--rangecheck"]
 	if transform_timing_checkers:
-		params += ["--transform_timing_checkers"]
+		cmd += ["--transform_timing_checkers"]
 	if suppress_localparam_override_error:
-		params += ["--suppress_localparam_override_error"]
+		cmd += ["--suppress_localparam_override_error"]
 	if ignore_assertions:
-		params += ["--ignore_assertions"]
+		cmd += ["--ignore_assertions"]
 	if report_assertion_pass:
-		params += ["--report_assertion_pass"]
+		cmd += ["--report_assertion_pass"]
 	if ignore_coverage:
-		params += ["--ignore_coverage"]
+		cmd += ["--ignore_coverage"]
 	if nosdfinterconnectdelays:
-		params += ["--nosdfinterconnectdelays"]
+		cmd += ["--nosdfinterconnectdelays"]
 	if nospecify:
-		params += ["--nospecify"]
+		cmd += ["--nospecify"]
 	if notimingchecks:
-		params += ["--notimingchecks"]
+		cmd += ["--notimingchecks"]
 	if mindelay:
-		params += ["--mindelay"]
+		cmd += ["--mindelay"]
 	if maxdelay:
-		params += ["--maxdelay"]
+		cmd += ["--maxdelay"]
 	if typdelay:
-		params += ["--typdelay"]
+		cmd += ["--typdelay"]
 	if transport_int_delays:
-		params += ["--transport_int_delays"]
+		cmd += ["--transport_int_delays"]
 	if sdfnoerror:
-		params += ["--sdfnoerror"]
+		cmd += ["--sdfnoerror"]
 	if sdfnowarn:
-		params += ["--sdfnowarn"]
+		cmd += ["--sdfnowarn"]
 	if dup_entity_as_module:
-		params += ["--dup_entity_as_module"]
+		cmd += ["--dup_entity_as_module"]
 	if dpi_absolute:
-		params += ["--dpi_absolute"]
+		cmd += ["--dpi_absolute"]
 	if cc_celldefines:
-		params += ["--cc_celldefines"]
+		cmd += ["--cc_celldefines"]
 	if cc_libs:
-		params += ["--cc_libs"]
+		cmd += ["--cc_libs"]
 	if O0:
-		params += ["--O0"]
+		cmd += ["--O0"]
 
+	# String options
 	if file:
-		params += ["--file", file]
+		cmd += ["--file", file]
 	if log:
-		params += ["--log", log]
+		cmd += ["--log", log]
 	if prj:
-		params += ["--prj", prj]
+		cmd += ["--prj", prj]
 	if initfile:
-		params += ["--initfile", initfile]
+		cmd += ["--initfile", initfile]
 	if ccExclusionFile:
-		params += ["--ccExclusionFile", ccExclusionFile]
+		cmd += ["--ccExclusionFile", ccExclusionFile]
 	if uvm_version:
-		params += ["--uvm_version", uvm_version]
+		cmd += ["--uvm_version", uvm_version]
 	if timescale:
-		params += ["--timescale", timescale]
+		cmd += ["--timescale", timescale]
 	if timeprecision_vhdl:
-		params += ["--timeprecision_vhdl", timeprecision_vhdl]
+		cmd += ["--timeprecision_vhdl", timeprecision_vhdl]
 	if snapshot:
-		params += ["--snapshot", snapshot]
+		cmd += ["--snapshot", snapshot]
 	if mt:
-		params += ["--mt", str(mt)]
+		cmd += ["--mt", mt]
 	if pulse_e_style:
-		params += ["--pulse_e_style", pulse_e_style]
+		cmd += ["--pulse_e_style", pulse_e_style]
 	if sdfmax:
-		params += ["--sdfmax", sdfmax]
+		cmd += ["--sdfmax", sdfmax]
 	if sdfmin:
-		params += ["--sdfmin", sdfmin]
+		cmd += ["--sdfmin", sdfmin]
 	if sdftyp:
-		params += ["--sdftyp", sdftyp]
+		cmd += ["--sdftyp", sdftyp]
 	if sdfroot:
-		params += ["--sdfroot", sdfroot]
+		cmd += ["--sdfroot", sdfroot]
 	if dpiheader:
-		params += ["--dpiheader", dpiheader]
+		cmd += ["--dpiheader", dpiheader]
 	if dpi_stacksize:
-		params += ["--dpi_stacksize", dpi_stacksize]
+		cmd += ["--dpi_stacksize", dpi_stacksize]
 	if sc_lib:
-		params += ["--sc_lib", sc_lib]
+		cmd += ["--sc_lib", sc_lib]
 	if sv_lib:
-		params += ["--sv_lib", sv_lib]
+		cmd += ["--sv_lib", sv_lib]
 	if sv_liblist:
-		params += ["--sv_liblist", sv_liblist]
+		cmd += ["--sv_liblist", sv_liblist]
 	if sc_root:
-		params += ["--sc_root", sc_root]
+		cmd += ["--sc_root", sc_root]
 	if sv_root:
-		params += ["--sv_root", sv_root]
+		cmd += ["--sv_root", sv_root]
 	if cov_db_dir:
-		params += ["--cov_db_dir", cov_db_dir]
+		cmd += ["--cov_db_dir", cov_db_dir]
 	if cov_db_name:
-		params += ["--cov_db_name", cov_db_name]
+		cmd += ["--cov_db_name", cov_db_name]
 	if cc_type:
-		params += ["--cc_type", cc_type]
+		cmd += ["--cc_type", cc_type]
 
+	# Integer options
 	if verbose is not None:
-		params += ["--verbose", str(verbose)]
+		cmd += ["--verbose", str(verbose)]
 	if maxarraysize is not None:
-		params += ["--maxarraysize", str(maxarraysize)]
+		cmd += ["--maxarraysize", str(maxarraysize)]
 	if maxdesigndepth is not None:
-		params += ["--maxdesigndepth", str(maxdesigndepth)]
+		cmd += ["--maxdesigndepth", str(maxdesigndepth)]
 	if driver_display_limit is not None:
-		params += ["--driver_display_limit", str(driver_display_limit)]
+		cmd += ["--driver_display_limit", str(driver_display_limit)]
 	if pulse_int_e is not None:
-		params += ["--pulse_int_e", str(pulse_int_e)]
+		cmd += ["--pulse_int_e", str(pulse_int_e)]
 	if pulse_int_r is not None:
-		params += ["--pulse_int_r", str(pulse_int_r)]
+		cmd += ["--pulse_int_r", str(pulse_int_r)]
 	if pulse_e is not None:
-		params += ["--pulse_e", str(pulse_e)]
+		cmd += ["--pulse_e", str(pulse_e)]
 	if pulse_r is not None:
-		params += ["--pulse_r", str(pulse_r)]
+		cmd += ["--pulse_r", str(pulse_r)]
 
+	# Repeatable options
 	for x in lib or []:
-		params += ["--lib", x]
+		cmd += ["-L", x]
 	for x in define or []:
-		params += ["--define", x]
+		cmd += ["-d", x]
 	for x in svlog or []:
-		params += ["--svlog", x]
+		cmd += ["--svlog", x]
 	for x in vlog or []:
-		params += ["--vlog", x]
+		cmd += ["--vlog", x]
 	for x in vhdl or []:
-		params += ["--vhdl", x]
+		cmd += ["--vhdl", x]
 	for x in vhdl2008 or []:
-		params += ["--vhdl2008", x]
+		cmd += ["--vhdl2008", x]
 	for x in vhdl2019 or []:
-		params += ["--vhdl2019", x]
+		cmd += ["--vhdl2019", x]
 	for x in include or []:
-		params += ["--include", x]
+		cmd += ["-i", x]
 	for x in generic_top or []:
-		params += ["--generic_top", x]
+		cmd += ["--generic_top", x]
 	for x in sourcelibdir or []:
-		params += ["--sourcelibdir", x]
+		cmd += ["--sourcelibdir", x]
 	for x in sourcelibext or []:
-		params += ["--sourcelibext", x]
+		cmd += ["--sourcelibext", x]
 	for x in sourcelibfile or []:
-		params += ["--sourcelibfile", x]
-
-	cmd = [os.path.join(cfg.get_vivado().path, "bin", "xelab"), *units, *params]
-
-	logger.info("Running: %s", " ".join(cmd))
-
-	if cfg.get_vivado().dry_run:
-		return
-
-	os.makedirs(target_dir, exist_ok=True)
+		cmd += ["--sourcelibfile", x]
 
 	try:
-		subprocess.run(cmd, check=True, cwd=target_dir)
+		run_tool(cmd, cwd=target_dir, dry_run=cfg.get_vivado().dry_run)
 	except subprocess.CalledProcessError as e:
 		sys.exit(e.returncode)
 
@@ -322,62 +306,50 @@ def run_vivado_xsim(
 	popen: bool = False,
 	testplusarg: list[str] | None = None,
 ) -> int | None:
-	xsim_bin = os.path.join(cfg.get_vivado().path, "bin", "xsim")
-
 	if config_tcl is None:
-		return
+		return None
 
-	pid = None
-
-	with tempfile.NamedTemporaryFile(mode="w", suffix="_sim_config.tcl", delete=False, prefix="xviv_") as tmp:
-		tmp.write(config_tcl)
-		config_tcl_path = tmp.name
-
-	cmd = list(
-		filter(
-			None,
-			[
-				xsim_bin,
-				"--stats" if stats else None,
-				top if top else None,
-				wdb_file if wdb_file else None,
-				"-t",
-				config_tcl_path,
-				"-g" if not nogui else None,
-			],
-		)
-	)
-
-	for x in testplusarg or []:
-		cmd += ["--testplusarg", x]
-
-	if runall:
-		cmd += ["--runall"]
-
-	logger.info("Running: %s", " ".join(cmd))
-	os.makedirs(target_dir, exist_ok=True)
-
-	if cfg.get_vivado().dry_run:
-		return
+	xsim_bin = os.path.join(cfg.get_vivado().path, "bin", "xsim")
+	config_tcl_path: str | None = None
 
 	try:
-		if popen:
-			proc = subprocess.Popen(cmd, cwd=target_dir)
+		with tempfile.NamedTemporaryFile(mode="w", suffix="_sim_config.tcl", delete=False, prefix="xviv_") as tmp:
+			tmp.write(config_tcl)
+			config_tcl_path = tmp.name
 
-			pid = proc.pid
-		else:
-			subprocess.run(cmd, check=True, cwd=target_dir)
-	except subprocess.CalledProcessError as e:
-		sys.exit(e.returncode)
+		cmd = [xsim_bin]
 
-	return pid
+		if top:
+			cmd += [top]
+		if wdb_file:
+			cmd += ["--wdb", wdb_file]
+		if stats:
+			cmd += ["--stats"]
+		if not nogui:
+			cmd += ["-g"]
+		if runall:
+			cmd += ["--runall"]
+
+		cmd += ["-t", config_tcl_path]
+
+		for x in testplusarg or []:
+			cmd += ["--testplusarg", x]
+
+		try:
+			return run_tool(cmd, cwd=target_dir, dry_run=cfg.get_vivado().dry_run, popen=popen)
+		except subprocess.CalledProcessError as e:
+			sys.exit(e.returncode)
+
+	finally:
+		if config_tcl_path and not cfg.get_vivado().dry_run:
+			with contextlib.suppress(OSError):
+				os.unlink(config_tcl_path)
 
 
 def run_vivado(
 	cfg: XvivConfig,
 	*,
 	config_tcl: str | None,
-	extra_args: list[str] | None = None,
 	label: str | None = None,
 	log_dir: str | None = None,
 ) -> None:
@@ -386,12 +358,9 @@ def run_vivado(
 
 	vivado_bin = os.path.join(cfg.get_vivado().path, "bin", "vivado")
 	job_log = logger.getChild(label) if label else logger
-
 	config_tcl_path: str | None = None
-	log_file = None
 
 	try:
-		# Write TCL to a named temp file
 		with tempfile.NamedTemporaryFile(
 			mode="w", suffix="_config.tcl", delete=False, prefix=f"xviv_{label or ''}_"
 		) as tmp:
@@ -413,50 +382,27 @@ def run_vivado(
 			"-quiet",
 			"-source",
 			config_tcl_path,
-			*(extra_args or []),
 		]
-		job_log.info("Running: %s", " ".join(cmd))
 
-		# TCL interactive mode - attach directly to terminal
-		if cfg.get_vivado().mode == "tcl":
-			result = subprocess.run(cmd)
-			if result.returncode != 0:
-				raise subprocess.CalledProcessError(result.returncode, cmd)
-			return
+		is_tcl = cfg.get_vivado().mode == "tcl"
+		log_path: Path | None = None
+		if not is_tcl:
+			log_stem = label or "vivado"
+			log_path = Path(log_dir or cfg.work_dir) / f"{log_stem}.log"
 
-		# Batch mode - stream output and write per-job log
-		log_stem = label or "vivado"
-		log_path = Path(log_dir or cfg.work_dir) / f"{log_stem}.log"
-		log_path.parent.mkdir(parents=True, exist_ok=True)
-		log_file = log_path.open("w")
-
-		job_log.info("Log: %s", log_path)
-
-		with subprocess.Popen(
-			cmd,
-			stdout=subprocess.PIPE,
-			stderr=subprocess.STDOUT,
-			text=True,
-			bufsize=1,
-		) as proc:
-			if proc.stdout is None:
-				raise RuntimeError("stdout pipe unexpectedly None")
-
-			for line in proc.stdout:
-				stripped = line.rstrip()
-				print(stripped)
-				job_log.debug(stripped)
-				log_file.write(line)
-				log_file.flush()
-			proc.wait()
-
-		if proc.returncode != 0:
-			job_log.error("Vivado exited with code %d (log: %s)", proc.returncode, log_path)
-			raise subprocess.CalledProcessError(proc.returncode, cmd)
+		try:
+			run_tool(
+				cmd,
+				cwd=cfg.work_dir,
+				log=job_log,
+				log_path=log_path,
+				interactive=is_tcl,
+			)
+		except subprocess.CalledProcessError as e:
+			job_log.error("Vivado exited with code %d", e.returncode)
+			sys.exit(e.returncode)
 
 	finally:
-		if log_file:
-			log_file.close()
 		if config_tcl_path and not cfg.get_vivado().dry_run:
 			with contextlib.suppress(OSError):
 				os.unlink(config_tcl_path)

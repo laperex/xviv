@@ -8,13 +8,16 @@ def get_bd_core_list(bd_file: str) -> list[tuple[str, str, str, str]]:
 	if not os.path.exists(bd_file):
 		sys.exit(f"ERROR: BD File not found: {bd_file}")
 
+	resolved_components: list[tuple[str, str, str, str]] = []
+
 	with open(bd_file, "r") as f:
-		bd_dict = json.loads(f.read())
+		if txt := f.read().strip():
+			bd_dict = json.loads(txt)
+		else:
+			return {}
 
 	if not bd_dict:
 		sys.exit(f"ERROR: BD data read from {bd_file} is empty")
-
-	resolved_components: list[tuple[str, str, str, str]] = []
 
 	def _recursive_find(components_dict: dict) -> None:
 		if not components_dict:

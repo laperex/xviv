@@ -4,6 +4,7 @@ import os
 import tomllib
 
 from xviv.config.project import XvivConfig
+from xviv.utils import error
 from xviv.utils.tools import find_vitis_dir_path, find_vivado_dir_path
 
 
@@ -14,12 +15,12 @@ def resolve_config_completer(prefix, parsed_args, **kwargs) -> str:
 def resolve_config(explicit: str) -> str:
 	if os.path.exists(explicit):
 		return explicit
+
 	for candidate in ["project.toml"]:
 		if os.path.exists(candidate):
 			return candidate
 
-	#! ConfigTomlNotFound
-	raise RuntimeError("ERROR: project.toml not found in current directory.")
+	raise error.ProjoctConfigTomlFileMissingError()
 
 
 def load_config(path: str) -> XvivConfig:
@@ -72,6 +73,6 @@ def load_config(path: str) -> XvivConfig:
 				case "uvm":
 					cfg.add_uvm_cfg(**entry)
 				case _:
-					raise RuntimeError(f"Undefined key '{key}' in TOML: {path}")
+					raise error.ProjoctConfigUnknownKeyError(key, path)
 
 	return cfg

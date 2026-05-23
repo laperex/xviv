@@ -6,6 +6,7 @@ import subprocess
 from xviv.config.project import XvivConfig
 from xviv.functions.bd import ConfigTclCommands
 from xviv.tools.vitis import run_xsct
+from xviv.utils import error
 from xviv.utils.tools import get_vitis_env, mb_tool
 
 logger = logging.getLogger(__name__)
@@ -30,10 +31,7 @@ def cmd_platform_build(cfg: XvivConfig, platform_name: str):
 	cfg.validate_platform(platform_name=platform_name)
 
 	if not os.path.isdir(platform_cfg.dir):
-		#! BspDirectoryNotFound
-		raise RuntimeError(
-			f"ERROR: BSP directory not found: {platform_cfg.dir}\n  Run: xviv create --platform {platform_name}"
-		)
+		raise error.PlatformBspDirectoryMissingError(platform_cfg.name, platform_cfg.dir)
 
 	logger.info("Platform Build: %s", platform_cfg.dir)
 
@@ -86,7 +84,7 @@ def cmd_app_build(cfg: XvivConfig, app_name: str, info: bool | None):
 	app_cfg = cfg.get_app(app_name)
 	platform_cfg = cfg.get_platform(app_cfg.platform)
 
-	cfg.validate_app(app_name=app_name, check_elf=False)
+	cfg.validate_app(app_name=app_name, check_elf=False, check_sources=True)
 	cfg.validate_platform(platform_name=platform_cfg.name)
 
 	_transform_app_makefile(os.path.join(app_cfg.dir, "Makefile"))
@@ -115,9 +113,9 @@ def cmd_app_build(cfg: XvivConfig, app_name: str, info: bool | None):
 
 	logger.info("App build complete")
 
-	if not os.path.exists(app_cfg.elf_file):
-		#! ElfNotCreated
-		raise RuntimeError(f"ERROR: elf file not created for app: {app_name} at {app_cfg.elf_file} in {app_cfg.dir}")
+	# validate
+
+	cfg.validate_app(app_name=app_name, check_elf=True, check_sources=False)
 
 	if info:
 		logger.info("ELF: %s", app_cfg.elf_file)
@@ -160,7 +158,7 @@ def cmd_program(
 			elf_file = cfg.get_app(app_name).elf_file
 
 	if elf_file is None and bitstream_file is None:
-		raise RuntimeError("ERROR: specify (app_name | elf_file) and/or (platform_name | bitstream_file)")
+		raise error.ProgramUnspecifiedIdentifiersError()
 
 	config = (
 		ConfigTclCommands(cfg)

@@ -57,7 +57,6 @@ def cmd_simulate(
 	uvm_name: str | None = None,
 	run: str | None = None,
 	mode: str = "default",
-	dry_run: bool = False,
 ):
 	sim_cfg = cfg.get_sim(sim_name)
 
@@ -111,7 +110,7 @@ def cmd_simulate(
 		case "xsim":
 			_run_xsim(cfg, sim_name, uvm_name, svlog_files, sdfmax_entries, sdfmin_entries, run)
 		case "verilator":
-			_run_verilator(cfg, sim_name, uvm_name, svlog_files, dry_run)
+			_run_verilator(cfg, sim_name, uvm_name, svlog_files)
 		case _:
 			raise error.InvalidSimulationBackend(sim_cfg.backend)
 
@@ -206,7 +205,7 @@ def _run_xsim(
 # --------------------------------------------------------------------------- #
 
 
-def _run_verilator(cfg: XvivConfig, sim_name: str, uvm_name: str | None, svlog_files, dry_run):
+def _run_verilator(cfg: XvivConfig, sim_name: str, uvm_name: str | None, svlog_files):
 	sim_cfg = cfg.get_sim(sim_name)
 
 	top = sim_cfg.top
@@ -243,7 +242,7 @@ def _run_verilator(cfg: XvivConfig, sim_name: str, uvm_name: str | None, svlog_f
 		uvm=uvm_name is not None,
 		uvm_pkg_dir=sim_cfg.uvm_pkg_dir,
 		extra_args=sim_cfg.verilator_args,
-		dry_run=dry_run,
+		dry_run=cfg.get_vivado().dry_run,
 	)
 
 	# -- 2. Simulate ---------------------------------------------------- #
@@ -257,7 +256,7 @@ def _run_verilator(cfg: XvivConfig, sim_name: str, uvm_name: str | None, svlog_f
 		uvm_max_quit_count=uvm_max_quit_count,
 		trace=sim_cfg.trace,
 		trace_fst=sim_cfg.trace_fst,
-		dry_run=dry_run,
+		dry_run=cfg.get_vivado().dry_run,
 	)
 
 

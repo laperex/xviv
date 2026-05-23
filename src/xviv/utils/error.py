@@ -874,3 +874,33 @@ class OocStubMissingError(XvivError):
 class SynthUsrAccessValueEmbedGitShaError(XvivError):
 	def __str__(self) -> str:
 		return "usr_access_type='git' requires a valid Git SHA. Verify that this project is inside an initialized Git repository."
+
+
+class ProjoctConfigTomlFileMissingError(XvivError):
+	def __str__(self) -> str:
+		return "project.toml missing"
+
+
+class ProjoctConfigUnknownKeyError(XvivError):
+	def __init__(self, key: str, file: str):
+		self.key = key
+		self.file = file
+		super().__init__(key)
+
+	def __str__(self) -> str:
+		return f"unknown key '{self.key}' in config file '{self.file}'"
+
+
+class ProgramUnspecifiedIdentifiersError(XvivError):
+	def __str__(self) -> str:
+		return "specify (app_name | elf_file) and/or (platform_name | bitstream_file)"
+
+
+class PlatformBspDirectoryMissingError(XvivError):
+	def __init__(self, name: str, dir: str):
+		self.name = name
+		self.dir = dir
+		super().__init__(name)
+
+	def __str__(self) -> str:
+		return f"BSP directory not found: {self.dir}\n\tRun: xviv create --platform {self.name}"

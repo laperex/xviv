@@ -1,5 +1,4 @@
-- core
-	- use in synth
+
 
 - synth add debug marking
 

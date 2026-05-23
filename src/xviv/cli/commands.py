@@ -22,6 +22,7 @@ from xviv.functions.xsct import (
 	cmd_processor,
 	cmd_program,
 )
+from xviv.utils import error
 
 
 class Command(ABC):
@@ -256,7 +257,7 @@ class ProgramCommand(Command):
 				processor_reset_duration=args.reset_duration,
 				fpga_target_filter=args.fpga,
 			)
-		except RuntimeError as e:
+		except error.ProgramUnspecifiedIdentifiersError as e:
 			self.c.print_help()
 			self.c.exit(2, f"\n{e}\n")
 
