@@ -833,7 +833,7 @@ class XvivConfig:
 		return self
 
 	def _resolve_properties(self, properties_dict: dict[typing.Any] = {}) -> list[tuple[str, str]]:
-		def __flatten(d, prefix: str = "") -> typing.Generator[str, str]:
+		def __flatten(d, prefix: str = "") -> typing.Iterator[tuple[str, str]]:
 			for key, value in d.items():
 				new_prefix = f"{prefix}.{key}" if prefix else key
 
