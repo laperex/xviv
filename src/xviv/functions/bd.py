@@ -7,7 +7,13 @@ from xviv.tools import vivado
 # create --bd <bd_name>
 # -----------------------------------------------------------------------------
 def cmd_bd_create(
-	cfg: XvivConfig, *, bd_name: str, source_file: str | bool = True, generate: bool = True, edit: bool = False, nogui: bool = False
+	cfg: XvivConfig,
+	*,
+	bd_name: str,
+	source_file: str | bool = True,
+	generate: bool = True,
+	edit: bool = False,
+	nogui: bool = False,
 ):
 	config = (
 		ConfigTclCommands(cfg)
@@ -33,7 +39,7 @@ def cmd_bd_edit(cfg: XvivConfig, *, bd_name: str, nogui: bool = False):
 # -----------------------------------------------------------------------------
 # generate --bd <bd_name>
 # -----------------------------------------------------------------------------
-def cmd_bd_generate(cfg: XvivConfig, *, bd_name: str, force = True):
+def cmd_bd_generate(cfg: XvivConfig, *, bd_name: str, force=True):
 	config = ConfigTclCommands(cfg).generate_bd(bd_name).build()
 
 	vivado.run_vivado(cfg, config_tcl=config)

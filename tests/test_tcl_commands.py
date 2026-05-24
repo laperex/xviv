@@ -136,7 +136,7 @@ class TestProcessorCntrl:
 
 
 class TestCreateCore:
-	def test_vlnv_not_in_catalog(self, cfg, cmd):
+	def test_vlnv_not_in_catalog(self, cfg: XvivConfig, cmd):
 		cfg.add_core_cfg("my_core", vlnv="a:b:my_core:1.0")
 		with patch.object(cfg, "get_catalog") as mock_catalog:
 			mock_catalog.return_value.lookup_optional.return_value = None
@@ -156,19 +156,19 @@ class TestSynthValidation:
 		with pytest.raises(error.SynthNoIdentifierError):
 			cmd.synth()
 
-	def test_bitstream_requires_route(self, cfg, cmd):
+	def test_bitstream_requires_route(self, cfg: XvivConfig, cmd):
 		cfg.add_design_cfg("my_design", sources=[])
 		cfg.add_synth_cfg(design="my_design", run_route=False, bitstream=True)
 		with pytest.raises(error.SynthBitstreamRequiresRouteError):
 			cmd.synth(design="my_design")
 
-	def test_xsa_requires_route(self, cfg, cmd):
+	def test_xsa_requires_route(self, cfg: XvivConfig, cmd):
 		cfg.add_design_cfg("my_design", sources=[])
 		cfg.add_synth_cfg(design="my_design", run_route=False, bitstream=False, hw_platform=True)
 		with pytest.raises(error.SynthXsaRequiresRouteError):
 			cmd.synth(design="my_design")
 
-	def test_resume_invalid(self, cfg, cmd):
+	def test_resume_invalid(self, cfg: XvivConfig, cmd):
 		cfg.add_design_cfg("my_design", sources=[])
 		cfg.add_synth_cfg(design="my_design")
 		with pytest.raises(error.SynthResumeInvalidError) as exc_info:
@@ -209,7 +209,7 @@ class TestSynthResumeDcp:
 
 
 class TestSynthOocStub:
-	def test_stub_missing(self, cfg, vivado_mock):
+	def test_stub_missing(self, cfg: XvivConfig, vivado_mock):
 		cfg.add_design_cfg("my_design", sources=[])
 		cfg.add_synth_cfg(
 			design="my_design",
@@ -353,47 +353,47 @@ class TestOpenDcp:
 
 
 class TestCreatePlatform:
-	def _add_platform(self, cfg, xsa_path, bitstream_path):
+	def _add_platform(self, cfg: XvivConfig, xsa_path, bitstream_path):
 		cfg.add_platform_cfg(
 			"my_platform",
 			xsa=str(xsa_path),
 			bitstream=str(bitstream_path),
 		)
 
-	def test_raises_if_xsa_missing(self, cfg, cmd):
+	def test_raises_if_xsa_missing(self, cfg: XvivConfig, cmd):
 		self._add_platform(cfg, "/nonexistent/design.xsa", "/fake/bit")
 		with pytest.raises(AssertionError):
 			cmd.create_platform("my_platform")
 
-	def test_output_contains_hsi_open_hw_design(self, cfg, cmd, tmp_path):
+	def test_output_contains_hsi_open_hw_design(self, cfg: XvivConfig, cmd, tmp_path):
 		xsa = tmp_path / "design.xsa"
 		xsa.touch()
 		self._add_platform(cfg, xsa, tmp_path / "design.bit")
 		cmd.create_platform("my_platform")
 		assert "hsi::open_hw_design" in cmd.build()
 
-	def test_output_contains_hsi_create_sw_design(self, cfg, cmd, tmp_path):
+	def test_output_contains_hsi_create_sw_design(self, cfg: XvivConfig, cmd, tmp_path):
 		xsa = tmp_path / "design.xsa"
 		xsa.touch()
 		self._add_platform(cfg, xsa, tmp_path / "design.bit")
 		cmd.create_platform("my_platform")
 		assert "hsi::create_sw_design" in cmd.build()
 
-	def test_output_contains_hsi_generate_bsp(self, cfg, cmd, tmp_path):
+	def test_output_contains_hsi_generate_bsp(self, cfg: XvivConfig, cmd, tmp_path):
 		xsa = tmp_path / "design.xsa"
 		xsa.touch()
 		self._add_platform(cfg, xsa, tmp_path / "design.bit")
 		cmd.create_platform("my_platform")
 		assert "hsi::generate_bsp" in cmd.build()
 
-	def test_output_contains_hsi_close_hw_design(self, cfg, cmd, tmp_path):
+	def test_output_contains_hsi_close_hw_design(self, cfg: XvivConfig, cmd, tmp_path):
 		xsa = tmp_path / "design.xsa"
 		xsa.touch()
 		self._add_platform(cfg, xsa, tmp_path / "design.bit")
 		cmd.create_platform("my_platform")
 		assert "hsi::close_hw_design" in cmd.build()
 
-	def test_output_includes_platform_dir(self, cfg, cmd, tmp_path):
+	def test_output_includes_platform_dir(self, cfg: XvivConfig, cmd, tmp_path):
 		xsa = tmp_path / "design.xsa"
 		xsa.touch()
 		self._add_platform(cfg, xsa, tmp_path / "design.bit")
@@ -408,7 +408,7 @@ class TestCreatePlatform:
 
 
 class TestCreateApp:
-	def _add_platform_and_app(self, cfg, xsa_path, bitstream_path):
+	def _add_platform_and_app(self, cfg: XvivConfig, xsa_path, bitstream_path):
 		cfg.add_platform_cfg(
 			"my_platform",
 			xsa=str(xsa_path),
@@ -416,26 +416,26 @@ class TestCreateApp:
 		)
 		cfg.add_app_cfg("my_app", platform="my_platform", template="hello_world")
 
-	def test_raises_if_xsa_missing(self, cfg, cmd):
+	def test_raises_if_xsa_missing(self, cfg: XvivConfig, cmd):
 		self._add_platform_and_app(cfg, "/nonexistent/design.xsa", "/fake/bit")
 		with pytest.raises(AssertionError):
 			cmd.create_app("my_app")
 
-	def test_output_contains_hsi_generate_app(self, cfg, cmd, tmp_path):
+	def test_output_contains_hsi_generate_app(self, cfg: XvivConfig, cmd, tmp_path):
 		xsa = tmp_path / "design.xsa"
 		xsa.touch()
 		self._add_platform_and_app(cfg, xsa, tmp_path / "design.bit")
 		cmd.create_app("my_app")
 		assert "hsi::generate_app" in cmd.build()
 
-	def test_output_contains_template_name(self, cfg, cmd, tmp_path):
+	def test_output_contains_template_name(self, cfg: XvivConfig, cmd, tmp_path):
 		xsa = tmp_path / "design.xsa"
 		xsa.touch()
 		self._add_platform_and_app(cfg, xsa, tmp_path / "design.bit")
 		cmd.create_app("my_app")
 		assert "hello_world" in cmd.build()
 
-	def test_output_contains_hsi_close_hw_design(self, cfg, cmd, tmp_path):
+	def test_output_contains_hsi_close_hw_design(self, cfg: XvivConfig, cmd, tmp_path):
 		xsa = tmp_path / "design.xsa"
 		xsa.touch()
 		self._add_platform_and_app(cfg, xsa, tmp_path / "design.bit")
@@ -449,12 +449,16 @@ class TestCreateApp:
 
 
 class TestEditBd:
-	def test_raises_if_bd_file_missing(self, cfg, cmd):
+	def test_raises_if_bd_file_missing(self, cfg: XvivConfig, cmd, vivado_mock):
 		cfg.add_bd_cfg("my_bd", bd_file="/nonexistent/my_bd.bd")
-		with pytest.raises(AssertionError):
+
+		with (
+			pytest.raises(AssertionError),
+			patch.object(cfg, "get_vivado", return_value=vivado_mock),
+		):
 			cmd.edit_bd("my_bd")
 
-	def test_output_contains_read_bd_and_open(self, cfg, cmd, tmp_path, vivado_mock):
+	def test_output_contains_read_bd_and_open(self, cfg: XvivConfig, cmd, tmp_path, vivado_mock):
 		bd_file = tmp_path / "my_bd.bd"
 		bd_file.touch()
 		cfg.add_bd_cfg("my_bd", bd_file=str(bd_file))
@@ -464,7 +468,7 @@ class TestEditBd:
 		assert "read_bd" in result
 		assert "open_bd_design" in result
 
-	def test_nogui_omits_start_gui(self, cfg, cmd, tmp_path, vivado_mock):
+	def test_nogui_omits_start_gui(self, cfg: XvivConfig, cmd, tmp_path, vivado_mock):
 		# Renamed from test_nogui_excludes_start_gui to keep "start_gui" out
 		# of the pytest tmp_path directory name.
 		bd_file = tmp_path / "my_bd.bd"
@@ -474,7 +478,7 @@ class TestEditBd:
 			cmd.edit_bd("my_bd", nogui=True)
 		assert _lacks_cmd(cmd.build(), "start_gui")
 
-	def test_default_opens_gui(self, cfg, cmd, tmp_path, vivado_mock):
+	def test_default_opens_gui(self, cfg: XvivConfig, cmd, tmp_path, vivado_mock):
 		bd_file = tmp_path / "my_bd.bd"
 		bd_file.touch()
 		cfg.add_bd_cfg("my_bd", bd_file=str(bd_file))
@@ -482,7 +486,7 @@ class TestEditBd:
 			cmd.edit_bd("my_bd")
 		assert _has_cmd(cmd.build(), "start_gui")
 
-	def test_output_includes_write_bd_tcl(self, cfg, cmd, tmp_path, vivado_mock):
+	def test_output_includes_write_bd_tcl(self, cfg: XvivConfig, cmd, tmp_path, vivado_mock):
 		bd_file = tmp_path / "my_bd.bd"
 		bd_file.touch()
 		cfg.add_bd_cfg("my_bd", bd_file=str(bd_file))
@@ -497,23 +501,30 @@ class TestEditBd:
 
 
 class TestCreateBd:
-	def test_opens_gui_when_save_file_absent(self, cfg, cmd, tmp_path, vivado_mock):
-		# auto-resolved save_file path will not exist
+	def test_opens_gui_when_source_file_is_false(self, cfg: XvivConfig, cmd, tmp_path, vivado_mock):
 		cfg.add_bd_cfg("my_bd")
+
 		with patch.object(cfg, "get_vivado", return_value=vivado_mock):
-			cmd.create_bd("my_bd")
+			cmd.create_bd("my_bd", source_file=False)
+
 		assert _has_cmd(cmd.build(), "start_gui")
 
-	def test_output_contains_create_bd_design(self, cfg, cmd, tmp_path, vivado_mock):
+	def test_output_contains_create_bd_design(self, cfg: XvivConfig, cmd, tmp_path, vivado_mock):
 		cfg.add_bd_cfg("my_bd")
+
 		with patch.object(cfg, "get_vivado", return_value=vivado_mock):
-			cmd.create_bd("my_bd")
+			with patch("os.path.exists", return_value=True):
+				cmd.create_bd("my_bd", source_file=True)
+
 		assert _has_cmd(cmd.build(), "create_bd_design")
 
-	def test_output_contains_create_project(self, cfg, cmd, tmp_path, vivado_mock):
+	def test_output_contains_create_project(self, cfg: XvivConfig, cmd, tmp_path, vivado_mock):
 		cfg.add_bd_cfg("my_bd")
+
 		with patch.object(cfg, "get_vivado", return_value=vivado_mock):
-			cmd.create_bd("my_bd")
+			with patch("os.path.exists", return_value=True):
+				cmd.create_bd("my_bd", source_file=True)
+
 		assert _has_cmd(cmd.build(), "create_project")
 
 
@@ -523,12 +534,12 @@ class TestCreateBd:
 
 
 class TestGenerateBd:
-	def test_raises_if_bd_file_missing(self, cfg, cmd):
+	def test_raises_if_bd_file_missing(self, cfg: XvivConfig, cmd):
 		cfg.add_bd_cfg("my_bd", bd_file="/nonexistent/my_bd.bd")
 		with pytest.raises(AssertionError):
 			cmd.generate_bd("my_bd")
 
-	def test_clears_when_wrapper_is_up_to_date_and_force_false(self, cfg, cmd, tmp_path, vivado_mock):
+	def test_clears_when_wrapper_is_up_to_date_and_force_false(self, cfg: XvivConfig, cmd, tmp_path, vivado_mock):
 		bd_file = tmp_path / "my_bd.bd"
 		bd_file.touch()
 		wrapper_file = tmp_path / "my_bd_wrapper.v"
@@ -540,7 +551,7 @@ class TestGenerateBd:
 		cmd.generate_bd("my_bd", force=False)
 		assert cmd.build() is None
 
-	def test_regenerates_when_bd_is_newer_than_wrapper(self, cfg, cmd, tmp_path, vivado_mock):
+	def test_regenerates_when_bd_is_newer_than_wrapper(self, cfg: XvivConfig, cmd, tmp_path, vivado_mock):
 		wrapper_file = tmp_path / "my_bd_wrapper.v"
 		wrapper_file.touch()
 		# Make bd_file newer so it is stale
@@ -553,7 +564,7 @@ class TestGenerateBd:
 			cmd.generate_bd("my_bd", force=False)
 		assert cmd.build() is not None
 
-	def test_force_true_always_regenerates(self, cfg, cmd, tmp_path, vivado_mock):
+	def test_force_true_always_regenerates(self, cfg: XvivConfig, cmd, tmp_path, vivado_mock):
 		bd_file = tmp_path / "my_bd.bd"
 		bd_file.touch()
 		wrapper_file = tmp_path / "my_bd_wrapper.v"
@@ -567,7 +578,7 @@ class TestGenerateBd:
 		assert result is not None
 		assert "generate_target" in result
 
-	def test_output_contains_generate_target(self, cfg, cmd, tmp_path, vivado_mock):
+	def test_output_contains_generate_target(self, cfg: XvivConfig, cmd, tmp_path, vivado_mock):
 		bd_file = tmp_path / "my_bd.bd"
 		bd_file.touch()
 		cfg.add_bd_cfg("my_bd", bd_file=str(bd_file))
@@ -582,13 +593,13 @@ class TestGenerateBd:
 
 
 class TestEditCore:
-	def test_raises_if_xci_missing(self, cfg, cmd, vivado_mock):
+	def test_raises_if_xci_missing(self, cfg: XvivConfig, cmd, vivado_mock):
 		cfg.add_core_cfg("my_core", vlnv="a:b:my_core:1.0", xci_file="/nonexistent/my_core.xci")
 		with patch.object(cfg, "get_vivado", return_value=vivado_mock):
 			with pytest.raises(AssertionError):
 				cmd.edit_core("my_core")
 
-	def test_output_contains_read_ip(self, cfg, cmd, tmp_path, vivado_mock):
+	def test_output_contains_read_ip(self, cfg: XvivConfig, cmd, tmp_path, vivado_mock):
 		xci = tmp_path / "my_core.xci"
 		xci.touch()
 		cfg.add_core_cfg("my_core", vlnv="a:b:my_core:1.0", xci_file=str(xci))
@@ -596,7 +607,7 @@ class TestEditCore:
 			cmd.edit_core("my_core", nogui=True)
 		assert "read_ip" in cmd.build()
 
-	def test_nogui_skips_gui_and_generate(self, cfg, cmd, tmp_path, vivado_mock):
+	def test_nogui_skips_gui_and_generate(self, cfg: XvivConfig, cmd, tmp_path, vivado_mock):
 		xci = tmp_path / "my_core.xci"
 		xci.touch()
 		cfg.add_core_cfg("my_core", vlnv="a:b:my_core:1.0", xci_file=str(xci))
@@ -613,13 +624,13 @@ class TestEditCore:
 
 
 class TestGenerateCore:
-	def test_raises_if_xci_missing(self, cfg, cmd, vivado_mock):
+	def test_raises_if_xci_missing(self, cfg: XvivConfig, cmd, vivado_mock):
 		cfg.add_core_cfg("my_core", vlnv="a:b:my_core:1.0", xci_file="/nonexistent/my_core.xci")
 		with patch.object(cfg, "get_vivado", return_value=vivado_mock):
 			with pytest.raises(AssertionError):
 				cmd.generate_core("my_core")
 
-	def test_output_contains_read_ip(self, cfg, cmd, tmp_path, vivado_mock):
+	def test_output_contains_read_ip(self, cfg: XvivConfig, cmd, tmp_path, vivado_mock):
 		xci = tmp_path / "my_core.xci"
 		xci.touch()
 		cfg.add_core_cfg("my_core", vlnv="a:b:my_core:1.0", xci_file=str(xci))
@@ -627,7 +638,7 @@ class TestGenerateCore:
 			cmd.generate_core("my_core")
 		assert "read_ip" in cmd.build()
 
-	def test_output_contains_upgrade_ip(self, cfg, cmd, tmp_path, vivado_mock):
+	def test_output_contains_upgrade_ip(self, cfg: XvivConfig, cmd, tmp_path, vivado_mock):
 		xci = tmp_path / "my_core.xci"
 		xci.touch()
 		cfg.add_core_cfg("my_core", vlnv="a:b:my_core:1.0", xci_file=str(xci))
@@ -635,7 +646,7 @@ class TestGenerateCore:
 			cmd.generate_core("my_core")
 		assert "upgrade_ip" in cmd.build()
 
-	def test_output_contains_generate_target(self, cfg, cmd, tmp_path, vivado_mock):
+	def test_output_contains_generate_target(self, cfg: XvivConfig, cmd, tmp_path, vivado_mock):
 		xci = tmp_path / "my_core.xci"
 		xci.touch()
 		cfg.add_core_cfg("my_core", vlnv="a:b:my_core:1.0", xci_file=str(xci))
@@ -834,7 +845,7 @@ class TestSynthTclOutput:
 	output options.  All tests use a real source file to satisfy assert_file_exists.
 	"""
 
-	def _setup_design(self, cfg, tmp_path, **synth_kwargs):
+	def _setup_design(self, cfg: XvivConfig, tmp_path, **synth_kwargs):
 		src = tmp_path / "top.v"
 		src.touch()
 		cfg.add_design_cfg("my_design", sources=[str(src)])
@@ -849,7 +860,7 @@ class TestSynthTclOutput:
 		defaults.update(synth_kwargs)
 		cfg.add_synth_cfg(**defaults)
 
-	def test_synth_design_emitted_by_default(self, cfg, tmp_path, vivado_mock):
+	def test_synth_design_emitted_by_default(self, cfg: XvivConfig, tmp_path, vivado_mock):
 		# Renamed from test_synth_design_command_present_by_default: the old
 		# name embedded "synth_design" in tmp_path, giving a false positive.
 		self._setup_design(cfg, tmp_path)
@@ -858,14 +869,14 @@ class TestSynthTclOutput:
 			cmd.synth(design="my_design")
 		assert _has_cmd(cmd.build(), "synth_design")
 
-	def test_design_top_appears_in_synth_design(self, cfg, tmp_path, vivado_mock):
+	def test_design_top_appears_in_synth_design(self, cfg: XvivConfig, tmp_path, vivado_mock):
 		self._setup_design(cfg, tmp_path)
 		cmd = ConfigTclCommands(cfg)
 		with patch.object(cfg, "get_vivado", return_value=vivado_mock):
 			cmd.synth(design="my_design")
 		assert "my_design" in cmd.build()
 
-	def test_run_synth_false_omits_synth(self, cfg, tmp_path, vivado_mock):
+	def test_run_synth_false_omits_synth(self, cfg: XvivConfig, tmp_path, vivado_mock):
 		# Renamed from test_run_synth_false_omits_synth_design: the old name
 		# embedded "synth_design" in tmp_path, poisoning the not-in assertion.
 		self._setup_design(cfg, tmp_path, run_synth=False)
@@ -874,7 +885,7 @@ class TestSynthTclOutput:
 			cmd.synth(design="my_design")
 		assert _lacks_cmd(cmd.build(), "synth_design")
 
-	def test_run_opt_false_omits_opt_design(self, cfg, tmp_path, vivado_mock):
+	def test_run_opt_false_omits_opt_design(self, cfg: XvivConfig, tmp_path, vivado_mock):
 		self._setup_design(cfg, tmp_path, run_opt=False)
 		cmd = ConfigTclCommands(cfg)
 		with patch.object(cfg, "get_vivado", return_value=vivado_mock):
@@ -884,7 +895,7 @@ class TestSynthTclOutput:
 		# standalone opt_design command.
 		assert re.search(r"\bopt_design\b", cmd.build()) is None
 
-	def test_run_place_false_omits_place(self, cfg, tmp_path, vivado_mock):
+	def test_run_place_false_omits_place(self, cfg: XvivConfig, tmp_path, vivado_mock):
 		# Renamed from test_run_place_false_omits_place_design: the old name
 		# embedded "place_design" in tmp_path, poisoning the not-in assertion.
 		self._setup_design(cfg, tmp_path, run_place=False)
@@ -893,14 +904,14 @@ class TestSynthTclOutput:
 			cmd.synth(design="my_design")
 		assert _lacks_cmd(cmd.build(), "place_design")
 
-	def test_run_phys_opt_false_omits_phys_opt(self, cfg, tmp_path, vivado_mock):
+	def test_run_phys_opt_false_omits_phys_opt(self, cfg: XvivConfig, tmp_path, vivado_mock):
 		self._setup_design(cfg, tmp_path, run_phys_opt=False)
 		cmd = ConfigTclCommands(cfg)
 		with patch.object(cfg, "get_vivado", return_value=vivado_mock):
 			cmd.synth(design="my_design")
 		assert "phys_opt_design" not in cmd.build()
 
-	def test_run_route_false_omits_route(self, cfg, tmp_path, vivado_mock):
+	def test_run_route_false_omits_route(self, cfg: XvivConfig, tmp_path, vivado_mock):
 		# Renamed from test_run_route_false_omits_route_design: the old name
 		# embedded "route_design" in tmp_path, poisoning the not-in assertion.
 		self._setup_design(cfg, tmp_path, run_route=False)
@@ -909,7 +920,7 @@ class TestSynthTclOutput:
 			cmd.synth(design="my_design")
 		assert _lacks_cmd(cmd.build(), "route_design")
 
-	def test_bitstream_emitted_when_configured(self, cfg, tmp_path, vivado_mock):
+	def test_bitstream_emitted_when_configured(self, cfg: XvivConfig, tmp_path, vivado_mock):
 		# Renamed from test_write_bitstream_present_when_configured: the old
 		# name embedded "write_bitstream" in tmp_path, giving a false positive.
 		self._setup_design(cfg, tmp_path, bitstream=True)
@@ -918,7 +929,7 @@ class TestSynthTclOutput:
 			cmd.synth(design="my_design")
 		assert _has_cmd(cmd.build(), "write_bitstream")
 
-	def test_bitstream_absent_when_disabled(self, cfg, tmp_path, vivado_mock):
+	def test_bitstream_absent_when_disabled(self, cfg: XvivConfig, tmp_path, vivado_mock):
 		# Renamed from test_write_bitstream_absent_when_not_configured: the old
 		# name embedded "write_bitstream" in tmp_path, poisoning the not-in assertion.
 		self._setup_design(cfg, tmp_path, bitstream=False, hw_platform=False)
@@ -927,7 +938,7 @@ class TestSynthTclOutput:
 			cmd.synth(design="my_design")
 		assert _lacks_cmd(cmd.build(), "write_bitstream")
 
-	def test_synth_dcp_produces_checkpoint(self, cfg, tmp_path, vivado_mock):
+	def test_synth_dcp_produces_checkpoint(self, cfg: XvivConfig, tmp_path, vivado_mock):
 		# Renamed from test_synth_dcp_emits_write_checkpoint: the old name
 		# embedded "write_checkpoint" in tmp_path, giving a false positive.
 		self._setup_design(cfg, tmp_path, synth_dcp=True)
@@ -936,7 +947,7 @@ class TestSynthTclOutput:
 			cmd.synth(design="my_design")
 		assert _has_cmd(cmd.build(), "write_checkpoint")
 
-	def test_no_checkpoint_when_synth_dcp_false(self, cfg, tmp_path, vivado_mock):
+	def test_no_checkpoint_when_synth_dcp_false(self, cfg: XvivConfig, tmp_path, vivado_mock):
 		# With synth_dcp=False, place_dcp=False, route_dcp=False - no write_checkpoint
 		self._setup_design(cfg, tmp_path, synth_dcp=False, place_dcp=False, route_dcp=False)
 		cmd = ConfigTclCommands(cfg)
@@ -944,7 +955,7 @@ class TestSynthTclOutput:
 			cmd.synth(design="my_design")
 		assert _lacks_cmd(cmd.build(), "write_checkpoint")
 
-	def test_usr_access_sets_design_property(self, cfg, tmp_path, vivado_mock):
+	def test_usr_access_sets_design_property(self, cfg: XvivConfig, tmp_path, vivado_mock):
 		self._setup_design(cfg, tmp_path)
 		synth_cfg = cfg.get_synth(design_name="my_design")
 		synth_cfg.usr_access_value = 0xDEADBEEF
@@ -955,7 +966,7 @@ class TestSynthTclOutput:
 		assert "BITSTREAM.CONFIG.USR_ACCESS" in result
 		assert "DEADBEEF" in result.upper()
 
-	def test_design_sources_added(self, cfg, tmp_path, vivado_mock):
+	def test_design_sources_added(self, cfg: XvivConfig, tmp_path, vivado_mock):
 		# Renamed from test_add_files_called_for_design_sources: the old name
 		# embedded "add_files" in tmp_path, giving a false positive.
 		self._setup_design(cfg, tmp_path)

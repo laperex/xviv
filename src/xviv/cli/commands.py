@@ -6,11 +6,9 @@ from xviv.cli.completers import target_group
 from xviv.config.project import XvivConfig
 from xviv.functions.bd import cmd_bd_create, cmd_bd_edit, cmd_bd_generate
 from xviv.functions.core import cmd_core_create, cmd_core_edit, cmd_core_generate, cmd_search_core
-
 from xviv.functions.formal import cmd_formal
 from xviv.functions.ip import cmd_ip_create, cmd_ip_edit
 from xviv.functions.simulation import cmd_simulate, cmd_wdb_open, cmd_wdb_reload
-
 from xviv.functions.synthesis import cmd_dcp_open, cmd_synth
 from xviv.functions.xsct import (
 	cmd_app_build,

@@ -406,7 +406,7 @@ class TestCmdWdbOpen:
 		kwargs = MockTcl.return_value.waveform_setup.call_args[1]
 		assert kwargs["wdb_file"] == "/build/sim/my_sim/tb_top.wdb"
 		assert kwargs["wcfg_file"] == "/build/sim/my_sim/tb_top.wcfg"
-		assert kwargs["fifo_file"] == f"{kwargs["wdb_file"]}.fifo"
+		assert kwargs["fifo_file"] == f"{kwargs['wdb_file']}.fifo"
 
 	def test_ensures_fifo_before_running_xsim(self):
 		cfg = _make_cfg()
@@ -738,7 +738,7 @@ class TestCmdIpCreate:
 
 	def test_validates_ip_before_anything_else(self):
 		cfg = _make_cfg()
-		ip_cfg = self._setup_ip_cfg(cfg)
+		# ip_cfg = self._setup_ip_cfg(cfg)
 		order = []
 		cfg.validate_ip.side_effect = lambda *a, **k: order.append("validate")
 		cfg.build_attach_ip_wrapper.side_effect = lambda *a, **k: order.append("attach")
@@ -795,7 +795,7 @@ class TestCmdIpCreate:
 
 	def test_runs_parallel_for_matching_cores_with_existing_xci(self, tmp_path):
 		cfg = _make_cfg()
-		ip_cfg = self._setup_ip_cfg(cfg, vlnv="xviv.org:xviv:my_ip:1.0")
+		# ip_cfg = self._setup_ip_cfg(cfg, vlnv="xviv.org:xviv:my_ip:1.0")
 
 		xci = tmp_path / "my_core.xci"
 		xci.touch()

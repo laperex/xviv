@@ -343,7 +343,12 @@ class ConfigTclCommands(ConfigTclBuilder):
 		self._close("$fd")
 
 	def create_bd(
-		self, bd_name: str, source_file: str | bool = True, generate: bool = True, edit: bool = True, nogui: bool = False
+		self,
+		bd_name: str,
+		source_file: str | bool = True,
+		generate: bool = True,
+		edit: bool = True,
+		nogui: bool = False,
 	) -> typing.Self:
 		bd_cfg = self._cfg.get_bd(bd_name)
 		bd_subdir = os.path.join(self._cfg.bd_dir, bd_name)

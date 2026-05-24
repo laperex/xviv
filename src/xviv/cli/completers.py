@@ -295,9 +295,7 @@ def target_group(
 			"--build", action="store_true", help="Build [Platform / App]", default=False, required=required
 		)
 	if force:
-		grp.add_argument(
-			"--force", action="store_true", help="", default=False, required=required
-		)
+		grp.add_argument("--force", action="store_true", help="", default=False, required=required)
 	if edit:
 		grp.add_argument(
 			"--edit", action="store_true", help="Edit in GUI [IP / BD / core]", default=False, required=required
