@@ -2,7 +2,6 @@ import glob
 import hashlib
 import logging
 import os
-import sys
 
 from xviv.utils import error
 

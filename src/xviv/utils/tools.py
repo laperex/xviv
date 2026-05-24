@@ -2,7 +2,6 @@ import logging
 import os
 import shutil
 import subprocess
-import sys
 
 from xviv.utils import error
 
@@ -38,7 +37,7 @@ def _load_dotenv(path: str = ".env") -> None:
 					continue
 				# Strip optional "export " prefix
 				if line.startswith("export "):
-					line = line[len("export "):]
+					line = line[len("export ") :]
 				if "=" not in line:
 					continue
 				key, _, val = line.partition("=")

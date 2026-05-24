@@ -1,5 +1,4 @@
 from __future__ import annotations
-import typing
 
 # --- Root --------------------------------------------------------------------
 
@@ -37,6 +36,7 @@ class InvalidPathError(XvivError):
 	def __str__(self) -> str:
 		suffix = f" ({self.context})" if self.context else ""
 		return f"Path does not exist: '{self.path}'{suffix}"
+
 
 class FileNotFoundError(XvivError):
 	def __init__(self, path: str) -> None:
@@ -739,7 +739,7 @@ class FormalInvalidModeError(FormalError):
 
 class VerilatorNotFoundError(XvivError):
 	def __init__(self) -> None:
-		super().__init__("verilator not found on PATH — install verilator or add it to PATH")
+		super().__init__("verilator not found on PATH - install verilator or add it to PATH")
 
 
 class VerilatorCompileError(XvivError):
@@ -752,7 +752,7 @@ class VerilatorCompileError(XvivError):
 class VerilatorBinaryMissingError(XvivError):
 	def __init__(self, path: str) -> None:
 		self.path = path
-		super().__init__(f"verilated binary not found: {path} — run compile step first")
+		super().__init__(f"verilated binary not found: {path} - run compile step first")
 
 
 # --- UVM ---------------------------------------------------------------------
