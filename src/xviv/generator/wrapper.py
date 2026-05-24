@@ -9,6 +9,7 @@ import tempfile
 
 import pyslang
 
+from xviv.utils.fs import assert_file_exists
 from xviv.utils.log import _setup_logging
 
 logger = logging.getLogger(__name__)
@@ -788,8 +789,7 @@ def parse_arguments() -> argparse.Namespace:
 	cleaned: list[str] = []
 	for path in args.xviv_fileset:
 		if not os.path.isfile(path):
-			sys.stderr.write(f"Error: Invalid File: {path}\n")
-			sys.exit(1)
+			assert_file_exists(path)
 		cleaned.append(os.path.abspath(path))
 	args.xviv_fileset = cleaned
 

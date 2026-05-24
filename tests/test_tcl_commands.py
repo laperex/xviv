@@ -313,7 +313,7 @@ class TestTclPrimitives:
 
 class TestOpenDcp:
 	def test_raises_if_dcp_file_missing(self, cmd):
-		with pytest.raises(AssertionError):
+		with pytest.raises(error.FileNotFoundError):
 			cmd.open_dcp("/nonexistent/design.dcp")
 
 	def test_output_contains_open_checkpoint(self, cmd, tmp_path):
@@ -362,7 +362,7 @@ class TestCreatePlatform:
 
 	def test_raises_if_xsa_missing(self, cfg: XvivConfig, cmd):
 		self._add_platform(cfg, "/nonexistent/design.xsa", "/fake/bit")
-		with pytest.raises(AssertionError):
+		with pytest.raises(error.FileNotFoundError):
 			cmd.create_platform("my_platform")
 
 	def test_output_contains_hsi_open_hw_design(self, cfg: XvivConfig, cmd, tmp_path):
@@ -418,7 +418,7 @@ class TestCreateApp:
 
 	def test_raises_if_xsa_missing(self, cfg: XvivConfig, cmd):
 		self._add_platform_and_app(cfg, "/nonexistent/design.xsa", "/fake/bit")
-		with pytest.raises(AssertionError):
+		with pytest.raises(error.FileNotFoundError):
 			cmd.create_app("my_app")
 
 	def test_output_contains_hsi_generate_app(self, cfg: XvivConfig, cmd, tmp_path):
@@ -453,7 +453,7 @@ class TestEditBd:
 		cfg.add_bd_cfg("my_bd", bd_file="/nonexistent/my_bd.bd")
 
 		with (
-			pytest.raises(AssertionError),
+			pytest.raises(error.FileNotFoundError),
 			patch.object(cfg, "get_vivado", return_value=vivado_mock),
 		):
 			cmd.edit_bd("my_bd")
@@ -536,7 +536,7 @@ class TestCreateBd:
 class TestGenerateBd:
 	def test_raises_if_bd_file_missing(self, cfg: XvivConfig, cmd):
 		cfg.add_bd_cfg("my_bd", bd_file="/nonexistent/my_bd.bd")
-		with pytest.raises(AssertionError):
+		with pytest.raises(error.FileNotFoundError):
 			cmd.generate_bd("my_bd")
 
 	def test_clears_when_wrapper_is_up_to_date_and_force_false(self, cfg: XvivConfig, cmd, tmp_path, vivado_mock):
@@ -596,7 +596,7 @@ class TestEditCore:
 	def test_raises_if_xci_missing(self, cfg: XvivConfig, cmd, vivado_mock):
 		cfg.add_core_cfg("my_core", vlnv="a:b:my_core:1.0", xci_file="/nonexistent/my_core.xci")
 		with patch.object(cfg, "get_vivado", return_value=vivado_mock):
-			with pytest.raises(AssertionError):
+			with pytest.raises(error.FileNotFoundError):
 				cmd.edit_core("my_core")
 
 	def test_output_contains_read_ip(self, cfg: XvivConfig, cmd, tmp_path, vivado_mock):
@@ -627,7 +627,7 @@ class TestGenerateCore:
 	def test_raises_if_xci_missing(self, cfg: XvivConfig, cmd, vivado_mock):
 		cfg.add_core_cfg("my_core", vlnv="a:b:my_core:1.0", xci_file="/nonexistent/my_core.xci")
 		with patch.object(cfg, "get_vivado", return_value=vivado_mock):
-			with pytest.raises(AssertionError):
+			with pytest.raises(error.FileNotFoundError):
 				cmd.generate_core("my_core")
 
 	def test_output_contains_read_ip(self, cfg: XvivConfig, cmd, tmp_path, vivado_mock):

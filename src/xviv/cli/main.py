@@ -14,7 +14,7 @@ def run() -> None:
 		description="FPGA project controller for Vivado / Vitis",
 	)
 	p.add_argument("--config", "-c", help="Project configuration file (default: %(default)s)", default="project.toml")
-	p.add_argument("--log", metavar="FILE", help="Append debug log to file", default="")
+	p.add_argument("--log", metavar="FILE", help="Append debug log to file (default: %(default)s)", default='xviv.log')
 
 	registry = register_commands(p.add_subparsers(dest="command", required=True))
 
@@ -26,7 +26,7 @@ def run() -> None:
 	project_dir = os.path.dirname(cfg_path)
 	os.chdir(project_dir)
 
-	_setup_logging("xviv.log")
+	_setup_logging(args.log)
 
 	cfg = load_config(cfg_path).build()
 

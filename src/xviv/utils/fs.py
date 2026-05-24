@@ -4,6 +4,8 @@ import logging
 import os
 import sys
 
+from xviv.utils import error
+
 logger = logging.getLogger(__name__)
 
 
@@ -36,7 +38,7 @@ def is_stale(srcfile: str, dstfile: str, exit_on_fail=True) -> bool:
 
 	if not os.path.exists(srcfile):
 		if exit_on_fail:
-			sys.exit(f"[stale_checker] ERROR: the path {srcfile} does not exist!")
+			raise FileNotFoundError(srcfile)
 		else:
 			return True
 
@@ -60,4 +62,5 @@ def combined_checksum(files: list[str], algorithm: str = "sha256") -> str:
 
 
 def assert_file_exists(path: str) -> None:
-	assert os.path.exists(path), f"File not found: {path}"
+	if not os.path.exists(path):
+		raise error.FileNotFoundError(path)

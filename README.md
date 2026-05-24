@@ -3,6 +3,7 @@
 [![PyPI](https://img.shields.io/pypi/v/xviv)](https://pypi.org/project/xviv/)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/xviv)](https://pypi.org/project/xviv/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Tests](https://github.com/laperex/xviv/actions/workflows/test.yml/badge.svg)](https://github.com/laperex/xviv/actions/workflows/test.yml)
 
 CLI project controller for Vivado and Vitis. Describe your whole project in a `project.toml`, run everything from the terminal, keep the GUI for the parts that actually need it.
 
@@ -10,7 +11,7 @@ CLI project controller for Vivado and Vitis. Describe your whole project in a `p
 pip install xviv
 ```
 
-> **Work in progress.** xviv is being actively developed alongside a real project and the API is not stable. Commands, config keys, and behaviour can change between versions without notice. It works, but expect rough edges.
+> **Work in progress.** xviv is being actively developed alongside a another project and the API is not stable. Commands, config keys, and behaviour can change between versions without notice. It works, but expect rough edges.
 
 ---
 
@@ -38,6 +39,13 @@ XVIV_VIVADO_SOURCE_SCRIPT=/tools/Xilinx/Vivado/2024.1/settings64.sh
 ```
 
 Optional: `pyslang` for SV wrapper generation.
+
+For development:
+
+```sh
+pip install -e ".[dev]"
+pre-commit install
+```
 
 ---
 
@@ -89,9 +97,11 @@ All sections are arrays of tables. A real project uses some combination of the f
 
 **`[[synth]]`** - a synthesis run. Identified by one of `design`, `bd`, or `core`. Controls the full pipeline (which stages to run, incremental flows, directives, reports, output artifacts).
 
-**`[[simulation]]`** - a simulation target. Backends: `xsim` (default) or `verilator`. Supports UVM, SDF back-annotation, post-synthesis and post-implementation modes.
+**`[[simulation]]`** - a simulation target. Backends: `xsim` (default) or `verilator`. Supports UVM (see `[[uvm]]` below), SDF back-annotation, post-synthesis and post-implementation modes.
 
-**`[[platform]]` / `[[app]]`** - Vitis embedded flow. `platform` generates a BSP from the XSA produced by synthesis; `app` scaffolds and builds a Vitis application against it.
+**`[[uvm]]`** - a UVM test configuration attached to a `[[simulation]]`. Each entry defines a test name, verbosity, and version, letting you declare multiple UVM tests for the same simulation target.
+
+**`[[platform]]` / `[[app]]`** - Vitis embedded flow. `platform` generates a BSP from the XSA produced by synthesis; `app` scaffolds and builds a Vitis application against it. The `properties` key on `[[platform]]` lets you set BSP properties (e.g. `CONFIG.stdout`) directly from the toml.
 
 **`[[formal]]`** - SymbiYosys formal verification target. Modes: `bmc`, `prove`, `cover`. Vivado not required.
 
@@ -127,6 +137,10 @@ bd   = "system"
 cpu  = "microblaze_0"
 os   = "standalone"
 
+[platform.properties.CONFIG]
+stdout = "mdm_1"
+stdin  = "mdm_1"
+
 [[app]]
 name     = "firmware"
 platform = "mb_platform"
@@ -136,6 +150,11 @@ template = "empty_application"
 name    = "tb_gamma"
 sources = ["srcs/sim/tb_gamma.sv", "srcs/rtl/**/*.sv"]
 backend = "xsim"
+
+[[uvm]]
+simulation = "tb_gamma"
+test       = "gamma_basic_test"
+verbosity  = "UVM_MEDIUM"
 
 [[formal]]
 name    = "gamma_props"
@@ -154,17 +173,23 @@ depth   = 30
 ```sh
 # Create and package a custom IP
 xviv create --ip gamma_axi
-xviv edit   --ip gamma_axi        # opens IP Packager
+xviv edit   --ip gamma_axi          # opens IP Packager
 
-# Create a block design and open the editor
+# Create a block design from scratch (opens GUI)
 xviv create --bd system
-xviv edit   --bd system
+
+# Import from an existing TCL snapshot and open the editor
+xviv create --bd system --source-file scripts/xviv/bd/system.tcl
+
+# Just import and regenerate output products, no GUI
+xviv create --bd system --no-generate
 
 # After editing, generate output products
 xviv generate --bd system
 
-# Instantiate a catalog IP (VLNV tab-completes from live catalog)
-xviv create --core clk_wiz_0 --vlnv clk_wiz:6.0
+# Instantiate a catalog IP
+xviv create --core clk_wiz_0
+xviv edit   --core clk_wiz_0
 
 # Search the IP catalog
 xviv search axi4 dma
@@ -177,11 +202,18 @@ xviv synth --design top          # RTL design
 xviv synth --bd     system       # block design
 xviv synth --core   clk_wiz_0    # out-of-context IP core
 
+# Resume from an existing checkpoint
+xviv synth --design top --resume auto      # detect latest checkpoint automatically
+xviv synth --design top --resume place     # resume from after place_design
+
+# Control what gets embedded in the bitstream USR_ACCESS field
+xviv synth --design top --usr-access-type git   # default: embeds git SHA
+
 # Open a checkpoint (path tab-completes)
 xviv open --dcp build/synth/system/checkpoints/route.dcp
 ```
 
-By default, every synth run produces synth/place/route checkpoints and a bitstream. Fine-grained control is in `project.toml`: `run_synth`, `run_place`, `run_route`, incremental flows, directive overrides, reports, netlists.
+By default, every synth run embeds the short git SHA into the bitstream `USR_ACCESS` field (bit 28 is set if the working tree was dirty). Fine-grained control is in `project.toml`: `run_synth`, `run_place`, `run_route`, incremental flows, directive overrides, reports, netlists.
 
 ### Simulation
 
@@ -190,10 +222,15 @@ xviv simulate --target tb_gamma
 xviv simulate --target tb_gamma --run 1000ns
 xviv simulate --target tb_gamma --mode post_synth_functional
 
+# Run a specific UVM test
+xviv simulate --target tb_gamma --uvm gamma_basic_test
+
 # Open the waveform DB without re-running
 xviv open   --wdb tb_gamma
 xviv reload --target tb_gamma    # hot-reload snapshot in a live xsim session
 ```
+
+Available `--mode` values: `default`, `post_synth_functional`, `post_synth_timing`, `post_impl_functional`, `post_impl_timing`.
 
 ### Embedded
 
@@ -202,8 +239,13 @@ xviv build --platform mb_platform
 xviv build --app firmware
 xviv build --app firmware --info    # print ELF section sizes after build
 
+# Program with default FPGA and processor filters (xc7a* / MicroBlaze #0*)
 xviv program --platform mb_platform --app firmware
+
+# Explicit paths or custom target filters
 xviv program --bitstream path/to/custom.bit --elf path/to/custom.elf
+xviv program --platform mb_platform --fpga "xc7a35t*" --processor "MicroBlaze #0*"
+xviv program --platform mb_platform --reset-duration 1000   # ms before loading ELF
 
 xviv processor --reset
 xviv processor --status
@@ -230,7 +272,7 @@ activate-global-python-argcomplete          # system-wide
 eval "$(register-python-argcomplete xviv)"  # or per-shell (bash)
 ```
 
-Completion is dynamic: IP, BD, design, and simulation names come from `project.toml`; VLNV strings come from the live Vivado IP catalog with descriptions inline; DCP paths complete from the known checkpoint locations for each synth run.
+Completion is dynamic: IP, BD, design, and simulation names come from `project.toml`; VLNV strings come from the live Vivado IP catalog with descriptions inline; DCP paths complete from the known checkpoint locations for each synth run; UVM test names filter to the selected simulation target; bitstream and ELF paths complete from known output locations.
 
 ---
 
@@ -262,10 +304,8 @@ Roughly in order of priority.
 
 **Near-term**
 
-- **Simulation config restructure** - the `[[simulation]]` section has grown unwieldy and backend-specific fields don't map cleanly onto both xsim and Verilator. A cleaner split is needed, which may require command changes.
-- **DPI support** - C/C++ testbenches that call into the simulator via DPI-C. Follows naturally from the simulation restructure.
-- **Unit tests** - the TCL generator and config loader have almost no test coverage. Required before the API can be considered stable.
-- **Configurable HSI targets** - the FPGA part and processor target passed to `hsi` during BSP generation are currently hardcoded in the XSCT script. Should be driven from `[[platform]]` config.
+- **DPI support** - C/C++ testbenches that call into the simulator via DPI-C.
+- **Configurable HSI targets** - the FPGA part and processor target passed to `hsi` during BSP generation are currently driven by the `[[platform]]` properties dict; exposing typed config keys would be cleaner.
 - **Subcore support for custom IPs** - declare that a custom IP depends on another IP internally (e.g. a `clk_wiz` sub-core), so the packager carries the dependency correctly. BDs get automatic subcore tracking already; standalone IPs don't.
 
 **Feature additions**

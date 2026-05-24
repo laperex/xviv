@@ -738,7 +738,7 @@ class TestCmdIpCreate:
 
 	def test_validates_ip_before_anything_else(self):
 		cfg = _make_cfg()
-		# ip_cfg = self._setup_ip_cfg(cfg)
+		ip_cfg = self._setup_ip_cfg(cfg)
 		order = []
 		cfg.validate_ip.side_effect = lambda *a, **k: order.append("validate")
 		cfg.build_attach_ip_wrapper.side_effect = lambda *a, **k: order.append("attach")
@@ -795,7 +795,7 @@ class TestCmdIpCreate:
 
 	def test_runs_parallel_for_matching_cores_with_existing_xci(self, tmp_path):
 		cfg = _make_cfg()
-		# ip_cfg = self._setup_ip_cfg(cfg, vlnv="xviv.org:xviv:my_ip:1.0")
+		ip_cfg = self._setup_ip_cfg(cfg, vlnv="xviv.org:xviv:my_ip:1.0")
 
 		xci = tmp_path / "my_core.xci"
 		xci.touch()

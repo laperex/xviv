@@ -1,4 +1,5 @@
 from __future__ import annotations
+import typing
 
 # --- Root --------------------------------------------------------------------
 
@@ -36,6 +37,14 @@ class InvalidPathError(XvivError):
 	def __str__(self) -> str:
 		suffix = f" ({self.context})" if self.context else ""
 		return f"Path does not exist: '{self.path}'{suffix}"
+
+class FileNotFoundError(XvivError):
+	def __init__(self, path: str) -> None:
+		self.path = path
+		super().__init__(path)
+
+	def __str__(self) -> str:
+		return f"File not found: '{self.path}'"
 
 
 # --- Resolve -----------------------------------------------------------------
@@ -904,3 +913,64 @@ class PlatformBspDirectoryMissingError(XvivError):
 
 	def __str__(self) -> str:
 		return f"BSP directory not found: {self.dir}\n\tRun: xviv create --platform {self.name}"
+
+
+class ParallelJobError(XvivError):
+	def __init__(self, failures: list[tuple[str, BaseException]]) -> None:
+		self.failures = failures
+		super().__init__(self._format())
+
+	def _format(self) -> str:
+		lines = [f"{len(self.failures)} parallel job(s) failed:"]
+		for label, exc in self.failures:
+			lines.append(f"  [{label}] {type(exc).__name__}: {exc}")
+		return "\n".join(lines)
+
+
+class ToolError(XvivError):
+	"""Base for internal tool-resolution errors."""
+
+
+class BashNotFoundError(ToolError):
+	def __str__(self) -> str:
+		return "bash is required but not found on PATH"
+
+
+class SettingsEnvUnsetError(ToolError):
+	def __init__(self, tool: str, SETTINGS_ENV_VAR: str) -> None:
+		self.tool = tool
+		self.SETTINGS_ENV_VAR = SETTINGS_ENV_VAR
+
+	def __str__(self) -> str:
+		return (
+			f"'{self.tool}' not found on PATH and {self.SETTINGS_ENV_VAR} is not set.\n"
+			f"Set it to the path of your settings script, e.g.:\n"
+			f"  export {self.SETTINGS_ENV_VAR}=/tools/Xilinx/<version>/settings64.sh"
+		)
+
+
+class SettingsFileNotFoundError(ToolError):
+	def __init__(self, path: str) -> None:
+		self.path = path
+
+	def __str__(self) -> str:
+		return f"settings file not found: {self.path!r}"
+
+
+class SettingsSourceError(ToolError):
+	def __init__(self, path: str, stderr: str) -> None:
+		self.path = path
+		self.stderr = stderr
+
+	def __str__(self) -> str:
+		return f"failed to source {self.path!r}:\n{self.stderr}"
+
+
+class ToolBinaryNotFoundError(ToolError):
+	def __init__(self, tool: str, _TOOL_NOT_FOUND_HINT: str, SETTINGS_ENV_VAR: str) -> None:
+		self.tool = tool
+		self._TOOL_NOT_FOUND_HINT = _TOOL_NOT_FOUND_HINT
+		self.SETTINGS_ENV_VAR = SETTINGS_ENV_VAR
+
+	def __str__(self) -> str:
+		return self._TOOL_NOT_FOUND_HINT.format(tool=self.tool, env_var=self.SETTINGS_ENV_VAR)
