@@ -406,7 +406,7 @@ class TestCmdWdbOpen:
 		kwargs = MockTcl.return_value.waveform_setup.call_args[1]
 		assert kwargs["wdb_file"] == "/build/sim/my_sim/tb_top.wdb"
 		assert kwargs["wcfg_file"] == "/build/sim/my_sim/tb_top.wcfg"
-		assert kwargs["fifo_file"] == "/build/sim/my_sim/tb_top.fifo"
+		assert kwargs["fifo_file"] == f"{kwargs["wdb_file"]}.fifo"
 
 	def test_ensures_fifo_before_running_xsim(self):
 		cfg = _make_cfg()
@@ -433,7 +433,7 @@ class TestCmdWdbOpen:
 		):
 			MockTcl.return_value.waveform_setup.return_value.build.return_value = MagicMock()
 			cmd_wdb_open(cfg, sim_name="my_sim")
-		mock_fifo.assert_called_once_with("/build/sim/my_sim/tb_top.fifo")
+		mock_fifo.assert_called_once_with("/build/sim/my_sim/tb_top.wdb.fifo")
 
 	def test_runs_xsim_in_popen_mode(self):
 		cfg = _make_cfg()
@@ -535,7 +535,7 @@ class TestCmdWdbReload:
 		):
 			MockTcl.return_value.waveform_reload.return_value.build.return_value = MagicMock()
 			cmd_wdb_reload(cfg, sim_name="my_sim")
-		mock_assert.assert_called_once_with("/build/sim/my_sim/tb_top.fifo")
+		mock_assert.assert_called_once_with("/build/sim/my_sim/tb_top.wdb.fifo")
 
 	def test_sends_reload_command_via_fifo(self):
 		cfg = _make_cfg()
@@ -548,7 +548,7 @@ class TestCmdWdbReload:
 		):
 			MockTcl.return_value.waveform_reload.return_value.build.return_value = mock_cmd
 			cmd_wdb_reload(cfg, sim_name="my_sim")
-		mock_send.assert_called_once_with("/build/sim/my_sim/tb_top.fifo", mock_cmd)
+		mock_send.assert_called_once_with("/build/sim/my_sim/tb_top.wdb.fifo", mock_cmd)
 
 	def test_fifo_send_receives_built_tcl(self):
 		cfg = _make_cfg()
@@ -791,7 +791,7 @@ class TestCmdIpCreate:
 		):
 			MockTcl.return_value.create_ip.return_value.build.return_value = MagicMock()
 			cmd_ip_create(cfg, ip_name="my_ip")
-		MockTcl.return_value.create_ip.assert_called_once_with("my_ip")
+		MockTcl.return_value.create_ip.assert_called_once_with("my_ip", edit=False, nogui=False)
 
 	def test_runs_parallel_for_matching_cores_with_existing_xci(self, tmp_path):
 		cfg = _make_cfg()
@@ -965,7 +965,9 @@ class TestCmdBdCreate:
 		):
 			MockTcl.return_value.create_bd.return_value.build.return_value = MagicMock()
 			cmd_bd_create(cfg, bd_name="my_bd")
-		MockTcl.return_value.create_bd.assert_called_once_with("my_bd", generate=True)
+		MockTcl.return_value.create_bd.assert_called_once_with(
+			"my_bd", generate=True, source_file=True, edit=False, nogui=False
+		)
 
 	def test_runs_vivado_with_built_config(self):
 		cfg = _make_cfg()
@@ -1112,7 +1114,7 @@ class TestCmdBdGenerate:
 
 
 class TestCmdCoreCreate:
-	def test_builds_create_core_tcl_with_correct_name(self):
+	def test_builds_create_core_tcl_with_correct_name_generate_edit_in_gui(self):
 		cfg = _make_cfg()
 		with (
 			patch(f"{CORE_MODULE}.ConfigTclCommands") as MockTcl,
@@ -1120,7 +1122,7 @@ class TestCmdCoreCreate:
 		):
 			MockTcl.return_value.create_core.return_value.build.return_value = MagicMock()
 			cmd_core_create(cfg, core_name="my_core")
-		MockTcl.return_value.create_core.assert_called_once_with("my_core")
+		MockTcl.return_value.create_core.assert_called_once_with("my_core", generate=True, edit=True, nogui=False)
 
 	def test_runs_vivado_with_built_config(self):
 		cfg = _make_cfg()
@@ -1238,7 +1240,7 @@ class TestCmdCoreGenerate:
 		):
 			MockTcl.return_value.generate_core.return_value.build.return_value = MagicMock()
 			cmd_core_generate(cfg, core_name="my_core")
-		MockTcl.return_value.generate_core.assert_called_once_with("my_core")
+		MockTcl.return_value.generate_core.assert_called_once_with("my_core", force=False)
 
 	def test_runs_vivado_with_built_config(self):
 		cfg = _make_cfg()

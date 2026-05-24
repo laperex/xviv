@@ -342,7 +342,9 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 		self._close("$fd")
 
-	def create_bd(self, bd_name: str, generate: bool = True, source_file: str | bool = True) -> typing.Self:
+	def create_bd(
+		self, bd_name: str, source_file: str | bool = True, generate: bool = True, edit: bool = True, nogui: bool = False
+	) -> typing.Self:
 		bd_cfg = self._cfg.get_bd(bd_name)
 		bd_subdir = os.path.join(self._cfg.bd_dir, bd_name)
 
@@ -357,13 +359,13 @@ class ConfigTclCommands(ConfigTclBuilder):
 		self._create_bd_design(bd_name, dir=self._cfg.bd_dir)
 
 		# TODO: add a new flag --import=true flag to make this if explicit
-		if os.path.exists(bd_cfg.save_file) and source_file:
+		if source_file:
 			save_file = bd_cfg.save_file
 
 			if isinstance(source_file, str):
-				assert_file_exists(source_file)
+				save_file = os.path.abspath(source_file)
 
-				save_file = source_file
+			assert_file_exists(save_file)
 
 			self._rename("create_bd_design", "_xviv_create_bd_design")
 			self._rename("close_bd_design", "_xviv_close_bd_design")
@@ -391,6 +393,12 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 			if generate:
 				self._generate_target_get_files(bd_cfg.bd_file)
+
+			if edit:
+				self.edit_bd(bd_name=bd_name, nogui=nogui)
+			elif save_file != bd_cfg.save_file:
+				# is called inside 'edit_bd'
+				self._write_bd_tcl(bd_cfg.save_file, force=True, no_project_wrapper=True, make_local=True)
 		else:
 			self._override_save_bd_design(bd_cfg.save_file)
 
@@ -401,11 +409,11 @@ class ConfigTclCommands(ConfigTclBuilder):
 	def edit_bd(self, bd_name: str, nogui: bool = False) -> typing.Self:
 		bd_cfg = self._cfg.get_bd(bd_name)
 
-		assert_file_exists(bd_cfg.bd_file)
-
-		self._require_project(fpga_ref=bd_cfg.fpga_ref)
-		self._read_bd(bd_cfg.bd_file)
-		self._open_bd_design(bd_cfg.bd_file)
+		# can be called directly after create_bd
+		if self._require_project(fpga_ref=bd_cfg.fpga_ref, exists_ok=True):
+			assert_file_exists(bd_cfg.bd_file)
+			self._read_bd(bd_cfg.bd_file)
+			self._open_bd_design(bd_cfg.bd_file)
 
 		self._override_save_bd_design(bd_cfg.save_file)
 		self._write_bd_tcl(bd_cfg.save_file, force=True, no_project_wrapper=True, make_local=True)
@@ -439,7 +447,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 	# IP
 	# ------------------------------------------------------
 
-	def create_ip(self, ip_name: str) -> typing.Self:
+	def create_ip(self, ip_name: str, edit: bool = True, nogui: bool = False) -> typing.Self:
 		ip_cfg = self._cfg.get_ip(ip_name)
 
 		ip_vid = f"{ip_cfg.name}_{ip_cfg.version}".replace(".", "_")
@@ -588,6 +596,9 @@ class ConfigTclCommands(ConfigTclBuilder):
 		self._ipx__check_integrity_ipx__current_core()
 		self._ipx__save_core_ipx__current_core()
 
+		if edit:
+			self.edit_ip(ip_name=ip_name, nogui=nogui)
+
 		return self
 
 	def edit_ip(self, ip_name: str, nogui=False) -> typing.Self:
@@ -600,9 +611,8 @@ class ConfigTclCommands(ConfigTclBuilder):
 		ip_edit_project_dir = os.path.join("/dev/shm/build", ip_vid)
 		ip_edit_project_name = f"edit_{ip_vid}"
 
-		assert_file_exists(ip_component_xml_file)
-
-		self._require_project(fpga_ref=ip_cfg.fpga_ref)
+		if self._require_project(fpga_ref=ip_cfg.fpga_ref, exists_ok=True):
+			assert_file_exists(ip_component_xml_file)
 
 		if not nogui:
 			self._start_gui()
@@ -623,7 +633,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 	# Core
 	# ------------------------------------------------------
 
-	def create_core(self, core_name: str) -> typing.Self:
+	def create_core(self, core_name: str, generate: bool = True, edit: bool = True, nogui: bool = False) -> typing.Self:
 		core_cfg = self._cfg.get_core(core_name)
 
 		if self._cfg.get_catalog().lookup_optional(core_cfg.vlnv) is None:
@@ -632,19 +642,23 @@ class ConfigTclCommands(ConfigTclBuilder):
 		self._require_project(fpga_ref=core_cfg.fpga_ref)
 
 		self._create_core(core_name, dir=self._cfg.core_dir, vlnv=core_cfg.vlnv)
-		self._generate_target_get_files(core_cfg.xci_file, reset=False)
 
-		self._push(f"puts [get_files -compile_order sources -used_in simulation -of_objects [get_ips {core_name}]]")
+		if generate:
+			self._generate_target_get_files(core_cfg.xci_file, reset=False)
+
+			self._push(f"puts [get_files -compile_order sources -used_in simulation -of_objects [get_ips {core_name}]]")
+
+		if edit:
+			self.edit_core(core_name=core_name, nogui=nogui)
 
 		return self
 
 	def edit_core(self, core_name: str, nogui: bool = False) -> typing.Self:
 		core_cfg = self._cfg.get_core(core_name)
 
-		self._require_project(fpga_ref=core_cfg.fpga_ref)
-
-		assert_file_exists(core_cfg.xci_file)
-		self._read_ip(core_cfg.xci_file)
+		if self._require_project(fpga_ref=core_cfg.fpga_ref, exists_ok=True):
+			assert_file_exists(core_cfg.xci_file)
+			self._read_ip(core_cfg.xci_file)
 
 		if not nogui:
 			self._foreach(

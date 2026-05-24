@@ -17,11 +17,12 @@ def run_tool(
 	interactive: bool = False,
 ) -> int | None:
 	job_log = log or logger
-	job_log.info("Running: %s", " ".join(cmd))
-	os.makedirs(cwd, exist_ok=True)
+	job_log.info("%sRunning: %s", "[dry_run] " if dry_run else "", " ".join(cmd))
 
 	if dry_run:
 		return None
+
+	os.makedirs(cwd, exist_ok=True)
 
 	log_file = None
 	try:

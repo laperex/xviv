@@ -15,18 +15,21 @@ logger = logging.getLogger(__name__)
 # -----------------------------------------------------------------------------
 # create --platform <platform_name>
 # -----------------------------------------------------------------------------
-def cmd_platform_create(cfg: XvivConfig, *, platform_name: str):
+def cmd_platform_create(cfg: XvivConfig, *, platform_name: str, build: bool = False):
 	cfg.validate_platform(platform_name=platform_name)
 
 	config = ConfigTclCommands(cfg).create_platform(platform_name).build()
 
 	run_xsct(cfg, config_tcl=config)
 
+	if build:
+		cmd_platform_build(cfg, platform_name=platform_name)
+
 
 # -----------------------------------------------------------------------------
 # build --platform <platform_name>
 # -----------------------------------------------------------------------------
-def cmd_platform_build(cfg: XvivConfig, platform_name: str):
+def cmd_platform_build(cfg: XvivConfig, *, platform_name: str):
 	platform_cfg = cfg.get_platform(platform_name)
 	cfg.validate_platform(platform_name=platform_name)
 
@@ -47,11 +50,7 @@ def cmd_platform_build(cfg: XvivConfig, platform_name: str):
 # create --app <app_name> [--platform <platform_name>] [--template <template>]
 # -----------------------------------------------------------------------------
 def cmd_app_create(
-	cfg: XvivConfig,
-	*,
-	app_name: str,
-	platform_name: str | None,
-	template: str | None = None,
+	cfg: XvivConfig, *, app_name: str, platform_name: str | None, template: str | None = None, build: bool = False
 ):
 	app_cfg = cfg.get_app(app_name)
 
@@ -76,11 +75,14 @@ def cmd_app_create(
 
 	logger.info(f"App: {app_cfg.name} - Create complete - {app_cfg.dir}")
 
+	if build:
+		cmd_app_build(cfg, app_name=app_name, info=True)
+
 
 # -----------------------------------------------------------------------------
 # build --app <app_name> [--info]
 # -----------------------------------------------------------------------------
-def cmd_app_build(cfg: XvivConfig, app_name: str, info: bool | None):
+def cmd_app_build(cfg: XvivConfig, *, app_name: str, info: bool = False):
 	app_cfg = cfg.get_app(app_name)
 	platform_cfg = cfg.get_platform(app_cfg.platform)
 

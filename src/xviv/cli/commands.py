@@ -7,12 +7,10 @@ from xviv.config.project import XvivConfig
 from xviv.functions.bd import cmd_bd_create, cmd_bd_edit, cmd_bd_generate
 from xviv.functions.core import cmd_core_create, cmd_core_edit, cmd_core_generate, cmd_search_core
 
-# from xviv.functions.graph import cmd_graph
 from xviv.functions.formal import cmd_formal
 from xviv.functions.ip import cmd_ip_create, cmd_ip_edit
 from xviv.functions.simulation import cmd_simulate, cmd_wdb_open, cmd_wdb_reload
 
-# from xviv.functions.status import cmd_status
 from xviv.functions.synthesis import cmd_dcp_open, cmd_synth
 from xviv.functions.xsct import (
 	cmd_app_build,
@@ -70,19 +68,31 @@ class CreateCommand(Command):
 
 		target_group(c, exclusive=True, required=True, ip=True, bd=True, app=True, platform=True, core=True)
 
+		c.add_argument("--source-file", metavar="FILE", help="Source File [BD]", default=True, required=False)
+
+		target_group(c, exclusive=True, required=False, generate=True, build=True, edit=True)
+		target_group(c, exclusive=False, required=False, nogui=True)
+
 	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
 		super().run(cfg, args)
 
 		if args.ip:
-			cmd_ip_create(cfg, ip_name=args.ip)
+			cmd_ip_create(cfg, ip_name=args.ip, edit=args.edit, nogui=args.nogui)
 		elif args.bd:
-			cmd_bd_create(cfg, bd_name=args.bd)
+			cmd_bd_create(
+				cfg,
+				bd_name=args.bd,
+				source_file=args.source_file,
+				generate=not args.no_generate,
+				edit=args.edit,
+				nogui=args.nogui,
+			)
 		elif args.core:
-			cmd_core_create(cfg, core_name=args.core)
+			cmd_core_create(cfg, core_name=args.core, generate=not args.no_generate, edit=args.edit, nogui=args.nogui)
 		elif args.app:
-			cmd_app_create(cfg, app_name=args.app, platform_name=args.platform)
+			cmd_app_create(cfg, app_name=args.app, platform_name=args.platform, build=args.build)
 		elif args.platform:
-			cmd_platform_create(cfg, platform_name=args.platform)
+			cmd_platform_create(cfg, platform_name=args.platform, build=args.build)
 
 
 class EditCommand(Command):
@@ -96,7 +106,7 @@ class EditCommand(Command):
 
 		target_group(c, exclusive=True, required=True, ip=True, bd=True, core=True)
 
-		c.add_argument("--nogui", action="store_true", help="Do not edit in GUI")
+		target_group(c, exclusive=False, required=False, nogui=True)
 
 	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
 		super().run(cfg, args)
@@ -119,14 +129,15 @@ class GenerateCommand(Command):
 		c = cls.c
 
 		target_group(c, exclusive=True, required=True, bd=True, core=True)
+		target_group(c, exclusive=True, required=False, force=True)
 
 	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
 		super().run(cfg, args)
 
 		if args.bd:
-			cmd_bd_generate(cfg, bd_name=args.bd)
+			cmd_bd_generate(cfg, bd_name=args.bd, force=args.force)
 		elif args.core:
-			cmd_core_generate(cfg, core_name=args.core)
+			cmd_core_generate(cfg, core_name=args.core, force=args.force)
 
 
 class OpenCommand(Command):
@@ -140,7 +151,9 @@ class OpenCommand(Command):
 
 		target_group(c, exclusive=True, required=True, wdb=True, dcp=True)
 
-		c.add_argument("--nogui", action="store_true", help="Do not open in GUI (TCL mode)")
+		target_group(c, exclusive=True, required=False, bd=True, design=True, core=True)
+
+		target_group(c, exclusive=False, required=False, nogui=True)
 
 	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
 		super().run(cfg, args)
@@ -203,9 +216,9 @@ class BuildCommand(Command):
 		super().run(cfg, args)
 
 		if args.platform:
-			cmd_platform_build(cfg, args.platform)
+			cmd_platform_build(cfg, platform_name=args.platform)
 		elif args.app:
-			cmd_app_build(cfg, args.app, args.info)
+			cmd_app_build(cfg, app_name=args.app, info=args.info)
 
 
 class ProgramCommand(Command):

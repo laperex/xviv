@@ -266,7 +266,7 @@ def cmd_wdb_open(cfg: XvivConfig, *, sim_name: str, nogui: bool = False):
 
 	wdb_file = os.path.join(sim_cfg.work_dir, f"{sim_cfg.top}.wdb")
 	wcfg_file = os.path.join(sim_cfg.work_dir, f"{sim_cfg.top}.wcfg")
-	fifo_file = os.path.join(sim_cfg.work_dir, f"{sim_cfg.top}.fifo")
+	fifo_file = f"{wdb_file}.fifo"
 
 	config = (
 		ConfigTclCommands(cfg)
@@ -282,8 +282,8 @@ def cmd_wdb_open(cfg: XvivConfig, *, sim_name: str, nogui: bool = False):
 
 	if pid is not None:
 		logger.info("xsim waveform PID: %d", pid)
-	else:
-		logger.info("xsim waveform exited (blocking mode)")
+	# else:
+	# 	logger.info("xsim waveform exited (blocking mode)")
 
 
 # --------------------------------------------------------------------------- #
@@ -294,7 +294,8 @@ def cmd_wdb_open(cfg: XvivConfig, *, sim_name: str, nogui: bool = False):
 def cmd_wdb_reload(cfg: XvivConfig, *, sim_name: str):
 	sim_cfg = cfg.get_sim(sim_name)
 
-	fifo_file = os.path.join(sim_cfg.work_dir, f"{sim_cfg.top}.fifo")
+	wdb_file = os.path.join(sim_cfg.work_dir, f"{sim_cfg.top}.wdb")
+	fifo_file = f"{wdb_file}.fifo"
 
 	assert_file_exists(fifo_file)
 

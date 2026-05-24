@@ -38,7 +38,6 @@ def vivado_mock():
 
 
 def _prime_project(cmd, cfg, vivado_mock):
-	"""Satisfy _require_project once so subsequent calls see the guard flag."""
 	with patch.object(cfg, "get_vivado", return_value=vivado_mock):
 		cmd._require_project()
 
@@ -49,9 +48,6 @@ def _prime_project(cmd, cfg, vivado_mock):
 
 
 def _has_cmd(result: str, command: str) -> bool:
-	"""Return True iff *command* appears as a TCL command (line start, optional
-	indentation).  This avoids false matches when the command word happens to
-	appear inside an embedded file-path string."""
 	return re.search(rf"^\s*{re.escape(command)}\b", result, re.MULTILINE) is not None
 
 

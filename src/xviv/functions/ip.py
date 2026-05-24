@@ -9,12 +9,12 @@ from xviv.utils.parallel import run_parallel
 # -----------------------------------------------------------------------------
 # create --ip <ip_name>
 # -----------------------------------------------------------------------------
-def cmd_ip_create(cfg: XvivConfig, *, ip_name: str | None = None):
+def cmd_ip_create(cfg: XvivConfig, *, ip_name: str | None = None, edit: bool = False, nogui: bool = False):
 	cfg.validate_ip(ip_name)
 
 	cfg.build_attach_ip_wrapper(ip_name)
 
-	config = ConfigTclCommands(cfg).create_ip(ip_name).build()
+	config = ConfigTclCommands(cfg).create_ip(ip_name, edit=edit, nogui=nogui).build()
 
 	vivado.run_vivado(cfg, config_tcl=config)
 

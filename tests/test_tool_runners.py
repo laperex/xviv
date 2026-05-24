@@ -81,10 +81,10 @@ class TestDryRun:
 			mock_popen.assert_not_called()
 			mock_run.assert_not_called()
 
-	def test_still_creates_cwd(self, tmp_path):
+	def test_still_not_creates_cwd(self, tmp_path):
 		new_dir = tmp_path / "new" / "subdir"
 		run_tool(["echo"], cwd=str(new_dir), dry_run=True)
-		assert new_dir.is_dir()
+		assert not new_dir.is_dir()
 
 
 # ---------------------------------------------------------------------------

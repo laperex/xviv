@@ -6,8 +6,8 @@ from xviv.tools import vivado
 # -----------------------------------------------------------------------------
 # create  --core <core_id> --vlnv <vlnv_id>
 # -----------------------------------------------------------------------------
-def cmd_core_create(cfg: XvivConfig, *, core_name: str):
-	config = ConfigTclCommands(cfg).create_core(core_name).build()
+def cmd_core_create(cfg: XvivConfig, *, core_name: str, generate: bool = True, edit: bool = True, nogui: bool = False):
+	config = ConfigTclCommands(cfg).create_core(core_name, generate=generate, edit=edit, nogui=nogui).build()
 
 	vivado.run_vivado(cfg, config_tcl=config)
 
@@ -27,8 +27,8 @@ def cmd_core_edit(cfg: XvivConfig, *, core_name: str, nogui: bool = False):
 # -----------------------------------------------------------------------------
 # generate --bd <bd_name>
 # -----------------------------------------------------------------------------
-def cmd_core_generate(cfg: XvivConfig, *, core_name: str):
-	config = ConfigTclCommands(cfg).generate_core(core_name).build()
+def cmd_core_generate(cfg: XvivConfig, *, core_name: str, force: bool = False):
+	config = ConfigTclCommands(cfg).generate_core(core_name, force=force).build()
 
 	vivado.run_vivado(cfg, config_tcl=config)
 

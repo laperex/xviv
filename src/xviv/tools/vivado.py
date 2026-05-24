@@ -367,11 +367,6 @@ def run_vivado(
 			tmp.write(config_tcl)
 			config_tcl_path = tmp.name
 
-		if cfg.get_vivado().dry_run:
-			job_log.info("[dry-run] TCL written to: %s", config_tcl_path)
-			job_log.debug("[dry-run] TCL contents:\n%s", config_tcl)
-			return
-
 		cmd = [
 			vivado_bin,
 			"-mode",
@@ -397,6 +392,7 @@ def run_vivado(
 				log=job_log,
 				log_path=log_path,
 				interactive=is_tcl,
+				dry_run=cfg.get_vivado().dry_run,
 			)
 		except subprocess.CalledProcessError as e:
 			job_log.error("Vivado exited with code %d", e.returncode)

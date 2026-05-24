@@ -78,9 +78,9 @@ def c_dcp_file(prefix, parsed_args, **kwargs):
 			ids = [
 				(kind, name)
 				for kind, name in [
-					("Design", synth.design_name),
-					("Core", synth.core_name),
-					("BD", synth.bd_name),
+					("design", synth.design_name),
+					("core", synth.core_name),
+					("bd", synth.bd_name),
 				]
 				if name
 			]
@@ -97,7 +97,22 @@ def c_dcp_file(prefix, parsed_args, **kwargs):
 			]:
 				if file:
 					rel = os.path.relpath(file, config_dir)
-					result[rel] = f"{phase} — {kind} — {name}"
+
+					r_dict = vars(parsed_args)
+					if val := r_dict.get("design", None):
+						if name != val:
+							continue
+					elif val := r_dict.get("core", None):
+						if name != val:
+							continue
+					elif val := r_dict.get("bd", None):
+						if name != val:
+							continue
+					else:
+						result[rel] = f"{phase} — {kind} — {name}"
+						continue
+
+					result[rel] = f"post-{phase}"
 
 		return result
 
@@ -213,6 +228,12 @@ def target_group(
 	core: bool = False,
 	bitstream: bool = False,
 	elf: bool = False,
+	gui: bool = False,
+	nogui: bool = False,
+	build: bool = False,
+	edit: bool = False,
+	generate: bool = False,
+	force: bool = False,
 ):
 	grp = parser
 
@@ -263,5 +284,31 @@ def target_group(
 
 	if elf:
 		arg(grp, "--elf", metavar="PATH", help="Explicit path to .elf file", completer=c_elf, required=required)
+
+	if nogui:
+		grp.add_argument("--nogui", action="store_true", help="Edit in TCL Shell")
+	if gui:
+		grp.add_argument("--gui", action="store_true", help="Edit in GUI")
+
+	if build:
+		grp.add_argument(
+			"--build", action="store_true", help="Build [Platform / App]", default=False, required=required
+		)
+	if force:
+		grp.add_argument(
+			"--force", action="store_true", help="", default=False, required=required
+		)
+	if edit:
+		grp.add_argument(
+			"--edit", action="store_true", help="Edit in GUI [IP / BD / core]", default=False, required=required
+		)
+	if generate:
+		grp.add_argument(
+			"--no-generate",
+			action="store_true",
+			help="Generate output products [BD / core]",
+			default=False,
+			required=required,
+		)
 
 	return grp
