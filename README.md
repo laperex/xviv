@@ -272,7 +272,12 @@ activate-global-python-argcomplete          # system-wide
 eval "$(register-python-argcomplete xviv)"  # or per-shell (bash)
 ```
 
-Completion is dynamic: IP, BD, design, and simulation names come from `project.toml`; VLNV strings come from the live Vivado IP catalog with descriptions inline; DCP paths complete from the known checkpoint locations for each synth run; UVM test names filter to the selected simulation target; bitstream and ELF paths complete from known output locations.
+Completion is dynamic:
+  - IP, BD, design, and simulation names come from `project.toml`
+  - VLNV strings come from the live Vivado IP catalog with descriptions inline
+  - DCP paths complete from the known checkpoint locations for each synth run
+  - UVM test names filter to the selected simulation target
+  - bitstream and ELF paths complete from known output locations.
 
 ---
 
@@ -313,12 +318,12 @@ Roughly in order of priority.
 - **ILA / debug core insertion** - add and configure Integrated Logic Analyzer cores during implementation, with an optional GUI mode for probe assignment.
 - **QSPI flash programming** - extend `program` to write bitstreams to QSPI flash over JTAG, not just direct FPGA configuration.
 - **HLS support** - bring Vitis HLS projects under the same `project.toml` and CLI. Synthesised HLS output would export as a first-class IP feeding directly into `[[ip]]` and the BD flow.
-- **Dependency graph** - `graph` command to print or visualise the full entity dependency tree (fpga → ip → core → bd → synth → platform → app). The skeleton is already in the codebase.
+- **Dependency graph** - `graph` command to print or visualise the full entity dependency tree (fpga → ip → core → bd → synth → platform → app).
 
 **Infrastructure**
 
-- **CI/CD** - synthesis on push using xviv's own CLI, intended for a dedicated machine rather than shared runners given resource and license constraints.
-- **Remote synthesis server** - offload synthesis jobs to a networked machine with the Vivado license, while keeping the local CLI workflow unchanged.
+- **CI/CD** - automatically run synthesis and validation from git push/PR events using xviv's CLI, typically on self-hosted infrastructure due to Vivado resource and licensing constraints.
+- **Remote synthesis server** - transparently dispatch synthesis jobs to a licensed network machine while preserving the same local xviv command workflow.
 
 ---
 
