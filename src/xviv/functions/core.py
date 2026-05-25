@@ -1,15 +1,23 @@
 from xviv.config.project import XvivConfig
 from xviv.generator.tcl.commands import ConfigTclCommands
 from xviv.tools import vivado
+from xviv.utils import error
+from xviv.utils.tools import find_vivado_dir_path
 
 
 # -----------------------------------------------------------------------------
 # create  --core <core_id> --vlnv <vlnv_id>
 # -----------------------------------------------------------------------------
 def cmd_core_create(cfg: XvivConfig, *, core_name: str, generate: bool = True, edit: bool = True, nogui: bool = False):
-	config = ConfigTclCommands(cfg).create_core(core_name, generate=generate, edit=edit, nogui=nogui).build()
+	try:
+		config = ConfigTclCommands(cfg).create_core(core_name, generate=generate, edit=edit, nogui=nogui).build()
 
-	vivado.run_vivado(cfg, config_tcl=config)
+		vivado.run_vivado(cfg, config_tcl=config)
+	except error.CoreVlnvNotInCatalogError:
+		try:
+			find_vivado_dir_path()
+		finally:
+			raise
 
 
 # -----------------------------------------------------------------------------

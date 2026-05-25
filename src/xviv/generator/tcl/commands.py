@@ -666,8 +666,6 @@ class ConfigTclCommands(ConfigTclBuilder):
 		if entry := self._cfg.get_catalog().lookup_optional(core_cfg.vlnv):
 			core_cfg.vlnv = entry.vlnv
 		else:
-			find_vivado_dir_path()
-
 			raise error.CoreVlnvNotInCatalogError(core_cfg.name, core_cfg.vlnv)
 
 		self._require_project(fpga_ref=core_cfg.fpga_ref)
