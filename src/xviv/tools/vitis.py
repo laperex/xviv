@@ -50,4 +50,3 @@ def run_xsct_live(cfg: XvivConfig, tcl_script: str, args: list[str] = []) -> Non
 			find_vitis_dir_path(exit_on_fail=True)
 		finally:
 			raise
-

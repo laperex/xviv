@@ -613,7 +613,7 @@ class ConfigTclBuilder:
 
 	def _ipx__add_address_block(self, block: str, context: str):
 		self._push(f'ipx::add_address_block "{block}" {context}')
-	
+
 	def _ipx__remove_address_block(self, block: str, context: str):
 		self._push(f'ipx::remove_address_block "{block}" {context}')
 
@@ -1073,7 +1073,7 @@ class ConfigTclBuilder:
 
 	def _rename(self, name: str, change: str):
 		self._push(f"rename {name} {change}")
-	
+
 	def _expr(self, expr: str):
 		self._push(f"expr {{{expr}}}")
 

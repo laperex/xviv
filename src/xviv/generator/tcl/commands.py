@@ -308,9 +308,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 			"save_bd_design",
 			post_call=lambda x: (
 				x._file_mkdir(os.path.dirname(bd_state_tcl_file)),
-				x._write_bd_tcl(
-					bd_state_tcl_file, force=True, no_project_wrapper=True, make_local=True
-				)
+				x._write_bd_tcl(bd_state_tcl_file, force=True, no_project_wrapper=True, make_local=True),
 			),
 		)
 
@@ -600,9 +598,9 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 				x._set_exec("_range", lambda m: m._expr("1 << $_addr_width"))
 
-				x._set_property("range", "$_range",      "$ifc_addr_block")
+				x._set_property("range", "$_range", "$ifc_addr_block")
 				x._set_property("width", "$_data_width", "$ifc_addr_block")
-				x._set_property("usage", "register",     "$ifc_addr_block")
+				x._set_property("usage", "register", "$ifc_addr_block")
 				x._set_exec(
 					"ifc_bus_ifs",
 					lambda m: m._ipx__get_bus_interfaces(name="$ifc_name", of_objects=ipx_current_core),

@@ -10,10 +10,10 @@ class VivadoConfig:
 	max_threads: int
 	hw_server: str
 
-	xsim_bin: str = 'xsim'
-	xvlog_bin: str = 'xvlog'
-	xelab_bin: str = 'xelab'
-	vivado_bin: str = 'vivado'
+	xsim_bin: str = "xsim"
+	xvlog_bin: str = "xvlog"
+	xelab_bin: str = "xelab"
+	vivado_bin: str = "vivado"
 
 	glbl_file: str | None = None
 
@@ -22,7 +22,8 @@ class VivadoConfig:
 class VitisConfig:
 	path: str | None
 
-	xsct_bin: str = 'xsct'
+	xsct_bin: str = "xsct"
+
 
 @dataclasses.dataclass
 class SourceFile:

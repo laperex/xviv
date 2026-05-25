@@ -67,7 +67,9 @@ class CreateCommand(Command):
 		target_group(c, exclusive=True, required=True, ip=True, bd=True, app=True, platform=True, core=True)
 
 		c.add_argument("--source-file", metavar="FILE", help="Source File [BD]", default=True, required=False)
-		c.add_argument("--regenerate", action="store_true", help="Regenerate Instances [IP]", default=False, required=False)
+		c.add_argument(
+			"--regenerate", action="store_true", help="Regenerate Instances [IP]", default=False, required=False
+		)
 
 		target_group(c, exclusive=True, required=False, generate=True, build=True, edit=True)
 		target_group(c, exclusive=False, required=False, nogui=True)

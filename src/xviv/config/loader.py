@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-import sys
 import tomllib
 
 from xviv.config.project import XvivConfig
@@ -34,10 +33,7 @@ def load_config(path: str) -> XvivConfig:
 		data["project"].get("board_repo_paths", []),
 	)
 
-	cfg = (
-		cfg.add_vivado_cfg(path=find_vivado_dir_path(False))
-		.add_vitis_cfg(path=find_vitis_dir_path(False))
-	)
+	cfg = cfg.add_vivado_cfg(path=find_vivado_dir_path(False)).add_vitis_cfg(path=find_vitis_dir_path(False))
 
 	for key, entries in data.items():
 		if key == "project":

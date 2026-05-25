@@ -1,4 +1,3 @@
-import logging
 import os
 import typing
 
@@ -211,16 +210,14 @@ class XvivConfig:
 		if self._catalog_cfg is not None:
 			raise error.CoreCatalogAlreadySpecifiedError()
 
-		self._vivado_cfg = VivadoConfig(
-			path=path, mode=mode, max_threads=max_threads, hw_server=hw_server
-		)
+		self._vivado_cfg = VivadoConfig(path=path, mode=mode, max_threads=max_threads, hw_server=hw_server)
 
 		if self._vivado_cfg.path:
-			self._vivado_cfg.glbl_file = os.path.join(self._vivado_cfg.path, 'data/verilog/src/glbl.v')
-			self._vivado_cfg.xsim_bin = os.path.join(self._vivado_cfg.path, 'bin', self._vivado_cfg.xsim_bin)
-			self._vivado_cfg.xvlog_bin = os.path.join(self._vivado_cfg.path, 'bin', self._vivado_cfg.xvlog_bin)
-			self._vivado_cfg.xelab_bin = os.path.join(self._vivado_cfg.path, 'bin', self._vivado_cfg.xelab_bin)
-			self._vivado_cfg.vivado_bin = os.path.join(self._vivado_cfg.path, 'bin', self._vivado_cfg.vivado_bin)
+			self._vivado_cfg.glbl_file = os.path.join(self._vivado_cfg.path, "data/verilog/src/glbl.v")
+			self._vivado_cfg.xsim_bin = os.path.join(self._vivado_cfg.path, "bin", self._vivado_cfg.xsim_bin)
+			self._vivado_cfg.xvlog_bin = os.path.join(self._vivado_cfg.path, "bin", self._vivado_cfg.xvlog_bin)
+			self._vivado_cfg.xelab_bin = os.path.join(self._vivado_cfg.path, "bin", self._vivado_cfg.xelab_bin)
+			self._vivado_cfg.vivado_bin = os.path.join(self._vivado_cfg.path, "bin", self._vivado_cfg.vivado_bin)
 
 		self._catalog_cfg = Catalog(vivado_path=path, ip_repos=self.ip_repo_list)
 
@@ -236,7 +233,7 @@ class XvivConfig:
 		self._vitis_cfg = VitisConfig(path=path)
 
 		if self._vitis_cfg.path:
-			self._vitis_cfg.xsct_bin = os.path.join(self._vitis_cfg.path, 'bin', self._vitis_cfg.xsct_bin)
+			self._vitis_cfg.xsct_bin = os.path.join(self._vitis_cfg.path, "bin", self._vitis_cfg.xsct_bin)
 
 		return self
 
