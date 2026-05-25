@@ -26,7 +26,6 @@ use xviv:
 
 from __future__ import annotations
 
-import os
 import subprocess
 import textwrap
 import time
@@ -42,7 +41,6 @@ from xviv.utils import error
 from xviv.utils.fs import assert_file_exists, is_stale, resolve_globs
 from xviv.utils.git import _git_sha_tag
 from xviv.utils.parallel import run_parallel
-
 
 # ---------------------------------------------------------------------------
 # Shared helpers & fixtures
@@ -1554,8 +1552,10 @@ class TestTomlLoader:
 		p = tmp_path / "project.toml"
 		p.write_text(toml_text)
 
-		with patch("xviv.config.loader.find_vivado_dir_path", return_value=None), \
-			patch("xviv.config.loader.find_vitis_dir_path", return_value=None):
+		with (
+			patch("xviv.config.loader.find_vivado_dir_path", return_value=None),
+			patch("xviv.config.loader.find_vitis_dir_path", return_value=None),
+		):
 			cfg = load_config(str(p))
 
 		assert cfg.get_fpga("main").fpga_part == "xc7a200tfbg484-1"
@@ -1585,8 +1585,10 @@ class TestTomlLoader:
 		p = tmp_path / "project.toml"
 		p.write_text(toml_text)
 
-		with patch("xviv.config.loader.find_vivado_dir_path", return_value=None), \
-			patch("xviv.config.loader.find_vitis_dir_path", return_value=None):
+		with (
+			patch("xviv.config.loader.find_vivado_dir_path", return_value=None),
+			patch("xviv.config.loader.find_vitis_dir_path", return_value=None),
+		):
 			cfg = load_config(str(p))
 
 		assert cfg.get_design("top") is not None
@@ -1609,8 +1611,10 @@ class TestTomlLoader:
 		p = tmp_path / "project.toml"
 		p.write_text(toml_text)
 
-		with patch("xviv.config.loader.find_vivado_dir_path", return_value=None), \
-			patch("xviv.config.loader.find_vitis_dir_path", return_value=None):
+		with (
+			patch("xviv.config.loader.find_vivado_dir_path", return_value=None),
+			patch("xviv.config.loader.find_vitis_dir_path", return_value=None),
+		):
 			with pytest.raises(error.ProjectConfigUnknownKeyError):
 				load_config(str(p))
 
@@ -1618,7 +1622,7 @@ class TestTomlLoader:
 		from xviv.config.loader import resolve_config
 
 		with pytest.raises(error.ProjectConfigTomlFileMissingError):
-			with patch('os.path.exists', return_value=False):
+			with patch("os.path.exists", return_value=False):
 				resolve_config("")  # no project.toml in CWD (or we pass nonexistent path)
 
 	def test_toml_formal_section_loads(self, tmp_path):
@@ -1644,8 +1648,10 @@ class TestTomlLoader:
 		p = tmp_path / "project.toml"
 		p.write_text(toml_text)
 
-		with patch("xviv.config.loader.find_vivado_dir_path", return_value=None), \
-			patch("xviv.config.loader.find_vitis_dir_path", return_value=None):
+		with (
+			patch("xviv.config.loader.find_vivado_dir_path", return_value=None),
+			patch("xviv.config.loader.find_vitis_dir_path", return_value=None),
+		):
 			cfg = load_config(str(p))
 
 		fcfg = cfg.get_formal("gamma_props")
@@ -1676,8 +1682,10 @@ class TestTomlLoader:
 		p = tmp_path / "project.toml"
 		p.write_text(toml_text)
 
-		with patch("xviv.config.loader.find_vivado_dir_path", return_value=None), \
-			patch("xviv.config.loader.find_vitis_dir_path", return_value=None):
+		with (
+			patch("xviv.config.loader.find_vivado_dir_path", return_value=None),
+			patch("xviv.config.loader.find_vitis_dir_path", return_value=None),
+		):
 			cfg = load_config(str(p))
 
 		uvm = cfg.get_uvm("gamma_basic_test", "tb_gamma")
@@ -1939,7 +1947,7 @@ class TestFullAXIDMAProject:
 
 		# -- Catalog IP (clock wizard) -----------------------------------
 		cfg.add_core_cfg("clk_wiz_0", vlnv="xilinx.com:ip:clk_wiz:6.0")
-		cfg.add_synth_cfg(core="clk_wiz_0")   # OOC synth
+		cfg.add_synth_cfg(core="clk_wiz_0")  # OOC synth
 
 		# -- Block design ------------------------------------------------
 		cfg.add_bd_cfg("system")
