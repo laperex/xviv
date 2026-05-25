@@ -2,7 +2,6 @@ import logging
 import os
 import shutil
 import subprocess
-import sys
 
 from xviv.utils import error
 from xviv.utils.process import run_tool
@@ -148,7 +147,4 @@ def run_verilator_sim(
 
 	cmd += [f"+{a}" if not a.startswith("+") else a for a in plusargs]
 
-	try:
-		run_tool(cmd, cwd=work_dir, dry_run=dry_run)
-	except subprocess.CalledProcessError as e:
-		sys.exit(e.returncode)
+	run_tool(cmd, cwd=work_dir, dry_run=dry_run, exit_on_fail=True)

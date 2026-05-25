@@ -1,8 +1,6 @@
 import contextlib
 import logging
 import os
-import subprocess
-import sys
 import tempfile
 
 from xviv.config.project import XvivConfig
@@ -22,9 +20,7 @@ def run_xsct(cfg: XvivConfig, config_tcl: str, args: list[str] = []) -> None:
 		cmd = [cfg.get_vitis().xsct_bin, config_tcl_path, *args]
 
 		try:
-			run_tool(cmd, cwd=os.getcwd(), dry_run=cfg.dry_run)
-		except subprocess.CalledProcessError as e:
-			sys.exit(e.returncode)
+			run_tool(cmd, cwd=os.getcwd(), dry_run=cfg.dry_run, exit_on_fail=True)
 		except FileNotFoundError:
 			try:
 				find_vitis_dir_path(exit_on_fail=True)
@@ -40,9 +36,7 @@ def run_xsct(cfg: XvivConfig, config_tcl: str, args: list[str] = []) -> None:
 def run_xsct_live(cfg: XvivConfig, tcl_script: str, args: list[str] = []) -> None:
 	cmd = [cfg.get_vitis().xsct_bin, tcl_script, *args]
 	try:
-		run_tool(cmd, cwd=os.getcwd(), dry_run=cfg.dry_run)
-	except subprocess.CalledProcessError as e:
-		sys.exit(e.returncode)
+		run_tool(cmd, cwd=os.getcwd(), dry_run=cfg.dry_run, exit_on_fail=True)
 	except KeyboardInterrupt:
 		logger.info("xsct-live stopped by user")
 	except FileNotFoundError:

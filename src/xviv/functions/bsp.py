@@ -38,7 +38,13 @@ def cmd_platform_build(cfg: XvivConfig, *, platform_name: str):
 
 	logger.info("Platform Build: %s", platform_cfg.dir)
 
-	run_tool(["make", f"-j{os.cpu_count() or 4}"], cwd=platform_cfg.dir, env=_get_vitis_env(cfg), dry_run=cfg.dry_run)
+	run_tool(
+		["make", f"-j{os.cpu_count() or 4}"],
+		cwd=platform_cfg.dir,
+		env=_get_vitis_env(cfg),
+		dry_run=cfg.dry_run,
+		exit_on_fail=True,
+	)
 
 
 # -----------------------------------------------------------------------------
@@ -103,9 +109,11 @@ def cmd_app_build(cfg: XvivConfig, *, app_name: str, info: bool = False):
 		cwd=app_cfg.dir,
 		env=_get_vitis_env(cfg),
 		dry_run=cfg.dry_run,
+		exit_on_fail=True,
 	)
 
-	cfg.validate_app(app_name=app_name, check_elf=True, check_sources=False)
+	if not cfg.dry_run:
+		cfg.validate_app(app_name=app_name, check_elf=True, check_sources=False)
 
 	if info and cfg.get_vitis().path:
 		mb_tool_size_bin = os.path.join(
@@ -117,11 +125,11 @@ def cmd_app_build(cfg: XvivConfig, *, app_name: str, info: bool = False):
 
 		logger.info("ELF Size: %s", app_cfg.elf_file)
 
-		run_tool([mb_tool_size_bin, app_cfg.elf_file], cwd=app_cfg.dir, dry_run=cfg.dry_run)
+		run_tool([mb_tool_size_bin, app_cfg.elf_file], cwd=app_cfg.dir, dry_run=cfg.dry_run, exit_on_fail=True)
 
 		logger.info("ELF sections: %s", app_cfg.elf_file)
 
-		run_tool([mb_tool_objdump_bin, "-h", app_cfg.elf_file], cwd=app_cfg.dir, dry_run=cfg.dry_run)
+		run_tool([mb_tool_objdump_bin, "-h", app_cfg.elf_file], cwd=app_cfg.dir, dry_run=cfg.dry_run, exit_on_fail=True)
 
 
 # -----------------------------------------------------------------------------

@@ -18,8 +18,12 @@ class ColorFormatter(logging.Formatter):
 	def format(self, record: logging.LogRecord) -> str:
 		record = copy.copy(record)
 		color = LEVEL_COLORS.get(record.levelno, "")
-		record.levelname = f"{color}{BOLD}{record.levelname:<8}{RESET}"
+		record.levelname = f"{color}{BOLD}{record.levelname}{RESET}"
 		record.name = f"\033[2m{record.name}{RESET}"
+
+		if record.levelno == logging.ERROR:
+			record.msg = f"{LEVEL_COLORS[logging.ERROR]}{record.msg}{RESET}"
+
 		return super().format(record)
 
 

@@ -1,6 +1,7 @@
 import logging
 import os
 import subprocess
+import sys
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -16,6 +17,7 @@ def run_tool(
 	popen: bool = False,
 	interactive: bool = False,
 	env: dict[str, str] | None = None,
+	exit_on_fail=False,
 ) -> int | None:
 	job_log = log or logger
 	job_log.info("%sRunning: %s", "[dry_run] " if dry_run else "", " ".join(cmd))
@@ -60,8 +62,14 @@ def run_tool(
 					log_file.flush()
 			proc.wait()
 
-		if proc.returncode != 0:
-			raise subprocess.CalledProcessError(proc.returncode, cmd)
+		try:
+			if proc.returncode != 0:
+				raise subprocess.CalledProcessError(proc.returncode, cmd)
+		except subprocess.CalledProcessError as e:
+			if exit_on_fail:
+				logger.error(f"Command '{' '.join(cmd)}' returned non-zero exit status {e.returncode}")
+				sys.exit(e.returncode)
+			raise
 
 	finally:
 		if log_file:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 import shutil
 import subprocess
@@ -8,6 +9,8 @@ from pathlib import Path
 from xviv.config.model import FormalConfig
 from xviv.config.project import XvivConfig
 from xviv.utils import error
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # .sby generator
@@ -109,8 +112,8 @@ def run_formal(cfg: FormalConfig, *, dry_run: bool = False) -> FormalResult:
 	sby_path.write_text(generate_sby(cfg))
 
 	if dry_run:
-		print(f"[formal] wrote {sby_path}  (dry-run, not executing)")
-		print(sby_path.read_text())
+		logger.info(f"[formal] wrote {sby_path}  (dry-run, not executing)")
+		logger.info(sby_path.read_text())
 		return FormalResult(cfg.name, passed=True, last_line="(dry-run)", vcd=None)
 
 	sby_bin = shutil.which("sby")
@@ -130,6 +133,7 @@ def run_formal(cfg: FormalConfig, *, dry_run: bool = False) -> FormalResult:
 	) as proc:
 		for line in proc.stdout:
 			print(line, end="", flush=True)
+
 			if line.strip():
 				last_line = line.strip()
 		proc.wait()
@@ -169,21 +173,21 @@ def cmd_formal(cfg: XvivConfig, *, target: str | None = None) -> None:
 	for fcfg in targets:
 		cfg.validate_formal(fcfg.name)
 
-		header = f"-- formal: {fcfg.name}  [{fcfg.mode}, depth={fcfg.depth}]"
-		print(f"\n{header} {'-' * max(0, 60 - len(header))}")
+		header = f"Formal: {fcfg.name}  [{fcfg.mode}, depth={fcfg.depth}]"
+		logger.info(f"\n{header} {'-' * max(0, 60 - len(header))}")
 
 		result = run_formal(fcfg, dry_run=cfg.dry_run)
 		results.append(result)
 
 		if result.vcd:
-			print(f"   counterexample trace -> {result.vcd}")
-			print(f"   open with: gtkwave {result.vcd}")
+			logger.info(f"   counterexample trace -> {result.vcd}")
+			logger.info(f"   open with: gtkwave {result.vcd}")
 
 	# -- summary table --------------------------------------------------------
-	print("\n-- Formal Results " + "-" * 44)
+	logger.info("Formal Results " + "-" * 44)
 	for r in results:
 		status = "\033[32mPASS\033[0m" if r.passed else "\033[31mFAIL\033[0m"
-		print(f"  {r.name:<30}  {status}")
+		logger.info(f"  {r.name:<30}  {status}")
 
 	failed = [r for r in results if not r.passed]
 	if failed:

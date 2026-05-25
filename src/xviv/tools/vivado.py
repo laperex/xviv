@@ -1,8 +1,6 @@
 import contextlib
 import logging
 import os
-import subprocess
-import sys
 import tempfile
 from pathlib import Path
 
@@ -41,9 +39,7 @@ def run_vivado_xvlog(
 		cmd += [cfg.get_vivado().glbl_file]
 
 	try:
-		run_tool(cmd, cwd=target_dir, dry_run=cfg.dry_run)
-	except subprocess.CalledProcessError as e:
-		sys.exit(e.returncode)
+		run_tool(cmd, cwd=target_dir, dry_run=cfg.dry_run, exit_on_fail=True)
 	except FileNotFoundError:
 		try:
 			find_vivado_dir_path(exit_on_fail=True)
@@ -296,9 +292,7 @@ def run_vivado_xelab(
 		cmd += ["--sourcelibfile", x]
 
 	try:
-		run_tool(cmd, cwd=target_dir, dry_run=cfg.dry_run)
-	except subprocess.CalledProcessError as e:
-		sys.exit(e.returncode)
+		run_tool(cmd, cwd=target_dir, dry_run=cfg.dry_run, exit_on_fail=True)
 	except FileNotFoundError:
 		try:
 			find_vivado_dir_path(exit_on_fail=True)
@@ -349,9 +343,7 @@ def run_vivado_xsim(
 			cmd += ["--testplusarg", x]
 
 		try:
-			return run_tool(cmd, cwd=target_dir, dry_run=cfg.dry_run, popen=popen)
-		except subprocess.CalledProcessError as e:
-			sys.exit(e.returncode)
+			return run_tool(cmd, cwd=target_dir, dry_run=cfg.dry_run, popen=popen, exit_on_fail=True)
 		except FileNotFoundError:
 			try:
 				find_vivado_dir_path(exit_on_fail=True)
@@ -410,10 +402,8 @@ def run_vivado(
 				log_path=log_path,
 				interactive=is_tcl,
 				dry_run=cfg.dry_run,
+				exit_on_fail=True,
 			)
-		except subprocess.CalledProcessError as e:
-			job_log.error("Vivado exited with code %d", e.returncode)
-			sys.exit(e.returncode)
 		except FileNotFoundError:
 			try:
 				find_vivado_dir_path(exit_on_fail=True)

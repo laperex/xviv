@@ -385,9 +385,9 @@ class FormalCommand(Command):
 		super().register(sub)
 		c = cls.c
 
-		target_group(c, exclusive=True, required=True, formal_target=True)
+		target_group(c, exclusive=True, required=False, formal_target=True)
 
 	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
-		super().run()
+		super().run(cfg, args)
 
 		cmd_formal(cfg, target=args.target)
