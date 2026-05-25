@@ -130,7 +130,7 @@ class GenerateCommand(Command):
 		c = cls.c
 
 		target_group(c, exclusive=True, required=True, bd=True, core=True)
-		target_group(c, exclusive=True, required=False, force=True)
+		target_group(c, exclusive=False, required=False, force=True)
 		c.add_argument(
 			"--reset",
 			action="store_true",

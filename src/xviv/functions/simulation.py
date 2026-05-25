@@ -277,7 +277,7 @@ def cmd_wdb_open(cfg: XvivConfig, *, sim_name: str, nogui: bool = False):
 	_ensure_fifo(fifo_file)
 
 	pid = vivado.run_vivado_xsim(
-		cfg, target_dir=sim_cfg.work_dir, config_tcl=config, stats=False, wdb_file=wdb_file, nogui=nogui, popen=True
+		cfg, target_dir=sim_cfg.work_dir, config_tcl=config, top=sim_cfg.top, stats=False, wdb_file=wdb_file, nogui=nogui, popen=True, unlink_config_file=False
 	)
 
 	if pid is not None:

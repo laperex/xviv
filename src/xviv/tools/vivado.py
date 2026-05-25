@@ -318,6 +318,7 @@ def run_vivado_xsim(
 	runall: bool = False,
 	popen: bool = False,
 	testplusarg: list[str] | None = None,
+	unlink_config_file: bool = True,
 ) -> int | None:
 	if config_tcl is None:
 		return None
@@ -358,7 +359,7 @@ def run_vivado_xsim(
 				raise
 
 	finally:
-		if config_tcl_path and not cfg.dry_run:
+		if unlink_config_file and config_tcl_path and not cfg.dry_run:
 			with contextlib.suppress(OSError):
 				os.unlink(config_tcl_path)
 
