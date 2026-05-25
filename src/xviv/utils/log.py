@@ -23,6 +23,10 @@ class ColorFormatter(logging.Formatter):
 
 		if record.levelno == logging.ERROR:
 			record.msg = f"{LEVEL_COLORS[logging.ERROR]}{record.msg}{RESET}"
+		if record.levelno == logging.CRITICAL:
+			record.msg = f"{LEVEL_COLORS[logging.CRITICAL]}{record.msg}{RESET}"
+		if record.levelno == logging.WARNING:
+			record.msg = f"{LEVEL_COLORS[logging.WARNING]}{record.msg}{RESET}"
 
 		return super().format(record)
 

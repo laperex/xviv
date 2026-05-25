@@ -21,6 +21,10 @@ def cmd_platform_create(cfg: XvivConfig, *, platform_name: str, build: bool = Fa
 	config = ConfigTclCommands(cfg).create_platform(platform_name).build()
 
 	run_xsct(cfg, config_tcl=config)
+	
+	platform_cfg = cfg.get_platform(name=platform_name)
+
+	logger.info(f"Platform: {platform_cfg.name} - Create complete - {platform_cfg.dir}")
 
 	if build:
 		cmd_platform_build(cfg, platform_name=platform_name)
@@ -66,7 +70,7 @@ def cmd_app_create(
 	platform_cfg = cfg.get_platform(app_cfg.platform)
 
 	if not os.path.isdir(platform_cfg.dir):
-		logger.info("BSP not found - creating platform '%s' first", app_cfg.platform)
+		logger.warning("BSP not found - creating platform '%s' first", app_cfg.platform)
 		cmd_platform_create(cfg, platform_name=app_cfg.platform)
 
 	cfg.validate_platform(platform_name=app_cfg.platform)

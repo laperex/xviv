@@ -120,7 +120,7 @@ def find_vivado_dir_path(exit_on_fail: bool = True) -> str | None:
 
 	except error.SettingsEnvUnsetError as e:
 		if exit_on_fail:
-			print(e)
+			logger.error(e)
 			sys.exit(1)
 
 	return None
@@ -132,7 +132,7 @@ def find_vitis_dir_path(exit_on_fail: bool = True) -> str | None:
 
 	except error.SettingsEnvUnsetError as e:
 		if exit_on_fail:
-			print(e)
+			logger.error(e)
 			sys.exit(1)
 
 	return None

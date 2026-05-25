@@ -42,7 +42,7 @@ def is_stale(srcfile: str, dstfile: str, exit_on_fail=True) -> bool:
 			return True
 
 	if os.path.getmtime(srcfile) > os.path.getmtime(dstfile):
-		logger.info(f"[stale_checker] {srcfile}: {dstfile} newer than outputs, rebuild needed")
+		logger.warning(f"[stale_checker] {srcfile}: {dstfile} newer than outputs, rebuild needed")
 		return True
 
 	logger.info(f"[stale_checker] {srcfile}: up to date, skipping")

@@ -435,7 +435,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 		assert_file_exists(bd_cfg.bd_file)
 
 		if not force and not is_stale(bd_cfg.bd_file, bd_cfg.bd_wrapper_file):
-			logger.info("INFO: Output products are up to date")
+			logger.info("Output products are up to date")
 			self._clear()
 			return self
 
@@ -719,7 +719,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 	def _incremental(self, stage: str, dcp_file: str | None):
 		if dcp_file:
 			if not os.path.exists(dcp_file):
-				logger.info(f"dcp does not exist at: {dcp_file} -> skipping incremental {stage}")
+				logger.warning(f"dcp does not exist at: {dcp_file} -> skipping incremental {stage}")
 			else:
 				self._read_checkpoint(dcp_file, incremental=True)
 
@@ -898,7 +898,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 				self._incremental("synthesis", dcp_file=synth_cfg.synth_dcp_file)
 
 			if not synth_cfg.run_synth:
-				logger.warning("skipping synth_design (run_synth=false)")
+				logger.critical("skipping synth_design (run_synth=false)")
 			else:
 				logger.info(f"synthesizing: top={synth_cfg.top}")
 				self._synth_design(
@@ -970,7 +970,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 				self._incremental("implementation", dcp_file=synth_cfg.route_dcp_file)
 
 			if not synth_cfg.run_place:
-				logger.warning("skipping place_design (run_place=false)")
+				logger.critical("skipping place_design (run_place=false)")
 			else:
 				logger.info("running place_design")
 				self._place_design(directive=synth_cfg.place_directive)
@@ -997,7 +997,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 		if start_stage >= SynthStage.WRITE:
 			logger.info("skipping route_design (resuming from checkpoint)")
 		elif not synth_cfg.run_route:
-			logger.warning("skipping route_design (run_route=false)")
+			logger.critical("skipping route_design (run_route=false)")
 		else:
 			logger.info("running route_design")
 			self._route_design(directive=synth_cfg.route_directive)

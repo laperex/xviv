@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -692,7 +693,7 @@ class TestCmdFormal:
 				cmd_formal(cfg)
 		assert exc_info.value.code == 1
 
-	def test_prints_vcd_path_when_result_has_trace(self, capsys):
+	def test_prints_vcd_path_when_result_has_trace(self, caplog):
 		cfg = _make_cfg()
 		fcfg = _make_formal_cfg()
 		cfg.get_formal_list.return_value = [fcfg]
@@ -700,27 +701,27 @@ class TestCmdFormal:
 			f"{FORMAL_MODULE}.run_formal", return_value=_make_formal_result(passed=False, vcd="/path/to/trace.vcd")
 		):
 			with pytest.raises(SystemExit):
-				cmd_formal(cfg)
-		out = capsys.readouterr().out
-		assert "trace.vcd" in out
+				with caplog.at_level(logging.INFO):
+					cmd_formal(cfg)
+		assert "trace.vcd" in caplog.text
 
-	def test_no_vcd_output_when_vcd_is_none(self, capsys):
+	def test_no_vcd_output_when_vcd_is_none(self, caplog):
 		cfg = _make_cfg()
 		fcfg = _make_formal_cfg()
 		cfg.get_formal_list.return_value = [fcfg]
 		with patch(f"{FORMAL_MODULE}.run_formal", return_value=_make_formal_result(passed=True, vcd=None)):
-			cmd_formal(cfg)
-		out = capsys.readouterr().out
-		assert "gtkwave" not in out
+			with caplog.at_level(logging.INFO):
+				cmd_formal(cfg)
+		assert "gtkwave" not in caplog.text
 
-	def test_summary_table_printed(self, capsys):
+	def test_summary_table_printed(self, caplog):
 		cfg = _make_cfg()
 		fcfg = _make_formal_cfg(name="my_check")
 		cfg.get_formal_list.return_value = [fcfg]
 		with patch(f"{FORMAL_MODULE}.run_formal", return_value=_make_formal_result(passed=True)):
-			cmd_formal(cfg)
-		out = capsys.readouterr().out
-		assert "my_check" in out
+			with caplog.at_level(logging.INFO):
+				cmd_formal(cfg)
+		assert "my_check" in caplog.text
 
 
 # ===========================================================================
