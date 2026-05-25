@@ -430,7 +430,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 		return self
 
-	def generate_bd(self, bd_name: str, *, force: bool = True) -> typing.Self:
+	def generate_bd(self, bd_name: str, *, force: bool = True, reset: bool = True) -> typing.Self:
 		bd_cfg = self._cfg.get_bd(bd_name)
 
 		assert_file_exists(bd_cfg.bd_file)
@@ -446,7 +446,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 		self._open_bd_design(bd_cfg.bd_file)
 
 		self._bd_upgrade_ip_cells()
-		self._generate_target_get_files(bd_cfg.bd_file)
+		self._generate_target_get_files(bd_cfg.bd_file, reset=reset)
 
 		return self
 
@@ -702,7 +702,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 		return self
 
-	def generate_core(self, core_name: str, *, force: bool = False) -> typing.Self:
+	def generate_core(self, core_name: str, *, force: bool = True, reset: bool = True) -> typing.Self:
 		core_cfg = self._cfg.get_core(core_name)
 
 		assert_file_exists(core_cfg.xci_file)
@@ -711,7 +711,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 		self._read_ip(core_cfg.xci_file)
 		self._upgrade_ip_get_ips(core_name)
-		self._generate_target_get_files(core_cfg.xci_file)
+		self._generate_target_get_files(core_cfg.xci_file, reset=reset)
 
 		return self
 

@@ -39,7 +39,7 @@ def cmd_bd_edit(cfg: XvivConfig, *, bd_name: str, nogui: bool = False):
 # -----------------------------------------------------------------------------
 # generate --bd <bd_name>
 # -----------------------------------------------------------------------------
-def cmd_bd_generate(cfg: XvivConfig, *, bd_name: str, force=True):
-	config = ConfigTclCommands(cfg).generate_bd(bd_name).build()
+def cmd_bd_generate(cfg: XvivConfig, *, bd_name: str, force: bool = True, reset: bool = True):
+	config = ConfigTclCommands(cfg).generate_bd(bd_name, force=force, reset=reset).build()
 
 	vivado.run_vivado(cfg, config_tcl=config)

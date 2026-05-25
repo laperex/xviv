@@ -27,8 +27,8 @@ def cmd_core_edit(cfg: XvivConfig, *, core_name: str, nogui: bool = False):
 # -----------------------------------------------------------------------------
 # generate --bd <bd_name>
 # -----------------------------------------------------------------------------
-def cmd_core_generate(cfg: XvivConfig, *, core_name: str, force: bool = False):
-	config = ConfigTclCommands(cfg).generate_core(core_name, force=force).build()
+def cmd_core_generate(cfg: XvivConfig, *, core_name: str, force: bool = True, reset: bool = True):
+	config = ConfigTclCommands(cfg).generate_core(core_name, force=force, reset=reset).build()
 
 	vivado.run_vivado(cfg, config_tcl=config)
 

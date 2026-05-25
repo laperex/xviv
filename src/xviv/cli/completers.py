@@ -302,7 +302,7 @@ def target_group(
 		)
 	if generate:
 		grp.add_argument(
-			"--no-generate",
+			"--generate",
 			action="store_true",
 			help="Generate output products [BD / core]",
 			default=False,

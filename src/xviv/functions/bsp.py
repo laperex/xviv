@@ -1,12 +1,12 @@
 import logging
 import os
 import re
-import subprocess
 
 from xviv.config.project import XvivConfig
 from xviv.functions.bd import ConfigTclCommands
 from xviv.tools.xsct import run_xsct
 from xviv.utils import error
+from xviv.utils.process import run_tool
 from xviv.utils.tools import find_vitis_dir_path
 
 logger = logging.getLogger(__name__)
@@ -38,12 +38,7 @@ def cmd_platform_build(cfg: XvivConfig, *, platform_name: str):
 
 	logger.info("Platform Build: %s", platform_cfg.dir)
 
-	if cfg.dry_run:
-		return
-
-	subprocess.run(["make", f"-j{os.cpu_count() or 4}"], check=True, cwd=platform_cfg.dir, env=_get_vitis_env(cfg))
-
-	logger.info("Platform build complete")
+	run_tool(["make", f"-j{os.cpu_count() or 4}"], cwd=platform_cfg.dir, env=_get_vitis_env(cfg), dry_run=cfg.dry_run)
 
 
 # -----------------------------------------------------------------------------
@@ -95,28 +90,20 @@ def cmd_app_build(cfg: XvivConfig, *, app_name: str, info: bool = False):
 	bsp_include = os.path.join(platform_cfg.dir, platform_cfg.cpu, "include")
 	bsp_lib = os.path.join(platform_cfg.dir, platform_cfg.cpu, "lib")
 
-	cmd = [
-		"make",
-		f"-j{os.cpu_count() or 4}",
-		f"INCLUDEPATH=-I{bsp_include} -I{platform_cfg.dir}",
-		f"c_SOURCES={' '.join([i.file for i in app_cfg.sources])}",
-		f"LIBPATH=-L{bsp_lib}",
-	]
-	logger.info("App Build: %s", " ".join(cmd))
+	logger.info("App Build %s", app_cfg.dir)
 
-	if cfg.dry_run:
-		return
-
-	subprocess.run(
-		cmd,
-		check=True,
+	run_tool(
+		[
+			"make",
+			f"-j{os.cpu_count() or 4}",
+			f"INCLUDEPATH=-I{bsp_include} -I{platform_cfg.dir}",
+			f"c_SOURCES={' '.join([i.file for i in app_cfg.sources])}",
+			f"LIBPATH=-L{bsp_lib}",
+		],
 		cwd=app_cfg.dir,
 		env=_get_vitis_env(cfg),
+		dry_run=cfg.dry_run,
 	)
-
-	logger.info("App build complete")
-
-	# validate
 
 	cfg.validate_app(app_name=app_name, check_elf=True, check_sources=False)
 
@@ -128,15 +115,13 @@ def cmd_app_build(cfg: XvivConfig, *, app_name: str, info: bool = False):
 			cfg.get_vitis().path, "gnu", "microblaze", "lin", "bin", "microblaze-xilinx-elf-objdump"
 		)
 
-		logger.info("ELF: %s", app_cfg.elf_file)
+		logger.info("ELF Size: %s", app_cfg.elf_file)
 
-		print(f"\n=== ELF size: {os.path.basename(app_cfg.elf_file)} ===")
+		run_tool([mb_tool_size_bin, app_cfg.elf_file], cwd=app_cfg.dir, dry_run=cfg.dry_run)
 
-		subprocess.run([mb_tool_size_bin, app_cfg.elf_file])
+		logger.info("ELF sections: %s", app_cfg.elf_file)
 
-		print(f"\n=== ELF sections: {os.path.basename(app_cfg.elf_file)} ===")
-
-		subprocess.run([mb_tool_objdump_bin, "-h", app_cfg.elf_file])
+		run_tool([mb_tool_objdump_bin, "-h", app_cfg.elf_file], cwd=app_cfg.dir, dry_run=cfg.dry_run)
 
 
 # -----------------------------------------------------------------------------

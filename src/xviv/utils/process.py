@@ -15,6 +15,7 @@ def run_tool(
 	log_path: Path | None = None,
 	popen: bool = False,
 	interactive: bool = False,
+	env: dict[str, str] | None = None,
 ) -> int | None:
 	job_log = log or logger
 	job_log.info("%sRunning: %s", "[dry_run] " if dry_run else "", " ".join(cmd))
@@ -47,6 +48,7 @@ def run_tool(
 			text=True,
 			bufsize=1,
 			cwd=cwd,
+			env=env,
 		) as proc:
 			assert proc.stdout is not None
 			for line in proc.stdout:

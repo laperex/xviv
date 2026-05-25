@@ -5,11 +5,6 @@ from abc import ABC, abstractmethod
 from xviv.cli.completers import target_group
 from xviv.config.project import XvivConfig
 from xviv.functions.bd import cmd_bd_create, cmd_bd_edit, cmd_bd_generate
-from xviv.functions.core import cmd_core_create, cmd_core_edit, cmd_core_generate, cmd_search_core
-from xviv.functions.formal import cmd_formal
-from xviv.functions.ip import cmd_ip_create, cmd_ip_edit
-from xviv.functions.simulation import cmd_simulate, cmd_wdb_open, cmd_wdb_reload
-from xviv.functions.synthesis import cmd_dcp_open, cmd_synth
 from xviv.functions.bsp import (
 	cmd_app_build,
 	cmd_app_create,
@@ -18,6 +13,11 @@ from xviv.functions.bsp import (
 	cmd_processor,
 	cmd_program,
 )
+from xviv.functions.core import cmd_core_create, cmd_core_edit, cmd_core_generate, cmd_search_core
+from xviv.functions.formal import cmd_formal
+from xviv.functions.ip import cmd_ip_create, cmd_ip_edit
+from xviv.functions.simulation import cmd_simulate, cmd_wdb_open, cmd_wdb_reload
+from xviv.functions.synthesis import cmd_dcp_open, cmd_synth
 from xviv.utils import error
 
 
@@ -84,12 +84,12 @@ class CreateCommand(Command):
 				cfg,
 				bd_name=args.bd,
 				source_file=args.source_file,
-				generate=not args.no_generate,
+				generate=args.generate,
 				edit=args.edit,
 				nogui=args.nogui,
 			)
 		elif args.core:
-			cmd_core_create(cfg, core_name=args.core, generate=not args.no_generate, edit=args.edit, nogui=args.nogui)
+			cmd_core_create(cfg, core_name=args.core, generate=args.generate, edit=args.edit, nogui=args.nogui)
 		elif args.app:
 			cmd_app_create(cfg, app_name=args.app, platform_name=args.platform, build=args.build)
 		elif args.platform:
@@ -131,14 +131,21 @@ class GenerateCommand(Command):
 
 		target_group(c, exclusive=True, required=True, bd=True, core=True)
 		target_group(c, exclusive=True, required=False, force=True)
+		c.add_argument(
+			"--reset",
+			action="store_true",
+			help="Reset all output products before generate",
+			default=False,
+			required=False,
+		)
 
 	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
 		super().run(cfg, args)
 
 		if args.bd:
-			cmd_bd_generate(cfg, bd_name=args.bd, force=args.force)
+			cmd_bd_generate(cfg, bd_name=args.bd, force=args.force, reset=args.reset)
 		elif args.core:
-			cmd_core_generate(cfg, core_name=args.core, force=args.force)
+			cmd_core_generate(cfg, core_name=args.core, force=args.force, reset=args.reset)
 
 
 class OpenCommand(Command):
