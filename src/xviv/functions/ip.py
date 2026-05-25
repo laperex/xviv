@@ -45,11 +45,7 @@ def cmd_ip_create(
 				(
 					lambda core=core: vivado.run_vivado(
 						cfg,
-						config_tcl=(
-							ConfigTclCommands(cfg)
-							.generate_core(core_name=core.name)
-							.build()
-						),
+						config_tcl=(ConfigTclCommands(cfg).generate_core(core_name=core.name).build()),
 						label=ip_name,
 					),
 					core.name,

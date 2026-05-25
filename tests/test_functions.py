@@ -831,7 +831,6 @@ class TestCmdIpCreate:
 
 		assert label == "my_core"
 
-
 	def test_skips_cores_with_mismatched_vlnv(self, tmp_path):
 		cfg = _make_cfg()
 
@@ -862,7 +861,6 @@ class TestCmdIpCreate:
 
 		assert len(tasks) == 0
 
-
 	def test_skips_cores_whose_xci_does_not_exist(self):
 		cfg = _make_cfg()
 
@@ -889,7 +887,6 @@ class TestCmdIpCreate:
 		tasks = mock_parallel.call_args[0][0]
 
 		assert len(tasks) == 0
-
 
 	def test_multiple_matching_cores_all_included(self, tmp_path):
 		cfg = _make_cfg()

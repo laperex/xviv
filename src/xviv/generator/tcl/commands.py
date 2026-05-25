@@ -6,7 +6,6 @@ from enum import IntEnum
 from xviv.generator.tcl.builder import ConfigTclBuilder, _tcl_list
 from xviv.utils import error
 from xviv.utils.fs import assert_file_exists, is_stale, is_stale_list
-from xviv.utils.tools import find_vivado_dir_path
 
 logger = logging.getLogger(__name__)
 
