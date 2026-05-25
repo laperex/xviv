@@ -25,9 +25,6 @@ from xviv.generator.wrapper import SystemVerilogWrapper
 from xviv.parsers.bd_json import get_bd_core_list
 from xviv.utils import error
 from xviv.utils.fs import resolve_globs
-from xviv.utils.tools import find_vivado_dir_path
-
-logger = logging.getLogger(__name__)
 
 
 class XvivConfig:

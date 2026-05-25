@@ -11,7 +11,7 @@ from xviv.utils.tools import find_vivado_dir_path
 # -----------------------------------------------------------------------------
 # create --ip <ip_name>
 # -----------------------------------------------------------------------------
-def cmd_ip_create(cfg: XvivConfig, *, ip_name: str | None = None, edit: bool = False, nogui: bool = False):
+def cmd_ip_create(cfg: XvivConfig, *, ip_name: str | None = None, edit: bool = False, nogui: bool = False, regenerate: bool = False):
 	cfg.validate_ip(ip_name)
 
 	cfg.build_attach_ip_wrapper(ip_name)
@@ -19,6 +19,9 @@ def cmd_ip_create(cfg: XvivConfig, *, ip_name: str | None = None, edit: bool = F
 	config = ConfigTclCommands(cfg).create_ip(ip_name, edit=edit, nogui=nogui).build()
 
 	vivado.run_vivado(cfg, config_tcl=config)
+
+	if not regenerate:
+		return
 
 	ip_cfg = cfg.get_ip(ip_name)
 
