@@ -10,7 +10,7 @@ from xviv.functions.formal import cmd_formal
 from xviv.functions.ip import cmd_ip_create, cmd_ip_edit
 from xviv.functions.simulation import cmd_simulate, cmd_wdb_open, cmd_wdb_reload
 from xviv.functions.synthesis import cmd_dcp_open, cmd_synth
-from xviv.functions.xsct import (
+from xviv.functions.bsp import (
 	cmd_app_build,
 	cmd_app_create,
 	cmd_platform_build,

@@ -5,7 +5,7 @@ import subprocess
 
 from xviv.config.project import XvivConfig
 from xviv.functions.bd import ConfigTclCommands
-from xviv.tools.vitis import run_xsct
+from xviv.tools.xsct import run_xsct
 from xviv.utils import error
 from xviv.utils.tools import find_vitis_dir_path
 
