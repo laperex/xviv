@@ -2,6 +2,7 @@ import logging
 import os
 import shutil
 import subprocess
+import sys
 
 from xviv.utils import error
 
@@ -113,32 +114,25 @@ def _find_tool_dir(tool: str) -> str:
 # ---------------------------------------------------------------------------
 
 
-def find_vivado_dir_path() -> str:
-	return _find_tool_dir("vivado")
+def find_vivado_dir_path(exit_on_fail: bool = True) -> str | None:
+	try:
+		return _find_tool_dir("vivado")
+
+	except error.SettingsEnvUnsetError as e:
+		if exit_on_fail:
+			print(e)
+			sys.exit(1)
+
+	return None
 
 
-def find_vitis_dir_path() -> str:
-	return _find_tool_dir("xsct")
+def find_vitis_dir_path(exit_on_fail: bool = True) -> str | None:
+	try:
+		return _find_tool_dir("xsct")
 
+	except error.SettingsEnvUnsetError as e:
+		if exit_on_fail:
+			print(e)
+			sys.exit(1)
 
-def get_vitis_env() -> dict[str, str]:
-	vitis_dir = find_vitis_dir_path()
-	extra_paths = [
-		os.path.join(vitis_dir, "gnu", "microblaze", "lin", "bin"),  # mb-gcc
-		os.path.join(vitis_dir, "bin"),
-		os.path.join(vitis_dir, "lib", "lnx64.o"),
-	]
-	env = os.environ.copy()
-	env["PATH"] = os.pathsep.join(extra_paths) + os.pathsep + env.get("PATH", "")
-	return env
-
-
-def mb_tool(tool: str) -> str:
-	return os.path.join(
-		find_vitis_dir_path(),
-		"gnu",
-		"microblaze",
-		"lin",
-		"bin",
-		f"microblaze-xilinx-elf-{tool}",
-	)
+	return None

@@ -172,7 +172,7 @@ def cmd_formal(cfg: XvivConfig, *, target: str | None = None) -> None:
 		header = f"-- formal: {fcfg.name}  [{fcfg.mode}, depth={fcfg.depth}]"
 		print(f"\n{header} {'-' * max(0, 60 - len(header))}")
 
-		result = run_formal(fcfg, dry_run=cfg.get_vivado().dry_run)
+		result = run_formal(fcfg, dry_run=cfg.dry_run)
 		results.append(result)
 
 		if result.vcd:

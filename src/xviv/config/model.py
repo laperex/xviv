@@ -5,17 +5,24 @@ import typing
 
 @dataclasses.dataclass
 class VivadoConfig:
-	path: str
-	dry_run: bool
+	path: str | None
 	mode: str
 	max_threads: int
 	hw_server: str
 
+	xsim_bin: str = 'xsim'
+	xvlog_bin: str = 'xvlog'
+	xelab_bin: str = 'xelab'
+	vivado_bin: str = 'vivado'
+
+	glbl_file: str | None = None
+
 
 @dataclasses.dataclass
 class VitisConfig:
-	path: str
+	path: str | None
 
+	xsct_bin: str = 'xsct'
 
 @dataclasses.dataclass
 class SourceFile:

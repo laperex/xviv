@@ -6,6 +6,7 @@ from enum import IntEnum
 from xviv.generator.tcl.builder import ConfigTclBuilder, _tcl_list
 from xviv.utils import error
 from xviv.utils.fs import assert_file_exists, is_stale, is_stale_list
+from xviv.utils.tools import find_vivado_dir_path
 
 logger = logging.getLogger(__name__)
 
@@ -305,14 +306,13 @@ class ConfigTclCommands(ConfigTclBuilder):
 	def _override_save_bd_design(self, bd_state_tcl_file: str):
 		self._override(
 			"save_bd_design",
-			post_call=lambda x: x._write_bd_tcl(
-				bd_state_tcl_file, force=True, no_project_wrapper=True, make_local=True
+			post_call=lambda x: (
+				x._file_mkdir(os.path.dirname(bd_state_tcl_file)),
+				x._write_bd_tcl(
+					bd_state_tcl_file, force=True, no_project_wrapper=True, make_local=True
+				)
 			),
 		)
-
-	def _bd_refresh_addresses(self):
-		self._delete_bd_objs("[get_bd_addr_segs]", "[get_bd_addr_segs -excluded]")
-		self._assign_bd_address()
 
 	def _bd_upgrade_ip_cells(self):
 		self._set_exec(
@@ -364,13 +364,15 @@ class ConfigTclCommands(ConfigTclBuilder):
 		self._create_bd_design(bd_name, dir=self._cfg.bd_dir)
 
 		# TODO: add a new flag --import=true flag to make this if explicit
-		if source_file:
-			save_file = bd_cfg.save_file
-
+		while source_file:
 			if isinstance(source_file, str):
 				save_file = os.path.abspath(source_file)
+				assert_file_exists(save_file)
+			else:
+				save_file = bd_cfg.save_file
 
-			assert_file_exists(save_file)
+				if not os.path.exists(save_file):
+					break
 
 			self._rename("create_bd_design", "_xviv_create_bd_design")
 			self._rename("close_bd_design", "_xviv_close_bd_design")
@@ -392,8 +394,9 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 			self._if("[llength [get_bd_cells]] == 0", __body)
 
-			self._bd_refresh_addresses()
-			self._validate_bd_design()
+			# self._delete_bd_objs("[get_bd_addr_segs]", "[get_bd_addr_segs -excluded]")
+			# self._assign_bd_address()
+			# self._validate_bd_design()
 			self._save_bd_design()
 
 			if generate:
@@ -404,10 +407,11 @@ class ConfigTclCommands(ConfigTclBuilder):
 			elif save_file != bd_cfg.save_file:
 				# is called inside 'edit_bd'
 				self._write_bd_tcl(bd_cfg.save_file, force=True, no_project_wrapper=True, make_local=True)
-		else:
-			self._override_save_bd_design(bd_cfg.save_file)
 
-			self._start_gui()
+			return self
+
+		self._override_save_bd_design(bd_cfg.save_file)
+		self._start_gui()
 
 		return self
 
@@ -484,6 +488,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 			name=ip_edit_project_name,
 			upgrade=True,
 		)
+
 		self._current_project(self.__current_project_name)
 		self._close_project()
 		self._current_project(ip_edit_project_name)
@@ -570,22 +575,41 @@ class ConfigTclCommands(ConfigTclBuilder):
 					"ifc_memmap",
 					lambda m: m._ipx__get_memory_maps(name="$ifc_name", of_objects=ipx_current_core),
 				)
+
+				x._ipx__remove_address_block("reg0", "$ifc_memmap")
+
 				x._set_exec(
 					"ifc_addr_block",
-					lambda m: m._ipx__add_address_block("${ifc_name}_reg", "$ifc_memmap"),
+					lambda m: m._ipx__add_address_block("Reg", "$ifc_memmap"),
 				)
 
-				for i in ["OFFSET_HIGH_PARAM", "OFFSET_BASE_PARAM"]:
-					x._ipx__add_address_block_parameter(i, "$ifc_addr_block")
+				# ipx::get_port_maps AWADDR -of_objects $ifc  -> port_map object
+				# get_property PHYSICAL_NAME $pm              -> physical port name string
+				# ipx::get_ports $name -of_objects core       -> ipx port object
+				# get_property SIZE_LEFT $port                -> MSB index (e.g. 3 for [3:0])
+				# SIZE_LEFT + 1                               -> bit width
+				x._set_exec("_awaddr_pm", lambda m: m._ipx__get_port_maps("AWADDR", of_objects="$ifc"))
+				x._set_exec("_awaddr_phys", lambda m: m._get_property("PHYSICAL_NAME", "$_awaddr_pm"))
+				x._set_exec("_awaddr_port", lambda m: m._ipx__get_ports("$_awaddr_phys", of_objects=ipx_current_core))
+				x._set_exec("_addr_width", lambda m: m._expr("[get_property SIZE_LEFT $_awaddr_port] + 1"))
 
-				x._set_property("usage", "register", "$ifc_addr_block")
+				x._set_exec("_wdata_pm", lambda m: m._ipx__get_port_maps("WDATA", of_objects="$ifc"))
+				x._set_exec("_wdata_phys", lambda m: m._get_property("PHYSICAL_NAME", "$_wdata_pm"))
+				x._set_exec("_wdata_port", lambda m: m._ipx__get_ports("$_wdata_phys", of_objects=ipx_current_core))
+				x._set_exec("_data_width", lambda m: m._expr("[get_property SIZE_LEFT $_wdata_port] + 1"))
+
+				x._set_exec("_range", lambda m: m._expr("1 << $_addr_width"))
+
+				x._set_property("range", "$_range",      "$ifc_addr_block")
+				x._set_property("width", "$_data_width", "$ifc_addr_block")
+				x._set_property("usage", "register",     "$ifc_addr_block")
 				x._set_exec(
 					"ifc_bus_ifs",
 					lambda m: m._ipx__get_bus_interfaces(name="$ifc_name", of_objects=ipx_current_core),
 				)
 				x._set_property("slave_memory_map_ref", "$ifc_name", "$ifc_bus_ifs")
 
-			x._if('$ifc_intf eq "slave" && [string match *axi_lite* $ifc_mode]', __if_body)
+			x._if('$ifc_intf eq "slave" && [string match *aximm* $ifc_mode]', __if_body)
 
 		self._foreach(
 			"ifc",
@@ -641,7 +665,11 @@ class ConfigTclCommands(ConfigTclBuilder):
 	def create_core(self, core_name: str, generate: bool = True, edit: bool = True, nogui: bool = False) -> typing.Self:
 		core_cfg = self._cfg.get_core(core_name)
 
-		if self._cfg.get_catalog().lookup_optional(core_cfg.vlnv) is None:
+		if entry := self._cfg.get_catalog().lookup_optional(core_cfg.vlnv):
+			core_cfg.vlnv = entry.vlnv
+		else:
+			find_vivado_dir_path()
+
 			raise error.CoreVlnvNotInCatalogError(core_cfg.name, core_cfg.vlnv)
 
 		self._require_project(fpga_ref=core_cfg.fpga_ref)

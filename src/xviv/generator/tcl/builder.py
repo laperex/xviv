@@ -599,12 +599,23 @@ class ConfigTclBuilder:
 
 		self._push(f"ipx::get_memory_maps {' '.join(params)}")
 
+	def _ipx__get_port_maps(self, name: str | None = None, *, of_objects: str):
+		# name = logical port name (e.g. "AWADDR"); omit to get all port maps
+		params = filter(None, [f"{name}" if name else None, f"-of_objects {of_objects}"])
+		self._push(f"ipx::get_port_maps {' '.join(params)}")
+
+	def _ipx__get_ports(self, name: str, *, of_objects: str):
+		self._push(f"ipx::get_ports {name} -of_objects {of_objects}")
+
 	def _ipx__update_source_project_archive(self, component: str):
 		params = filter(None, [f"-component {component}"])
 		self._push(f"ipx::update_source_project_archive  {' '.join(params)}")
 
 	def _ipx__add_address_block(self, block: str, context: str):
 		self._push(f'ipx::add_address_block "{block}" {context}')
+	
+	def _ipx__remove_address_block(self, block: str, context: str):
+		self._push(f'ipx::remove_address_block "{block}" {context}')
 
 	def _ipx__add_address_block_parameter(self, param: str, context: str):
 		self._push(f"ipx::add_address_block_parameter {param} {context}")
@@ -1062,6 +1073,9 @@ class ConfigTclBuilder:
 
 	def _rename(self, name: str, change: str):
 		self._push(f"rename {name} {change}")
+	
+	def _expr(self, expr: str):
+		self._push(f"expr {{{expr}}}")
 
 	# -------------------------------------------------------------------------
 	# Tcl I/O

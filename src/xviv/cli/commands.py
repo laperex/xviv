@@ -41,7 +41,7 @@ class Command(ABC):
 
 	@abstractmethod
 	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
-		cfg.get_vivado().dry_run = args.dry_run
+		cfg.dry_run = args.dry_run
 		cfg.check = args.check
 
 
@@ -206,7 +206,7 @@ class BuildCommand(Command):
 		super().register(sub)
 		c = cls.c
 
-		target_group(c, exclusive=False, required=True, app=True, platform=True)
+		target_group(c, exclusive=True, required=True, app=True, platform=True)
 
 		c.add_argument("--info", action="store_true", help="Print ELF section sizes after build")
 

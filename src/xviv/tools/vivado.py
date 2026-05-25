@@ -8,6 +8,7 @@ from pathlib import Path
 
 from xviv.config.project import XvivConfig
 from xviv.utils.process import run_tool
+from xviv.utils.tools import find_vivado_dir_path
 
 logger = logging.getLogger(__name__)
 
@@ -22,10 +23,10 @@ def run_vivado_xvlog(
 	defines: list[str] = [],
 	include_dirs: list[str] = [],
 ) -> None:
-	xvlog_bin = os.path.join(cfg.get_vivado().path, "bin", "xvlog")
-	extra_files = [os.path.join(cfg.get_vivado().path, "data/verilog/src/glbl.v")]
+	# if cfg.get_vivado().path:
+	# 	extra_files = [os.path.join(cfg.get_vivado().path, "data/verilog/src/glbl.v")]
 
-	cmd = [xvlog_bin, "--sv", "--incr", "--work", xsim_lib]
+	cmd = [cfg.get_vivado().xvlog_bin, "--sv", "--incr", "--work", xsim_lib]
 
 	for d in defines:
 		cmd += ["-d", d]
@@ -35,12 +36,19 @@ def run_vivado_xvlog(
 		cmd += ["-L", x]
 
 	cmd += fileset
-	cmd += extra_files
+
+	if cfg.get_vivado().glbl_file:
+		cmd += [cfg.get_vivado().glbl_file]
 
 	try:
-		run_tool(cmd, cwd=target_dir, dry_run=cfg.get_vivado().dry_run)
+		run_tool(cmd, cwd=target_dir, dry_run=cfg.dry_run)
 	except subprocess.CalledProcessError as e:
 		sys.exit(e.returncode)
+	except FileNotFoundError:
+		try:
+			find_vivado_dir_path(exit_on_fail=True)
+		finally:
+			raise
 
 
 def run_vivado_xelab(
@@ -125,7 +133,7 @@ def run_vivado_xelab(
 	sourcelibext: list[str] | None = None,
 	sourcelibfile: list[str] | None = None,
 ) -> None:
-	cmd = [os.path.join(cfg.get_vivado().path, "bin", "xelab"), *units]
+	cmd = [cfg.get_vivado().xelab_bin, *units]
 
 	cmd += ["--debug", debug]
 
@@ -288,9 +296,14 @@ def run_vivado_xelab(
 		cmd += ["--sourcelibfile", x]
 
 	try:
-		run_tool(cmd, cwd=target_dir, dry_run=cfg.get_vivado().dry_run)
+		run_tool(cmd, cwd=target_dir, dry_run=cfg.dry_run)
 	except subprocess.CalledProcessError as e:
 		sys.exit(e.returncode)
+	except FileNotFoundError:
+		try:
+			find_vivado_dir_path(exit_on_fail=True)
+		finally:
+			raise
 
 
 def run_vivado_xsim(
@@ -309,7 +322,6 @@ def run_vivado_xsim(
 	if config_tcl is None:
 		return None
 
-	xsim_bin = os.path.join(cfg.get_vivado().path, "bin", "xsim")
 	config_tcl_path: str | None = None
 
 	try:
@@ -317,7 +329,7 @@ def run_vivado_xsim(
 			tmp.write(config_tcl)
 			config_tcl_path = tmp.name
 
-		cmd = [xsim_bin]
+		cmd = [cfg.get_vivado().xsim_bin]
 
 		if top:
 			cmd += [top]
@@ -336,12 +348,17 @@ def run_vivado_xsim(
 			cmd += ["--testplusarg", x]
 
 		try:
-			return run_tool(cmd, cwd=target_dir, dry_run=cfg.get_vivado().dry_run, popen=popen)
+			return run_tool(cmd, cwd=target_dir, dry_run=cfg.dry_run, popen=popen)
 		except subprocess.CalledProcessError as e:
 			sys.exit(e.returncode)
+		except FileNotFoundError:
+			try:
+				find_vivado_dir_path(exit_on_fail=True)
+			finally:
+				raise
 
 	finally:
-		if config_tcl_path and not cfg.get_vivado().dry_run:
+		if config_tcl_path and not cfg.dry_run:
 			with contextlib.suppress(OSError):
 				os.unlink(config_tcl_path)
 
@@ -356,7 +373,6 @@ def run_vivado(
 	if config_tcl is None:
 		return
 
-	vivado_bin = os.path.join(cfg.get_vivado().path, "bin", "vivado")
 	job_log = logger.getChild(label) if label else logger
 	config_tcl_path: str | None = None
 
@@ -368,7 +384,7 @@ def run_vivado(
 			config_tcl_path = tmp.name
 
 		cmd = [
-			vivado_bin,
+			cfg.get_vivado().vivado_bin,
 			"-mode",
 			cfg.get_vivado().mode,
 			"-nolog",
@@ -392,13 +408,18 @@ def run_vivado(
 				log=job_log,
 				log_path=log_path,
 				interactive=is_tcl,
-				dry_run=cfg.get_vivado().dry_run,
+				dry_run=cfg.dry_run,
 			)
 		except subprocess.CalledProcessError as e:
 			job_log.error("Vivado exited with code %d", e.returncode)
 			sys.exit(e.returncode)
+		except FileNotFoundError:
+			try:
+				find_vivado_dir_path(exit_on_fail=True)
+			finally:
+				raise
 
 	finally:
-		if config_tcl_path and not cfg.get_vivado().dry_run:
+		if config_tcl_path and not cfg.dry_run:
 			with contextlib.suppress(OSError):
 				os.unlink(config_tcl_path)

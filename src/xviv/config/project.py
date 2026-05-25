@@ -25,6 +25,7 @@ from xviv.generator.wrapper import SystemVerilogWrapper
 from xviv.parsers.bd_json import get_bd_core_list
 from xviv.utils import error
 from xviv.utils.fs import resolve_globs
+from xviv.utils.tools import find_vivado_dir_path
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +40,8 @@ class XvivConfig:
 			work_dir = "build"
 
 		self.work_dir = os.path.join(self.base_dir, work_dir)
+		self.dry_run = False
+		self.check = False
 
 		self.board_repo_list: list[str] = []
 		for path in board_repo_list:
@@ -80,17 +83,25 @@ class XvivConfig:
 	def build(self) -> typing.Self:
 		os.makedirs(self.work_dir, exist_ok=True)
 
-		if not os.path.exists(self._vivado_cfg.path):
-			raise error.InvalidPathError(self._vivado_cfg.path, "Vivado")
+		if self._vivado_cfg.path:
+			if not os.path.exists(self._vivado_cfg.path):
+				raise error.InvalidPathError(self._vivado_cfg.path, "Vivado")
 
-		if not os.path.exists(self._vitis_cfg.path):
-			raise error.InvalidPathError(self._vitis_cfg.path, "Vitis")
+		if self._vitis_cfg.path:
+			if not os.path.exists(self._vitis_cfg.path):
+				raise error.InvalidPathError(self._vitis_cfg.path, "Vitis")
 
-		for i in self._core_list:
-			try:
-				i.vlnv = self._resolve_core_vlnv(i.vlnv)
-			except error.VlnvResolveError:
-				raise error.CoreVlnvResolveError(name=i.name, vlnv=i.vlnv)
+		# for i in self._core_list:
+		# 	try:
+		# 		try:
+		# 			i.vlnv = self._resolve_core_vlnv(i.vlnv)
+		# 		except error.VlnvResolveError:
+		# 			raise error.CoreVlnvResolveError(name=i.name, vlnv=i.vlnv)
+		# 	except error.CoreVlnvResolveError:
+		# 		try:
+		# 			find_vivado_dir_path()
+		# 		finally:
+		# 			raise
 
 		return self
 
@@ -195,7 +206,7 @@ class XvivConfig:
 	# -------------------------------------------------------------------------
 
 	def add_vivado_cfg(
-		self, path: str, mode: str = "batch", max_threads: int = 10, hw_server: str = "localhost:3121"
+		self, path: str | None = None, mode: str = "batch", max_threads: int = 10, hw_server: str = "localhost:3121"
 	) -> typing.Self:
 		if self._vivado_cfg is not None:
 			raise error.VivadoAlreadySpecifiedError()
@@ -204,8 +215,15 @@ class XvivConfig:
 			raise error.CoreCatalogAlreadySpecifiedError()
 
 		self._vivado_cfg = VivadoConfig(
-			path=path, mode=mode, max_threads=max_threads, hw_server=hw_server, dry_run=False
+			path=path, mode=mode, max_threads=max_threads, hw_server=hw_server
 		)
+
+		if self._vivado_cfg.path:
+			self._vivado_cfg.glbl_file = os.path.join(self._vivado_cfg.path, 'data/verilog/src/glbl.v')
+			self._vivado_cfg.xsim_bin = os.path.join(self._vivado_cfg.path, 'bin', self._vivado_cfg.xsim_bin)
+			self._vivado_cfg.xvlog_bin = os.path.join(self._vivado_cfg.path, 'bin', self._vivado_cfg.xvlog_bin)
+			self._vivado_cfg.xelab_bin = os.path.join(self._vivado_cfg.path, 'bin', self._vivado_cfg.xelab_bin)
+			self._vivado_cfg.vivado_bin = os.path.join(self._vivado_cfg.path, 'bin', self._vivado_cfg.vivado_bin)
 
 		self._catalog_cfg = Catalog(vivado_path=path, ip_repos=self.ip_repo_list)
 
@@ -213,12 +231,15 @@ class XvivConfig:
 
 	def add_vitis_cfg(
 		self,
-		path: str,
+		path: str | None = None,
 	) -> typing.Self:
 		if self._vitis_cfg is not None:
 			raise error.VitisAlreadySpecifiedError()
 
 		self._vitis_cfg = VitisConfig(path=path)
+
+		if self._vitis_cfg.path:
+			self._vitis_cfg.xsct_bin = os.path.join(self._vitis_cfg.path, 'bin', self._vitis_cfg.xsct_bin)
 
 		return self
 
@@ -934,7 +955,7 @@ class XvivConfig:
 	# -------------------------------------------------------------------------
 
 	def get_catalog(self) -> Catalog:
-		if self._catalog_cfg:
+		if self._catalog_cfg is not None:
 			return self._catalog_cfg
 
 		raise error.UninitializedCoreCatalogError()

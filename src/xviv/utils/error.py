@@ -885,12 +885,12 @@ class SynthUsrAccessValueEmbedGitShaError(XvivError):
 		return "usr_access_type='git' requires a valid Git SHA. Verify that this project is inside an initialized Git repository."
 
 
-class ProjoctConfigTomlFileMissingError(XvivError):
+class ProjectConfigTomlFileMissingError(XvivError):
 	def __str__(self) -> str:
 		return "project.toml missing"
 
 
-class ProjoctConfigUnknownKeyError(XvivError):
+class ProjectConfigUnknownKeyError(XvivError):
 	def __init__(self, key: str, file: str):
 		self.key = key
 		self.file = file

@@ -26,7 +26,7 @@ def vivado_cfg():
 
 @pytest.fixture
 def vivado_cfg_dry(vivado_cfg):
-	vivado_cfg.get_vivado().dry_run = True
+	vivado_cfg.dry_run = True
 	return vivado_cfg
 
 

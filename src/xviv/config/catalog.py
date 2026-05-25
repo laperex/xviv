@@ -7,24 +7,29 @@ from typing import Iterator
 
 from xviv.config.model import CatalogCoreEntry
 from xviv.parsers import component_xml, vv_index_xml
-from xviv.utils.error import AmbiguousCoreError
+from xviv.utils import error
 
 logger = logging.getLogger(__name__)
 
 
 class Catalog:
-	def __init__(self, vivado_path: str, ip_repos: list[str] | None = None) -> None:
+	def __init__(self, vivado_path: str | None, ip_repos: list[str] | None = None) -> None:
 		self._cores: dict[str, CatalogCoreEntry] = {}
 		self._load(vivado_path, ip_repos or [])
 
-	def _load(self, vivado_path: str, ip_repos: list[str]) -> None:
-		xml_path = os.path.join(vivado_path, "data", "ip", "vv_index.xml")
-		self._cores.update(vv_index_xml.parser(xml_path))
+	def _load(self, vivado_path: str | None, ip_repos: list[str]) -> None:
+		if vivado_path:
+			xml_path = os.path.join(vivado_path, "data", "ip", "vv_index.xml")
+			self._cores.update(vv_index_xml.parser(xml_path))
+
 		for repo in ip_repos:
 			merged = _load_ip_repo(repo)
+
 			if merged:
 				logger.debug("ip_repo %s: loaded %d cores", repo, len(merged))
+
 			self._cores.update(merged)
+
 		logger.debug("Catalog: %d total cores", len(self._cores))
 
 	def __len__(self) -> int:
@@ -50,9 +55,15 @@ class Catalog:
 			logger.debug("Resolved %r -- %s", id, matches[0].vlnv)
 			return matches[0]
 		if len(matches) > 1:
-			raise AmbiguousCoreError(id, [e.vlnv for e in matches])
+			raise error.AmbiguousCoreError(id, [e.vlnv for e in matches])
 
 		return None
+
+	def lookup(self, id: str) -> CatalogCoreEntry:
+		if entry := self.lookup_optional(id):
+			return entry
+
+		raise error.VlnvResolveError(id)
 
 	def find_by_name(self, ip_name: str) -> list[CatalogCoreEntry]:
 		return [e for e in self._cores.values() if e.name == ip_name]

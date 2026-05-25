@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import sys
 import tomllib
 
 from xviv.config.project import XvivConfig
@@ -20,21 +21,22 @@ def resolve_config(explicit: str) -> str:
 		if os.path.exists(candidate):
 			return candidate
 
-	raise error.ProjoctConfigTomlFileMissingError()
+	raise error.ProjectConfigTomlFileMissingError()
 
 
 def load_config(path: str) -> XvivConfig:
 	with open(path, "rb") as f:
 		data = tomllib.load(f)
 
+	cfg = XvivConfig(
+		path,
+		data["project"].get("build_dir", None),
+		data["project"].get("board_repo_paths", []),
+	)
+
 	cfg = (
-		XvivConfig(
-			path,
-			data["project"].get("build_dir", None),
-			data["project"].get("board_repo_paths", []),
-		)
-		.add_vivado_cfg(path=find_vivado_dir_path())
-		.add_vitis_cfg(path=find_vitis_dir_path())
+		cfg.add_vivado_cfg(path=find_vivado_dir_path(False))
+		.add_vitis_cfg(path=find_vitis_dir_path(False))
 	)
 
 	for key, entries in data.items():
@@ -73,6 +75,6 @@ def load_config(path: str) -> XvivConfig:
 				case "uvm":
 					cfg.add_uvm_cfg(**entry)
 				case _:
-					raise error.ProjoctConfigUnknownKeyError(key, path)
+					raise error.ProjectConfigUnknownKeyError(key, path)
 
 	return cfg

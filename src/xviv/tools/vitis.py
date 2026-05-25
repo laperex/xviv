@@ -7,6 +7,7 @@ import tempfile
 
 from xviv.config.project import XvivConfig
 from xviv.utils.process import run_tool
+from xviv.utils.tools import find_vitis_dir_path
 
 logger = logging.getLogger(__name__)
 
@@ -18,33 +19,35 @@ def run_xsct(cfg: XvivConfig, config_tcl: str, args: list[str] = []) -> None:
 			tmp.write(config_tcl)
 			config_tcl_path = tmp.name
 
-		cmd = [_xsct_bin(cfg), config_tcl_path, *args]
+		cmd = [cfg.get_vitis().xsct_bin, config_tcl_path, *args]
 
 		try:
-			run_tool(cmd, cwd=os.getcwd(), dry_run=cfg.get_vivado().dry_run)
+			run_tool(cmd, cwd=os.getcwd(), dry_run=cfg.dry_run)
 		except subprocess.CalledProcessError as e:
 			sys.exit(e.returncode)
+		except FileNotFoundError:
+			try:
+				find_vitis_dir_path(exit_on_fail=True)
+			finally:
+				raise
 
 	finally:
-		if config_tcl_path and not cfg.get_vivado().dry_run:
+		if config_tcl_path and not cfg.dry_run:
 			with contextlib.suppress(OSError):
 				os.unlink(config_tcl_path)
 
 
 def run_xsct_live(cfg: XvivConfig, tcl_script: str, args: list[str] = []) -> None:
-	cmd = [_xsct_bin(cfg), tcl_script, *args]
+	cmd = [cfg.get_vitis().xsct_bin, tcl_script, *args]
 	try:
-		run_tool(cmd, cwd=os.getcwd(), dry_run=cfg.get_vivado().dry_run)
+		run_tool(cmd, cwd=os.getcwd(), dry_run=cfg.dry_run)
 	except subprocess.CalledProcessError as e:
 		sys.exit(e.returncode)
 	except KeyboardInterrupt:
 		logger.info("xsct-live stopped by user")
+	except FileNotFoundError:
+		try:
+			find_vitis_dir_path(exit_on_fail=True)
+		finally:
+			raise
 
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-
-def _xsct_bin(cfg: XvivConfig) -> str:
-	return os.path.join(cfg.get_vivado().path, "bin", "xsct")

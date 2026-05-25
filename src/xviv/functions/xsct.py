@@ -7,7 +7,7 @@ from xviv.config.project import XvivConfig
 from xviv.functions.bd import ConfigTclCommands
 from xviv.tools.vitis import run_xsct
 from xviv.utils import error
-from xviv.utils.tools import get_vitis_env, mb_tool
+from xviv.utils.tools import find_vitis_dir_path
 
 logger = logging.getLogger(__name__)
 
@@ -38,10 +38,10 @@ def cmd_platform_build(cfg: XvivConfig, *, platform_name: str):
 
 	logger.info("Platform Build: %s", platform_cfg.dir)
 
-	if cfg.get_vivado().dry_run:
+	if cfg.dry_run:
 		return
 
-	subprocess.run(["make", f"-j{os.cpu_count() or 4}"], check=True, cwd=platform_cfg.dir, env=get_vitis_env())
+	subprocess.run(["make", f"-j{os.cpu_count() or 4}"], check=True, cwd=platform_cfg.dir, env=_get_vitis_env(cfg))
 
 	logger.info("Platform build complete")
 
@@ -61,13 +61,14 @@ def cmd_app_create(
 		app_cfg.platform = platform_name
 
 	cfg.validate_app(app_name=app_name, check_elf=False)
-	cfg.validate_platform(platform_name=app_cfg.platform)
 
 	platform_cfg = cfg.get_platform(app_cfg.platform)
 
 	if not os.path.isdir(platform_cfg.dir):
 		logger.info("BSP not found - creating platform '%s' first", app_cfg.platform)
 		cmd_platform_create(cfg, platform_name=app_cfg.platform)
+
+	cfg.validate_platform(platform_name=app_cfg.platform)
 
 	config = ConfigTclCommands(cfg).create_app(app_name).build()
 
@@ -103,14 +104,14 @@ def cmd_app_build(cfg: XvivConfig, *, app_name: str, info: bool = False):
 	]
 	logger.info("App Build: %s", " ".join(cmd))
 
-	if cfg.get_vivado().dry_run:
+	if cfg.dry_run:
 		return
 
 	subprocess.run(
 		cmd,
 		check=True,
 		cwd=app_cfg.dir,
-		env=get_vitis_env(),
+		env=_get_vitis_env(cfg),
 	)
 
 	logger.info("App build complete")
@@ -119,12 +120,19 @@ def cmd_app_build(cfg: XvivConfig, *, app_name: str, info: bool = False):
 
 	cfg.validate_app(app_name=app_name, check_elf=True, check_sources=False)
 
-	if info:
+	if info and cfg.get_vitis().path:
+		mb_tool_size_bin = os.path.join(cfg.get_vitis().path, "gnu", "microblaze", "lin", "bin", "microblaze-xilinx-elf-size")
+		mb_tool_objdump_bin = os.path.join(cfg.get_vitis().path, "gnu", "microblaze", "lin", "bin", "microblaze-xilinx-elf-objdump")
+
 		logger.info("ELF: %s", app_cfg.elf_file)
+
 		print(f"\n=== ELF size: {os.path.basename(app_cfg.elf_file)} ===")
-		subprocess.run([mb_tool("size"), app_cfg.elf_file])
+
+		subprocess.run([mb_tool_size_bin, app_cfg.elf_file])
+
 		print(f"\n=== ELF sections: {os.path.basename(app_cfg.elf_file)} ===")
-		subprocess.run([mb_tool("objdump"), "-h", app_cfg.elf_file])
+
+		subprocess.run([mb_tool_objdump_bin, "-h", app_cfg.elf_file])
 
 
 # -----------------------------------------------------------------------------
@@ -206,3 +214,20 @@ def _transform_app_makefile(path: str):
 	content = re.sub(r"(build/%.o:%\.[cSs]\n)(?!\t@mkdir)", r"\1\t@mkdir -p $(dir $@)\n", content)
 
 	open(path, "wt").write(content)
+
+
+def _get_vitis_env(cfg: XvivConfig) -> dict[str, str]:
+	vitis_path = cfg.get_vitis().path
+	
+	if vitis_path is None:
+		find_vitis_dir_path()
+
+	extra_paths = [
+		os.path.join(vitis_path, "gnu", "microblaze", "lin", "bin"),  # mb-gcc
+		os.path.join(vitis_path, "bin"),
+		os.path.join(vitis_path, "lib", "lnx64.o"),
+	]
+	env = os.environ.copy()
+	env["PATH"] = os.pathsep.join(extra_paths) + os.pathsep + env.get("PATH", "")
+
+	return env
