@@ -33,7 +33,7 @@ CORE_MODULE = "xviv.functions.core"
 
 def _make_cfg(*, dry_run: bool = False) -> MagicMock:
 	cfg = MagicMock()
-	cfg.get_vivado.return_value.dry_run = dry_run
+	cfg.dry_run = dry_run
 	return cfg
 
 
@@ -795,15 +795,22 @@ class TestCmdIpCreate:
 
 	def test_runs_parallel_for_matching_cores_with_existing_xci(self, tmp_path):
 		cfg = _make_cfg()
-		ip_cfg = self._setup_ip_cfg(cfg, vlnv="xviv.org:xviv:my_ip:1.0")
+		self._setup_ip_cfg(cfg, vlnv="xviv.org:xviv:my_ip:1.0")
 
 		xci = tmp_path / "my_core.xci"
 		xci.touch()
+
 		core = MagicMock()
 		core.name = "my_core"
 		core.vlnv = "xviv.org:xviv:my_ip:1.0"
 		core.xci_file = str(xci)
+
 		cfg._core_list = [core]
+
+		catalog_entry = MagicMock()
+		catalog_entry.vlnv = "xviv.org:xviv:my_ip:1.0"
+
+		cfg.get_catalog().lookup.return_value = catalog_entry
 
 		with (
 			patch(f"{IP_MODULE}.ConfigTclCommands") as MockTcl,
@@ -811,23 +818,33 @@ class TestCmdIpCreate:
 			patch(f"{IP_MODULE}.run_parallel") as mock_parallel,
 		):
 			MockTcl.return_value.create_ip.return_value.build.return_value = MagicMock()
-			cmd_ip_create(cfg, ip_name="my_ip")
+
+			cmd_ip_create(cfg, ip_name="my_ip", regenerate=True)
+
+		mock_parallel.assert_called_once()
 
 		tasks = mock_parallel.call_args[0][0]
+
 		assert len(tasks) == 1
+
 		_, label = tasks[0]
+
 		assert label == "my_core"
+
 
 	def test_skips_cores_with_mismatched_vlnv(self, tmp_path):
 		cfg = _make_cfg()
+
 		self._setup_ip_cfg(cfg, vlnv="xviv.org:xviv:my_ip:1.0")
 
 		xci = tmp_path / "other_core.xci"
 		xci.touch()
+
 		core = MagicMock()
 		core.name = "other_core"
 		core.vlnv = "xviv.org:xviv:different_ip:2.0"
 		core.xci_file = str(xci)
+
 		cfg._core_list = [core]
 
 		with (
@@ -836,19 +853,26 @@ class TestCmdIpCreate:
 			patch(f"{IP_MODULE}.run_parallel") as mock_parallel,
 		):
 			MockTcl.return_value.create_ip.return_value.build.return_value = MagicMock()
-			cmd_ip_create(cfg, ip_name="my_ip")
+
+			cmd_ip_create(cfg, ip_name="my_ip", regenerate=True)
+
+		mock_parallel.assert_called_once()
 
 		tasks = mock_parallel.call_args[0][0]
+
 		assert len(tasks) == 0
+
 
 	def test_skips_cores_whose_xci_does_not_exist(self):
 		cfg = _make_cfg()
+
 		self._setup_ip_cfg(cfg, vlnv="xviv.org:xviv:my_ip:1.0")
 
 		core = MagicMock()
 		core.name = "my_core"
 		core.vlnv = "xviv.org:xviv:my_ip:1.0"
 		core.xci_file = "/nonexistent/my_core.xci"
+
 		cfg._core_list = [core]
 
 		with (
@@ -857,25 +881,40 @@ class TestCmdIpCreate:
 			patch(f"{IP_MODULE}.run_parallel") as mock_parallel,
 		):
 			MockTcl.return_value.create_ip.return_value.build.return_value = MagicMock()
-			cmd_ip_create(cfg, ip_name="my_ip")
+
+			cmd_ip_create(cfg, ip_name="my_ip", regenerate=True)
+
+		mock_parallel.assert_called_once()
 
 		tasks = mock_parallel.call_args[0][0]
+
 		assert len(tasks) == 0
+
 
 	def test_multiple_matching_cores_all_included(self, tmp_path):
 		cfg = _make_cfg()
+
 		self._setup_ip_cfg(cfg, vlnv="xviv.org:xviv:my_ip:1.0")
 
 		cores = []
+
 		for i in range(3):
 			xci = tmp_path / f"core_{i}.xci"
 			xci.touch()
-			c = MagicMock()
-			c.name = f"core_{i}"
-			c.vlnv = "xviv.org:xviv:my_ip:1.0"
-			c.xci_file = str(xci)
-			cores.append(c)
+
+			core = MagicMock()
+			core.name = f"core_{i}"
+			core.vlnv = "xviv.org:xviv:my_ip:1.0"
+			core.xci_file = str(xci)
+
+			cores.append(core)
+
 		cfg._core_list = cores
+
+		catalog_entry = MagicMock()
+		catalog_entry.vlnv = "xviv.org:xviv:my_ip:1.0"
+
+		cfg.get_catalog().lookup.return_value = catalog_entry
 
 		with (
 			patch(f"{IP_MODULE}.ConfigTclCommands") as MockTcl,
@@ -883,9 +922,13 @@ class TestCmdIpCreate:
 			patch(f"{IP_MODULE}.run_parallel") as mock_parallel,
 		):
 			MockTcl.return_value.create_ip.return_value.build.return_value = MagicMock()
-			cmd_ip_create(cfg, ip_name="my_ip")
+
+			cmd_ip_create(cfg, ip_name="my_ip", regenerate=True)
+
+		mock_parallel.assert_called_once()
 
 		tasks = mock_parallel.call_args[0][0]
+
 		assert len(tasks) == 3
 
 
@@ -928,14 +971,19 @@ class TestCmdIpEdit:
 
 	def test_sets_tcl_mode_on_cfg_vivado_when_nogui(self):
 		cfg = _make_cfg()
-		# cmd_ip_edit uses cfg.vivado.mode (attribute path, not cfg.get_vivado())
+
+		vivado_cfg = MagicMock()
+		cfg.get_vivado.return_value = vivado_cfg
+
 		with (
 			patch(f"{IP_MODULE}.ConfigTclCommands") as MockTcl,
 			patch(f"{IP_MODULE}.vivado.run_vivado"),
 		):
 			MockTcl.return_value.edit_ip.return_value.build.return_value = MagicMock()
+
 			cmd_ip_edit(cfg, ip_name="my_ip", nogui=True)
-		assert cfg.vivado.mode == "tcl"
+
+		assert vivado_cfg.mode == "tcl"
 
 	def test_does_not_set_tcl_mode_when_not_nogui(self):
 		cfg = _make_cfg()
@@ -1084,7 +1132,7 @@ class TestCmdBdGenerate:
 		):
 			MockTcl.return_value.generate_bd.return_value.build.return_value = MagicMock()
 			cmd_bd_generate(cfg, bd_name="my_bd")
-		MockTcl.return_value.generate_bd.assert_called_once_with("my_bd")
+		MockTcl.return_value.generate_bd.assert_called_once_with("my_bd", force=True, reset=True)
 
 	def test_runs_vivado_with_built_config(self):
 		cfg = _make_cfg()
@@ -1240,7 +1288,7 @@ class TestCmdCoreGenerate:
 		):
 			MockTcl.return_value.generate_core.return_value.build.return_value = MagicMock()
 			cmd_core_generate(cfg, core_name="my_core")
-		MockTcl.return_value.generate_core.assert_called_once_with("my_core", force=False)
+		MockTcl.return_value.generate_core.assert_called_once_with("my_core", force=True, reset=True)
 
 	def test_runs_vivado_with_built_config(self):
 		cfg = _make_cfg()

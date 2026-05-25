@@ -28,19 +28,35 @@ def cmd_ip_create(
 	ip_cfg = cfg.get_ip(ip_name)
 
 	try:
-		run_parallel(
-			[
-				(
-					lambda i=i: vivado.run_vivado(
-						cfg, config_tcl=(ConfigTclCommands(cfg).generate_core(core_name=i.name).build()), label=ip_name
-					),
-					i.name,
-				)
-				for i in cfg._core_list
-				if cfg.get_catalog().lookup(i.vlnv).vlnv == ip_cfg.vlnv and os.path.exists(i.xci_file)
-			]
-		)
+		tasks = []
 
+		for core in cfg._core_list:
+			try:
+				if cfg.get_catalog().lookup(core.vlnv).vlnv != ip_cfg.vlnv:
+					continue
+			except error.VlnvResolveError:
+				find_vivado_dir_path()
+				raise
+
+			if not os.path.exists(core.xci_file):
+				continue
+
+			tasks.append(
+				(
+					lambda core=core: vivado.run_vivado(
+						cfg,
+						config_tcl=(
+							ConfigTclCommands(cfg)
+							.generate_core(core_name=core.name)
+							.build()
+						),
+						label=ip_name,
+					),
+					core.name,
+				)
+			)
+
+		run_parallel(tasks)
 	except error.VlnvResolveError:
 		try:
 			find_vivado_dir_path()
