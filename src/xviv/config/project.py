@@ -432,7 +432,7 @@ class XvivConfig:
 			raise error.CoreIdentifierMultipleError(name, ip, vlnv)
 
 		if ip:
-			vlnv = self.get_ip().vlnv
+			vlnv = self.get_ip(name=ip).vlnv
 
 		if vlnv is None:
 			raise error.CoreVlnvUnspecifiedError(name)
@@ -478,7 +478,6 @@ class XvivConfig:
 		core: str | None = None,
 		bd: str | None = None,
 		fpga: str | None = None,
-		out_of_context_subcores: bool = False,
 		top: str | None = None,
 		constraints: list[typing.Any] = [],
 		run_synth: bool = True,
@@ -591,7 +590,6 @@ class XvivConfig:
 				bd_name=bd,
 				fpga_ref=fpga,
 				top=top,
-				out_of_context_subcores=out_of_context_subcores,
 				constraints=self._resolve_sources(
 					constraints, used_in_ooc=False, used_in_sim=False, used_in_impl=True, used_in_synth=True
 				),

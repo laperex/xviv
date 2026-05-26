@@ -55,7 +55,7 @@ def run_tool(
 			assert proc.stdout is not None
 			for line in proc.stdout:
 				stripped = line.rstrip()
-				print(stripped)
+				# print(stripped)
 				job_log.debug(stripped)
 				if log_file:
 					log_file.write(line)

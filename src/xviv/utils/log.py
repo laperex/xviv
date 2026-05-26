@@ -39,7 +39,7 @@ def _supports_color() -> bool:
 	return sys.stdout.isatty()
 
 
-def _setup_logging(log_file: str = "", level_console=logging.INFO) -> None:
+def _setup_logging(log_file: str | None = None, level_console=logging.INFO) -> None:
 	root = logging.getLogger("xviv")
 	if root.handlers:
 		return

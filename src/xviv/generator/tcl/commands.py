@@ -730,6 +730,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 		design: str | None = None,
 		core: str | None = None,
 		resume: str | None = None,
+		parallel_subcore_synth: bool = False,
 	) -> typing.Self:
 		# -------------------------------------------------------------------------
 		# Validation
@@ -849,7 +850,10 @@ class ConfigTclCommands(ConfigTclBuilder):
 				assert_file_exists(core_cfg.xci_file)
 				self._read_ip(core_cfg.xci_file)
 
-				if not is_stale_list(core_cfg.xci_file, synth_cfg.out_files()):
+				if core_cfg.name == 'bd_mblaze_system_microblaze_0_0':
+					raise Exception
+
+				if not is_stale_list(core_cfg.xci_file, [synth_cfg.synth_dcp_file, synth_cfg.synth_stub_file]):
 					logger.info(f"skipping up-to-date synth targets: {core_cfg.name}")
 					self._clear()
 					return self
@@ -866,12 +870,13 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 			self._update_compile_order(fileset="sources_1")
 
-			if synth_cfg.out_of_context_subcores:
+			if parallel_subcore_synth:
 				for i in self._cfg.get_subcore_list(bd_name=bd, design_name=design):
 					subcore_synth_cfg = self._cfg.get_synth(core_name=i.core)
 
 					if not os.path.exists(subcore_synth_cfg.synth_stub_file):
-						raise error.OocStubMissingError(i.core, subcore_synth_cfg.synth_stub_file)
+						if not self._cfg.dry_run:
+							raise error.OocStubMissingError(i.core, subcore_synth_cfg.synth_stub_file)
 
 					self._add_files(subcore_synth_cfg.synth_stub_file, norecurse=True)
 					self._set_property_get_files(

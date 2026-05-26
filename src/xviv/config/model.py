@@ -122,8 +122,6 @@ class SynthConfig:
 	core_name: str | None
 	bd_name: str | None
 
-	out_of_context_subcores: bool
-
 	top: str
 	fpga_ref: str
 	constraints: list[SourceFile]

@@ -362,6 +362,13 @@ class SynthCommand(Command):
 			help="resume synthesis from an existing checkpoint ('auto' detects latest)",
 			required=False,
 		)
+		c.add_argument(
+			"--parallel",
+			action="store_true",
+			help="Parallel synthesis of sub cores",
+			default=False,
+			required=False,
+		)
 
 	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
 		super().run(cfg, args)
@@ -373,6 +380,7 @@ class SynthCommand(Command):
 			core_name=args.core,
 			usr_access_type=args.usr_access_type,
 			resume=args.resume,
+			parallel_subcore_synth=args.parallel,
 		)
 
 

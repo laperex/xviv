@@ -804,7 +804,7 @@ def parse_arguments() -> argparse.Namespace:
 
 def main() -> None:
 	config = parse_arguments()
-	_setup_logging(config.xviv_log_file or "./build/xviv/xviv_wrap_top.log")
+	_setup_logging(config.xviv_log_file)
 	SystemVerilogWrapper(config.xviv_top, config.out_dir, config.xviv_fileset)
 
 

@@ -6,6 +6,7 @@ from xviv.tools import vivado
 from xviv.utils import error
 from xviv.utils.git import _git_sha_tag
 from xviv.utils.parallel import run_parallel
+from xviv.utils.tools import find_vivado_dir_path
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +23,7 @@ def cmd_synth(
 	core_name: str | None = None,
 	usr_access_type: str | None = None,
 	resume: str | None = None,
+	parallel_subcore_synth: bool | None = None,
 ):
 	cfg.validate_synth(bd=bd_name, design=design_name, core=core_name)
 
@@ -43,12 +45,14 @@ def cmd_synth(
 
 					synth_cfg.usr_access_value = int(sha, 16) | (0x10000000 if dirty else 0)
 
-	if synth_cfg.out_of_context_subcores:
+	if parallel_subcore_synth:
+		find_vivado_dir_path(exit_on_fail=True)
+
 		run_parallel(
 			[
 				(
 					lambda i=i: vivado.run_vivado(
-						cfg, config_tcl=(ConfigTclCommands(cfg).synth(core=i.core).build()), label=bd_name
+						cfg, config_tcl=(ConfigTclCommands(cfg).synth(core=i.core).build()), label=i.core
 					),
 					i.core,
 				)
@@ -56,7 +60,13 @@ def cmd_synth(
 			]
 		)
 
-	config = ConfigTclCommands(cfg).synth(design=design_name, bd=bd_name, core=core_name, resume=resume).build()
+	config = (
+		ConfigTclCommands(cfg)
+		.synth(
+			design=design_name, bd=bd_name, core=core_name, resume=resume, parallel_subcore_synth=parallel_subcore_synth
+		)
+		.build()
+	)
 
 	vivado.run_vivado(cfg, config_tcl=config)
 

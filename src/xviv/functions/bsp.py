@@ -21,7 +21,7 @@ def cmd_platform_create(cfg: XvivConfig, *, platform_name: str, build: bool = Fa
 	config = ConfigTclCommands(cfg).create_platform(platform_name).build()
 
 	run_xsct(cfg, config_tcl=config)
-	
+
 	platform_cfg = cfg.get_platform(name=platform_name)
 
 	logger.info(f"Platform: {platform_cfg.name} - Create complete - {platform_cfg.dir}")
