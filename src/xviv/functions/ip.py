@@ -11,9 +11,7 @@ from xviv.utils.tools import find_vivado_dir_path
 # -----------------------------------------------------------------------------
 # create --ip <ip_name>
 # -----------------------------------------------------------------------------
-def cmd_ip_create(
-	cfg: XvivConfig, *, ip_name: str | None = None, edit: bool = False, nogui: bool = False, regenerate: bool = False
-):
+def cmd_ip_create(cfg: XvivConfig, *, ip_name: str | None = None, edit: bool = False, nogui: bool = False, regenerate: bool = False):
 	cfg.validate_ip(ip_name)
 
 	cfg.build_attach_ip_wrapper(ip_name)

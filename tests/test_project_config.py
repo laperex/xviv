@@ -1021,9 +1021,7 @@ class TestResolveFpga:
 	def test_mismatch_raises_when_refs_differ(self, cfg_fpga):
 		cfg_fpga.add_fpga_cfg("other_fpga", fpga_part="xczu7ev-fbvb900-1-i")
 		with pytest.raises(error.FpgaRefMismatchError):
-			cfg_fpga._resolve_fpga(
-				"other_fpga", default_fpga_ref="xczu9", mismatch_check="Design", mismatch_name="my_design"
-			)
+			cfg_fpga._resolve_fpga("other_fpga", default_fpga_ref="xczu9", mismatch_check="Design", mismatch_name="my_design")
 
 
 # ===========================================================================

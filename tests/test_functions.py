@@ -617,9 +617,7 @@ class TestCmdFormal:
 		fcfg_a = _make_formal_cfg(name="formal_a")
 		fcfg_b = _make_formal_cfg(name="formal_b")
 		cfg.get_formal_list.return_value = [fcfg_a, fcfg_b]
-		with patch(
-			f"{FORMAL_MODULE}.run_formal", side_effect=[_make_formal_result(), _make_formal_result()]
-		) as mock_run:
+		with patch(f"{FORMAL_MODULE}.run_formal", side_effect=[_make_formal_result(), _make_formal_result()]) as mock_run:
 			cmd_formal(cfg)
 		assert mock_run.call_count == 2
 
@@ -640,9 +638,7 @@ class TestCmdFormal:
 		cfg.get_formal_list.return_value = [fcfg]
 		order = []
 		cfg.validate_formal.side_effect = lambda *a: order.append("validate")
-		with patch(
-			f"{FORMAL_MODULE}.run_formal", side_effect=lambda *a, **k: (order.append("run"), _make_formal_result())[1]
-		):
+		with patch(f"{FORMAL_MODULE}.run_formal", side_effect=lambda *a, **k: (order.append("run"), _make_formal_result())[1]):
 			cmd_formal(cfg)
 		assert order == ["validate", "run"]
 
@@ -697,9 +693,7 @@ class TestCmdFormal:
 		cfg = _make_cfg()
 		fcfg = _make_formal_cfg()
 		cfg.get_formal_list.return_value = [fcfg]
-		with patch(
-			f"{FORMAL_MODULE}.run_formal", return_value=_make_formal_result(passed=False, vcd="/path/to/trace.vcd")
-		):
+		with patch(f"{FORMAL_MODULE}.run_formal", return_value=_make_formal_result(passed=False, vcd="/path/to/trace.vcd")):
 			with pytest.raises(SystemExit):
 				with caplog.at_level(logging.INFO):
 					cmd_formal(cfg)
@@ -1011,9 +1005,7 @@ class TestCmdBdCreate:
 		):
 			MockTcl.return_value.create_bd.return_value.build.return_value = MagicMock()
 			cmd_bd_create(cfg, bd_name="my_bd")
-		MockTcl.return_value.create_bd.assert_called_once_with(
-			"my_bd", generate=True, source_file=True, edit=False, nogui=False
-		)
+		MockTcl.return_value.create_bd.assert_called_once_with("my_bd", generate=True, source_file=True, edit=False, nogui=False)
 
 	def test_runs_vivado_with_built_config(self):
 		cfg = _make_cfg()
@@ -1263,9 +1255,7 @@ class TestCmdCoreEdit:
 		order = []
 		with (
 			patch(f"{CORE_MODULE}.ConfigTclCommands") as MockTcl,
-			patch(
-				f"{CORE_MODULE}.vivado.run_vivado", side_effect=lambda *a, **k: order.append(("run", vivado_cfg.mode))
-			),
+			patch(f"{CORE_MODULE}.vivado.run_vivado", side_effect=lambda *a, **k: order.append(("run", vivado_cfg.mode))),
 		):
 			MockTcl.return_value.edit_core.return_value.build.return_value = MagicMock()
 			cmd_core_edit(cfg, core_name="my_core", nogui=True)
@@ -1443,12 +1433,7 @@ class TestCmdSearchCore:
 	# -- result table output -----------------------------------------------
 
 	def test_prints_result_count(self, capsys):
-		entries = [
-			_make_catalog_entry(
-				vlnv=f"x:y:ip_{i}:1.0", name=f"ip_{i}", display_name=f"IP {i}", description="Matching desc"
-			)
-			for i in range(3)
-		]
+		entries = [_make_catalog_entry(vlnv=f"x:y:ip_{i}:1.0", name=f"ip_{i}", display_name=f"IP {i}", description="Matching desc") for i in range(3)]
 		cfg = self._cfg_with_catalog(entries)
 		cmd_search_core(cfg, query="matching desc")
 		out = capsys.readouterr().out

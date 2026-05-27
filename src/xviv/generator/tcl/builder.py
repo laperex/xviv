@@ -490,9 +490,7 @@ class ConfigTclBuilder:
 		interface_mode: str,
 		axi_type: str,
 	):
-		self._add_peripheral_interface(
-			interface, f'[ipx::find_open_core "{vlnv}"]', interface_mode=interface_mode, axi_type=axi_type
-		)
+		self._add_peripheral_interface(interface, f'[ipx::find_open_core "{vlnv}"]', interface_mode=interface_mode, axi_type=axi_type)
 
 	def _add_peripheral_interface(
 		self,
@@ -909,9 +907,7 @@ class ConfigTclBuilder:
 
 		self._push(f'write_verilog {" ".join(params)} "{file}"')
 
-	def _write_sdf(
-		self, file: str, *, mode: str, force: bool = False, process_corner: str | None = None, cell: str | None = None
-	):
+	def _write_sdf(self, file: str, *, mode: str, force: bool = False, process_corner: str | None = None, cell: str | None = None):
 		params = filter(
 			None,
 			[

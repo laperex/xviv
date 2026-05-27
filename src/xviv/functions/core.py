@@ -51,13 +51,7 @@ def cmd_search_core(cfg: XvivConfig, *, query: str):
 	matches = [
 		entry
 		for entry in sorted(catalog.values(), key=lambda e: e.vlnv)
-		if not entry.hidden
-		and (
-			needle in entry.vlnv.lower()
-			or needle in entry.display_name.lower()
-			or needle in entry.name.lower()
-			or needle in entry.description.lower()
-		)
+		if not entry.hidden and (needle in entry.vlnv.lower() or needle in entry.display_name.lower() or needle in entry.name.lower() or needle in entry.description.lower())
 	]
 
 	if not matches:

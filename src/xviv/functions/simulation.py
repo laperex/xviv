@@ -275,11 +275,7 @@ def cmd_wdb_open(cfg: XvivConfig, *, sim_name: str, nogui: bool = False):
 	wcfg_file = os.path.join(sim_cfg.work_dir, f"{sim_cfg.top}.wcfg")
 	fifo_file = f"{wdb_file}.fifo"
 
-	config = (
-		ConfigTclCommands(cfg)
-		.waveform_setup(wdb_file=wdb_file, top_name=sim_cfg.top, wcfg_file=wcfg_file, fifo_file=fifo_file)
-		.build()
-	)
+	config = ConfigTclCommands(cfg).waveform_setup(wdb_file=wdb_file, top_name=sim_cfg.top, wcfg_file=wcfg_file, fifo_file=fifo_file).build()
 
 	_ensure_fifo(fifo_file)
 

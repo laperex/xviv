@@ -51,11 +51,7 @@ def _print_job(
 	failed = exc is not None
 	status_color = RED if failed else GREEN
 	status_text = "FAILED" if failed else "OK"
-	duration = (
-		f"  {DIM}{'finished in' if not failed else 'after'} {_fmt_duration(elapsed)}{RESET}"
-		if elapsed is not None
-		else ""
-	)
+	duration = f"  {DIM}{'finished in' if not failed else 'after'} {_fmt_duration(elapsed)}{RESET}" if elapsed is not None else ""
 
 	lines: list[str] = []
 	lines.append(f"\n{DIM}[{index}/{total}]{RESET} {BOLD}{label}{RESET}  {status_color}{status_text}{RESET}{duration}")

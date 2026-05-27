@@ -265,8 +265,9 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 		self._hsi__create_sw_design("bsp_design", proc=platform_cfg.cpu, os=platform_cfg.os)
 
-		for key, val in platform_cfg.properties:
-			self._hsi__set_property_hsi__get_os(key, val)
+		if platform_cfg.properties:
+			for key, val in platform_cfg.properties:
+				self._hsi__set_property_hsi__get_os(key, val)
 
 		self._hsi__generate_bsp(dir=platform_cfg.work_dir)
 
@@ -473,9 +474,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 			library=ip_cfg.library,
 			dir=ip_cfg.repo,
 		)
-		self._add_peripheral_interface_ipx__find_open_core(
-			"S00_AXI", vlnv=ip_cfg.vlnv, interface_mode="slave", axi_type="lite"
-		)
+		self._add_peripheral_interface_ipx__find_open_core("S00_AXI", vlnv=ip_cfg.vlnv, interface_mode="slave", axi_type="lite")
 		self._generate_peripheral_ipx__find_open_core(vlnv=ip_cfg.vlnv, force=True)
 		self._write_peripheral_ipx__find_open_core(vlnv=ip_cfg.vlnv)
 

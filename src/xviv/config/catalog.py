@@ -75,12 +75,7 @@ class Catalog:
 		include_hidden: bool = False,
 	) -> list[CatalogCoreEntry]:
 		needle = prefix.lower()
-		return [
-			e
-			for e in self._cores.values()
-			if (include_hidden or not e.hidden)
-			and (needle in e.vlnv.lower() or needle in e.display_name.lower() or needle in e.description.lower())
-		]
+		return [e for e in self._cores.values() if (include_hidden or not e.hidden) and (needle in e.vlnv.lower() or needle in e.display_name.lower() or needle in e.description.lower())]
 
 	def items(self) -> Iterator[tuple[str, CatalogCoreEntry]]:
 		return iter(self._cores.items())

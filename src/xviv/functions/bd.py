@@ -15,11 +15,7 @@ def cmd_bd_create(
 	edit: bool = False,
 	nogui: bool = False,
 ):
-	config = (
-		ConfigTclCommands(cfg)
-		.create_bd(bd_name, source_file=source_file, generate=generate, edit=edit, nogui=nogui)
-		.build()
-	)
+	config = ConfigTclCommands(cfg).create_bd(bd_name, source_file=source_file, generate=generate, edit=edit, nogui=nogui).build()
 
 	vivado.run_vivado(cfg, config_tcl=config, label=__name__)
 

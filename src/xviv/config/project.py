@@ -106,8 +106,8 @@ class XvivConfig:
 			"fpga",
 			"ip",
 			"wrapper",
-			"bd",
 			"core",
+			"bd",
 			"subcore",
 			"design",
 			"synth",
@@ -118,26 +118,47 @@ class XvivConfig:
 			"formal",
 		]
 
+		# raw_lock_dict = [
+		# 	"project",    self.project_cfg.to_lock(self.base_dir),
+		# 	"fpga",       [c.to_lock()              for c in self._fpga_list],
+		# 	"core",       [c.to_lock(self.base_dir) for c in self._core_list],
+		# 	"ip",         [c.to_lock(self.base_dir) for c in self._ip_list],
+		# 	"wrapper",    [c.to_lock(self.base_dir) for c in self._wrapper_list],
+		# 	"subcore",    [c.to_lock() for c in self._subcore_list if c.bd is not None],      # bd subcore only
+		# 	"synth",      [c.to_lock(self.base_dir) for c in self._synth_list if c.core is not None],  # core synth only
+		# 	"bd",         [c.to_lock(self.base_dir) for c in self._bd_list],
+		# 	"design",     [c.to_lock(self.base_dir) for c in self._design_list],
+		# 	"subcore",    [c.to_lock() for c in self._subcore_list if c.bd is None],          # design subcore only
+		# 	"synth",      [c.to_lock(self.base_dir) for c in self._synth_list if c.core is None],      # design synth only
+		# 	"platform",   [c.to_lock(self.base_dir) for c in self._platform_list],
+		# 	"app",        [c.to_lock(self.base_dir) for c in self._app_list],
+		# 	"simulation", [c.to_lock(self.base_dir) for c in self._sim_list],
+		# 	"uvm",        [c.to_lock()              for c in self._uvm_list],
+		# 	"formal",     [c.to_lock(self.base_dir) for c in self._formal_list],
+		# ]
+
 	def generate_lock(self, lock_file: str | None = None) -> None:
 		if lock_file is None:
 			lock_file = os.path.join(self.base_dir, "project.lock")
 
-		raw_lock_dict = {
-			"project": self.project_cfg.to_lock(self.base_dir),
-			"fpga": [c.to_lock() for c in self._fpga_list],
-			"ip": [c.to_lock(self.base_dir) for c in self._ip_list],
-			"wrapper": [c.to_lock(self.base_dir) for c in self._wrapper_list],
-			"bd": [c.to_lock(self.base_dir) for c in self._bd_list],
-			"core": [c.to_lock(self.base_dir) for c in self._core_list],
-			"subcore": [c.to_lock() for c in self._subcore_list],
-			"design": [c.to_lock(self.base_dir) for c in self._design_list],
-			"synth": [c.to_lock(self.base_dir) for c in self._synth_list],
-			"simulation": [c.to_lock(self.base_dir) for c in self._sim_list],
-			"uvm": [c.to_lock() for c in self._uvm_list],
-			"platform": [c.to_lock(self.base_dir) for c in self._platform_list],
-			"app": [c.to_lock(self.base_dir) for c in self._app_list],
-			"formal": [c.to_lock(self.base_dir) for c in self._formal_list],
-		}
+		raw_lock_dict = [
+			("project", self.project_cfg.to_lock(self.base_dir)),
+			("fpga", [c.to_lock() for c in self._fpga_list]),
+			("core", [c.to_lock(self.base_dir) for c in self._core_list]),
+			("ip", [c.to_lock(self.base_dir) for c in self._ip_list]),
+			("wrapper", [c.to_lock(self.base_dir) for c in self._wrapper_list]),
+			("subcore", [c.to_lock() for c in self._subcore_list if c.bd is not None]),
+			("synth", [c.to_lock(self.base_dir) for c in self._synth_list if c.core is not None]),
+			("bd", [c.to_lock(self.base_dir) for c in self._bd_list]),
+			("design", [c.to_lock(self.base_dir) for c in self._design_list]),
+			("subcore", [c.to_lock() for c in self._subcore_list if c.bd is None]),
+			("synth", [c.to_lock(self.base_dir) for c in self._synth_list if c.core is None]),
+			("platform", [c.to_lock(self.base_dir) for c in self._platform_list]),
+			("app", [c.to_lock(self.base_dir) for c in self._app_list]),
+			("simulation", [c.to_lock(self.base_dir) for c in self._sim_list]),
+			("uvm", [c.to_lock() for c in self._uvm_list]),
+			("formal", [c.to_lock(self.base_dir) for c in self._formal_list]),
+		]
 
 		def _strip_none(obj: typing.Any) -> typing.Any:
 			if isinstance(obj, dict):
@@ -146,17 +167,11 @@ class XvivConfig:
 				return [_strip_none(i) for i in obj]
 			return obj
 
-		stripped = _strip_none(raw_lock_dict)
-
-		cleaned = {
-			k: stripped[k]
-			for k in self.section_order
-			if k in stripped and (stripped[k] or isinstance(stripped[k], (bool, int, float)))
-		}
-
 		doc = tomlkit.document()
-		for key, value in cleaned.items():
-			doc.add(key, value)
+		for key, value in raw_lock_dict:
+			stripped = _strip_none(value)
+			if stripped or isinstance(stripped, (bool, int, float)):
+				doc.add(key, stripped)
 
 		with open(lock_file, "w", encoding="utf-8") as f:
 			f.write(tomlkit.dumps(doc))
@@ -286,9 +301,7 @@ class XvivConfig:
 	# Add methods
 	# -------------------------------------------------------------------------
 
-	def add_vivado_cfg(
-		self, path: str | None = None, mode: str = "batch", max_threads: int = 10, hw_server: str = "localhost:3121"
-	) -> typing.Self:
+	def add_vivado_cfg(self, path: str | None = None, mode: str = "batch", max_threads: int = 10, hw_server: str = "localhost:3121") -> typing.Self:
 		if self._vivado_cfg is not None:
 			raise error.VivadoAlreadySpecifiedError()
 
@@ -449,19 +462,21 @@ class XvivConfig:
 
 		if os.path.exists(bd_file):
 			for xci_name, xci_file, vlnv, inst_hier_path in get_bd_core_list(bd_file):
-				self.add_core_cfg(name=xci_name, vlnv=vlnv, xci_file=xci_file, fpga=fpga)
+				if self._get_core_cfg_optional(xci_name) is None:
+					self.add_core_cfg(name=xci_name, vlnv=vlnv, xci_file=xci_file, fpga=fpga)
 
 				self.add_subcore_cfg(bd=name, inst_hier_path=inst_hier_path, core=xci_name, exists_ok=True)
 
-				self.add_synth_cfg(
-					core=xci_name,
-					run_place=False,
-					place_dcp=False,
-					run_route=False,
-					route_dcp=False,
-					run_phys_opt=False,
-					run_opt=False,
-				)
+				if self._get_synth_cfg_optional(core_name=xci_name) is None:
+					self.add_synth_cfg(
+						core=xci_name,
+						run_place=False,
+						place_dcp=False,
+						run_route=False,
+						route_dcp=False,
+						run_phys_opt=False,
+						run_opt=False,
+					)
 
 		self._bd_list.append(
 			BdConfig(
@@ -492,7 +507,7 @@ class XvivConfig:
 
 		for entry in self.get_subcore_list(bd_name=bd, design_name=design):
 			if entry.inst_hier_path == inst_hier_path:
-				if exists_ok:
+				if not exists_ok:
 					if bd:
 						raise error.SubCoreBdAlreadyExistsError(inst_hier_path, core, bd)
 					if design:
@@ -688,9 +703,7 @@ class XvivConfig:
 				bd=bd,
 				fpga=fpga,
 				top=top,
-				constraints=self._resolve_sources(
-					constraints, used_in_ooc=False, used_in_sim=False, used_in_impl=True, used_in_synth=True
-				),
+				constraints=self._resolve_sources(constraints, used_in_ooc=False, used_in_sim=False, used_in_impl=True, used_in_synth=True),
 				synth_incremental=synth_incremental,
 				run_synth=run_synth,
 				run_opt=run_opt,
@@ -707,25 +720,15 @@ class XvivConfig:
 					synth_report_timing_summary,
 					os.path.join(synth_reports_subdir, "synth_report_timing_summary_file.rpt"),
 				),
-				synth_report_utilization=_resolve_val(
-					synth_report_utilization, os.path.join(synth_reports_subdir, "synth_report_utilization_file.rpt")
-				),
+				synth_report_utilization=_resolve_val(synth_report_utilization, os.path.join(synth_reports_subdir, "synth_report_utilization_file.rpt")),
 				synth_report_incremental_reuse=_resolve_val(
 					synth_report_incremental_reuse,
 					os.path.join(synth_reports_subdir, "synth_report_incremental_reuse_file.rpt"),
 				),
-				route_report_drc=_resolve_val(
-					route_report_drc, os.path.join(synth_reports_subdir, "route_report_drc_file.rpt")
-				),
-				route_report_methodology=_resolve_val(
-					route_report_methodology, os.path.join(synth_reports_subdir, "route_report_methodology_file.rpt")
-				),
-				route_report_power=_resolve_val(
-					route_report_power, os.path.join(synth_reports_subdir, "route_report_power_file.rpt")
-				),
-				route_report_route_status=_resolve_val(
-					route_report_route_status, os.path.join(synth_reports_subdir, "route_report_route_status_file.rpt")
-				),
+				route_report_drc=_resolve_val(route_report_drc, os.path.join(synth_reports_subdir, "route_report_drc_file.rpt")),
+				route_report_methodology=_resolve_val(route_report_methodology, os.path.join(synth_reports_subdir, "route_report_methodology_file.rpt")),
+				route_report_power=_resolve_val(route_report_power, os.path.join(synth_reports_subdir, "route_report_power_file.rpt")),
+				route_report_route_status=_resolve_val(route_report_route_status, os.path.join(synth_reports_subdir, "route_report_route_status_file.rpt")),
 				route_report_timing_summary=_resolve_val(
 					route_report_timing_summary,
 					os.path.join(synth_reports_subdir, "route_report_timing_summary_file.rpt"),
@@ -738,18 +741,10 @@ class XvivConfig:
 					synth_functional_netlist,
 					os.path.join(synth_netlists_subdir, f"{id_name}_synth_functional_netlist.v"),
 				),
-				synth_timing_netlist=_resolve_val(
-					synth_timing_netlist, os.path.join(synth_netlists_subdir, f"{id_name}_synth_timing_netlist.v")
-				),
-				impl_functional_netlist=_resolve_val(
-					impl_functional_netlist, os.path.join(synth_netlists_subdir, f"{id_name}_impl_functional_netlist.v")
-				),
-				impl_timing_netlist=_resolve_val(
-					impl_timing_netlist, os.path.join(synth_netlists_subdir, f"{id_name}_impl_timing_netlist.v")
-				),
-				impl_timing_sdf=_resolve_val(
-					impl_timing_sdf, os.path.join(synth_netlists_subdir, f"{id_name}_impl_timing.sdf")
-				),
+				synth_timing_netlist=_resolve_val(synth_timing_netlist, os.path.join(synth_netlists_subdir, f"{id_name}_synth_timing_netlist.v")),
+				impl_functional_netlist=_resolve_val(impl_functional_netlist, os.path.join(synth_netlists_subdir, f"{id_name}_impl_functional_netlist.v")),
+				impl_timing_netlist=_resolve_val(impl_timing_netlist, os.path.join(synth_netlists_subdir, f"{id_name}_impl_timing_netlist.v")),
+				impl_timing_sdf=_resolve_val(impl_timing_sdf, os.path.join(synth_netlists_subdir, f"{id_name}_impl_timing.sdf")),
 				synth_stub=_resolve_val(synth_stub, os.path.join(synth_subdir, f"{id_name}_stub.v")),
 				synth_directive=synth_directive,
 				synth_mode=synth_mode,
@@ -894,7 +889,7 @@ class XvivConfig:
 		design: str | None = None,
 		xsa: str | None = None,
 		bitstream: str | None = None,
-		properties: dict[typing.Any] = {},
+		properties: dict[typing.Any] | None = None,
 		cpu: str = "microblaze_0",
 		os: str = "standalone",
 		work_dir: str | None = None,
@@ -935,7 +930,7 @@ class XvivConfig:
 				xsa=xsa,
 				bitstream=bitstream,
 				work_dir=work_dir,
-				properties=self._resolve_properties(properties),
+				properties=self._resolve_properties(properties) if properties else None,
 			)
 		)
 
@@ -1110,9 +1105,7 @@ class XvivConfig:
 
 		raise error.DesignDoesNotExistError(name)
 
-	def get_synth(
-		self, design_name: str | None = None, core_name: str | None = None, bd_name: str | None = None
-	) -> SynthConfig:
+	def get_synth(self, design_name: str | None = None, core_name: str | None = None, bd_name: str | None = None) -> SynthConfig:
 		if cfg := self._get_synth_cfg_optional(design_name=design_name, core_name=core_name, bd_name=bd_name):
 			return cfg
 
@@ -1168,11 +1161,7 @@ class XvivConfig:
 
 	def _get_uvm_cfg_optional(self, test: str, simulation: str | None = None) -> UvmConfig | None:
 		return next(
-			(
-				i
-				for i in self._uvm_list
-				if i.test == test and (i.simulation == simulation if simulation is not None else True)
-			),
+			(i for i in self._uvm_list if i.test == test and (i.simulation == simulation if simulation is not None else True)),
 			None,
 		)
 
@@ -1194,9 +1183,7 @@ class XvivConfig:
 	def _get_design_cfg_optional(self, name: str) -> DesignConfig | None:
 		return next((i for i in self._design_list if i.name == name), None)
 
-	def _get_synth_cfg_optional(
-		self, design_name: str | None = None, core_name: str | None = None, bd_name: str | None = None
-	) -> SynthConfig | None:
+	def _get_synth_cfg_optional(self, design_name: str | None = None, core_name: str | None = None, bd_name: str | None = None) -> SynthConfig | None:
 		ids = [i for i in [design_name, core_name, bd_name] if i]
 
 		if len(ids) == 0:
@@ -1205,13 +1192,7 @@ class XvivConfig:
 			raise error.SynthIdentifierMultipleError(design=design_name, core=core_name, bd=bd_name)
 
 		return next(
-			(
-				i
-				for i in self._synth_list
-				if (bd_name is not None and i.bd == bd_name)
-				or (design_name is not None and i.design == design_name)
-				or (core_name is not None and i.core == core_name)
-			),
+			(i for i in self._synth_list if (bd_name is not None and i.bd == bd_name) or (design_name is not None and i.design == design_name) or (core_name is not None and i.core == core_name)),
 			None,
 		)
 

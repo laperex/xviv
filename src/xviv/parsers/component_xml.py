@@ -28,9 +28,7 @@ def parser(xml_path: str) -> CatalogCoreEntry | None:
 
 		description = _s("description")
 
-		display_name_el = root.find(
-			f"{{{_SPIRIT_NS}}}vendorExtensions/{{{_XILINX_NS}}}coreExtensions/{{{_XILINX_NS}}}displayName"
-		)
+		display_name_el = root.find(f"{{{_SPIRIT_NS}}}vendorExtensions/{{{_XILINX_NS}}}coreExtensions/{{{_XILINX_NS}}}displayName")
 		display_name = display_name_el.text.strip() if display_name_el is not None and display_name_el.text else name
 
 		return CatalogCoreEntry(

@@ -384,9 +384,7 @@ class TestTclGeneratorCorrectness:
 	def test_synth_design_custom_directive(self, tmp_path):
 		cfg = _cfg(tmp_path)
 		cfg.add_design_cfg("top", sources=[])
-		cfg.add_synth_cfg(
-			design="top", synth_directive="AreaOptimized_high", run_place=False, run_route=False, bitstream=False
-		)
+		cfg.add_synth_cfg(design="top", synth_directive="AreaOptimized_high", run_place=False, run_route=False, bitstream=False)
 		tcl = _tcl(cfg, design="top")
 		synth_line = next(l for l in tcl.splitlines() if "synth_design" in l)
 		assert '"AreaOptimized_high"' in synth_line
@@ -394,9 +392,7 @@ class TestTclGeneratorCorrectness:
 	def test_synth_design_custom_flatten_hierarchy(self, tmp_path):
 		cfg = _cfg(tmp_path)
 		cfg.add_design_cfg("top", sources=[])
-		cfg.add_synth_cfg(
-			design="top", synth_flatten_hierarchy="full", run_place=False, run_route=False, bitstream=False
-		)
+		cfg.add_synth_cfg(design="top", synth_flatten_hierarchy="full", run_place=False, run_route=False, bitstream=False)
 		tcl = _tcl(cfg, design="top")
 		synth_line = next(l for l in tcl.splitlines() if "synth_design" in l)
 		assert "-flatten_hierarchy full" in synth_line
@@ -404,9 +400,7 @@ class TestTclGeneratorCorrectness:
 	def test_synth_design_fsm_extraction_sequential(self, tmp_path):
 		cfg = _cfg(tmp_path)
 		cfg.add_design_cfg("top", sources=[])
-		cfg.add_synth_cfg(
-			design="top", synth_fsm_extraction="sequential", run_place=False, run_route=False, bitstream=False
-		)
+		cfg.add_synth_cfg(design="top", synth_fsm_extraction="sequential", run_place=False, run_route=False, bitstream=False)
 		tcl = _tcl(cfg, design="top")
 		synth_line = next(l for l in tcl.splitlines() if "synth_design" in l)
 		assert "-fsm_extraction sequential" in synth_line
@@ -576,9 +570,7 @@ class TestTclGeneratorCorrectness:
 	def test_synth_timing_summary_report_written(self, tmp_path):
 		cfg = _cfg(tmp_path)
 		cfg.add_design_cfg("top", sources=[])
-		cfg.add_synth_cfg(
-			design="top", synth_report_timing_summary=True, run_place=False, run_route=False, bitstream=False
-		)
+		cfg.add_synth_cfg(design="top", synth_report_timing_summary=True, run_place=False, run_route=False, bitstream=False)
 		tcl = _tcl(cfg, design="top")
 		sc = cfg.get_synth(design_name="top")
 		assert "report_timing_summary" in tcl

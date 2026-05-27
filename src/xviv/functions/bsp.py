@@ -56,9 +56,7 @@ def cmd_platform_build(cfg: XvivConfig, *, platform_name: str):
 # -----------------------------------------------------------------------------
 # create --app <app_name> [--platform <platform_name>] [--template <template>]
 # -----------------------------------------------------------------------------
-def cmd_app_create(
-	cfg: XvivConfig, *, app_name: str, platform_name: str | None, template: str | None = None, build: bool = False
-):
+def cmd_app_create(cfg: XvivConfig, *, app_name: str, platform_name: str | None, template: str | None = None, build: bool = False):
 	app_cfg = cfg.get_app(app_name)
 
 	if template:
@@ -124,12 +122,8 @@ def cmd_app_build(cfg: XvivConfig, *, app_name: str, info: bool = False):
 		cfg.validate_app(app_name=app_name, check_elf=True, check_sources=False)
 
 	if info and cfg.get_vitis().path:
-		mb_tool_size_bin = os.path.join(
-			cfg.get_vitis().path, "gnu", "microblaze", "lin", "bin", "microblaze-xilinx-elf-size"
-		)
-		mb_tool_objdump_bin = os.path.join(
-			cfg.get_vitis().path, "gnu", "microblaze", "lin", "bin", "microblaze-xilinx-elf-objdump"
-		)
+		mb_tool_size_bin = os.path.join(cfg.get_vitis().path, "gnu", "microblaze", "lin", "bin", "microblaze-xilinx-elf-size")
+		mb_tool_objdump_bin = os.path.join(cfg.get_vitis().path, "gnu", "microblaze", "lin", "bin", "microblaze-xilinx-elf-objdump")
 
 		logger.info("ELF Size: %s", app_cfg.elf)
 

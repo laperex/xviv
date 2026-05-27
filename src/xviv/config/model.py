@@ -161,9 +161,10 @@ class CoreConfig(Lockable):
 
 @dataclasses.dataclass
 class SubCoreConfig(Lockable):
-	inst_hier_path: str
 	bd: str | None
 	design: str | None
+
+	inst_hier_path: str
 	core: str | None
 
 
@@ -312,10 +313,11 @@ class PlatformConfig(Lockable):
 	os: str
 	# dict[str, str] reflects the actual key→value nature of platform properties;
 	# the original list[tuple[str, str]] was immediately converted to dict in to_lock.
-	properties: dict[str, str]
 	xsa: str = relpath_field()
 	bitstream: str = relpath_field()
 	work_dir: str = relpath_field()
+
+	properties: dict[str, str] | None = None
 
 
 @dataclasses.dataclass

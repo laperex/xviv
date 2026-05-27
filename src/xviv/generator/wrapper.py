@@ -244,12 +244,7 @@ def resolve_ports(
 				header_val = get_port_header_info(header)
 
 				# Inherit direction from previous port when not explicit
-				if (
-					header_val
-					and header_val.get("kind") != "InterfacePortHeaderSyntax"
-					and not header_val.get("direction")
-					and ports
-				):
+				if header_val and header_val.get("kind") != "InterfacePortHeaderSyntax" and not header_val.get("direction") and ports:
 					header_val = next(reversed(ports.values()))["header"]
 
 				ports[name_tok.valueText] = {
@@ -611,11 +606,7 @@ class SystemVerilogWrapper:
 	def _top_module_interface_ports(self) -> list[tuple[str, str, str]]:
 
 		pdata = self.pyslang_data[self.top]["headers"]["ports"]
-		return [
-			(name, info["header"]["interface"], info["header"]["modport"])
-			for name, info in pdata.items()
-			if info["header"].get("kind") == "InterfacePortHeaderSyntax"
-		]
+		return [(name, info["header"]["interface"], info["header"]["modport"]) for name, info in pdata.items() if info["header"].get("kind") == "InterfacePortHeaderSyntax"]
 
 	def _resolve_wrapper_io(
 		self,
@@ -625,9 +616,7 @@ class SystemVerilogWrapper:
 		# (instance_name, module_name, modport) - top module listed first,
 		# then each interface port module.  Reversed so top ends up last in
 		# the instantiation list (matches original ordering intent).
-		flat_port_module_list: list[tuple[str, str, str]] = [
-			(f"u_{self.top}", self.top, "")
-		] + self._top_module_interface_ports()
+		flat_port_module_list: list[tuple[str, str, str]] = [(f"u_{self.top}", self.top, "")] + self._top_module_interface_ports()
 
 		flat_params: list[str] = []
 		flat_ports: list[str] = []
@@ -773,15 +762,11 @@ def parse_arguments() -> argparse.Namespace:
 
 	parser.add_argument("-t", "--top", default="", dest="xviv_top", help="Specify Top Module")
 	parser.add_argument("-o", default="", dest="out_dir", help="Specify Wrapper Output Directory")
-	parser.add_argument(
-		"--wrapper-dir", default="", dest="out_dir", help="Destination to store the generated synthesis wrapper"
-	)
+	parser.add_argument("--wrapper-dir", default="", dest="out_dir", help="Destination to store the generated synthesis wrapper")
 	parser.add_argument("--dry-run", action="store_true", dest="xviv_dry_run")
 	parser.add_argument("--log-file", default="", dest="xviv_log_file", help="Path to log file")
 	parser.add_argument("xviv_fileset", nargs="*", help="Input source files")
-	parser.add_argument(
-		"-i", "--include", action="append", dest="xviv_include_dirs", default=[], help="Add an include directory"
-	)
+	parser.add_argument("-i", "--include", action="append", dest="xviv_include_dirs", default=[], help="Add an include directory")
 
 	args = parser.parse_args()
 

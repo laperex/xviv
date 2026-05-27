@@ -287,10 +287,7 @@ class FpgaRefMismatchError(ConfigError):
 		super().__init__(entity_name)
 
 	def __str__(self) -> str:
-		return (
-			f"{self.entity_kind} '{self.entity_name}' is bound to FPGA '{self.entity_fpga}',"
-			f" but fpga='{self.given_fpga}' was explicitly specified"
-		)
+		return f"{self.entity_kind} '{self.entity_name}' is bound to FPGA '{self.entity_fpga}', but fpga='{self.given_fpga}' was explicitly specified"
 
 
 # --- Wrapper -----------------------------------------------------------------
@@ -347,9 +344,7 @@ class SourceSpecMissingKeyError(SourceSpecError):
 		super().__init__(str(entry))
 
 	def __str__(self) -> str:
-		return (
-			f"Source spec missing required key '{self.key}'.\n  Entry   : {self.entry!r}\n  Sources : {self.sources!r}"
-		)
+		return f"Source spec missing required key '{self.key}'.\n  Entry   : {self.entry!r}\n  Sources : {self.sources!r}"
 
 
 class SourceSpecUnknownStageError(SourceSpecError):
@@ -434,10 +429,7 @@ class PropertiesNotADictError(PropertiesError):
 		super().__init__(name)
 
 	def __str__(self) -> str:
-		return (
-			f"PlatformConfig '{self.name}': properties must be a dict,"
-			f" got {type(self.value).__name__!r}: {self.value!r}"
-		)
+		return f"PlatformConfig '{self.name}': properties must be a dict, got {type(self.value).__name__!r}: {self.value!r}"
 
 
 class PropertiesInvalidValueError(PropertiesError):
@@ -448,10 +440,7 @@ class PropertiesInvalidValueError(PropertiesError):
 		super().__init__(name)
 
 	def __str__(self) -> str:
-		return (
-			f"PlatformConfig '{self.name}': property '{self.key}' has"
-			f" unsupported value type {type(self.value).__name__!r}: {self.value!r}"
-		)
+		return f"PlatformConfig '{self.name}': property '{self.key}' has unsupported value type {type(self.value).__name__!r}: {self.value!r}"
 
 
 # --- SubCore identifier ------------------------------------------------------
@@ -707,11 +696,7 @@ class FormalNoTargetsError(FormalError):
 
 class FormalSbyNotFoundError(FormalError):
 	def __str__(self) -> str:
-		return (
-			"SymbiYosys (sby) not found on PATH.\n"
-			"Install it with:  pip install symbiyosys\n"
-			"or:               sudo apt install symbiyosys"
-		)
+		return "SymbiYosys (sby) not found on PATH.\nInstall it with:  pip install symbiyosys\nor:               sudo apt install symbiyosys"
 
 
 class FormalSourceMissingError(FormalError):
@@ -761,10 +746,7 @@ class VerilatorBinaryMissingError(XvivError):
 class UvmPkgDirRequiredError(XvivError):
 	def __init__(self, sim_name: str) -> None:
 		self.sim_name = sim_name
-		super().__init__(
-			f"sim '{sim_name}': uvm=True with backend='verilator' requires "
-			"uvm_pkg_dir to be set (verilator does not ship a pre-compiled UVM library)"
-		)
+		super().__init__(f"sim '{sim_name}': uvm=True with backend='verilator' requires uvm_pkg_dir to be set (verilator does not ship a pre-compiled UVM library)")
 
 
 class UvmNotSupportedError(XvivError):
@@ -871,10 +853,7 @@ class OocStubMissingError(XvivError):
 		super().__init__(path)
 
 	def __str__(self) -> str:
-		return (
-			f"OOC stub missing for subcore '{self.core}': '{self.path}'\n"
-			f"  hint: run 'xviv synth --core {self.core}' first"
-		)
+		return f"OOC stub missing for subcore '{self.core}': '{self.path}'\n  hint: run 'xviv synth --core {self.core}' first"
 
 
 # cmd - Synthesis

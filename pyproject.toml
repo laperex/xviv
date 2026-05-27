@@ -47,7 +47,7 @@ testpaths = ["tests"]
 pythonpath = ["src"]
 
 [tool.ruff]
-line-length = 120
+line-length = 200
 
 [tool.ruff.format]
 indent-style = "tab"

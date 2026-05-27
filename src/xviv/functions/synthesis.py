@@ -40,9 +40,7 @@ def cmd_synth(
 						raise error.SynthUsrAccessValueEmbedGitShaError()
 
 					if dirty:
-						logger.warning(
-							"The Git working directory has uncommitted changes. It is highly recommended to commit before running synthesis."
-						)
+						logger.warning("The Git working directory has uncommitted changes. It is highly recommended to commit before running synthesis.")
 
 					synth_cfg.usr_access_value = int(sha, 16) | (0x10000000 if dirty else 0)
 
@@ -71,13 +69,7 @@ def cmd_synth(
 			dry_run=cfg.dry_run,
 		)
 
-	config = (
-		ConfigTclCommands(cfg)
-		.synth(
-			design=design_name, bd=bd_name, core=core_name, resume=resume, parallel_subcore_synth=parallel_subcore_synth
-		)
-		.build()
-	)
+	config = ConfigTclCommands(cfg).synth(design=design_name, bd=bd_name, core=core_name, resume=resume, parallel_subcore_synth=parallel_subcore_synth).build()
 
 	vivado.run_vivado(cfg, config_tcl=config, label=__name__)
 

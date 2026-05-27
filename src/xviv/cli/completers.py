@@ -165,9 +165,7 @@ def c_uvm_test(prefix, parsed_args, **kwargs):
 
 		target = vars(parsed_args).get("target", None)
 
-		pathlib.Path("/tmp/xviv_debug.log").write_text(
-			f"target={target!r}\nuvm_simulations={[uvm.simulation for uvm in cfg._uvm_list]}\n"
-		)
+		pathlib.Path("/tmp/xviv_debug.log").write_text(f"target={target!r}\nuvm_simulations={[uvm.simulation for uvm in cfg._uvm_list]}\n")
 
 		if target:
 			for uvm in cfg._uvm_list:
@@ -291,15 +289,11 @@ def target_group(
 		grp.add_argument("--gui", action="store_true", help="Edit in GUI")
 
 	if build:
-		grp.add_argument(
-			"--build", action="store_true", help="Build [Platform / App]", default=False, required=required
-		)
+		grp.add_argument("--build", action="store_true", help="Build [Platform / App]", default=False, required=required)
 	if force:
 		grp.add_argument("--force", action="store_true", help="", default=False, required=required)
 	if edit:
-		grp.add_argument(
-			"--edit", action="store_true", help="Edit in GUI [IP / BD / core]", default=False, required=required
-		)
+		grp.add_argument("--edit", action="store_true", help="Edit in GUI [IP / BD / core]", default=False, required=required)
 	if generate:
 		grp.add_argument(
 			"--generate",
