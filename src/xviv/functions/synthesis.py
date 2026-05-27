@@ -52,12 +52,13 @@ def cmd_synth(
 			[
 				(
 					lambda i=i: vivado.run_vivado(
-						cfg, config_tcl=(ConfigTclCommands(cfg).synth(core=i.core).build()), label=i.core
+						cfg, config_tcl=(ConfigTclCommands(cfg).synth(core=i.core).build()), label=i.core, parallel=True
 					),
 					i.core,
 				)
 				for i in cfg.get_subcore_list(bd_name=bd_name, design_name=design_name)
-			]
+			],
+			dry_run=cfg.dry_run,
 		)
 
 	config = (
@@ -68,7 +69,7 @@ def cmd_synth(
 		.build()
 	)
 
-	vivado.run_vivado(cfg, config_tcl=config)
+	vivado.run_vivado(cfg, config_tcl=config, label=__name__)
 
 
 # -----------------------------------------------------------------------------
@@ -80,4 +81,4 @@ def cmd_dcp_open(cfg: XvivConfig, *, dcp_file: str | None, nogui: bool = False):
 	if nogui:
 		cfg.get_vivado().mode = "tcl"
 
-	vivado.run_vivado(cfg, config_tcl=config)
+	vivado.run_vivado(cfg, config_tcl=config, label=__name__)

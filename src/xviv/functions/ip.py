@@ -20,7 +20,7 @@ def cmd_ip_create(
 
 	config = ConfigTclCommands(cfg).create_ip(ip_name, edit=edit, nogui=nogui).build()
 
-	vivado.run_vivado(cfg, config_tcl=config)
+	vivado.run_vivado(cfg, config_tcl=config, label=__name__)
 
 	if not regenerate:
 		return
@@ -46,13 +46,14 @@ def cmd_ip_create(
 					lambda core=core: vivado.run_vivado(
 						cfg,
 						config_tcl=(ConfigTclCommands(cfg).generate_core(core_name=core.name).build()),
-						label=ip_name,
+						label=f"{__name__}_job_{ip_name}",
+						parallel=True,
 					),
 					core.name,
 				)
 			)
 
-		run_parallel(tasks)
+		run_parallel(tasks, dry_run=cfg.dry_run)
 	except error.VlnvResolveError:
 		try:
 			find_vivado_dir_path()
@@ -69,4 +70,4 @@ def cmd_ip_edit(cfg: XvivConfig, *, ip_name: str, nogui: bool = False):
 	if nogui:
 		cfg.get_vivado().mode = "tcl"
 
-	vivado.run_vivado(cfg, config_tcl=config)
+	vivado.run_vivado(cfg, config_tcl=config, label=__name__)

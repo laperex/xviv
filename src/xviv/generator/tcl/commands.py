@@ -850,8 +850,8 @@ class ConfigTclCommands(ConfigTclBuilder):
 				assert_file_exists(core_cfg.xci_file)
 				self._read_ip(core_cfg.xci_file)
 
-				if core_cfg.name == 'bd_mblaze_system_microblaze_0_0':
-					raise Exception
+				# if core_cfg.name == "bd_mblaze_system_microblaze_0_0":
+				# 	self._push("err_command")
 
 				if not is_stale_list(core_cfg.xci_file, [synth_cfg.synth_dcp_file, synth_cfg.synth_stub_file]):
 					logger.info(f"skipping up-to-date synth targets: {core_cfg.name}")
@@ -905,7 +905,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 			if not synth_cfg.run_synth:
 				logger.critical("skipping synth_design (run_synth=false)")
 			else:
-				logger.info(f"synthesizing: top={synth_cfg.top}")
+				logger.info(f"synthes: top={synth_cfg.top}")
 				self._synth_design(
 					top=synth_cfg.top,
 					mode=synth_cfg.synth_mode,
@@ -961,7 +961,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 		elif not synth_cfg.run_opt:
 			logger.warning("skipping opt_design (run_opt=false)")
 		else:
-			logger.info("running opt_design")
+			logger.info("run opt_design")
 			self._opt_design(directive=synth_cfg.opt_directive)
 
 		# -------------------------------------------------------------------------
@@ -977,7 +977,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 			if not synth_cfg.run_place:
 				logger.critical("skipping place_design (run_place=false)")
 			else:
-				logger.info("running place_design")
+				logger.info("run place_design")
 				self._place_design(directive=synth_cfg.place_directive)
 
 			if synth_cfg.place_dcp_file:
@@ -992,7 +992,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 		elif not synth_cfg.run_phys_opt:
 			logger.warning("skipping phys_opt_design (run_phys_opt=false)")
 		elif synth_cfg.run_phys_opt:
-			logger.info("running phys_opt_design")
+			logger.info("run phys_opt_design")
 			self._phys_opt_design(directive=synth_cfg.phys_opt_directive)
 
 		# -------------------------------------------------------------------------
@@ -1004,7 +1004,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 		elif not synth_cfg.run_route:
 			logger.critical("skipping route_design (run_route=false)")
 		else:
-			logger.info("running route_design")
+			logger.info("run route_design")
 			self._route_design(directive=synth_cfg.route_directive)
 
 		if synth_cfg.route_dcp_file and start_stage < SynthStage.WRITE:
@@ -1043,11 +1043,11 @@ class ConfigTclCommands(ConfigTclBuilder):
 			self._set_property_current_design("BITSTREAM.CONFIG.USR_ACCESS", f"0x{synth_cfg.usr_access_value:08X}")
 
 		if synth_cfg.bitstream_file:
-			logger.info(f"writing bitstream: {synth_cfg.bitstream_file}")
+			logger.info(f"write bitstream: {synth_cfg.bitstream_file}")
 			self._write_bitstream(synth_cfg.bitstream_file, force=True)
 
 		if synth_cfg.hw_platform_xsa_file:
-			logger.info(f"writing XSA: {synth_cfg.hw_platform_xsa_file}")
+			logger.info(f"write XSA: {synth_cfg.hw_platform_xsa_file}")
 			self._write_hw_platform(synth_cfg.hw_platform_xsa_file, force=True, include_bit=True, fixed=True)
 
 		return self

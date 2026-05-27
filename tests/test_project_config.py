@@ -73,7 +73,7 @@ class TestConstructor:
 		config_file = tmp_path / "project.toml"
 		config_file.touch()
 		c = XvivConfig(str(config_file), work_dir=None)
-		assert c.work_dir == os.path.join(c.base_dir, "build")
+		assert c.work_dir == os.path.join(c.project_dir, "build")
 
 	def test_explicit_work_dir(self, tmp_path):
 		config_file = tmp_path / "project.toml"
@@ -85,7 +85,7 @@ class TestConstructor:
 		config_file = tmp_path / "project.toml"
 		config_file.touch()
 		c = XvivConfig(str(config_file), work_dir=str(tmp_path / "build"))
-		assert c.base_dir == str(tmp_path)
+		assert c.project_dir == str(tmp_path)
 
 	def test_board_repo_nonexistent_is_filtered(self, tmp_path):
 		config_file = tmp_path / "project.toml"

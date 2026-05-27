@@ -28,28 +28,40 @@ from xviv.utils.fs import resolve_globs
 
 class XvivConfig:
 	def __init__(
-		self, config_file_path: str, work_dir: str | None, board_repo_list: list[str] = [], ip_repo_list: list[str] = []
+		self,
+		project_file: str,
+		work_dir: str | None = None,
+		log_file: str | None = None,
+		board_repo_list: list[str] = [],
+		ip_repo_list: list[str] = [],
 	):
-		self.base_dir = os.path.abspath(os.path.dirname(config_file_path))
+		# config args
+		self.project_dir = os.path.abspath(os.path.dirname(project_file))
+		self.work_dir = os.path.join(self.project_dir, work_dir)
 
-		if work_dir is None:
-			work_dir = "build"
+		if self.work_dir is None:
+			self.work_dir = "build"
 
-		self.work_dir = os.path.join(self.base_dir, work_dir)
-		self.dry_run = False
-		self.check = False
+		self.log_file = log_file
+		if self.log_file is None:
+			self.log_file = os.path.join(self.work_dir, "log", "xviv.log")
 
 		self.board_repo_list: list[str] = []
 		for path in board_repo_list:
 			if os.path.isdir(path):
 				self.board_repo_list.append(path)
 
-		ip_repo_list.append(self._get_ip_repo_default)
-
 		self.ip_repo_list: list[str] = []
 		for path in ip_repo_list:
 			if os.path.isdir(path) and path not in self.ip_repo_list:
 				self.ip_repo_list.append(path)
+
+		if self._get_ip_repo_default not in ip_repo_list:
+			self.ip_repo_list.append(self._get_ip_repo_default)
+
+		# cli args
+		self.dry_run = False
+		self.check = False
 
 		# lists
 		self._fpga_list: list[FpgaConfig] = []
@@ -900,7 +912,7 @@ class XvivConfig:
 		if self._get_formal_cfg_optional(name) is not None:
 			raise error.FormalAlreadyExistsError(name)
 
-		resolved = resolve_globs(sources, self.base_dir)
+		resolved = resolve_globs(sources, self.project_dir)
 
 		self._formal_list.append(
 			FormalConfig(
@@ -1180,7 +1192,7 @@ class XvivConfig:
 					raise error.SourceSpecUnknownStageError(unknown, i)
 				files = i["files"]
 
-			for k in resolve_globs(files, self.base_dir):
+			for k in resolve_globs(files, self.project_dir):
 				res.append(SourceFile.from_stages(k, stages))
 
 		return res
@@ -1225,6 +1237,10 @@ class XvivConfig:
 		return self.__path_from_base_dir(os.path.join("scripts", "xviv"))
 
 	@property
+	def log_dir(self):
+		return os.path.dirname(self.log_file)
+
+	@property
 	def formal_dir(self):
 		return self.__path_from_build_dir("formal")
 
@@ -1232,7 +1248,7 @@ class XvivConfig:
 		return os.path.join(self.work_dir, path)
 
 	def __path_from_base_dir(self, path: str):
-		return os.path.join(self.base_dir, path)
+		return os.path.join(self.project_dir, path)
 
 
 def _resolve_val(field: bool | str | None, default: str) -> str | None:

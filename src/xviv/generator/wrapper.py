@@ -9,7 +9,7 @@ import tempfile
 import pyslang
 
 from xviv.utils.fs import assert_file_exists
-from xviv.utils.log import _setup_logging
+from xviv.utils.log import setup_logging
 
 logger = logging.getLogger(__name__)
 
@@ -804,7 +804,7 @@ def parse_arguments() -> argparse.Namespace:
 
 def main() -> None:
 	config = parse_arguments()
-	_setup_logging(config.xviv_log_file)
+	setup_logging(config.xviv_log_file)
 	SystemVerilogWrapper(config.xviv_top, config.out_dir, config.xviv_fileset)
 
 

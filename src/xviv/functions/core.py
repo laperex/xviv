@@ -12,7 +12,7 @@ def cmd_core_create(cfg: XvivConfig, *, core_name: str, generate: bool = True, e
 	try:
 		config = ConfigTclCommands(cfg).create_core(core_name, generate=generate, edit=edit, nogui=nogui).build()
 
-		vivado.run_vivado(cfg, config_tcl=config)
+		vivado.run_vivado(cfg, config_tcl=config, label=__name__)
 	except error.CoreVlnvNotInCatalogError:
 		try:
 			find_vivado_dir_path()
@@ -29,7 +29,7 @@ def cmd_core_edit(cfg: XvivConfig, *, core_name: str, nogui: bool = False):
 	if nogui:
 		cfg.get_vivado().mode = "tcl"
 
-	vivado.run_vivado(cfg, config_tcl=config)
+	vivado.run_vivado(cfg, config_tcl=config, label=__name__)
 
 
 # -----------------------------------------------------------------------------
@@ -38,7 +38,7 @@ def cmd_core_edit(cfg: XvivConfig, *, core_name: str, nogui: bool = False):
 def cmd_core_generate(cfg: XvivConfig, *, core_name: str, force: bool = True, reset: bool = True):
 	config = ConfigTclCommands(cfg).generate_core(core_name, force=force, reset=reset).build()
 
-	vivado.run_vivado(cfg, config_tcl=config)
+	vivado.run_vivado(cfg, config_tcl=config, label=__name__)
 
 
 # -----------------------------------------------------------------------------

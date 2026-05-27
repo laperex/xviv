@@ -240,7 +240,7 @@ class TestLogPath:
 		log_path = tmp_path / "out.log"
 		popen_cm = make_popen_cm(["line1\n", "line2\n"], returncode=0)
 		with patch("subprocess.Popen", return_value=popen_cm):
-			run_tool(["cmd"], cwd=str(tmp_path), log_path=log_path)
+			run_tool(["cmd"], cwd=str(tmp_path), log_file_path=log_path)
 		content = log_path.read_text()
 		assert "line1\n" in content
 		assert "line2\n" in content
@@ -249,14 +249,14 @@ class TestLogPath:
 		log_path = tmp_path / "a" / "b" / "out.log"
 		popen_cm = make_popen_cm([], returncode=0)
 		with patch("subprocess.Popen", return_value=popen_cm):
-			run_tool(["cmd"], cwd=str(tmp_path), log_path=log_path)
+			run_tool(["cmd"], cwd=str(tmp_path), log_file_path=log_path)
 		assert log_path.parent.is_dir()
 
 	def test_file_closed_after_success(self, tmp_path):
 		log_path = tmp_path / "out.log"
 		popen_cm = make_popen_cm(["x\n"], returncode=0)
 		with patch("subprocess.Popen", return_value=popen_cm):
-			run_tool(["cmd"], cwd=str(tmp_path), log_path=log_path)
+			run_tool(["cmd"], cwd=str(tmp_path), log_file_path=log_path)
 		# File is closed if we can open it exclusively
 		with open(log_path) as f:
 			assert f.read()
@@ -266,14 +266,14 @@ class TestLogPath:
 		popen_cm = make_popen_cm([], returncode=1)
 		with patch("subprocess.Popen", return_value=popen_cm):
 			with pytest.raises(subprocess.CalledProcessError):
-				run_tool(["cmd"], cwd=str(tmp_path), log_path=log_path)
+				run_tool(["cmd"], cwd=str(tmp_path), log_file_path=log_path)
 		with open(log_path) as f:
 			f.read()  # would raise if handle leaked
 
 	def test_not_written_when_none(self, tmp_path):
 		popen_cm = make_popen_cm(["data\n"], returncode=0)
 		with patch("subprocess.Popen", return_value=popen_cm):
-			run_tool(["cmd"], cwd=str(tmp_path), log_path=None)
+			run_tool(["cmd"], cwd=str(tmp_path), log_file_path=None)
 		# No log files created in tmp_path
 		assert list(tmp_path.glob("*.log")) == []
 

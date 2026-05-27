@@ -20,7 +20,7 @@ def cmd_platform_create(cfg: XvivConfig, *, platform_name: str, build: bool = Fa
 
 	config = ConfigTclCommands(cfg).create_platform(platform_name).build()
 
-	run_xsct(cfg, config_tcl=config)
+	run_xsct(cfg, config_tcl=config, label=__name__)
 
 	platform_cfg = cfg.get_platform(name=platform_name)
 
@@ -48,6 +48,8 @@ def cmd_platform_build(cfg: XvivConfig, *, platform_name: str):
 		env=_get_vitis_env(cfg),
 		dry_run=cfg.dry_run,
 		exit_on_fail=True,
+		label=__name__,
+		log_dir=cfg.log_dir,
 	)
 
 
@@ -77,7 +79,7 @@ def cmd_app_create(
 
 	config = ConfigTclCommands(cfg).create_app(app_name).build()
 
-	run_xsct(cfg, config_tcl=config)
+	run_xsct(cfg, config_tcl=config, label=__name__)
 
 	logger.info(f"App: {app_cfg.name} - Create complete - {app_cfg.dir}")
 
@@ -114,6 +116,8 @@ def cmd_app_build(cfg: XvivConfig, *, app_name: str, info: bool = False):
 		env=_get_vitis_env(cfg),
 		dry_run=cfg.dry_run,
 		exit_on_fail=True,
+		label=__name__,
+		log_dir=cfg.log_dir,
 	)
 
 	if not cfg.dry_run:
@@ -129,11 +133,25 @@ def cmd_app_build(cfg: XvivConfig, *, app_name: str, info: bool = False):
 
 		logger.info("ELF Size: %s", app_cfg.elf_file)
 
-		run_tool([mb_tool_size_bin, app_cfg.elf_file], cwd=app_cfg.dir, dry_run=cfg.dry_run, exit_on_fail=True)
+		run_tool(
+			[mb_tool_size_bin, app_cfg.elf_file],
+			cwd=app_cfg.dir,
+			dry_run=cfg.dry_run,
+			exit_on_fail=True,
+			label=f"{__name__}_size",
+			log_dir=cfg.log_dir,
+		)
 
 		logger.info("ELF sections: %s", app_cfg.elf_file)
 
-		run_tool([mb_tool_objdump_bin, "-h", app_cfg.elf_file], cwd=app_cfg.dir, dry_run=cfg.dry_run, exit_on_fail=True)
+		run_tool(
+			[mb_tool_objdump_bin, "-h", app_cfg.elf_file],
+			cwd=app_cfg.dir,
+			dry_run=cfg.dry_run,
+			exit_on_fail=True,
+			label=f"{__name__}_sections",
+			log_dir=cfg.log_dir,
+		)
 
 
 # -----------------------------------------------------------------------------
@@ -188,7 +206,7 @@ def cmd_program(
 	if elf_file:
 		logger.info("ELF: %s", elf_file)
 
-	run_xsct(cfg, config_tcl=config)
+	run_xsct(cfg, config_tcl=config, label=__name__)
 
 
 # -----------------------------------------------------------------------------
@@ -197,7 +215,7 @@ def cmd_program(
 def cmd_processor(cfg: XvivConfig, *, reset: bool | None, status: bool | None):
 	config = ConfigTclCommands(cfg).processor_cntrl(reset=reset, status=status).build()
 
-	run_xsct(cfg, config_tcl=config)
+	run_xsct(cfg, config_tcl=config, label=__name__)
 
 
 # ---------------------------------------------------------------------------

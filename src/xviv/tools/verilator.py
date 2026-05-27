@@ -41,6 +41,8 @@ def run_verilator_compile(
 	fileset: list[str],
 	top: str,
 	*,
+	label: str,
+	log_dir: str,
 	defines: list[str] = [],
 	include_dirs: list[str] = [],
 	timescale: str | None = None,
@@ -101,7 +103,7 @@ def run_verilator_compile(
 	cmd += fileset
 
 	try:
-		run_tool(cmd, cwd=work_dir, dry_run=dry_run)
+		run_tool(cmd, label=f"{__name__}_{label}", log_dir=log_dir, cwd=work_dir, dry_run=dry_run)
 	except subprocess.CalledProcessError as e:
 		raise error.VerilatorCompileError(top, e.returncode) from e
 
@@ -117,6 +119,8 @@ def run_verilator_sim(
 	binary: str,
 	work_dir: str,
 	*,
+	label: str,
+	log_dir: str,
 	plusargs: list[str] = [],
 	uvm: bool = False,
 	uvm_test: str | None = None,
@@ -147,4 +151,4 @@ def run_verilator_sim(
 
 	cmd += [f"+{a}" if not a.startswith("+") else a for a in plusargs]
 
-	run_tool(cmd, cwd=work_dir, dry_run=dry_run, exit_on_fail=True)
+	run_tool(cmd, label=f"{__name__}_{label}", log_dir=log_dir, cwd=work_dir, dry_run=dry_run, exit_on_fail=True)

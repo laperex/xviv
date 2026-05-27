@@ -28,9 +28,10 @@ def load_config(path: str) -> XvivConfig:
 		data = tomllib.load(f)
 
 	cfg = XvivConfig(
-		path,
-		data["project"].get("build_dir", None),
-		data["project"].get("board_repo_paths", []),
+		project_file=path,
+		work_dir=data["project"].get("build_dir", None),
+		board_repo_list=data["project"].get("board_repo", []),
+		ip_repo_list=data["project"].get("ip_repo", []),
 	)
 
 	cfg = cfg.add_vivado_cfg(path=find_vivado_dir_path(False)).add_vitis_cfg(path=find_vitis_dir_path(False))

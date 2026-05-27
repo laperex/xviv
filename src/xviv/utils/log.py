@@ -10,8 +10,12 @@ LEVEL_COLORS = {
 	logging.ERROR: "\033[31m",  # red
 	logging.CRITICAL: "\033[35m",  # magenta
 }
+
 RESET = "\033[0m"
 BOLD = "\033[1m"
+RED = "\033[31m"
+GREEN = "\033[32m"
+DIM = "\033[2m"
 
 
 class ColorFormatter(logging.Formatter):
@@ -39,24 +43,32 @@ def _supports_color() -> bool:
 	return sys.stdout.isatty()
 
 
-def _setup_logging(log_file: str | None = None, level_console=logging.INFO) -> None:
+def _file_formatter():
+	return logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s")
+
+
+def get_log_formatter(format: str = "%(levelname)s %(message)s"):
+	if _supports_color():
+		return ColorFormatter(format)
+
+	return logging.Formatter(format)
+
+
+def setup_logging(log_file: str | None = None, level_console=logging.INFO) -> None:
 	root = logging.getLogger("xviv")
 	if root.handlers:
 		return
 
 	root.setLevel(logging.DEBUG)
 
-	plain_fmt = logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s")
-	color_fmt = ColorFormatter("%(levelname)s %(message)s")
-
 	ch = logging.StreamHandler(sys.stdout)
 	ch.setLevel(level_console)
-	ch.setFormatter(color_fmt if _supports_color() else plain_fmt)
+	ch.setFormatter(get_log_formatter())
 	root.addHandler(ch)
 
 	if log_file:
 		os.makedirs(os.path.dirname(os.path.abspath(log_file)), exist_ok=True)
-		fh = logging.FileHandler(log_file, mode="a")
+		fh = logging.FileHandler(log_file, mode="w")
 		fh.setLevel(logging.DEBUG)
-		fh.setFormatter(plain_fmt)  # ← plain, always
+		fh.setFormatter(_file_formatter())
 		root.addHandler(fh)

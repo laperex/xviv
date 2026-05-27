@@ -2,8 +2,8 @@ import contextlib
 import logging
 import os
 import tempfile
-from pathlib import Path
 
+# from pathlib import Path
 from xviv.config.project import XvivConfig
 from xviv.utils.process import run_tool
 from xviv.utils.tools import find_vivado_dir_path
@@ -17,6 +17,7 @@ def run_vivado_xvlog(
 	fileset: list[str],
 	xsim_lib: str,
 	*,
+	label: str,
 	lib: list[str] | None = None,
 	defines: list[str] = [],
 	include_dirs: list[str] = [],
@@ -39,7 +40,14 @@ def run_vivado_xvlog(
 		cmd += [cfg.get_vivado().glbl_file]
 
 	try:
-		run_tool(cmd, cwd=target_dir, dry_run=cfg.dry_run, exit_on_fail=True)
+		run_tool(
+			cmd,
+			cwd=target_dir,
+			label=f"{__name__}_{label}",
+			log_dir=cfg.log_dir,
+			dry_run=cfg.dry_run,
+			exit_on_fail=True,
+		)
 	except FileNotFoundError:
 		try:
 			find_vivado_dir_path(exit_on_fail=True)
@@ -52,6 +60,7 @@ def run_vivado_xelab(
 	target_dir: str,
 	units: list[str],
 	*,
+	label: str,
 	debug: str = "off",
 	incr: bool = False,
 	run: bool = False,
@@ -292,7 +301,14 @@ def run_vivado_xelab(
 		cmd += ["--sourcelibfile", x]
 
 	try:
-		run_tool(cmd, cwd=target_dir, dry_run=cfg.dry_run, exit_on_fail=True)
+		run_tool(
+			cmd,
+			cwd=target_dir,
+			label=f"{__name__}_{label}",
+			log_dir=cfg.log_dir,
+			dry_run=cfg.dry_run,
+			exit_on_fail=True,
+		)
 	except FileNotFoundError:
 		try:
 			find_vivado_dir_path(exit_on_fail=True)
@@ -302,8 +318,9 @@ def run_vivado_xelab(
 
 def run_vivado_xsim(
 	cfg: XvivConfig,
-	*,
 	target_dir: str,
+	*,
+	label: str,
 	config_tcl: str | None,
 	top: str | None = None,
 	wdb_file: str | None = None,
@@ -343,7 +360,15 @@ def run_vivado_xsim(
 			cmd += ["--testplusarg", x]
 
 		try:
-			return run_tool(cmd, cwd=target_dir, dry_run=cfg.dry_run, popen=popen, exit_on_fail=True)
+			return run_tool(
+				cmd,
+				cwd=target_dir,
+				label=f"{__name__}_{label}",
+				log_dir=cfg.log_dir,
+				dry_run=cfg.dry_run,
+				popen=popen,
+				exit_on_fail=True,
+			)
 		except FileNotFoundError:
 			try:
 				find_vivado_dir_path(exit_on_fail=True)
@@ -359,58 +384,51 @@ def run_vivado_xsim(
 def run_vivado(
 	cfg: XvivConfig,
 	*,
+	label: str,
 	config_tcl: str | None,
-	label: str | None = None,
-	log_dir: str | None = None,
+	parallel: bool = False,
 ) -> None:
 	if config_tcl is None:
 		return
 
-	job_log = logger.getChild(label) if label else logger
 	config_tcl_path: str | None = None
-
+	_error_occurred = False  # Track whether an exception was raised
 	try:
-		with tempfile.NamedTemporaryFile(
-			mode="w", suffix="_config.tcl", delete=False, prefix=f"xviv_{label or ''}_"
-		) as tmp:
+		with tempfile.NamedTemporaryFile(mode="w", suffix="_config.tcl", delete=False, prefix="xviv_vivado_") as tmp:
 			tmp.write(config_tcl)
 			config_tcl_path = tmp.name
 
-		cmd = [
-			cfg.get_vivado().vivado_bin,
-			"-mode",
-			cfg.get_vivado().mode,
-			"-nolog",
-			"-nojournal",
-			"-notrace",
-			"-quiet",
-			"-source",
-			config_tcl_path,
-		]
-
-		is_tcl = cfg.get_vivado().mode == "tcl"
-		log_path: Path | None = None
-		if not is_tcl:
-			log_stem = label or "vivado"
-			log_path = Path(log_dir or cfg.work_dir) / f"{log_stem}.log"
-
+		interactive = cfg.get_vivado().mode == "tcl"
 		try:
 			run_tool(
-				cmd,
+				[
+					cfg.get_vivado().vivado_bin,
+					"-mode",
+					cfg.get_vivado().mode,
+					"-nolog",
+					"-nojournal",
+					"-notrace",
+					"-quiet",
+					"-source",
+					config_tcl_path,
+				],
 				cwd=cfg.work_dir,
-				log=job_log,
-				log_path=log_path,
-				interactive=is_tcl,
+				label=f"{__name__}_{label}",
+				log_dir=cfg.log_dir,
+				interactive=interactive,
 				dry_run=cfg.dry_run,
 				exit_on_fail=True,
+				stdout_print=not parallel,
 			)
 		except FileNotFoundError:
 			try:
 				find_vivado_dir_path(exit_on_fail=True)
 			finally:
 				raise
-
+	except BaseException as _:
+		_error_occurred = True
+		raise
 	finally:
-		if config_tcl_path and not cfg.dry_run:
+		if config_tcl_path and not cfg.dry_run and not _error_occurred:
 			with contextlib.suppress(OSError):
 				os.unlink(config_tcl_path)

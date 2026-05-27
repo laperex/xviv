@@ -143,8 +143,9 @@ def _run_xsim(
 	# -- 1. xvlog - compile source files ------------------------------- #
 	vivado.run_vivado_xvlog(
 		cfg,
-		sim_cfg.work_dir,
-		svlog_files,
+		target_dir=sim_cfg.work_dir,
+		fileset=svlog_files,
+		label=__name__,
 		lib=filter(None, ["uvm" if uvm_name else None]),
 		xsim_lib=xsim_lib,
 		defines=sim_cfg.defines,
@@ -160,6 +161,7 @@ def _run_xsim(
 		cfg,
 		sim_cfg.work_dir,
 		[f"{xsim_lib}.{top}", f"{xsim_lib}.glbl"],
+		label=__name__,
 		timescale=timescale,
 		mt=str(20),
 		snapshot=top,
@@ -187,6 +189,7 @@ def _run_xsim(
 			cfg,
 			target_dir=sim_cfg.work_dir,
 			config_tcl="\n".join(x_simulate_tcl),
+			label=__name__,
 			top=top,
 			stats=True,
 			nogui=True,
@@ -239,6 +242,8 @@ def _run_verilator(cfg: XvivConfig, sim_name: str, uvm_name: str | None, svlog_f
 		uvm_pkg_dir=sim_cfg.uvm_pkg_dir,
 		extra_args=sim_cfg.verilator_args,
 		dry_run=cfg.dry_run,
+		label=__name__,
+		log_dir=cfg.log_dir,
 	)
 
 	# -- 2. Simulate ---------------------------------------------------- #
@@ -253,6 +258,8 @@ def _run_verilator(cfg: XvivConfig, sim_name: str, uvm_name: str | None, svlog_f
 		trace=sim_cfg.trace,
 		trace_fst=sim_cfg.trace_fst,
 		dry_run=cfg.dry_run,
+		label=__name__,
+		log_dir=cfg.log_dir,
 	)
 
 
@@ -280,6 +287,7 @@ def cmd_wdb_open(cfg: XvivConfig, *, sim_name: str, nogui: bool = False):
 		cfg,
 		target_dir=sim_cfg.work_dir,
 		config_tcl=config,
+		label=__name__,
 		top=sim_cfg.top,
 		stats=False,
 		wdb_file=wdb_file,

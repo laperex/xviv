@@ -21,7 +21,7 @@ def cmd_bd_create(
 		.build()
 	)
 
-	vivado.run_vivado(cfg, config_tcl=config)
+	vivado.run_vivado(cfg, config_tcl=config, label=__name__)
 
 
 # -----------------------------------------------------------------------------
@@ -33,7 +33,7 @@ def cmd_bd_edit(cfg: XvivConfig, *, bd_name: str, nogui: bool = False):
 	if nogui:
 		cfg.get_vivado().mode = "tcl"
 
-	vivado.run_vivado(cfg, config_tcl=config)
+	vivado.run_vivado(cfg, config_tcl=config, label=__name__)
 
 
 # -----------------------------------------------------------------------------
@@ -42,4 +42,4 @@ def cmd_bd_edit(cfg: XvivConfig, *, bd_name: str, nogui: bool = False):
 def cmd_bd_generate(cfg: XvivConfig, *, bd_name: str, force: bool = True, reset: bool = True):
 	config = ConfigTclCommands(cfg).generate_bd(bd_name, force=force, reset=reset).build()
 
-	vivado.run_vivado(cfg, config_tcl=config)
+	vivado.run_vivado(cfg, config_tcl=config, label=__name__)
