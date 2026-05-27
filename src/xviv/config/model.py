@@ -3,13 +3,73 @@ import os
 import shutil
 import typing
 
+
 # ---------------------------------------------------------------------------
-# Shared helper
+# Field factories
+#
+# Attach serialisation intent to a field at its declaration site.
+# lock_serialize() reads this metadata; no to_lock() method needs updating
+# when a new field is added to any dataclass.
+# ---------------------------------------------------------------------------
+
+
+def relpath_field(**kw) -> typing.Any:
+	"""Scalar path field (str | None) — relativised against base_dir in to_lock."""
+	return dataclasses.field(metadata={"lock": "relpath"}, **kw)
+
+
+def sources_field(**kw) -> typing.Any:
+	"""list[SourceFile] field — serialised via _sources_to_lock."""
+	return dataclasses.field(metadata={"lock": "sources"}, **kw)
+
+
+def relpath_list_field(**kw) -> typing.Any:
+	"""list[str] of paths — each entry relativised against base_dir in to_lock."""
+	return dataclasses.field(metadata={"lock": "relpath_list"}, **kw)
+
+
+# ---------------------------------------------------------------------------
+# Generic serialiser + Lockable mixin
 # ---------------------------------------------------------------------------
 
 
 def _sources_to_lock(sources: list["SourceFile"], base_dir: str) -> list[dict]:
 	return [s.to_lock(base_dir) for s in sources]
+
+
+def lock_serialize(obj: object, base_dir: str) -> dict:
+	"""
+	Serialise a Lockable dataclass to a plain dict.
+
+	Dispatch per field is driven entirely by field metadata — no class-specific
+	logic lives here.  Adding a new field to any dataclass only requires choosing
+	the right field factory; this function never needs to change.
+	"""
+	d: dict = {}
+	for f in dataclasses.fields(obj):  # type: ignore[arg-type]
+		val = getattr(obj, f.name)
+		match f.metadata.get("lock"):
+			case "relpath":
+				d[f.name] = os.path.relpath(val, base_dir) if val else val
+			case "sources":
+				d[f.name] = _sources_to_lock(val, base_dir)
+			case "relpath_list":
+				d[f.name] = [os.path.relpath(p, base_dir) for p in val]
+			case _:
+				d[f.name] = val
+	return d
+
+
+class Lockable:
+	"""
+	Mixin that provides a generic to_lock() driven by field metadata.
+
+	Subclasses gain serialisation for free — no per-class to_lock override
+	is needed unless custom logic is required.
+	"""
+
+	def to_lock(self, base_dir: str = ".") -> dict:
+		return lock_serialize(self, base_dir)
 
 
 # ---------------------------------------------------------------------------
@@ -44,140 +104,107 @@ class SourceFile:
 	file: str
 	used_in: frozenset[str]
 
+	def uses(self, stage: str) -> bool:
+		return stage in self.used_in
+
+	# Convenience aliases kept for backwards-compatibility.
 	@property
 	def used_in_synth(self) -> bool:
-		return "synth" in self.used_in
+		return self.uses("synth")
 
 	@property
 	def used_in_impl(self) -> bool:
-		return "impl" in self.used_in
+		return self.uses("impl")
 
 	@property
 	def used_in_ooc(self) -> bool:
-		return "ooc" in self.used_in
+		return self.uses("ooc")
 
 	@property
 	def used_in_sim(self) -> bool:
-		return "sim" in self.used_in
+		return self.uses("sim")
 
 	@classmethod
 	def from_stages(cls, file: str, stages: typing.Iterable[str]) -> "SourceFile":
 		return cls(file=file, used_in=frozenset(stages))
 
 	def to_lock(self, base_dir: str) -> dict:
-		return {"files": [f"./{os.path.relpath(self.file, base_dir)}"], "used_in": sorted(self.used_in)}
+		return {
+			"files": [f"./{os.path.relpath(self.file, base_dir)}"],
+			"used_in": sorted(self.used_in),
+		}
 
 
 @dataclasses.dataclass
-class IpConfig:
+class IpConfig(Lockable):
 	vendor: str
 	library: str
 	version: str
 	vlnv: str
 	repo: str
-
 	name: str
 	top: str
-	sources: list[SourceFile]
 	fpga: str
-
-	def to_lock(self, base_dir: str) -> dict:
-		d = dataclasses.asdict(self)
-		d["sources"] = _sources_to_lock(self.sources, base_dir=base_dir)
-		return d
+	sources: list[SourceFile] = sources_field()
 
 
 @dataclasses.dataclass
-class IpWrapperConfig:
+class IpWrapperConfig(Lockable):
 	wrapper_top: str
-
 	ip: str
 	top: str
-	sources: list[SourceFile]
-
-	wrapper_file: str
-
-	def to_lock(self, base_dir: str) -> dict:
-		d = dataclasses.asdict(self)
-		d["sources"] = _sources_to_lock(self.sources, base_dir=base_dir)
-		d['wrapper_file'] = os.path.relpath(self.wrapper_file, base_dir)
-		return d
+	wrapper_file: str = relpath_field()
+	sources: list[SourceFile] = sources_field()
 
 
 @dataclasses.dataclass
-class FpgaConfig:
+class FpgaConfig(Lockable):
 	name: str
 	fpga_part: str | None
 	board_part: str | None
 
-	def to_lock(self) -> dict:
-		return dataclasses.asdict(self)
-
 
 @dataclasses.dataclass
-class DesignConfig:
+class DesignConfig(Lockable):
 	name: str
 	top: str
-	sources: list[SourceFile]
 	fpga: str
-
-	def to_lock(self, base_dir: str) -> dict:
-		d = dataclasses.asdict(self)
-		d["sources"] = _sources_to_lock(self.sources, base_dir=base_dir)
-		return d
+	sources: list[SourceFile] = sources_field()
 
 
 @dataclasses.dataclass
-class CoreConfig:
+class CoreConfig(Lockable):
 	name: str
 	vlnv: str
 	fpga: str
-
-	xci_file: str
-
-	def to_lock(self, base_dir: str) -> dict:
-		d = dataclasses.asdict(self)
-		d['xci_file'] = os.path.relpath(self.xci_file, base_dir)
-		return d
+	xci_file: str = relpath_field()
 
 
 @dataclasses.dataclass
-class SubCoreConfig:
+class SubCoreConfig(Lockable):
 	inst_hier_path: str
 	bd: str | None
 	design: str | None
 	core: str | None
 
-	def to_lock(self) -> dict:
-		return dataclasses.asdict(self)
-
 
 @dataclasses.dataclass
-class BdConfig:
+class BdConfig(Lockable):
 	name: str
 	fpga: str
-
-	save_file: str
-	bd_file: str
-	bd_wrapper_file: str
-
-	def to_lock(self, base_dir: str) -> dict:
-		d = dataclasses.asdict(self)
-		d['save_file'] = os.path.relpath(self.save_file, base_dir)
-		d['bd_file'] = os.path.relpath(self.bd_file, base_dir)
-		d['bd_wrapper_file'] = os.path.relpath(self.bd_wrapper_file, base_dir)
-		return d
+	save_file: str = relpath_field()
+	bd_file: str = relpath_field()
+	bd_wrapper_file: str = relpath_field()
 
 
 @dataclasses.dataclass
-class SynthConfig:
+class SynthConfig(Lockable):
 	design: str | None
 	core: str | None
 	bd: str | None
 
 	top: str
 	fpga: str
-	constraints: list[SourceFile]
 
 	synth_incremental: bool
 	run_synth: bool
@@ -188,42 +215,6 @@ class SynthConfig:
 	run_phys_opt: bool
 	run_route: bool
 
-	bitstream: str | None
-	hw_platform: str | None
-
-	# checkpoints
-
-	synth_dcp: str | None
-	place_dcp: str | None
-	route_dcp: str | None
-
-	# reports
-
-	synth_report_timing_summary: str | None
-	synth_report_utilization: str | None
-	synth_report_incremental_reuse: str | None
-
-	route_report_drc: str | None
-	route_report_methodology: str | None
-	route_report_power: str | None
-	route_report_route_status: str | None
-	route_report_timing_summary: str | None
-
-	impl_report_incremental_reuse: str | None
-
-	# netlists
-
-	synth_functional_netlist: str | None
-	synth_timing_netlist: str | None
-	impl_functional_netlist: str | None
-	impl_timing_netlist: str | None
-
-	impl_timing_sdf: str | None
-
-	# stubs
-
-	synth_stub: str | None
-
 	# settings
 
 	synth_directive: str
@@ -232,67 +223,56 @@ class SynthConfig:
 	synth_fsm_extraction: str
 
 	opt_directive: str
-
 	place_directive: str
-
 	phys_opt_directive: str
-
 	route_directive: str
-
-	# usr access val
 
 	usr_access_value: int | None
 
-	def to_lock(self, base_dir: str) -> dict:
-		d = dataclasses.asdict(self)
-		d["constraints"] = _sources_to_lock(self.constraints, base_dir=base_dir)
+	# sources
 
-		if self.bitstream:
-			d["bitstream"] = os.path.relpath(self.bitstream, base_dir)
-		if self.hw_platform:
-			d["hw_platform"] = os.path.relpath(self.hw_platform, base_dir)
-		if self.synth_dcp:
-			d["synth_dcp"] = os.path.relpath(self.synth_dcp, base_dir)
-		if self.place_dcp:
-			d["place_dcp"] = os.path.relpath(self.place_dcp, base_dir)
-		if self.route_dcp:
-			d["route_dcp"] = os.path.relpath(self.route_dcp, base_dir)
-		if self.synth_report_timing_summary:
-			d["synth_report_timing_summary"] = os.path.relpath(self.synth_report_timing_summary, base_dir)
-		if self.synth_report_utilization:
-			d["synth_report_utilization"] = os.path.relpath(self.synth_report_utilization, base_dir)
-		if self.synth_report_incremental_reuse:
-			d["synth_report_incremental_reuse"] = os.path.relpath(self.synth_report_incremental_reuse, base_dir)
-		if self.route_report_drc:
-			d["route_report_drc"] = os.path.relpath(self.route_report_drc, base_dir)
-		if self.route_report_methodology:
-			d["route_report_methodology"] = os.path.relpath(self.route_report_methodology, base_dir)
-		if self.route_report_power:
-			d["route_report_power"] = os.path.relpath(self.route_report_power, base_dir)
-		if self.route_report_route_status:
-			d["route_report_route_status"] = os.path.relpath(self.route_report_route_status, base_dir)
-		if self.route_report_timing_summary:
-			d["route_report_timing_summary"] = os.path.relpath(self.route_report_timing_summary, base_dir)
-		if self.impl_report_incremental_reuse:
-			d["impl_report_incremental_reuse"] = os.path.relpath(self.impl_report_incremental_reuse, base_dir)
-		if self.synth_functional_netlist:
-			d["synth_functional_netlist"] = os.path.relpath(self.synth_functional_netlist, base_dir)
-		if self.synth_timing_netlist:
-			d["synth_timing_netlist"] = os.path.relpath(self.synth_timing_netlist, base_dir)
-		if self.impl_functional_netlist:
-			d["impl_functional_netlist"] = os.path.relpath(self.impl_functional_netlist, base_dir)
-		if self.impl_timing_netlist:
-			d["impl_timing_netlist"] = os.path.relpath(self.impl_timing_netlist, base_dir)
-		if self.impl_timing_sdf:
-			d["impl_timing_sdf"] = os.path.relpath(self.impl_timing_sdf, base_dir)
-		if self.synth_stub:
-			d["synth_stub"] = os.path.relpath(self.synth_stub, base_dir)
+	constraints: list[SourceFile] = sources_field()
 
-		return d
+	# checkpoints
+
+	synth_dcp: str | None = relpath_field(default=None)
+	place_dcp: str | None = relpath_field(default=None)
+	route_dcp: str | None = relpath_field(default=None)
+
+	# output artifacts
+
+	bitstream: str | None = relpath_field(default=None)
+	hw_platform: str | None = relpath_field(default=None)
+
+	# reports
+
+	synth_report_timing_summary: str | None = relpath_field(default=None)
+	synth_report_utilization: str | None = relpath_field(default=None)
+	synth_report_incremental_reuse: str | None = relpath_field(default=None)
+
+	route_report_drc: str | None = relpath_field(default=None)
+	route_report_methodology: str | None = relpath_field(default=None)
+	route_report_power: str | None = relpath_field(default=None)
+	route_report_route_status: str | None = relpath_field(default=None)
+	route_report_timing_summary: str | None = relpath_field(default=None)
+
+	impl_report_incremental_reuse: str | None = relpath_field(default=None)
+
+	# netlists
+
+	synth_functional_netlist: str | None = relpath_field(default=None)
+	synth_timing_netlist: str | None = relpath_field(default=None)
+	impl_functional_netlist: str | None = relpath_field(default=None)
+	impl_timing_netlist: str | None = relpath_field(default=None)
+	impl_timing_sdf: str | None = relpath_field(default=None)
+
+	# stubs
+
+	synth_stub: str | None = relpath_field(default=None)
 
 
 @dataclasses.dataclass
-class UvmConfig:
+class UvmConfig(Lockable):
 	test: str
 	simulation: str
 	top: str
@@ -301,19 +281,12 @@ class UvmConfig:
 	version: str
 	max_quit_count: int | None
 
-	def to_lock(self) -> dict:
-		return dataclasses.asdict(self)
-
 
 @dataclasses.dataclass
-class SimulationConfig:
+class SimulationConfig(Lockable):
 	name: str
 	top: str
-	sources: list[SourceFile]
 	backend: str
-
-	sdfmax: list[str]
-	sdfmin: list[str]
 
 	timescale: str
 
@@ -333,74 +306,47 @@ class SimulationConfig:
 
 	# -- Preprocessor / include (xsim xvlog + verilator) --------------- #
 	defines: list[str]
-	include_dirs: list[str]
 
-	# -- Verilator-specific ---------------------------------------------  #
+	# -- Verilator-specific --------------------------------------------- #
 	threads: int
 	trace: bool
 	trace_fst: bool
 	trace_depth: int | None
 	verilator_args: list[str]
 
-	uvm_pkg_dir: str | None
+	sdfmax: list[str]
+	sdfmin: list[str]
+
+	# Declared with field factories so lock_serialize handles them automatically.
+	sources: list[SourceFile] = sources_field()
+	include_dirs: list[str] = relpath_list_field(default_factory=list)
+	uvm_pkg_dir: str | None = relpath_field(default=None)
 	# UVM with verilator: user must supply UVM source files in `sources`
 	# and point uvm_pkg_dir at a verilator-compatible UVM package root.
-	work_dir: str | None
-
-	def to_lock(self, base_dir: str) -> dict:
-		d = dataclasses.asdict(self)
-		d["sources"] = _sources_to_lock(self.sources, base_dir=base_dir)
-
-		if self.work_dir:
-			d["work_dir"] = os.path.relpath(self.work_dir, base_dir)
-
-		if self.uvm_pkg_dir:
-			d["uvm_pkg_dir"] = os.path.relpath(self.uvm_pkg_dir, base_dir)
-
-		d['include_dirs'] = [os.path.relpath(i, base_dir) for i in self.include_dirs]
-
-		return d
+	work_dir: str | None = relpath_field(default=None)
 
 
 @dataclasses.dataclass
-class PlatformConfig:
+class PlatformConfig(Lockable):
 	name: str
 	cpu: str
 	os: str
-	properties: list[tuple[str, str]]
-
-	work_dir: str
-	xsa: str
-	bitstream: str
-
-	def to_lock(self, base_dir: str) -> dict:
-		d = dataclasses.asdict(self)
-		d["properties"] = {p: c for p, c in self.properties}
-		d["xsa"] = os.path.relpath(self.xsa, base_dir)
-		d["bitstream"] = os.path.relpath(self.bitstream, base_dir)
-		d["work_dir"] = os.path.relpath(self.work_dir, base_dir)
-		return d
+	# dict[str, str] reflects the actual key→value nature of platform properties;
+	# the original list[tuple[str, str]] was immediately converted to dict in to_lock.
+	properties: dict[str, str]
+	xsa: str = relpath_field()
+	bitstream: str = relpath_field()
+	work_dir: str = relpath_field()
 
 
 @dataclasses.dataclass
-class AppConfig:
+class AppConfig(Lockable):
 	name: str
 	platform: str
 	template: str
-	sources: list[SourceFile]
-
-	work_dir: str
-	elf: str
-
-	def to_lock(self, base_dir: str) -> dict:
-		d = dataclasses.asdict(self)
-
-		d["sources"] = _sources_to_lock(self.sources, base_dir=base_dir)
-
-		d["work_dir"] = os.path.relpath(self.work_dir, base_dir)
-		d["elf"] = os.path.relpath(self.elf, base_dir)
-
-		return d
+	sources: list[SourceFile] = sources_field()
+	work_dir: str = relpath_field()
+	elf: str = relpath_field()
 
 
 @dataclasses.dataclass(frozen=True)
@@ -422,10 +368,8 @@ class CatalogCoreEntry:
 	def short_desc(self) -> str:
 		desc_max = shutil.get_terminal_size().columns // 2
 		text = " ".join(self.description.split())
-
 		if len(text) > desc_max:
 			text = text[: desc_max - 1] + "..."
-
 		return text
 
 	@property
@@ -439,20 +383,16 @@ class CatalogCoreEntry:
 			flags.append("⚠ board-dependent")
 		if self.ipi_only:
 			flags.append("⚠ IPI-only")
-		if flags:
-			parts.append("  ".join(flags))
-		elif self.short_desc:
-			parts.append(self.short_desc)
 
+		parts.append("  ".join(flags) if flags else self.short_desc)
 		return "  ".join(parts)
 
 
 @dataclasses.dataclass
-class FormalConfig:
+class FormalConfig(Lockable):
 	name: str
 	top: str
 	mode: str  # bmc | prove | cover
-	sources: list[SourceFile]
 
 	engine: str
 	depth: int
@@ -465,17 +405,12 @@ class FormalConfig:
 	extra_script: list[str]
 	extra_opts: list[str]
 
-	work_dir: str
-	include_dirs: list[str]
+	sources: list[SourceFile] = sources_field()
+	work_dir: str = relpath_field()
+	include_dirs: list[str] = relpath_list_field(default_factory=list)
+
+	_VALID_MODES: typing.ClassVar[frozenset[str]] = frozenset({"bmc", "prove", "cover"})
 
 	def __post_init__(self) -> None:
-		if self.mode not in ("bmc", "prove", "cover"):
+		if self.mode not in self._VALID_MODES:
 			raise ValueError(f"FormalConfig '{self.name}': invalid mode '{self.mode}'")
-
-	def to_lock(self, base_dir: str) -> dict:
-		# sources is list[str] and all other fields are scalars/plain lists
-		d = dataclasses.asdict(self)
-		d['sources'] = _sources_to_lock(self.sources, base_dir=base_dir)
-		d['work_dir'] = os.path.relpath(self.work_dir, base_dir)
-		d['include_dirs'] = [os.path.relpath(i, base_dir) for i in self.include_dirs]
-		return d
