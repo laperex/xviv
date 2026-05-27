@@ -3,28 +3,20 @@ import os
 import shutil
 import typing
 
-
 # ---------------------------------------------------------------------------
 # Field factories
-#
-# Attach serialisation intent to a field at its declaration site.
-# lock_serialize() reads this metadata; no to_lock() method needs updating
-# when a new field is added to any dataclass.
 # ---------------------------------------------------------------------------
 
 
 def relpath_field(**kw) -> typing.Any:
-	"""Scalar path field (str | None) — relativised against base_dir in to_lock."""
 	return dataclasses.field(metadata={"lock": "relpath"}, **kw)
 
 
 def sources_field(**kw) -> typing.Any:
-	"""list[SourceFile] field — serialised via _sources_to_lock."""
 	return dataclasses.field(metadata={"lock": "sources"}, **kw)
 
 
 def relpath_list_field(**kw) -> typing.Any:
-	"""list[str] of paths — each entry relativised against base_dir in to_lock."""
 	return dataclasses.field(metadata={"lock": "relpath_list"}, **kw)
 
 
@@ -33,41 +25,27 @@ def relpath_list_field(**kw) -> typing.Any:
 # ---------------------------------------------------------------------------
 
 
-def _sources_to_lock(sources: list["SourceFile"], base_dir: str) -> list[dict]:
-	return [s.to_lock(base_dir) for s in sources]
+def _relpath(path: str, relpath: str) -> str:
+	return f"./{os.path.relpath(path, relpath)}"
 
 
 def lock_serialize(obj: object, base_dir: str) -> dict:
-	"""
-	Serialise a Lockable dataclass to a plain dict.
-
-	Dispatch per field is driven entirely by field metadata — no class-specific
-	logic lives here.  Adding a new field to any dataclass only requires choosing
-	the right field factory; this function never needs to change.
-	"""
 	d: dict = {}
 	for f in dataclasses.fields(obj):  # type: ignore[arg-type]
 		val = getattr(obj, f.name)
 		match f.metadata.get("lock"):
 			case "relpath":
-				d[f.name] = os.path.relpath(val, base_dir) if val else val
+				d[f.name] = _relpath(val, base_dir) if val else val
 			case "sources":
-				d[f.name] = _sources_to_lock(val, base_dir)
+				d[f.name] = [{"files": [_relpath(s.file, base_dir)], "used_in": sorted(s.used_in)} for s in val]
 			case "relpath_list":
-				d[f.name] = [os.path.relpath(p, base_dir) for p in val]
+				d[f.name] = [_relpath(p, base_dir) for p in val]
 			case _:
 				d[f.name] = val
 	return d
 
 
 class Lockable:
-	"""
-	Mixin that provides a generic to_lock() driven by field metadata.
-
-	Subclasses gain serialisation for free — no per-class to_lock override
-	is needed unless custom logic is required.
-	"""
-
 	def to_lock(self, base_dir: str = ".") -> dict:
 		return lock_serialize(self, base_dir)
 
@@ -75,6 +53,14 @@ class Lockable:
 # ---------------------------------------------------------------------------
 # Config dataclasses
 # ---------------------------------------------------------------------------
+
+
+@dataclasses.dataclass
+class ProjectConfig(Lockable):
+	work_dir: str = relpath_field()
+	log_file: str = relpath_field()
+	board_repo: list[str] = relpath_list_field()
+	ip_repo: list[str] = relpath_list_field()
 
 
 @dataclasses.dataclass
@@ -107,7 +93,6 @@ class SourceFile:
 	def uses(self, stage: str) -> bool:
 		return stage in self.used_in
 
-	# Convenience aliases kept for backwards-compatibility.
 	@property
 	def used_in_synth(self) -> bool:
 		return self.uses("synth")
@@ -127,12 +112,6 @@ class SourceFile:
 	@classmethod
 	def from_stages(cls, file: str, stages: typing.Iterable[str]) -> "SourceFile":
 		return cls(file=file, used_in=frozenset(stages))
-
-	def to_lock(self, base_dir: str) -> dict:
-		return {
-			"files": [f"./{os.path.relpath(self.file, base_dir)}"],
-			"used_in": sorted(self.used_in),
-		}
 
 
 @dataclasses.dataclass

@@ -1,7 +1,7 @@
 import os
 import typing
 
-import tomli_w
+import tomlkit
 
 from xviv.config.catalog import Catalog
 from xviv.config.model import (
@@ -14,6 +14,7 @@ from xviv.config.model import (
 	IpConfig,
 	IpWrapperConfig,
 	PlatformConfig,
+	ProjectConfig,
 	SimulationConfig,
 	SourceFile,
 	SubCoreConfig,
@@ -32,36 +33,42 @@ class XvivConfig:
 	def __init__(
 		self,
 		project_file: str,
+		*,
 		work_dir: str | None = None,
 		log_file: str | None = None,
-		board_repo_list: list[str] = [],
-		ip_repo_list: list[str] = [],
+		board_repo: list[str] = [],
+		ip_repo: list[str] = [],
 	):
 		# config args
-		self.project_dir = os.path.abspath(os.path.dirname(project_file))
+		self.base_dir = os.path.abspath(os.path.dirname(project_file))
 
 		self.work_dir = work_dir
 		if self.work_dir is None:
-			self.work_dir = "build"
-
-		self.work_dir = os.path.join(self.project_dir, self.work_dir)
+			self.work_dir = os.path.join(self.base_dir, "build")
 
 		self.log_file = log_file
 		if self.log_file is None:
 			self.log_file = os.path.join(self.work_dir, "log", "xviv.log")
 
 		self.board_repo_list: list[str] = []
-		for path in board_repo_list:
+		for path in board_repo:
 			if os.path.isdir(path):
 				self.board_repo_list.append(path)
 
 		self.ip_repo_list: list[str] = []
-		for path in ip_repo_list:
+		for path in ip_repo:
 			if os.path.isdir(path) and path not in self.ip_repo_list:
 				self.ip_repo_list.append(path)
 
-		if self._get_ip_repo_default not in ip_repo_list:
+		if self._get_ip_repo_default not in ip_repo:
 			self.ip_repo_list.append(self._get_ip_repo_default)
+
+		self.project_cfg = ProjectConfig(
+			work_dir=self.work_dir,
+			log_file=self.log_file,
+			board_repo=self.board_repo_list,
+			ip_repo=self.ip_repo_list,
+		)
 
 		# cli args
 		self.dry_run = False
@@ -92,26 +99,44 @@ class XvivConfig:
 
 		self._catalog_cfg: Catalog | None = None
 
+	@property
+	def section_order(self) -> list[str]:
+		return [
+			"project",
+			"fpga",
+			"ip",
+			"wrapper",
+			"bd",
+			"core",
+			"subcore",
+			"design",
+			"synth",
+			"simulation",
+			"uvm",
+			"platform",
+			"app",
+			"formal",
+		]
+
 	def generate_lock(self, lock_file: str | None = None) -> None:
 		if lock_file is None:
-			lock_file = os.path.join(self.project_dir, "project.lock")
+			lock_file = os.path.join(self.base_dir, "project.lock")
 
 		raw_lock_dict = {
-			# "vivado": self._vivado_cfg.to_lock() if self._vivado_cfg else None,
-			# "vitis": self._vitis_cfg.to_lock() if self._vitis_cfg else None,
+			"project": self.project_cfg.to_lock(self.base_dir),
 			"fpga": [c.to_lock() for c in self._fpga_list],
-			"ip": [c.to_lock(self.project_dir) for c in self._ip_list],
-			"wrapper": [c.to_lock(self.project_dir) for c in self._wrapper_list],
-			"bd": [c.to_lock(self.project_dir) for c in self._bd_list],
-			"core": [c.to_lock(self.project_dir) for c in self._core_list],
+			"ip": [c.to_lock(self.base_dir) for c in self._ip_list],
+			"wrapper": [c.to_lock(self.base_dir) for c in self._wrapper_list],
+			"bd": [c.to_lock(self.base_dir) for c in self._bd_list],
+			"core": [c.to_lock(self.base_dir) for c in self._core_list],
 			"subcore": [c.to_lock() for c in self._subcore_list],
-			"design": [c.to_lock(self.project_dir) for c in self._design_list],
-			"synth": [c.to_lock(self.project_dir) for c in self._synth_list],
-			"simulation": [c.to_lock(self.project_dir) for c in self._sim_list],
+			"design": [c.to_lock(self.base_dir) for c in self._design_list],
+			"synth": [c.to_lock(self.base_dir) for c in self._synth_list],
+			"simulation": [c.to_lock(self.base_dir) for c in self._sim_list],
 			"uvm": [c.to_lock() for c in self._uvm_list],
-			"platform": [c.to_lock(self.project_dir) for c in self._platform_list],
-			"app": [c.to_lock(self.project_dir) for c in self._app_list],
-			"formal": [c.to_lock(self.project_dir) for c in self._formal_list],
+			"platform": [c.to_lock(self.base_dir) for c in self._platform_list],
+			"app": [c.to_lock(self.base_dir) for c in self._app_list],
+			"formal": [c.to_lock(self.base_dir) for c in self._formal_list],
 		}
 
 		def _strip_none(obj: typing.Any) -> typing.Any:
@@ -121,12 +146,20 @@ class XvivConfig:
 				return [_strip_none(i) for i in obj]
 			return obj
 
-		cleaned_dict = _strip_none(raw_lock_dict)
+		stripped = _strip_none(raw_lock_dict)
 
-		cleaned_dict = {k: v for k, v in cleaned_dict.items() if v or isinstance(v, (bool, int, float))}
+		cleaned = {
+			k: stripped[k]
+			for k in self.section_order
+			if k in stripped and (stripped[k] or isinstance(stripped[k], (bool, int, float)))
+		}
 
-		with open(lock_file, "wb") as f:
-			tomli_w.dump(cleaned_dict, f)
+		doc = tomlkit.document()
+		for key, value in cleaned.items():
+			doc.add(key, value)
+
+		with open(lock_file, "w", encoding="utf-8") as f:
+			f.write(tomlkit.dumps(doc))
 
 	def build(self) -> typing.Self:
 		os.makedirs(self.work_dir, exist_ok=True)
@@ -981,7 +1014,7 @@ class XvivConfig:
 				name=name,
 				top=top,
 				mode=mode,
-				sources=resolve_globs(sources, self.project_dir),
+				sources=resolve_globs(sources, self.base_dir),
 				work_dir=os.path.join(self.formal_dir, name),
 				depth=depth,
 				append=append,
@@ -1254,7 +1287,7 @@ class XvivConfig:
 					raise error.SourceSpecUnknownStageError(unknown, i)
 				files = i["files"]
 
-			for k in resolve_globs(files, self.project_dir):
+			for k in resolve_globs(files, self.base_dir):
 				res.append(SourceFile.from_stages(k, stages))
 
 		return res
@@ -1310,7 +1343,7 @@ class XvivConfig:
 		return os.path.join(self.work_dir, path)
 
 	def __path_from_base_dir(self, path: str):
-		return os.path.join(self.project_dir, path)
+		return os.path.join(self.base_dir, path)
 
 
 def _resolve_val(field: bool | str | None, default: str) -> str | None:

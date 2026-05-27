@@ -73,7 +73,7 @@ class TestConstructor:
 		config_file = tmp_path / "project.toml"
 		config_file.touch()
 		c = XvivConfig(str(config_file), work_dir=None)
-		assert c.work_dir == os.path.join(c.project_dir, "build")
+		assert c.work_dir == os.path.join(c.base_dir, "build")
 
 	def test_explicit_work_dir(self, tmp_path):
 		config_file = tmp_path / "project.toml"
@@ -85,7 +85,7 @@ class TestConstructor:
 		config_file = tmp_path / "project.toml"
 		config_file.touch()
 		c = XvivConfig(str(config_file), work_dir=str(tmp_path / "build"))
-		assert c.project_dir == str(tmp_path)
+		assert c.base_dir == str(tmp_path)
 
 	def test_board_repo_nonexistent_is_filtered(self, tmp_path):
 		config_file = tmp_path / "project.toml"
@@ -93,7 +93,7 @@ class TestConstructor:
 		c = XvivConfig(
 			str(config_file),
 			work_dir=str(tmp_path / "build"),
-			board_repo_list=["/nonexistent/boards"],
+			board_repo=["/nonexistent/boards"],
 		)
 		assert "/nonexistent/boards" not in c.board_repo_list
 
@@ -105,7 +105,7 @@ class TestConstructor:
 		c = XvivConfig(
 			str(config_file),
 			work_dir=str(tmp_path / "build"),
-			board_repo_list=[str(boards)],
+			board_repo=[str(boards)],
 		)
 		assert str(boards) in c.board_repo_list
 
@@ -115,7 +115,7 @@ class TestConstructor:
 		c = XvivConfig(
 			str(config_file),
 			work_dir=str(tmp_path / "build"),
-			ip_repo_list=["/nonexistent/ip"],
+			ip_repo=["/nonexistent/ip"],
 		)
 		assert "/nonexistent/ip" not in c.ip_repo_list
 
@@ -127,7 +127,7 @@ class TestConstructor:
 		c = XvivConfig(
 			str(config_file),
 			work_dir=str(tmp_path / "build"),
-			ip_repo_list=[str(ip_repo)],
+			ip_repo=[str(ip_repo)],
 		)
 		assert str(ip_repo) in c.ip_repo_list
 
@@ -139,7 +139,7 @@ class TestConstructor:
 		c = XvivConfig(
 			str(config_file),
 			work_dir=str(tmp_path / "build"),
-			ip_repo_list=[str(ip_repo), str(ip_repo)],
+			ip_repo=[str(ip_repo), str(ip_repo)],
 		)
 		assert c.ip_repo_list.count(str(ip_repo)) == 1
 
