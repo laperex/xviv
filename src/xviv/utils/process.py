@@ -172,7 +172,7 @@ def run_tool(
 
 		if log_file_path:
 			log_file = open(log_file_path, "w")
-			logger.info("Log: %s", log_file_path)
+			logger.debug("Log: %s", log_file_path)
 
 		if popen:
 			return subprocess.Popen(cmd, cwd=cwd).pid
