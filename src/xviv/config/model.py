@@ -62,6 +62,12 @@ class ProjectConfig(Lockable):
 	board_repo: list[str] = relpath_list_field()
 	ip_repo: list[str] = relpath_list_field()
 
+	def __post_init__(self) -> None:
+		self.work_dir = os.path.abspath(self.work_dir)
+		self.log_file = os.path.abspath(self.log_file)
+		self.board_repo = [os.path.abspath(p) for p in self.board_repo]
+		self.ip_repo = [os.path.abspath(p) for p in self.ip_repo]
+
 
 @dataclasses.dataclass
 class VivadoConfig:
@@ -113,6 +119,9 @@ class SourceFile:
 	def from_stages(cls, file: str, stages: typing.Iterable[str]) -> "SourceFile":
 		return cls(file=file, used_in=frozenset(stages))
 
+	def __post_init__(self) -> None:
+		self.file = os.path.abspath(self.file)
+
 
 @dataclasses.dataclass
 class IpConfig(Lockable):
@@ -126,6 +135,10 @@ class IpConfig(Lockable):
 	fpga: str
 	sources: list[SourceFile] = sources_field()
 
+	def __post_init__(self) -> None:
+		for s in self.sources:
+			s.file = os.path.abspath(s.file)
+
 
 @dataclasses.dataclass
 class IpWrapperConfig(Lockable):
@@ -134,6 +147,11 @@ class IpWrapperConfig(Lockable):
 	top: str
 	wrapper_file: str = relpath_field()
 	sources: list[SourceFile] = sources_field()
+
+	def __post_init__(self) -> None:
+		self.wrapper_file = os.path.abspath(self.wrapper_file)
+		for s in self.sources:
+			s.file = os.path.abspath(s.file)
 
 
 @dataclasses.dataclass
@@ -150,6 +168,10 @@ class DesignConfig(Lockable):
 	fpga: str
 	sources: list[SourceFile] = sources_field()
 
+	def __post_init__(self) -> None:
+		for s in self.sources:
+			s.file = os.path.abspath(s.file)
+
 
 @dataclasses.dataclass
 class CoreConfig(Lockable):
@@ -157,6 +179,9 @@ class CoreConfig(Lockable):
 	vlnv: str
 	fpga: str
 	xci_file: str = relpath_field()
+
+	def __post_init__(self) -> None:
+		self.xci_file = os.path.abspath(self.xci_file)
 
 
 @dataclasses.dataclass
@@ -175,6 +200,11 @@ class BdConfig(Lockable):
 	save_file: str = relpath_field()
 	bd_file: str = relpath_field()
 	bd_wrapper_file: str = relpath_field()
+
+	def __post_init__(self) -> None:
+		self.save_file = os.path.abspath(self.save_file)
+		self.bd_file = os.path.abspath(self.bd_file)
+		self.bd_wrapper_file = os.path.abspath(self.bd_wrapper_file)
 
 
 @dataclasses.dataclass
@@ -250,6 +280,37 @@ class SynthConfig(Lockable):
 
 	synth_stub: str | None = relpath_field(default=None)
 
+	def __post_init__(self) -> None:
+		for s in self.constraints:
+			s.file = os.path.abspath(s.file)
+
+		_optional_paths = (
+			"synth_dcp",
+			"place_dcp",
+			"route_dcp",
+			"bitstream",
+			"hw_platform",
+			"synth_report_timing_summary",
+			"synth_report_utilization",
+			"synth_report_incremental_reuse",
+			"route_report_drc",
+			"route_report_methodology",
+			"route_report_power",
+			"route_report_route_status",
+			"route_report_timing_summary",
+			"impl_report_incremental_reuse",
+			"synth_functional_netlist",
+			"synth_timing_netlist",
+			"impl_functional_netlist",
+			"impl_timing_netlist",
+			"impl_timing_sdf",
+			"synth_stub",
+		)
+		for attr in _optional_paths:
+			val = getattr(self, attr)
+			if val is not None:
+				setattr(self, attr, os.path.abspath(val))
+
 
 @dataclasses.dataclass
 class UvmConfig(Lockable):
@@ -305,19 +366,33 @@ class SimulationConfig(Lockable):
 	# and point uvm_pkg_dir at a verilator-compatible UVM package root.
 	work_dir: str | None = relpath_field(default=None)
 
+	def __post_init__(self) -> None:  # was __post__init__ (dead code)
+		self.include_dirs = [os.path.abspath(p) for p in self.include_dirs]  # was abspath(list) - bug
+		if self.uvm_pkg_dir is not None:
+			self.uvm_pkg_dir = os.path.abspath(self.uvm_pkg_dir)
+		if self.work_dir is not None:
+			self.work_dir = os.path.abspath(self.work_dir)
+		for s in self.sources:
+			s.file = os.path.abspath(s.file)
+
 
 @dataclasses.dataclass
 class PlatformConfig(Lockable):
 	name: str
 	cpu: str
 	os: str
-	# dict[str, str] reflects the actual key→value nature of platform properties;
+	# dict[str, str] reflects the actual key -> value nature of platform properties;
 	# the original list[tuple[str, str]] was immediately converted to dict in to_lock.
 	xsa: str = relpath_field()
 	bitstream: str = relpath_field()
 	work_dir: str = relpath_field()
 
 	properties: dict[str, str] | None = None
+
+	def __post_init__(self) -> None:  # was __post__init__ (dead code)
+		self.xsa = os.path.abspath(self.xsa)
+		self.bitstream = os.path.abspath(self.bitstream)
+		self.work_dir = os.path.abspath(self.work_dir)
 
 
 @dataclasses.dataclass
@@ -328,6 +403,12 @@ class AppConfig(Lockable):
 	sources: list[SourceFile] = sources_field()
 	work_dir: str = relpath_field()
 	elf: str = relpath_field()
+
+	def __post_init__(self) -> None:
+		self.work_dir = os.path.abspath(self.work_dir)
+		self.elf = os.path.abspath(self.elf)
+		for s in self.sources:
+			s.file = os.path.abspath(s.file)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -395,3 +476,8 @@ class FormalConfig(Lockable):
 	def __post_init__(self) -> None:
 		if self.mode not in self._VALID_MODES:
 			raise ValueError(f"FormalConfig '{self.name}': invalid mode '{self.mode}'")
+
+		self.work_dir = os.path.abspath(self.work_dir)
+		self.include_dirs = [os.path.abspath(p) for p in self.include_dirs]
+		for s in self.sources:
+			s.file = os.path.abspath(s.file)

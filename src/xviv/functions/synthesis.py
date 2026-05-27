@@ -5,6 +5,7 @@ from xviv.config.project import XvivConfig
 from xviv.generator.tcl.commands import ConfigTclCommands
 from xviv.tools import vivado
 from xviv.utils import error
+from xviv.utils.fs import assert_file_exists
 from xviv.utils.git import _git_sha_tag
 from xviv.utils.parallel import run_parallel
 from xviv.utils.tools import find_vivado_dir_path
@@ -50,6 +51,8 @@ def cmd_synth(
 		jobs = []
 		for i in cfg.get_subcore_list(bd_name=bd_name, design_name=design_name):
 			log_file_path = os.path.join(cfg.log_dir, f"job_synth_{i.core}.log")
+			assert_file_exists(cfg.get_core(i.core).xci_file)
+
 			jobs.append(
 				(
 					lambda i=i, log_file_path=log_file_path: vivado.run_vivado(

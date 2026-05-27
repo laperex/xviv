@@ -48,17 +48,17 @@ def load_config(path: str) -> XvivConfig:
 	for entry in fpga_list:
 		cfg.add_fpga_cfg(**entry)
 
-	# 2. core
-	for entry in core_list:
-		cfg.add_core_cfg(**entry)
-
-	# 3. ip
+	# 2. ip
 	for entry in ip_list:
 		cfg.add_ip_cfg(**entry)
 
-	# 4. wrapper
+	# 3. wrapper
 	for entry in wrapper_list:
 		cfg.add_wrapper_cfg(**entry)
+
+	# 4. core
+	for entry in core_list:
+		cfg.add_core_cfg(**entry)
 
 	# 5. subcore (bd only)
 	for entry in subcore_list:

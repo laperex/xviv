@@ -26,10 +26,8 @@ def _fmt_duration(seconds: float) -> str:
 
 
 def _format_exception(exc: BaseException) -> str:
-	"""Format an exception to a string, with colour on Python 3.13+."""
 	buf = io.StringIO()
 	try:
-		# colorize= was added in 3.13; fall back gracefully on older runtimes
 		traceback.print_exception(exc, file=buf, colorize=True)  # type: ignore[call-overload]
 	except TypeError:
 		traceback.print_exception(exc, file=buf)
@@ -47,7 +45,6 @@ def _print_job(
 	*,
 	lock: threading.Lock,
 ) -> None:
-	"""Print a completed job block atomically under *lock*."""
 	failed = exc is not None
 	status_color = RED if failed else GREEN
 	status_text = "FAILED" if failed else "OK"
@@ -67,12 +64,11 @@ def _print_job(
 		lines.append(_format_exception(exc))
 
 	if log_file:
-		lines.append(f"{DIM}{BOLD}LOG{RESET} {DIM}{log_file}{RESET}")
+		lines.append(f"  {DIM}{BOLD}LOG{RESET} {DIM}{log_file}{RESET}")
 
 	lines.append(f"{DIM}{terminal_full_length_divider()}{RESET}")
 
 	with lock:
-		# Single write keeps all lines together; no interleaving possible.
 		print("\n".join(lines))
 
 
@@ -82,26 +78,7 @@ def _print_job(
 
 
 class _JobLogRouter:
-	"""
-	Routes log records emitted by worker threads so that:
-
-	- Console (StreamHandler) output from worker threads is **suppressed**
-	  while the job runs; records are shown later via _print_job's
-	  *captured* block (read from the per-job temp file).
-	- The persistent FileHandler added by setup_logging() is **not**
-	  filtered; every worker-thread record reaches the log file in real
-	  time.
-	- A lightweight _CaptureHandler mirrors each worker thread's records
-	  into a per-job temp file for later display on stdout.
-	"""
-
-	# ------------------------------------------------------------------
-	# Inner filter / handler
-	# ------------------------------------------------------------------
-
 	class _SuppressWorkerFilter(logging.Filter):
-		"""Drop records that originate from a registered worker thread."""
-
 		def __init__(self, router: "_JobLogRouter") -> None:
 			super().__init__()
 			self._router = router
@@ -110,8 +87,6 @@ class _JobLogRouter:
 			return not self._router._is_worker(threading.get_ident())
 
 	class _CaptureHandler(logging.Handler):
-		"""Write worker-thread records to that thread's temp FileHandler."""
-
 		def __init__(self, router: "_JobLogRouter") -> None:
 			super().__init__(level=logging.INFO)
 			self._router = router
@@ -152,7 +127,7 @@ class _JobLogRouter:
 					self._patched_handlers.append(hdlr)
 			if not node.propagate or node.parent is None:
 				break
-			node = node.parent  # type: ignore[assignment]
+			node = node.parent 
 
 		# _CaptureHandler on the root logger catches every record
 		# (regardless of logger hierarchy) and routes it to the
@@ -160,7 +135,6 @@ class _JobLogRouter:
 		logging.getLogger().addHandler(self._capture)
 
 	def register(self, label: str) -> None:
-		"""Call from within a worker thread at job start."""
 		tmp = tempfile.mktemp(suffix=".log", prefix="xviv_job_")
 		fh = logging.FileHandler(tmp, encoding="utf-8")
 		fh.setFormatter(get_log_formatter())
@@ -171,7 +145,6 @@ class _JobLogRouter:
 			self._start_times[tid] = self._time.monotonic()
 
 	def unregister(self) -> None:
-		"""Call from within a worker thread at job end."""
 		tid = threading.get_ident()
 		with self._lock:
 			entry = self._active.pop(tid, None)
@@ -193,7 +166,6 @@ class _JobLogRouter:
 		return self._elapsed.get(label)
 
 	def detach(self) -> None:
-		"""Remove all filters / handlers and clean up temp files."""
 		for hdlr in self._patched_handlers:
 			hdlr.removeFilter(self._suppress)
 		logging.getLogger().removeHandler(self._capture)
@@ -240,7 +212,6 @@ def _start_log(
 	router: _JobLogRouter,
 	lock: threading.Lock,
 ) -> None:
-	"""Print the DISPATCH banner atomically, then run the job."""
 	with lock:
 		print(f"{LEVEL_COLORS[logging.CRITICAL]}DISPATCH{RESET} {BOLD}{label}{RESET} {DIM}{log_file}{RESET}")
 	_wrap(fn, label, router)()
@@ -287,12 +258,12 @@ def run_parallel(
 					captured = router.read_log(label).strip()
 					elapsed = None if dry_run else router.read_elapsed(label)
 
-					# start_time = start_times.get(label)
-					# try:
-					# 	log_mtime = os.path.getmtime(logfile)
-					# 	active_logfile = logfile if (start_time is not None and log_mtime > start_time) else None
-					# except OSError:
-					# 	active_logfile = None
+					start_time = start_times.get(label)
+					try:
+						log_mtime = os.path.getmtime(logfile)
+						active_logfile = logfile if (start_time is not None and log_mtime > start_time) else None
+					except OSError:
+						active_logfile = None
 
 					active_logfile = logfile if os.path.exists(log_file) else None
 

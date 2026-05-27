@@ -99,44 +99,6 @@ class XvivConfig:
 
 		self._catalog_cfg: Catalog | None = None
 
-	@property
-	def section_order(self) -> list[str]:
-		return [
-			"project",
-			"fpga",
-			"ip",
-			"wrapper",
-			"core",
-			"bd",
-			"subcore",
-			"design",
-			"synth",
-			"simulation",
-			"uvm",
-			"platform",
-			"app",
-			"formal",
-		]
-
-		# raw_lock_dict = [
-		# 	"project",    self.project_cfg.to_lock(self.base_dir),
-		# 	"fpga",       [c.to_lock()              for c in self._fpga_list],
-		# 	"core",       [c.to_lock(self.base_dir) for c in self._core_list],
-		# 	"ip",         [c.to_lock(self.base_dir) for c in self._ip_list],
-		# 	"wrapper",    [c.to_lock(self.base_dir) for c in self._wrapper_list],
-		# 	"subcore",    [c.to_lock() for c in self._subcore_list if c.bd is not None],      # bd subcore only
-		# 	"synth",      [c.to_lock(self.base_dir) for c in self._synth_list if c.core is not None],  # core synth only
-		# 	"bd",         [c.to_lock(self.base_dir) for c in self._bd_list],
-		# 	"design",     [c.to_lock(self.base_dir) for c in self._design_list],
-		# 	"subcore",    [c.to_lock() for c in self._subcore_list if c.bd is None],          # design subcore only
-		# 	"synth",      [c.to_lock(self.base_dir) for c in self._synth_list if c.core is None],      # design synth only
-		# 	"platform",   [c.to_lock(self.base_dir) for c in self._platform_list],
-		# 	"app",        [c.to_lock(self.base_dir) for c in self._app_list],
-		# 	"simulation", [c.to_lock(self.base_dir) for c in self._sim_list],
-		# 	"uvm",        [c.to_lock()              for c in self._uvm_list],
-		# 	"formal",     [c.to_lock(self.base_dir) for c in self._formal_list],
-		# ]
-
 	def generate_lock(self, lock_file: str | None = None) -> None:
 		if lock_file is None:
 			lock_file = os.path.join(self.base_dir, "project.lock")
@@ -144,9 +106,9 @@ class XvivConfig:
 		raw_lock_dict = [
 			("project", self.project_cfg.to_lock(self.base_dir)),
 			("fpga", [c.to_lock() for c in self._fpga_list]),
-			("core", [c.to_lock(self.base_dir) for c in self._core_list]),
 			("ip", [c.to_lock(self.base_dir) for c in self._ip_list]),
 			("wrapper", [c.to_lock(self.base_dir) for c in self._wrapper_list]),
+			("core", [c.to_lock(self.base_dir) for c in self._core_list]),
 			("subcore", [c.to_lock() for c in self._subcore_list if c.bd is not None]),
 			("synth", [c.to_lock(self.base_dir) for c in self._synth_list if c.core is not None]),
 			("bd", [c.to_lock(self.base_dir) for c in self._bd_list]),
@@ -186,18 +148,6 @@ class XvivConfig:
 		if self._vitis_cfg.path:
 			if not os.path.exists(self._vitis_cfg.path):
 				raise error.InvalidPathError(self._vitis_cfg.path, "Vitis")
-
-		# for i in self._core_list:
-		# 	try:
-		# 		try:
-		# 			i.vlnv = self._resolve_core_vlnv(i.vlnv)
-		# 		except error.VlnvResolveError:
-		# 			raise error.CoreVlnvResolveError(name=i.name, vlnv=i.vlnv)
-		# 	except error.CoreVlnvResolveError:
-		# 		try:
-		# 			find_vivado_dir_path()
-		# 		finally:
-		# 			raise
 
 		return self
 
