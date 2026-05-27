@@ -29,9 +29,9 @@ def load_config(path: str) -> XvivConfig:
 
 	cfg = XvivConfig(
 		project_file=path,
-		work_dir=data["project"].get("build_dir", None),
-		board_repo_list=data["project"].get("board_repo", []),
-		ip_repo_list=data["project"].get("ip_repo", []),
+		work_dir=data.get("project", {}).get("build_dir", None),
+		board_repo_list=data.get("project", {}).get("board_repo", []),
+		ip_repo_list=data.get("project", {}).get("ip_repo", []),
 	)
 
 	cfg = cfg.add_vivado_cfg(path=find_vivado_dir_path(False)).add_vitis_cfg(path=find_vitis_dir_path(False))
@@ -74,4 +74,25 @@ def load_config(path: str) -> XvivConfig:
 				case _:
 					raise error.ProjectConfigUnknownKeyError(key, path)
 
+	# with open(path, 'wb') as f:
+	# 	f.write(tomllib.)
+
 	return cfg
+
+
+# def generate_lock(self) -> dict:
+# 	return {
+# 		"fpga": [c.to_lock() for c in self._fpga_list],
+# 		"ip": [c.to_lock() for c in self._ip_list],
+# 		"wrapper": [c.to_lock() for c in self._wrapper_list],
+# 		"bd": [c.to_lock() for c in self._bd_list],
+# 		"core": [c.to_lock() for c in self._core_list],
+# 		"subcore": [c.to_lock() for c in self._subcore_list],
+# 		"design": [c.to_lock() for c in self._design_list],
+# 		"synth": [c.to_lock() for c in self._synth_list],
+# 		"simulation": [c.to_lock() for c in self._sim_list],
+# 		"uvm": [c.to_lock() for c in self._uvm_list],
+# 		"platform": [c.to_lock() for c in self._platform_list],
+# 		"app": [c.to_lock() for c in self._app_list],
+# 		"formal": [c.to_lock() for c in self._formal_list],
+# 	}

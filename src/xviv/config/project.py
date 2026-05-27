@@ -1,5 +1,6 @@
 import os
 import typing
+import tomli_w
 
 from xviv.config.catalog import Catalog
 from xviv.config.model import (
@@ -37,10 +38,12 @@ class XvivConfig:
 	):
 		# config args
 		self.project_dir = os.path.abspath(os.path.dirname(project_file))
-		self.work_dir = os.path.join(self.project_dir, work_dir)
 
+		self.work_dir = work_dir
 		if self.work_dir is None:
-			self.work_dir = "build"
+			self.work_dir = 'build'
+
+		self.work_dir = os.path.join(self.project_dir, self.work_dir)
 
 		self.log_file = log_file
 		if self.log_file is None:
@@ -87,6 +90,42 @@ class XvivConfig:
 		self._vitis_cfg: VitisConfig | None = None
 
 		self._catalog_cfg: Catalog | None = None
+
+	def generate_lock(self, lock_file: str | None = None) -> None:
+		if lock_file is None:
+			lock_file = os.path.join(self.project_dir, "project.lock")
+
+		raw_lock_dict = {
+			# "vivado": self._vivado_cfg.to_lock() if self._vivado_cfg else None,
+			# "vitis": self._vitis_cfg.to_lock() if self._vitis_cfg else None,
+			"fpga": [c.to_lock() for c in self._fpga_list],
+			"ip": [c.to_lock(self.project_dir) for c in self._ip_list],
+			"wrapper": [c.to_lock(self.project_dir) for c in self._wrapper_list],
+			"bd": [c.to_lock() for c in self._bd_list],
+			"core": [c.to_lock() for c in self._core_list],
+			"subcore": [c.to_lock() for c in self._subcore_list],
+			"design": [c.to_lock(self.project_dir) for c in self._design_list],
+			"synth": [c.to_lock(self.project_dir) for c in self._synth_list],
+			"simulation": [c.to_lock(self.project_dir) for c in self._sim_list],
+			"uvm": [c.to_lock() for c in self._uvm_list],
+			"platform": [c.to_lock() for c in self._platform_list],
+			"app": [c.to_lock(self.project_dir) for c in self._app_list],
+			"formal": [c.to_lock() for c in self._formal_list],
+		}
+
+		def _strip_none(obj: typing.Any) -> typing.Any:
+			if isinstance(obj, dict):
+				return {k: _strip_none(v) for k, v in obj.items() if v is not None}
+			if isinstance(obj, list):
+				return [_strip_none(i) for i in obj]
+			return obj
+
+		cleaned_dict = _strip_none(raw_lock_dict)
+
+		cleaned_dict = {k: v for k, v in cleaned_dict.items() if v or isinstance(v, (bool, int, float))}
+
+		with open(lock_file, "wb") as f:
+			tomli_w.dump(cleaned_dict, f)
 
 	def build(self) -> typing.Self:
 		os.makedirs(self.work_dir, exist_ok=True)
@@ -369,7 +408,7 @@ class XvivConfig:
 			for xci_name, xci_file, vlnv, inst_hier_path in get_bd_core_list(bd_file):
 				self.add_core_cfg(name=xci_name, vlnv=vlnv, xci_file=xci_file, fpga=fpga)
 
-				self.add_subcore_cfg(bd=name, inst_hier_path=inst_hier_path, core=xci_name)
+				self.add_subcore_cfg(bd=name, inst_hier_path=inst_hier_path, core=xci_name, exists_ok=True)
 
 				self.add_synth_cfg(
 					core=xci_name,
@@ -385,7 +424,7 @@ class XvivConfig:
 			BdConfig(
 				name=name,
 				save_file=save_file,
-				fpga_ref=fpga,
+				fpga=fpga,
 				bd_file=bd_file,
 				bd_wrapper_file=bd_wrapper_file,
 			)
@@ -400,6 +439,7 @@ class XvivConfig:
 		inst_hier_path: str,
 		bd: str | None = None,
 		design: str | None = None,
+		exists_ok: bool = False,
 	) -> typing.Self:
 		if bd is None and design is None:
 			raise error.SubCoreIdentifierUnspecifiedError(inst_hier_path, core)
@@ -409,10 +449,13 @@ class XvivConfig:
 
 		for entry in self.get_subcore_list(bd_name=bd, design_name=design):
 			if entry.inst_hier_path == inst_hier_path:
-				if bd:
-					raise error.SubCoreBdAlreadyExistsError(inst_hier_path, core, bd)
-				if design:
-					raise error.SubCoreDesignAlreadyExistsError(inst_hier_path, core, design)
+				if exists_ok:
+					if bd:
+						raise error.SubCoreBdAlreadyExistsError(inst_hier_path, core, bd)
+					if design:
+						raise error.SubCoreDesignAlreadyExistsError(inst_hier_path, core, design)
+
+				return self
 
 		self._subcore_list.append(SubCoreConfig(inst_hier_path=inst_hier_path, bd=bd, design=design, core=core))
 
@@ -539,7 +582,7 @@ class XvivConfig:
 		if bd:
 			bd_cfg = self.get_bd(bd)
 
-			fpga = self._resolve_fpga(fpga, bd_cfg.fpga_ref, "BD", bd_cfg.name)
+			fpga = self._resolve_fpga(fpga, bd_cfg.fpga, "BD", bd_cfg.name)
 
 			if top is None:
 				top = f"{bd}_wrapper"
@@ -597,10 +640,10 @@ class XvivConfig:
 
 		self._synth_list.append(
 			SynthConfig(
-				design_name=design,
-				core_name=core,
-				bd_name=bd,
-				fpga_ref=fpga,
+				design=design,
+				core=core,
+				bd=bd,
+				fpga=fpga,
 				top=top,
 				constraints=self._resolve_sources(
 					constraints, used_in_ooc=False, used_in_sim=False, used_in_impl=True, used_in_synth=True
@@ -1113,9 +1156,9 @@ class XvivConfig:
 			(
 				i
 				for i in self._synth_list
-				if (bd_name is not None and i.bd_name == bd_name)
-				or (design_name is not None and i.design_name == design_name)
-				or (core_name is not None and i.core_name == core_name)
+				if (bd_name is not None and i.bd == bd_name)
+				or (design_name is not None and i.design == design_name)
+				or (core_name is not None and i.core == core_name)
 			),
 			None,
 		)

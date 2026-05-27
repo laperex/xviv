@@ -78,9 +78,9 @@ def c_dcp_file(prefix, parsed_args, **kwargs):
 			ids = [
 				(kind, name)
 				for kind, name in [
-					("design", synth.design_name),
-					("core", synth.core_name),
-					("bd", synth.bd_name),
+					("design", synth.design),
+					("core", synth.core),
+					("bd", synth.bd),
 				]
 				if name
 			]

@@ -1,6 +1,20 @@
 import dataclasses
+import os
 import shutil
 import typing
+
+# ---------------------------------------------------------------------------
+# Shared helper
+# ---------------------------------------------------------------------------
+
+
+def _sources_to_lock(sources: list["SourceFile"], base_dir: str) -> list[dict]:
+	return [s.to_lock(base_dir) for s in sources]
+
+
+# ---------------------------------------------------------------------------
+# Config dataclasses
+# ---------------------------------------------------------------------------
 
 
 @dataclasses.dataclass
@@ -17,12 +31,18 @@ class VivadoConfig:
 
 	glbl_file: str | None = None
 
+	def to_lock(self) -> dict:
+		return dataclasses.asdict(self)
+
 
 @dataclasses.dataclass
 class VitisConfig:
 	path: str | None
 
 	xsct_bin: str = "xsct"
+
+	def to_lock(self) -> dict:
+		return dataclasses.asdict(self)
 
 
 @dataclasses.dataclass
@@ -50,6 +70,10 @@ class SourceFile:
 	def from_stages(cls, file: str, stages: typing.Iterable[str]) -> "SourceFile":
 		return cls(file=file, used_in=frozenset(stages))
 
+	def to_lock(self, base_dir: str) -> dict:
+		# frozenset is not TOML-serializable; sort for determinism
+		return {"files": [f'./{os.path.relpath(self.file, base_dir)}'], "used_in": sorted(self.used_in)}
+
 
 @dataclasses.dataclass
 class IpConfig:
@@ -64,6 +88,11 @@ class IpConfig:
 	sources: list[SourceFile]
 	fpga_ref: str
 
+	def to_lock(self, base_dir: str) -> dict:
+		d = dataclasses.asdict(self)
+		d["sources"] = _sources_to_lock(self.sources, base_dir=base_dir)
+		return d
+
 
 @dataclasses.dataclass
 class IpWrapperConfig:
@@ -74,12 +103,20 @@ class IpWrapperConfig:
 	ip_top: str
 	sources: list[SourceFile]
 
+	def to_lock(self, base_dir: str) -> dict:
+		d = dataclasses.asdict(self)
+		d["sources"] = _sources_to_lock(self.sources, base_dir=base_dir)
+		return d
+
 
 @dataclasses.dataclass
 class FpgaConfig:
 	name: str
 	fpga_part: str | None
 	board_part: str | None
+
+	def to_lock(self) -> dict:
+		return dataclasses.asdict(self)
 
 
 @dataclasses.dataclass
@@ -89,6 +126,11 @@ class DesignConfig:
 	sources: list[SourceFile]
 	fpga_ref: str
 
+	def to_lock(self, base_dir: str) -> dict:
+		d = dataclasses.asdict(self)
+		d["sources"] = _sources_to_lock(self.sources, base_dir=base_dir)
+		return d
+
 
 @dataclasses.dataclass
 class CoreConfig:
@@ -96,6 +138,9 @@ class CoreConfig:
 	vlnv: str
 	xci_file: str
 	fpga_ref: str
+
+	def to_lock(self) -> dict:
+		return dataclasses.asdict(self)
 
 
 @dataclasses.dataclass
@@ -105,25 +150,31 @@ class SubCoreConfig:
 	design: str | None
 	core: str | None
 
+	def to_lock(self) -> dict:
+		return dataclasses.asdict(self)
+
 
 @dataclasses.dataclass
 class BdConfig:
 	name: str
-	fpga_ref: str
+	fpga: str
 
 	save_file: str
 	bd_file: str
 	bd_wrapper_file: str
 
+	def to_lock(self) -> dict:
+		return dataclasses.asdict(self)
+
 
 @dataclasses.dataclass
 class SynthConfig:
-	design_name: str | None
-	core_name: str | None
-	bd_name: str | None
+	design: str | None
+	core: str | None
+	bd: str | None
 
 	top: str
-	fpga_ref: str
+	fpga: str
 	constraints: list[SourceFile]
 
 	synth_incremental: bool
@@ -158,7 +209,7 @@ class SynthConfig:
 
 	impl_report_incremental_reuse_file: str | None
 
-	# # netlists
+	# netlists
 
 	synth_functional_netlist_file: str | None
 	synth_timing_netlist_file: str | None
@@ -167,7 +218,7 @@ class SynthConfig:
 
 	impl_timing_sdf_file: str | None
 
-	# # stubs
+	# stubs
 
 	synth_stub_file: str | None
 
@@ -190,6 +241,11 @@ class SynthConfig:
 
 	usr_access_value: int | None
 
+	def to_lock(self, base_dir: str) -> dict:
+		d = dataclasses.asdict(self)
+		d["constraints"] = _sources_to_lock(self.constraints, base_dir=base_dir)
+		return d
+
 
 @dataclasses.dataclass
 class UvmConfig:
@@ -200,6 +256,9 @@ class UvmConfig:
 	verbosity: str
 	version: str
 	max_quit_count: int | None
+
+	def to_lock(self) -> dict:
+		return dataclasses.asdict(self)
 
 
 @dataclasses.dataclass
@@ -244,6 +303,11 @@ class SimulationConfig:
 	# and point uvm_pkg_dir at a verilator-compatible UVM package root.
 	uvm_pkg_dir: str | None
 
+	def to_lock(self, base_dir: str) -> dict:
+		d = dataclasses.asdict(self)
+		d["sources"] = _sources_to_lock(self.sources, base_dir=base_dir)
+		return d
+
 
 @dataclasses.dataclass
 class PlatformConfig:
@@ -255,6 +319,12 @@ class PlatformConfig:
 	properties: list[tuple[str, str]]
 	dir: str
 
+	def to_lock(self) -> dict:
+		d = dataclasses.asdict(self)
+		# asdict converts tuples to lists; make it explicit for clarity
+		d["properties"] = [list(p) for p in self.properties]
+		return d
+
 
 @dataclasses.dataclass
 class AppConfig:
@@ -264,6 +334,11 @@ class AppConfig:
 	sources: list[SourceFile]
 	dir: str
 	elf_file: str
+
+	def to_lock(self, base_dir: str) -> dict:
+		d = dataclasses.asdict(self)
+		d["sources"] = _sources_to_lock(self.sources, base_dir=base_dir)
+		return d
 
 
 @dataclasses.dataclass(frozen=True)
@@ -280,6 +355,8 @@ class CatalogCoreEntry:
 	ipi_only: bool
 	unsupported_families: frozenset[str]
 	upgrades_from: tuple[str, ...]
+
+	# No to_lock() - runtime-only catalog data, never written to lock file
 
 	@property
 	def short_desc(self) -> str:
@@ -331,6 +408,8 @@ class FormalConfig:
 
 	def __post_init__(self) -> None:
 		if self.mode not in ("bmc", "prove", "cover"):
-			from xviv.utils import error
+			raise ValueError(f"FormalConfig '{self.name}': invalid mode '{self.mode}'")
 
-			raise error.FormalInvalidModeError(self.name, self.mode)
+	def to_lock(self) -> dict:
+		# sources is list[str] and all other fields are scalars/plain lists
+		return dataclasses.asdict(self)

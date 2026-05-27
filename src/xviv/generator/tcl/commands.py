@@ -350,7 +350,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 		bd_cfg = self._cfg.get_bd(bd_name)
 		bd_subdir = os.path.join(self._cfg.bd_dir, bd_name)
 
-		self._require_project(fpga_ref=bd_cfg.fpga_ref)
+		self._require_project(fpga_ref=bd_cfg.fpga)
 
 		if os.path.isdir(bd_subdir):
 			self._file_delete(bd_subdir, force=True)
@@ -416,7 +416,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 		bd_cfg = self._cfg.get_bd(bd_name)
 
 		# can be called directly after create_bd
-		if self._require_project(fpga_ref=bd_cfg.fpga_ref, exists_ok=True):
+		if self._require_project(fpga_ref=bd_cfg.fpga, exists_ok=True):
 			assert_file_exists(bd_cfg.bd_file)
 			self._read_bd(bd_cfg.bd_file)
 			self._open_bd_design(bd_cfg.bd_file)
@@ -439,7 +439,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 			self._clear()
 			return self
 
-		self._require_project(fpga_ref=bd_cfg.fpga_ref)
+		self._require_project(fpga_ref=bd_cfg.fpga)
 
 		self._read_bd(bd_cfg.bd_file)
 		self._open_bd_design(bd_cfg.bd_file)
@@ -826,10 +826,10 @@ class ConfigTclCommands(ConfigTclBuilder):
 			self._open_checkpoint(resume_dcp)
 
 		else:
-			self._require_project(fpga_ref=synth_cfg.fpga_ref)
+			self._require_project(fpga_ref=synth_cfg.fpga)
 
 			if bd:
-				bd_cfg = self._cfg.get_bd(synth_cfg.bd_name)
+				bd_cfg = self._cfg.get_bd(synth_cfg.bd)
 				logger.info(f"loading BD: {bd_cfg.bd_file}")
 				assert_file_exists(bd_cfg.bd_file)
 				self._add_files(bd_cfg.bd_file, scan_for_includes=True)
@@ -837,15 +837,15 @@ class ConfigTclCommands(ConfigTclBuilder):
 				self._add_files(bd_cfg.bd_wrapper_file, scan_for_includes=True)
 
 			if design:
-				design_cfg = self._cfg.get_design(synth_cfg.design_name)
-				logger.info(f"loading design sources: {synth_cfg.design_name}")
+				design_cfg = self._cfg.get_design(synth_cfg.design)
+				logger.info(f"loading design sources: {synth_cfg.design}")
 				for i in design_cfg.sources:
 					if i.used_in_impl or i.used_in_ooc or i.used_in_synth:
 						assert_file_exists(i.file)
 						self._add_files(i.file, scan_for_includes=True)
 
 			if core:
-				core_cfg = self._cfg.get_core(synth_cfg.core_name)
+				core_cfg = self._cfg.get_core(synth_cfg.core)
 				logger.info(f"loading core: {core_cfg.name}")
 				assert_file_exists(core_cfg.xci_file)
 				self._read_ip(core_cfg.xci_file)
