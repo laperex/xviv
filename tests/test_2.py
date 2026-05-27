@@ -499,7 +499,7 @@ class TestTclGeneratorCorrectness:
 		cfg.add_synth_cfg(design="top")
 		tcl = _tcl(cfg, design="top")
 		sc = cfg.get_synth(design_name="top")
-		assert f'write_bitstream -force "{sc.bitstream_file}"' in tcl
+		assert f'write_bitstream -force "{sc.bitstream}"' in tcl
 
 	def test_no_write_bitstream_when_disabled(self, tmp_path):
 		cfg = _cfg(tmp_path)
@@ -582,7 +582,7 @@ class TestTclGeneratorCorrectness:
 		tcl = _tcl(cfg, design="top")
 		sc = cfg.get_synth(design_name="top")
 		assert "report_timing_summary" in tcl
-		assert sc.synth_report_timing_summary_file in tcl
+		assert sc.synth_report_timing_summary in tcl
 
 	def test_route_drc_report_written(self, tmp_path):
 		cfg = _cfg(tmp_path)
@@ -638,7 +638,7 @@ class TestTclGeneratorCorrectness:
 		cfg.add_synth_cfg(design="top")
 		sc = cfg.get_synth(design_name="top")
 		# Create the DCP that resume="synth" would need
-		_touch(sc.synth_dcp_file)
+		_touch(sc.synth_dcp)
 		tcl = _tcl(cfg, design="top", resume="synth")
 		# resumed from synth DCP — should open_checkpoint, not run synth_design
 		assert "open_checkpoint" in tcl
@@ -649,7 +649,7 @@ class TestTclGeneratorCorrectness:
 		cfg.add_design_cfg("top", sources=[])
 		cfg.add_synth_cfg(design="top")
 		sc = cfg.get_synth(design_name="top")
-		_touch(sc.route_dcp_file)
+		_touch(sc.route_dcp)
 		tcl = _tcl(cfg, design="top", resume="route")
 		assert "synth_design" not in tcl
 		assert "opt_design" not in tcl

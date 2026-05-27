@@ -1,5 +1,6 @@
 import os
 import typing
+
 import tomli_w
 
 from xviv.config.catalog import Catalog
@@ -41,7 +42,7 @@ class XvivConfig:
 
 		self.work_dir = work_dir
 		if self.work_dir is None:
-			self.work_dir = 'build'
+			self.work_dir = "build"
 
 		self.work_dir = os.path.join(self.project_dir, self.work_dir)
 
@@ -101,16 +102,16 @@ class XvivConfig:
 			"fpga": [c.to_lock() for c in self._fpga_list],
 			"ip": [c.to_lock(self.project_dir) for c in self._ip_list],
 			"wrapper": [c.to_lock(self.project_dir) for c in self._wrapper_list],
-			"bd": [c.to_lock() for c in self._bd_list],
-			"core": [c.to_lock() for c in self._core_list],
+			"bd": [c.to_lock(self.project_dir) for c in self._bd_list],
+			"core": [c.to_lock(self.project_dir) for c in self._core_list],
 			"subcore": [c.to_lock() for c in self._subcore_list],
 			"design": [c.to_lock(self.project_dir) for c in self._design_list],
 			"synth": [c.to_lock(self.project_dir) for c in self._synth_list],
 			"simulation": [c.to_lock(self.project_dir) for c in self._sim_list],
 			"uvm": [c.to_lock() for c in self._uvm_list],
-			"platform": [c.to_lock() for c in self._platform_list],
+			"platform": [c.to_lock(self.project_dir) for c in self._platform_list],
 			"app": [c.to_lock(self.project_dir) for c in self._app_list],
-			"formal": [c.to_lock() for c in self._formal_list],
+			"formal": [c.to_lock(self.project_dir) for c in self._formal_list],
 		}
 
 		def _strip_none(obj: typing.Any) -> typing.Any:
@@ -180,8 +181,8 @@ class XvivConfig:
 	def validate_app(self, app_name: str, check_sources: bool = True, check_elf: bool = True):
 		app_cfg = self.get_app(app_name)
 
-		if not os.path.exists(app_cfg.elf_file) and check_elf:
-			raise error.AppElfMissingError(app_name, app_cfg.elf_file)
+		if not os.path.exists(app_cfg.elf) and check_elf:
+			raise error.AppElfMissingError(app_name, app_cfg.elf)
 
 		if check_sources:
 			for i in app_cfg.sources:
@@ -194,11 +195,11 @@ class XvivConfig:
 	def validate_platform(self, platform_name: str):
 		platform_cfg = self.get_platform(platform_name)
 
-		if not os.path.exists(platform_cfg.xsa_file):
-			raise error.PlatformXsaMissingError(platform_name, platform_cfg.xsa_file)
+		if not os.path.exists(platform_cfg.xsa):
+			raise error.PlatformXsaMissingError(platform_name, platform_cfg.xsa)
 
-		if not os.path.exists(platform_cfg.bitstream_file):
-			raise error.PlatformBitstreamMissingError(platform_name, platform_cfg.bitstream_file)
+		if not os.path.exists(platform_cfg.bitstream):
+			raise error.PlatformBitstreamMissingError(platform_name, platform_cfg.bitstream)
 
 	def validate_synth(self, *, design: str | None = None, core: str | None = None, bd: str | None = None):
 		synth_cfg = self.get_synth(design_name=design, core_name=core, bd_name=bd)
@@ -242,7 +243,7 @@ class XvivConfig:
 			ip_cfg.sources += self._resolve_sources([wrapper_cfg.wrapper_file])
 
 			SystemVerilogWrapper(
-				top=wrapper_cfg.ip_top,
+				top=wrapper_cfg.top,
 				wrapper_top=wrapper_cfg.wrapper_top,
 				wrapper_file=wrapper_cfg.wrapper_file,
 				sources=[i.file for i in wrapper_cfg.sources],
@@ -343,7 +344,7 @@ class XvivConfig:
 				vlnv=vlnv,
 				repo=repo,
 				top=top,
-				fpga_ref=fpga,
+				fpga=fpga,
 				sources=self._resolve_sources(sources),
 			)
 		)
@@ -351,7 +352,13 @@ class XvivConfig:
 		return self
 
 	def add_wrapper_cfg(
-		self, *, ip: str, sources: list[typing.Any], wrapper_top: str | None = None, wrapper_file: str | None = None
+		self,
+		ip: str,
+		*,
+		top: str | None = None,
+		sources: list[typing.Any],
+		wrapper_top: str | None = None,
+		wrapper_file: str | None = None,
 	) -> typing.Self:
 		if self._get_wrapper_cfg_optional(ip) is not None:
 			raise error.WrapperAlreadyExistsError(ip)
@@ -361,16 +368,19 @@ class XvivConfig:
 		except error.IpDoesNotExistError:
 			raise error.WrapperIpMissing(ip_name=ip)
 
+		if top is None:
+			top = ip_cfg.top
+
 		if wrapper_top is None:
-			wrapper_top = f"{ip_cfg.top}_wrapper"
+			wrapper_top = f"{top}_wrapper"
 
 		if wrapper_file is None:
 			wrapper_file = os.path.join(self.wrapper_dir, f"{wrapper_top}.sv")
 
 		self._wrapper_list.append(
 			IpWrapperConfig(
-				ip_name=ip,
-				ip_top=ip_cfg.top,
+				ip=ip,
+				top=top,
 				wrapper_top=wrapper_top,
 				wrapper_file=wrapper_file,
 				sources=self._resolve_sources(sources),
@@ -492,7 +502,7 @@ class XvivConfig:
 		if vlnv is None:
 			raise error.CoreVlnvUnspecifiedError(name)
 
-		self._core_list.append(CoreConfig(name=name, vlnv=vlnv, xci_file=xci_file, fpga_ref=fpga))
+		self._core_list.append(CoreConfig(name=name, vlnv=vlnv, xci_file=xci_file, fpga=fpga))
 
 		return self
 
@@ -520,7 +530,7 @@ class XvivConfig:
 				top=top,
 				# sources=resolve_globs(sources, self.base_dir),
 				sources=self._resolve_sources(sources),
-				fpga_ref=fpga,
+				fpga=fpga,
 			)
 		)
 
@@ -589,7 +599,7 @@ class XvivConfig:
 
 		if core:
 			core_cfg = self.get_core(core)
-			fpga = self._resolve_fpga(fpga, core_cfg.fpga_ref, "Core", core_cfg.name)
+			fpga = self._resolve_fpga(fpga, core_cfg.fpga, "Core", core_cfg.name)
 
 			if top is None:
 				top = core
@@ -605,7 +615,7 @@ class XvivConfig:
 
 		if design:
 			design_cfg = self.get_design(design)
-			fpga = self._resolve_fpga(fpga, design_cfg.fpga_ref, "Design", design_cfg.name)
+			fpga = self._resolve_fpga(fpga, design_cfg.fpga, "Design", design_cfg.name)
 
 			if top is None:
 				top = design_cfg.top
@@ -655,59 +665,59 @@ class XvivConfig:
 				run_place=run_place,
 				run_phys_opt=run_phys_opt,
 				run_route=run_route,
-				synth_dcp_file=_resolve_val(synth_dcp, os.path.join(synth_checkpoints_subdir, "synth.dcp")),
-				place_dcp_file=_resolve_val(place_dcp, os.path.join(synth_checkpoints_subdir, "place.dcp")),
-				route_dcp_file=_resolve_val(route_dcp, os.path.join(synth_checkpoints_subdir, "route.dcp")),
-				bitstream_file=_resolve_val(bitstream, os.path.join(synth_subdir, f"{id_name}.bit")),
-				hw_platform_xsa_file=_resolve_val(hw_platform, os.path.join(synth_subdir, f"{id_name}.xsa")),
-				synth_report_timing_summary_file=_resolve_val(
+				synth_dcp=_resolve_val(synth_dcp, os.path.join(synth_checkpoints_subdir, "synth.dcp")),
+				place_dcp=_resolve_val(place_dcp, os.path.join(synth_checkpoints_subdir, "place.dcp")),
+				route_dcp=_resolve_val(route_dcp, os.path.join(synth_checkpoints_subdir, "route.dcp")),
+				bitstream=_resolve_val(bitstream, os.path.join(synth_subdir, f"{id_name}.bit")),
+				hw_platform=_resolve_val(hw_platform, os.path.join(synth_subdir, f"{id_name}.xsa")),
+				synth_report_timing_summary=_resolve_val(
 					synth_report_timing_summary,
 					os.path.join(synth_reports_subdir, "synth_report_timing_summary_file.rpt"),
 				),
-				synth_report_utilization_file=_resolve_val(
+				synth_report_utilization=_resolve_val(
 					synth_report_utilization, os.path.join(synth_reports_subdir, "synth_report_utilization_file.rpt")
 				),
-				synth_report_incremental_reuse_file=_resolve_val(
+				synth_report_incremental_reuse=_resolve_val(
 					synth_report_incremental_reuse,
 					os.path.join(synth_reports_subdir, "synth_report_incremental_reuse_file.rpt"),
 				),
-				route_report_drc_file=_resolve_val(
+				route_report_drc=_resolve_val(
 					route_report_drc, os.path.join(synth_reports_subdir, "route_report_drc_file.rpt")
 				),
-				route_report_methodology_file=_resolve_val(
+				route_report_methodology=_resolve_val(
 					route_report_methodology, os.path.join(synth_reports_subdir, "route_report_methodology_file.rpt")
 				),
-				route_report_power_file=_resolve_val(
+				route_report_power=_resolve_val(
 					route_report_power, os.path.join(synth_reports_subdir, "route_report_power_file.rpt")
 				),
-				route_report_route_status_file=_resolve_val(
+				route_report_route_status=_resolve_val(
 					route_report_route_status, os.path.join(synth_reports_subdir, "route_report_route_status_file.rpt")
 				),
-				route_report_timing_summary_file=_resolve_val(
+				route_report_timing_summary=_resolve_val(
 					route_report_timing_summary,
 					os.path.join(synth_reports_subdir, "route_report_timing_summary_file.rpt"),
 				),
-				impl_report_incremental_reuse_file=_resolve_val(
+				impl_report_incremental_reuse=_resolve_val(
 					impl_report_incremental_reuse,
 					os.path.join(synth_reports_subdir, "impl_report_incremental_reuse_file.rpt"),
 				),
-				synth_functional_netlist_file=_resolve_val(
+				synth_functional_netlist=_resolve_val(
 					synth_functional_netlist,
 					os.path.join(synth_netlists_subdir, f"{id_name}_synth_functional_netlist.v"),
 				),
-				synth_timing_netlist_file=_resolve_val(
+				synth_timing_netlist=_resolve_val(
 					synth_timing_netlist, os.path.join(synth_netlists_subdir, f"{id_name}_synth_timing_netlist.v")
 				),
-				impl_functional_netlist_file=_resolve_val(
+				impl_functional_netlist=_resolve_val(
 					impl_functional_netlist, os.path.join(synth_netlists_subdir, f"{id_name}_impl_functional_netlist.v")
 				),
-				impl_timing_netlist_file=_resolve_val(
+				impl_timing_netlist=_resolve_val(
 					impl_timing_netlist, os.path.join(synth_netlists_subdir, f"{id_name}_impl_timing_netlist.v")
 				),
-				impl_timing_sdf_file=_resolve_val(
+				impl_timing_sdf=_resolve_val(
 					impl_timing_sdf, os.path.join(synth_netlists_subdir, f"{id_name}_impl_timing.sdf")
 				),
-				synth_stub_file=_resolve_val(synth_stub, os.path.join(synth_subdir, f"{id_name}_stub.v")),
+				synth_stub=_resolve_val(synth_stub, os.path.join(synth_subdir, f"{id_name}_stub.v")),
 				synth_directive=synth_directive,
 				synth_mode=synth_mode,
 				synth_flatten_hierarchy=synth_flatten_hierarchy,
@@ -771,17 +781,15 @@ class XvivConfig:
 		self,
 		name: str,
 		*,
-		sources: list[typing.Any],
 		top: str | None = None,
+		sources: list[typing.Any],
 		backend: str = "xsim",
 		sdfmax: list[str] = [],
 		sdfmin: list[str] = [],
 		timescale: str = "1ns/1ps",
 		bd: str | None = None,
 		design: str | None = None,
-		uvm: list[typing.Any] = [],
 		uvm_version: str = "1.2",
-		uvm_test: str | None = None,
 		uvm_verbosity: str = "UVM_MEDIUM",
 		uvm_max_quit_count: int | None = None,
 		plusargs: list[str] = [],
@@ -794,6 +802,8 @@ class XvivConfig:
 		trace_depth: int | None = None,
 		verilator_args: list[str] = [],
 		uvm_pkg_dir: str | None = None,
+		work_dir: str | None = None,
+		uvm: list[typing.Any] = [],
 	) -> typing.Self:
 		# TODO: throw error for invalid name ''
 
@@ -806,7 +816,8 @@ class XvivConfig:
 		if top is None:
 			top = name
 
-		sim_subdir = os.path.join(self.work_dir, "sim", name)
+		if work_dir is None:
+			work_dir = os.path.join(self.work_dir, "sim", name)
 
 		self._sim_list.append(
 			SimulationConfig(
@@ -817,12 +828,11 @@ class XvivConfig:
 				sources=self._resolve_sources(sources),
 				backend=backend,
 				timescale=timescale,
-				work_dir=sim_subdir,
+				work_dir=work_dir,
 				sdfmax=sdfmax,
 				sdfmin=sdfmin,
 				# uvm=uvm,
 				uvm_version=uvm_version,
-				# uvm_test=uvm_test,
 				uvm_verbosity=uvm_verbosity,
 				uvm_max_quit_count=uvm_max_quit_count,
 				plusargs=list(plusargs),
@@ -854,6 +864,7 @@ class XvivConfig:
 		properties: dict[typing.Any] = {},
 		cpu: str = "microblaze_0",
 		os: str = "standalone",
+		work_dir: str | None = None,
 	) -> typing.Self:
 		# TODO: throw error for invalid name ''
 
@@ -871,25 +882,26 @@ class XvivConfig:
 		if xsa is None:
 			synth_cfg = self.get_synth(design_name=design, bd_name=bd)
 
-			xsa = synth_cfg.hw_platform_xsa_file
+			xsa = synth_cfg.hw_platform
 
 		if bitstream is None:
 			synth_cfg = self.get_synth(design_name=design, bd_name=bd)
 
-			bitstream = synth_cfg.bitstream_file
+			bitstream = synth_cfg.bitstream
 
-		import os as _os
+		if work_dir is None:
+			import os as _os
 
-		platform_subdir = _os.path.join(self.work_dir, "platform", name)
+			work_dir = _os.path.join(self.work_dir, "platform", name)
 
 		self._platform_list.append(
 			PlatformConfig(
 				name=name,
 				cpu=cpu,
 				os=os,
-				xsa_file=xsa,
-				bitstream_file=bitstream,
-				dir=platform_subdir,
+				xsa=xsa,
+				bitstream=bitstream,
+				work_dir=work_dir,
 				properties=self._resolve_properties(properties),
 			)
 		)
@@ -909,17 +921,26 @@ class XvivConfig:
 		return [(i, k) for i, k in __flatten(properties_dict)]
 
 	def add_app_cfg(
-		self, name: str, *, platform: str, template: str = "empty_application", sources: list[typing.Any] = []
+		self,
+		name: str,
+		*,
+		platform: str,
+		template: str = "empty_application",
+		sources: list[typing.Any] = [],
+		work_dir: str | None = None,
+		elf: str | None = None,
 	) -> typing.Self:
 		# TODO: throw error for invalid name ''
 
 		if self._get_app_cfg_optional(name) is not None:
 			raise error.AppAlreadyExistsError(name)
 
-		app_subdir = os.path.join(self.work_dir, "app", name)
+		if work_dir is None:
+			work_dir = os.path.join(self.work_dir, "app", name)
 
 		# TODO: Remove Hardcoded - Requires editing generated Makefile
-		elf = os.path.join(app_subdir, "executable.elf")
+		if elf is None:
+			elf = os.path.join(work_dir, "executable.elf")
 
 		self._app_list.append(
 			AppConfig(
@@ -927,8 +948,8 @@ class XvivConfig:
 				platform=platform,
 				template=template,
 				sources=self._resolve_sources(sources),
-				dir=app_subdir,
-				elf_file=elf,
+				work_dir=work_dir,
+				elf=elf,
 			)
 		)
 
@@ -955,14 +976,12 @@ class XvivConfig:
 		if self._get_formal_cfg_optional(name) is not None:
 			raise error.FormalAlreadyExistsError(name)
 
-		resolved = resolve_globs(sources, self.project_dir)
-
 		self._formal_list.append(
 			FormalConfig(
 				name=name,
 				top=top,
 				mode=mode,
-				sources=resolved,
+				sources=resolve_globs(sources, self.project_dir),
 				work_dir=os.path.join(self.formal_dir, name),
 				depth=depth,
 				append=append,
@@ -1131,7 +1150,7 @@ class XvivConfig:
 		return next((i for i in self._ip_list if i.name == name), None)
 
 	def _get_wrapper_cfg_optional(self, name: str) -> IpWrapperConfig | None:
-		return next((i for i in self._wrapper_list if i.ip_name == name), None)
+		return next((i for i in self._wrapper_list if i.ip == name), None)
 
 	def _get_bd_cfg_optional(self, name: str) -> BdConfig | None:
 		return next((i for i in self._bd_list if i.name == name), None)

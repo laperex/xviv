@@ -399,7 +399,7 @@ class TestCreatePlatform:
 		self._add_platform(cfg, xsa, tmp_path / "design.bit")
 		platform_cfg = cfg.get_platform("my_platform")
 		cmd.create_platform("my_platform")
-		assert platform_cfg.dir in cmd.build()
+		assert platform_cfg.work_dir in cmd.build()
 
 
 # ===========================================================================

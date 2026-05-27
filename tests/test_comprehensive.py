@@ -202,7 +202,7 @@ class TestMinimalRtlProject:
 		cfg.add_design_cfg("top", sources=[src])
 		cfg.add_synth_cfg(design="top")
 		sc = cfg.get_synth(design_name="top")
-		assert "out" in sc.synth_dcp_file
+		assert "out" in sc.synth_dcp
 
 
 # ===========================================================================
@@ -1997,18 +1997,18 @@ class TestFullAXIDMAProject:
 		cfg = self._build_project(tmp_path)
 		sc = cfg.get_synth(core_name="clk_wiz_0")
 		assert sc.synth_mode == "out_of_context"
-		assert sc.bitstream_file is None
+		assert sc.bitstream is None
 
 	def test_bd_synth_has_bitstream(self, tmp_path):
 		cfg = self._build_project(tmp_path)
 		sc = cfg.get_synth(bd_name="system")
-		assert sc.bitstream_file is not None
+		assert sc.bitstream is not None
 
 	def test_platform_xsa_links_to_bd_synth(self, tmp_path):
 		cfg = self._build_project(tmp_path)
 		pf = cfg.get_platform("mb_platform")
 		sc = cfg.get_synth(bd_name="system")
-		assert pf.xsa_file == sc.hw_platform_xsa_file
+		assert pf.xsa == sc.hw_platform
 
 	def test_two_uvm_tests_registered(self, tmp_path):
 		cfg = self._build_project(tmp_path)
@@ -2030,7 +2030,7 @@ class TestFullAXIDMAProject:
 	def test_app_elf_path_set(self, tmp_path):
 		cfg = self._build_project(tmp_path)
 		app = cfg.get_app("firmware")
-		assert app.elf_file.endswith(".elf")
+		assert app.elf.endswith(".elf")
 
 	def test_ip_vlnv_correct(self, tmp_path):
 		cfg = self._build_project(tmp_path)

@@ -256,19 +256,19 @@ class ConfigTclCommands(ConfigTclBuilder):
 	def create_platform(self, platform_name: str) -> typing.Self:
 		platform_cfg = self._cfg.get_platform(platform_name)
 
-		assert_file_exists(platform_cfg.xsa_file)
+		assert_file_exists(platform_cfg.xsa)
 
-		self._file_delete(platform_cfg.dir, force=True)
-		self._file_mkdir(platform_cfg.dir)
+		self._file_delete(platform_cfg.work_dir, force=True)
+		self._file_mkdir(platform_cfg.work_dir)
 
-		self._set_exec("hw", lambda _: _._hsi__open_hw_design(platform_cfg.xsa_file))
+		self._set_exec("hw", lambda _: _._hsi__open_hw_design(platform_cfg.xsa))
 
 		self._hsi__create_sw_design("bsp_design", proc=platform_cfg.cpu, os=platform_cfg.os)
 
 		for key, val in platform_cfg.properties:
 			self._hsi__set_property_hsi__get_os(key, val)
 
-		self._hsi__generate_bsp(dir=platform_cfg.dir)
+		self._hsi__generate_bsp(dir=platform_cfg.work_dir)
 
 		self._hsi__close_hw_design("$hw")
 
@@ -278,19 +278,19 @@ class ConfigTclCommands(ConfigTclBuilder):
 		app_cfg = self._cfg.get_app(app_name)
 		platform_cfg = self._cfg.get_platform(app_cfg.platform)
 
-		assert_file_exists(platform_cfg.xsa_file)
+		assert_file_exists(platform_cfg.xsa)
 
-		self._file_delete(app_cfg.dir, force=True)
-		self._file_mkdir(app_cfg.dir)
+		self._file_delete(app_cfg.work_dir, force=True)
+		self._file_mkdir(app_cfg.work_dir)
 
-		self._set_exec("hw", lambda _: _._hsi__open_hw_design(platform_cfg.xsa_file))
+		self._set_exec("hw", lambda _: _._hsi__open_hw_design(platform_cfg.xsa))
 
 		self._hsi__generate_app(
 			hw="$hw",
 			os=platform_cfg.os,
 			proc=platform_cfg.cpu,
 			app=app_cfg.template,
-			dir=app_cfg.dir,
+			dir=app_cfg.work_dir,
 		)
 
 		self._hsi__close_hw_design("$hw")
@@ -463,7 +463,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 		ip_edit_project_dir = os.path.join("/dev/shm/build", ip_vid)
 		ip_edit_project_name = f"edit_{ip_vid}"
 
-		self._require_project(fpga_ref=ip_cfg.fpga_ref)
+		self._require_project(fpga_ref=ip_cfg.fpga)
 
 		# _xviv_ip_scaffold
 		self._create_peripheral(
@@ -637,7 +637,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 		ip_edit_project_dir = os.path.join("/dev/shm/build", ip_vid)
 		ip_edit_project_name = f"edit_{ip_vid}"
 
-		if self._require_project(fpga_ref=ip_cfg.fpga_ref, exists_ok=True):
+		if self._require_project(fpga_ref=ip_cfg.fpga, exists_ok=True):
 			assert_file_exists(ip_component_xml_file)
 
 		if not nogui:
@@ -667,7 +667,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 		else:
 			raise error.CoreVlnvNotInCatalogError(core_cfg.name, core_cfg.vlnv)
 
-		self._require_project(fpga_ref=core_cfg.fpga_ref)
+		self._require_project(fpga_ref=core_cfg.fpga)
 
 		self._create_core(core_name, dir=self._cfg.core_dir, vlnv=core_cfg.vlnv)
 
@@ -684,7 +684,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 	def edit_core(self, core_name: str, nogui: bool = False) -> typing.Self:
 		core_cfg = self._cfg.get_core(core_name)
 
-		if self._require_project(fpga_ref=core_cfg.fpga_ref, exists_ok=True):
+		if self._require_project(fpga_ref=core_cfg.fpga, exists_ok=True):
 			assert_file_exists(core_cfg.xci_file)
 			self._read_ip(core_cfg.xci_file)
 
@@ -704,7 +704,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 		assert_file_exists(core_cfg.xci_file)
 
-		self._require_project(fpga_ref=core_cfg.fpga_ref)
+		self._require_project(fpga_ref=core_cfg.fpga)
 
 		self._read_ip(core_cfg.xci_file)
 		self._upgrade_ip_get_ips(core_name)
@@ -741,10 +741,10 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 		synth_cfg = self._cfg.get_synth(bd_name=bd, design_name=design, core_name=core)
 
-		if synth_cfg.bitstream_file and not synth_cfg.run_route:
+		if synth_cfg.bitstream and not synth_cfg.run_route:
 			raise error.SynthBitstreamRequiresRouteError()
 
-		if synth_cfg.hw_platform_xsa_file and not synth_cfg.run_route:
+		if synth_cfg.hw_platform and not synth_cfg.run_route:
 			raise error.SynthXsaRequiresRouteError()
 
 		# -------------------------------------------------------------------------
@@ -762,14 +762,14 @@ class ConfigTclCommands(ConfigTclBuilder):
 		def _auto_detect_resume_stage() -> SynthStage:
 			logger = logging.getLogger(__name__)
 
-			if synth_cfg.route_dcp_file and os.path.exists(synth_cfg.route_dcp_file):
-				logger.info(f"found route DCP: {synth_cfg.route_dcp_file}")
+			if synth_cfg.route_dcp and os.path.exists(synth_cfg.route_dcp):
+				logger.info(f"found route DCP: {synth_cfg.route_dcp}")
 				return SynthStage.WRITE
-			if synth_cfg.place_dcp_file and os.path.exists(synth_cfg.place_dcp_file):
-				logger.info(f"found place DCP: {synth_cfg.place_dcp_file}")
+			if synth_cfg.place_dcp and os.path.exists(synth_cfg.place_dcp):
+				logger.info(f"found place DCP: {synth_cfg.place_dcp}")
 				return SynthStage.PHYS_OPT
-			if synth_cfg.synth_dcp_file and os.path.exists(synth_cfg.synth_dcp_file):
-				logger.info(f"found synth DCP: {synth_cfg.synth_dcp_file}")
+			if synth_cfg.synth_dcp and os.path.exists(synth_cfg.synth_dcp):
+				logger.info(f"found synth DCP: {synth_cfg.synth_dcp}")
 				return SynthStage.OPT
 			return SynthStage.SYNTH
 
@@ -799,7 +799,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 		out_of_context_hier_dcp_map: dict[str, str] = {}
 
 		if start_stage >= SynthStage.WRITE:
-			resume_dcp = synth_cfg.route_dcp_file
+			resume_dcp = synth_cfg.route_dcp
 
 			if not resume_dcp or not os.path.exists(resume_dcp):
 				raise error.SynthResumeDcpMissingError("route", resume_dcp)
@@ -808,7 +808,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 			self._open_checkpoint(resume_dcp)
 
 		elif start_stage >= SynthStage.PHYS_OPT:
-			resume_dcp = synth_cfg.place_dcp_file
+			resume_dcp = synth_cfg.place_dcp
 
 			if not resume_dcp or not os.path.exists(resume_dcp):
 				raise error.SynthResumeDcpMissingError("place", resume_dcp)
@@ -817,7 +817,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 			self._open_checkpoint(resume_dcp)
 
 		elif start_stage >= SynthStage.OPT:
-			resume_dcp = synth_cfg.synth_dcp_file
+			resume_dcp = synth_cfg.synth_dcp
 
 			if not resume_dcp or not os.path.exists(resume_dcp):
 				raise error.SynthResumeDcpMissingError("synth", resume_dcp)
@@ -853,7 +853,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 				# if core_cfg.name == "bd_mblaze_system_microblaze_0_0":
 				# 	self._push("err_command")
 
-				if not is_stale_list(core_cfg.xci_file, [synth_cfg.synth_dcp_file, synth_cfg.synth_stub_file]):
+				if not is_stale_list(core_cfg.xci_file, [synth_cfg.synth_dcp, synth_cfg.synth_stub]):
 					logger.info(f"skipping up-to-date synth targets: {core_cfg.name}")
 					self._clear()
 					return self
@@ -874,22 +874,22 @@ class ConfigTclCommands(ConfigTclBuilder):
 				for i in self._cfg.get_subcore_list(bd_name=bd, design_name=design):
 					subcore_synth_cfg = self._cfg.get_synth(core_name=i.core)
 
-					if not os.path.exists(subcore_synth_cfg.synth_stub_file):
+					if not os.path.exists(subcore_synth_cfg.synth_stub):
 						if not self._cfg.dry_run:
-							raise error.OocStubMissingError(i.core, subcore_synth_cfg.synth_stub_file)
+							raise error.OocStubMissingError(i.core, subcore_synth_cfg.synth_stub)
 
-					self._add_files(subcore_synth_cfg.synth_stub_file, norecurse=True)
+					self._add_files(subcore_synth_cfg.synth_stub, norecurse=True)
 					self._set_property_get_files(
 						"USED_IN",
 						"{synthesis implementation out_of_context}",
-						subcore_synth_cfg.synth_stub_file,
+						subcore_synth_cfg.synth_stub,
 					)
 
 					_id = i.inst_hier_path
 					if bd:
 						_id = f'[get_cells -filter {{IS_PRIMITIVE == 0 && PARENT == ""}}]/{_id}'
 
-					out_of_context_hier_dcp_map[_id] = subcore_synth_cfg.synth_dcp_file
+					out_of_context_hier_dcp_map[_id] = subcore_synth_cfg.synth_dcp
 					logger.info(f"OOC subcore: {i.core} - {_id}")
 
 		# -------------------------------------------------------------------------
@@ -900,7 +900,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 			logger.info("skipping synth_design (resuming from checkpoint)")
 		else:
 			if synth_cfg.synth_incremental:
-				self._incremental("synthesis", dcp_file=synth_cfg.synth_dcp_file)
+				self._incremental("synthesis", dcp_file=synth_cfg.synth_dcp)
 
 			if not synth_cfg.run_synth:
 				logger.critical("skipping synth_design (run_synth=false)")
@@ -917,34 +917,34 @@ class ConfigTclCommands(ConfigTclBuilder):
 			for inst_hier_path, dcp_file in out_of_context_hier_dcp_map.items():
 				self._read_checkpoint(dcp_file, cell=inst_hier_path)
 
-			if synth_cfg.synth_dcp_file:
-				self._write_checkpoint(synth_cfg.synth_dcp_file, force=True)
+			if synth_cfg.synth_dcp:
+				self._write_checkpoint(synth_cfg.synth_dcp, force=True)
 
-			if synth_cfg.synth_report_timing_summary_file:
-				self._report("timing_summary", file=synth_cfg.synth_report_timing_summary_file)
-			if synth_cfg.synth_report_utilization_file:
+			if synth_cfg.synth_report_timing_summary:
+				self._report("timing_summary", file=synth_cfg.synth_report_timing_summary)
+			if synth_cfg.synth_report_utilization:
 				self._report(
 					"utilization",
-					file=synth_cfg.synth_report_utilization_file,
+					file=synth_cfg.synth_report_utilization,
 					hierarchical=True,
 				)
-			if synth_cfg.synth_report_incremental_reuse_file:
+			if synth_cfg.synth_report_incremental_reuse:
 				self._report(
 					"incremental_reuse",
-					file=synth_cfg.synth_report_incremental_reuse_file,
+					file=synth_cfg.synth_report_incremental_reuse,
 				)
 
-			if synth_cfg.synth_functional_netlist_file:
-				self._write_verilog(synth_cfg.synth_functional_netlist_file, mode="funcsim", force=True)
-			if synth_cfg.synth_timing_netlist_file:
+			if synth_cfg.synth_functional_netlist:
+				self._write_verilog(synth_cfg.synth_functional_netlist, mode="funcsim", force=True)
+			if synth_cfg.synth_timing_netlist:
 				self._write_verilog(
-					synth_cfg.synth_timing_netlist_file,
+					synth_cfg.synth_timing_netlist,
 					mode="timesim",
 					force=True,
 					sdf_anno=True,
 				)
-			if synth_cfg.synth_stub_file:
-				self._write_verilog(synth_cfg.synth_stub_file, mode="synth_stub", force=True)
+			if synth_cfg.synth_stub:
+				self._write_verilog(synth_cfg.synth_stub, mode="synth_stub", force=True)
 
 		# Load Impl Only Contraints
 		for i in synth_cfg.constraints:
@@ -972,7 +972,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 			logger.info("skipping place_design (resuming from checkpoint)")
 		else:
 			if synth_cfg.impl_incremental:
-				self._incremental("implementation", dcp_file=synth_cfg.route_dcp_file)
+				self._incremental("implementation", dcp_file=synth_cfg.route_dcp)
 
 			if not synth_cfg.run_place:
 				logger.critical("skipping place_design (run_place=false)")
@@ -980,8 +980,8 @@ class ConfigTclCommands(ConfigTclBuilder):
 				logger.info("run place_design")
 				self._place_design(directive=synth_cfg.place_directive)
 
-			if synth_cfg.place_dcp_file:
-				self._write_checkpoint(synth_cfg.place_dcp_file, force=True)
+			if synth_cfg.place_dcp:
+				self._write_checkpoint(synth_cfg.place_dcp, force=True)
 
 		# -------------------------------------------------------------------------
 		# Phys opt
@@ -1007,33 +1007,33 @@ class ConfigTclCommands(ConfigTclBuilder):
 			logger.info("run route_design")
 			self._route_design(directive=synth_cfg.route_directive)
 
-		if synth_cfg.route_dcp_file and start_stage < SynthStage.WRITE:
-			self._write_checkpoint(synth_cfg.route_dcp_file, force=True)
+		if synth_cfg.route_dcp and start_stage < SynthStage.WRITE:
+			self._write_checkpoint(synth_cfg.route_dcp, force=True)
 
-		if synth_cfg.route_report_drc_file:
-			self._report("drc", file=synth_cfg.route_report_drc_file)
-		if synth_cfg.route_report_methodology_file:
-			self._report("methodology", file=synth_cfg.route_report_methodology_file)
-		if synth_cfg.route_report_power_file:
-			self._report("power", file=synth_cfg.route_report_power_file)
-		if synth_cfg.route_report_route_status_file:
-			self._report("route_status", file=synth_cfg.route_report_route_status_file)
-		if synth_cfg.route_report_timing_summary_file:
-			self._report("timing_summary", file=synth_cfg.route_report_timing_summary_file)
-		if synth_cfg.impl_report_incremental_reuse_file:
-			self._report("incremental_reuse", file=synth_cfg.impl_report_incremental_reuse_file)
+		if synth_cfg.route_report_drc:
+			self._report("drc", file=synth_cfg.route_report_drc)
+		if synth_cfg.route_report_methodology:
+			self._report("methodology", file=synth_cfg.route_report_methodology)
+		if synth_cfg.route_report_power:
+			self._report("power", file=synth_cfg.route_report_power)
+		if synth_cfg.route_report_route_status:
+			self._report("route_status", file=synth_cfg.route_report_route_status)
+		if synth_cfg.route_report_timing_summary:
+			self._report("timing_summary", file=synth_cfg.route_report_timing_summary)
+		if synth_cfg.impl_report_incremental_reuse:
+			self._report("incremental_reuse", file=synth_cfg.impl_report_incremental_reuse)
 
-		if synth_cfg.impl_functional_netlist_file:
-			self._write_verilog(synth_cfg.impl_functional_netlist_file, mode="funcsim", force=True)
-		if synth_cfg.impl_timing_netlist_file:
+		if synth_cfg.impl_functional_netlist:
+			self._write_verilog(synth_cfg.impl_functional_netlist, mode="funcsim", force=True)
+		if synth_cfg.impl_timing_netlist:
 			self._write_verilog(
-				synth_cfg.impl_timing_netlist_file,
+				synth_cfg.impl_timing_netlist,
 				mode="timesim",
 				force=True,
 				sdf_anno=True,
 			)
-		if synth_cfg.impl_timing_sdf_file:
-			self._write_sdf(synth_cfg.impl_timing_sdf_file, mode="timesim", force=True)
+		if synth_cfg.impl_timing_sdf:
+			self._write_sdf(synth_cfg.impl_timing_sdf, mode="timesim", force=True)
 
 		# -------------------------------------------------------------------------
 		# Bitstream / XSA
@@ -1042,12 +1042,12 @@ class ConfigTclCommands(ConfigTclBuilder):
 		if synth_cfg.usr_access_value is not None:
 			self._set_property_current_design("BITSTREAM.CONFIG.USR_ACCESS", f"0x{synth_cfg.usr_access_value:08X}")
 
-		if synth_cfg.bitstream_file:
-			logger.info(f"write bitstream: {synth_cfg.bitstream_file}")
-			self._write_bitstream(synth_cfg.bitstream_file, force=True)
+		if synth_cfg.bitstream:
+			logger.info(f"write bitstream: {synth_cfg.bitstream}")
+			self._write_bitstream(synth_cfg.bitstream, force=True)
 
-		if synth_cfg.hw_platform_xsa_file:
-			logger.info(f"write XSA: {synth_cfg.hw_platform_xsa_file}")
-			self._write_hw_platform(synth_cfg.hw_platform_xsa_file, force=True, include_bit=True, fixed=True)
+		if synth_cfg.hw_platform:
+			logger.info(f"write XSA: {synth_cfg.hw_platform}")
+			self._write_hw_platform(synth_cfg.hw_platform, force=True, include_bit=True, fixed=True)
 
 		return self

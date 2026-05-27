@@ -31,7 +31,7 @@ def run() -> None:
 
 	cfg = load_config(cfg_path).build()
 
-	cfg.generate_lock('project.lock')
+	cfg.generate_lock("project.lock")
 
 	setup_logging(cfg.log_file)
 

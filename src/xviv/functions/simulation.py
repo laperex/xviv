@@ -73,28 +73,28 @@ def cmd_simulate(
 
 			match mode:
 				case "post_synth_functional":
-					assert_file_exists(synth_cfg.synth_functional_netlist_file)
-					svlog_files.append(synth_cfg.synth_functional_netlist_file)
+					assert_file_exists(synth_cfg.synth_functional_netlist)
+					svlog_files.append(synth_cfg.synth_functional_netlist)
 
 				case "post_synth_timing":
-					assert_file_exists(synth_cfg.synth_timing_netlist_file)
-					svlog_files.append(synth_cfg.synth_timing_netlist_file)
+					assert_file_exists(synth_cfg.synth_timing_netlist)
+					svlog_files.append(synth_cfg.synth_timing_netlist)
 
 				case "post_impl_functional":
-					assert_file_exists(synth_cfg.impl_functional_netlist_file)
-					svlog_files.append(synth_cfg.impl_functional_netlist_file)
+					assert_file_exists(synth_cfg.impl_functional_netlist)
+					svlog_files.append(synth_cfg.impl_functional_netlist)
 
 				case "post_impl_timing":
-					assert_file_exists(synth_cfg.impl_timing_sdf_file)
+					assert_file_exists(synth_cfg.impl_timing_sdf)
 
 					for s in sim_cfg.sdfmax:
-						sdfmax_entries.append(f"{s}={synth_cfg.impl_timing_sdf_file}")
+						sdfmax_entries.append(f"{s}={synth_cfg.impl_timing_sdf}")
 
 					for s in sim_cfg.sdfmin:
-						sdfmin_entries.append(f"{s}={synth_cfg.impl_timing_sdf_file}")
+						sdfmin_entries.append(f"{s}={synth_cfg.impl_timing_sdf}")
 
-					assert_file_exists(synth_cfg.impl_timing_netlist_file)
-					svlog_files.append(synth_cfg.impl_timing_netlist_file)
+					assert_file_exists(synth_cfg.impl_timing_netlist)
+					svlog_files.append(synth_cfg.impl_timing_netlist)
 
 				case _:
 					raise error.InvalidSimulationMode(mode)

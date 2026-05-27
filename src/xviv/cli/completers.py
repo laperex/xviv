@@ -91,9 +91,9 @@ def c_dcp_file(prefix, parsed_args, **kwargs):
 			kind, name = ids[0]
 
 			for phase, file in [
-				("synth", synth.synth_dcp_file),
-				("place", synth.place_dcp_file),
-				("route", synth.route_dcp_file),
+				("synth", synth.synth_dcp),
+				("place", synth.place_dcp),
+				("route", synth.route_dcp),
 			]:
 				if file:
 					rel = os.path.relpath(file, config_dir)
@@ -128,12 +128,12 @@ def c_bitstream(prefix, parsed_args, **kwargs):
 		result: list[str] = []
 
 		for platform in cfg._platform_list:
-			result.append(os.path.relpath(platform.bitstream_file, os.path.dirname(config_path)))
+			result.append(os.path.relpath(platform.bitstream, os.path.dirname(config_path)))
 
 		for synth in cfg._synth_list:
-			if synth.bitstream_file:
-				if synth.bitstream_file not in result:
-					result.append(os.path.relpath(synth.bitstream_file, os.path.dirname(config_path)))
+			if synth.bitstream:
+				if synth.bitstream not in result:
+					result.append(os.path.relpath(synth.bitstream, os.path.dirname(config_path)))
 
 		return result
 
@@ -149,7 +149,7 @@ def c_elf(prefix, parsed_args, **kwargs):
 		result: list[str] = []
 
 		for app in cfg._app_list:
-			result.append(os.path.relpath(app.elf_file, os.path.dirname(config_path)))
+			result.append(os.path.relpath(app.elf, os.path.dirname(config_path)))
 
 		return result
 

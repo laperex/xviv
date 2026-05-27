@@ -30,7 +30,7 @@ def cmd_synth(
 
 	synth_cfg = cfg.get_synth(bd_name=bd_name, design_name=design_name, core_name=core_name)
 
-	if synth_cfg.bitstream_file:
+	if synth_cfg.bitstream:
 		if synth_cfg.usr_access_value is None:
 			match usr_access_type:
 				case "git":

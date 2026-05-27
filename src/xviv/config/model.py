@@ -31,18 +31,12 @@ class VivadoConfig:
 
 	glbl_file: str | None = None
 
-	def to_lock(self) -> dict:
-		return dataclasses.asdict(self)
-
 
 @dataclasses.dataclass
 class VitisConfig:
 	path: str | None
 
 	xsct_bin: str = "xsct"
-
-	def to_lock(self) -> dict:
-		return dataclasses.asdict(self)
 
 
 @dataclasses.dataclass
@@ -71,8 +65,7 @@ class SourceFile:
 		return cls(file=file, used_in=frozenset(stages))
 
 	def to_lock(self, base_dir: str) -> dict:
-		# frozenset is not TOML-serializable; sort for determinism
-		return {"files": [f'./{os.path.relpath(self.file, base_dir)}'], "used_in": sorted(self.used_in)}
+		return {"files": [f"./{os.path.relpath(self.file, base_dir)}"], "used_in": sorted(self.used_in)}
 
 
 @dataclasses.dataclass
@@ -86,7 +79,7 @@ class IpConfig:
 	name: str
 	top: str
 	sources: list[SourceFile]
-	fpga_ref: str
+	fpga: str
 
 	def to_lock(self, base_dir: str) -> dict:
 		d = dataclasses.asdict(self)
@@ -97,15 +90,17 @@ class IpConfig:
 @dataclasses.dataclass
 class IpWrapperConfig:
 	wrapper_top: str
-	wrapper_file: str
 
-	ip_name: str
-	ip_top: str
+	ip: str
+	top: str
 	sources: list[SourceFile]
+
+	wrapper_file: str
 
 	def to_lock(self, base_dir: str) -> dict:
 		d = dataclasses.asdict(self)
 		d["sources"] = _sources_to_lock(self.sources, base_dir=base_dir)
+		d['wrapper_file'] = os.path.relpath(self.wrapper_file, base_dir)
 		return d
 
 
@@ -124,7 +119,7 @@ class DesignConfig:
 	name: str
 	top: str
 	sources: list[SourceFile]
-	fpga_ref: str
+	fpga: str
 
 	def to_lock(self, base_dir: str) -> dict:
 		d = dataclasses.asdict(self)
@@ -136,11 +131,14 @@ class DesignConfig:
 class CoreConfig:
 	name: str
 	vlnv: str
-	xci_file: str
-	fpga_ref: str
+	fpga: str
 
-	def to_lock(self) -> dict:
-		return dataclasses.asdict(self)
+	xci_file: str
+
+	def to_lock(self, base_dir: str) -> dict:
+		d = dataclasses.asdict(self)
+		d['xci_file'] = os.path.relpath(self.xci_file, base_dir)
+		return d
 
 
 @dataclasses.dataclass
@@ -163,8 +161,12 @@ class BdConfig:
 	bd_file: str
 	bd_wrapper_file: str
 
-	def to_lock(self) -> dict:
-		return dataclasses.asdict(self)
+	def to_lock(self, base_dir: str) -> dict:
+		d = dataclasses.asdict(self)
+		d['save_file'] = os.path.relpath(self.save_file, base_dir)
+		d['bd_file'] = os.path.relpath(self.bd_file, base_dir)
+		d['bd_wrapper_file'] = os.path.relpath(self.bd_wrapper_file, base_dir)
+		return d
 
 
 @dataclasses.dataclass
@@ -186,41 +188,41 @@ class SynthConfig:
 	run_phys_opt: bool
 	run_route: bool
 
-	bitstream_file: str | None
-	hw_platform_xsa_file: str | None
+	bitstream: str | None
+	hw_platform: str | None
 
 	# checkpoints
 
-	synth_dcp_file: str | None
-	place_dcp_file: str | None
-	route_dcp_file: str | None
+	synth_dcp: str | None
+	place_dcp: str | None
+	route_dcp: str | None
 
 	# reports
 
-	synth_report_timing_summary_file: str | None
-	synth_report_utilization_file: str | None
-	synth_report_incremental_reuse_file: str | None
+	synth_report_timing_summary: str | None
+	synth_report_utilization: str | None
+	synth_report_incremental_reuse: str | None
 
-	route_report_drc_file: str | None
-	route_report_methodology_file: str | None
-	route_report_power_file: str | None
-	route_report_route_status_file: str | None
-	route_report_timing_summary_file: str | None
+	route_report_drc: str | None
+	route_report_methodology: str | None
+	route_report_power: str | None
+	route_report_route_status: str | None
+	route_report_timing_summary: str | None
 
-	impl_report_incremental_reuse_file: str | None
+	impl_report_incremental_reuse: str | None
 
 	# netlists
 
-	synth_functional_netlist_file: str | None
-	synth_timing_netlist_file: str | None
-	impl_functional_netlist_file: str | None
-	impl_timing_netlist_file: str | None
+	synth_functional_netlist: str | None
+	synth_timing_netlist: str | None
+	impl_functional_netlist: str | None
+	impl_timing_netlist: str | None
 
-	impl_timing_sdf_file: str | None
+	impl_timing_sdf: str | None
 
 	# stubs
 
-	synth_stub_file: str | None
+	synth_stub: str | None
 
 	# settings
 
@@ -244,15 +246,57 @@ class SynthConfig:
 	def to_lock(self, base_dir: str) -> dict:
 		d = dataclasses.asdict(self)
 		d["constraints"] = _sources_to_lock(self.constraints, base_dir=base_dir)
+
+		if self.bitstream:
+			d["bitstream"] = os.path.relpath(self.bitstream, base_dir)
+		if self.hw_platform:
+			d["hw_platform"] = os.path.relpath(self.hw_platform, base_dir)
+		if self.synth_dcp:
+			d["synth_dcp"] = os.path.relpath(self.synth_dcp, base_dir)
+		if self.place_dcp:
+			d["place_dcp"] = os.path.relpath(self.place_dcp, base_dir)
+		if self.route_dcp:
+			d["route_dcp"] = os.path.relpath(self.route_dcp, base_dir)
+		if self.synth_report_timing_summary:
+			d["synth_report_timing_summary"] = os.path.relpath(self.synth_report_timing_summary, base_dir)
+		if self.synth_report_utilization:
+			d["synth_report_utilization"] = os.path.relpath(self.synth_report_utilization, base_dir)
+		if self.synth_report_incremental_reuse:
+			d["synth_report_incremental_reuse"] = os.path.relpath(self.synth_report_incremental_reuse, base_dir)
+		if self.route_report_drc:
+			d["route_report_drc"] = os.path.relpath(self.route_report_drc, base_dir)
+		if self.route_report_methodology:
+			d["route_report_methodology"] = os.path.relpath(self.route_report_methodology, base_dir)
+		if self.route_report_power:
+			d["route_report_power"] = os.path.relpath(self.route_report_power, base_dir)
+		if self.route_report_route_status:
+			d["route_report_route_status"] = os.path.relpath(self.route_report_route_status, base_dir)
+		if self.route_report_timing_summary:
+			d["route_report_timing_summary"] = os.path.relpath(self.route_report_timing_summary, base_dir)
+		if self.impl_report_incremental_reuse:
+			d["impl_report_incremental_reuse"] = os.path.relpath(self.impl_report_incremental_reuse, base_dir)
+		if self.synth_functional_netlist:
+			d["synth_functional_netlist"] = os.path.relpath(self.synth_functional_netlist, base_dir)
+		if self.synth_timing_netlist:
+			d["synth_timing_netlist"] = os.path.relpath(self.synth_timing_netlist, base_dir)
+		if self.impl_functional_netlist:
+			d["impl_functional_netlist"] = os.path.relpath(self.impl_functional_netlist, base_dir)
+		if self.impl_timing_netlist:
+			d["impl_timing_netlist"] = os.path.relpath(self.impl_timing_netlist, base_dir)
+		if self.impl_timing_sdf:
+			d["impl_timing_sdf"] = os.path.relpath(self.impl_timing_sdf, base_dir)
+		if self.synth_stub:
+			d["synth_stub"] = os.path.relpath(self.synth_stub, base_dir)
+
 		return d
 
 
 @dataclasses.dataclass
 class UvmConfig:
+	test: str
+	simulation: str
 	top: str
 	timescale: str
-	simulation: str
-	test: str
 	verbosity: str
 	version: str
 	max_quit_count: int | None
@@ -267,15 +311,14 @@ class SimulationConfig:
 	top: str
 	sources: list[SourceFile]
 	backend: str
-	timescale: str
-
-	work_dir: str | None
 
 	sdfmax: list[str]
 	sdfmin: list[str]
 
-	design: str | None
+	timescale: str
+
 	bd: str | None
+	design: str | None
 
 	# -- UVM -------------------------------------------------------------- #
 	# Vivado ships UVM 1.1d and 1.2 pre-compiled.  Set uvm=True and xelab
@@ -299,13 +342,23 @@ class SimulationConfig:
 	trace_depth: int | None
 	verilator_args: list[str]
 
+	uvm_pkg_dir: str | None
 	# UVM with verilator: user must supply UVM source files in `sources`
 	# and point uvm_pkg_dir at a verilator-compatible UVM package root.
-	uvm_pkg_dir: str | None
+	work_dir: str | None
 
 	def to_lock(self, base_dir: str) -> dict:
 		d = dataclasses.asdict(self)
 		d["sources"] = _sources_to_lock(self.sources, base_dir=base_dir)
+
+		if self.work_dir:
+			d["work_dir"] = os.path.relpath(self.work_dir, base_dir)
+
+		if self.uvm_pkg_dir:
+			d["uvm_pkg_dir"] = os.path.relpath(self.uvm_pkg_dir, base_dir)
+
+		d['include_dirs'] = [os.path.relpath(i, base_dir) for i in self.include_dirs]
+
 		return d
 
 
@@ -314,15 +367,18 @@ class PlatformConfig:
 	name: str
 	cpu: str
 	os: str
-	xsa_file: str
-	bitstream_file: str
 	properties: list[tuple[str, str]]
-	dir: str
 
-	def to_lock(self) -> dict:
+	work_dir: str
+	xsa: str
+	bitstream: str
+
+	def to_lock(self, base_dir: str) -> dict:
 		d = dataclasses.asdict(self)
-		# asdict converts tuples to lists; make it explicit for clarity
-		d["properties"] = [list(p) for p in self.properties]
+		d["properties"] = {p: c for p, c in self.properties}
+		d["xsa"] = os.path.relpath(self.xsa, base_dir)
+		d["bitstream"] = os.path.relpath(self.bitstream, base_dir)
+		d["work_dir"] = os.path.relpath(self.work_dir, base_dir)
 		return d
 
 
@@ -332,12 +388,18 @@ class AppConfig:
 	platform: str
 	template: str
 	sources: list[SourceFile]
-	dir: str
-	elf_file: str
+
+	work_dir: str
+	elf: str
 
 	def to_lock(self, base_dir: str) -> dict:
 		d = dataclasses.asdict(self)
+
 		d["sources"] = _sources_to_lock(self.sources, base_dir=base_dir)
+
+		d["work_dir"] = os.path.relpath(self.work_dir, base_dir)
+		d["elf"] = os.path.relpath(self.elf, base_dir)
+
 		return d
 
 
@@ -355,8 +417,6 @@ class CatalogCoreEntry:
 	ipi_only: bool
 	unsupported_families: frozenset[str]
 	upgrades_from: tuple[str, ...]
-
-	# No to_lock() - runtime-only catalog data, never written to lock file
 
 	@property
 	def short_desc(self) -> str:
@@ -392,24 +452,30 @@ class FormalConfig:
 	name: str
 	top: str
 	mode: str  # bmc | prove | cover
-	sources: list[str]
-	work_dir: str
+	sources: list[SourceFile]
 
 	engine: str
 	depth: int
 	append: int
 	defines: list[str]
-	include_dirs: list[str]
 	multiclock: bool
 	async2sync: bool
 	sv: bool
+
 	extra_script: list[str]
 	extra_opts: list[str]
+
+	work_dir: str
+	include_dirs: list[str]
 
 	def __post_init__(self) -> None:
 		if self.mode not in ("bmc", "prove", "cover"):
 			raise ValueError(f"FormalConfig '{self.name}': invalid mode '{self.mode}'")
 
-	def to_lock(self) -> dict:
+	def to_lock(self, base_dir: str) -> dict:
 		# sources is list[str] and all other fields are scalars/plain lists
-		return dataclasses.asdict(self)
+		d = dataclasses.asdict(self)
+		d['sources'] = _sources_to_lock(self.sources, base_dir=base_dir)
+		d['work_dir'] = os.path.relpath(self.work_dir, base_dir)
+		d['include_dirs'] = [os.path.relpath(i, base_dir) for i in self.include_dirs]
+		return d

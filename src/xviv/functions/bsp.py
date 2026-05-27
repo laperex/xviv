@@ -24,7 +24,7 @@ def cmd_platform_create(cfg: XvivConfig, *, platform_name: str, build: bool = Fa
 
 	platform_cfg = cfg.get_platform(name=platform_name)
 
-	logger.info(f"Platform: {platform_cfg.name} - Create complete - {platform_cfg.dir}")
+	logger.info(f"Platform: {platform_cfg.name} - Create complete - {platform_cfg.work_dir}")
 
 	if build:
 		cmd_platform_build(cfg, platform_name=platform_name)
@@ -37,14 +37,14 @@ def cmd_platform_build(cfg: XvivConfig, *, platform_name: str):
 	platform_cfg = cfg.get_platform(platform_name)
 	cfg.validate_platform(platform_name=platform_name)
 
-	if not os.path.isdir(platform_cfg.dir):
-		raise error.PlatformBspDirectoryMissingError(platform_cfg.name, platform_cfg.dir)
+	if not os.path.isdir(platform_cfg.work_dir):
+		raise error.PlatformBspDirectoryMissingError(platform_cfg.name, platform_cfg.work_dir)
 
-	logger.info("Platform Build: %s", platform_cfg.dir)
+	logger.info("Platform Build: %s", platform_cfg.work_dir)
 
 	run_tool(
 		["make", f"-j{os.cpu_count() or 4}"],
-		cwd=platform_cfg.dir,
+		cwd=platform_cfg.work_dir,
 		env=_get_vitis_env(cfg),
 		dry_run=cfg.dry_run,
 		exit_on_fail=True,
@@ -71,7 +71,7 @@ def cmd_app_create(
 
 	platform_cfg = cfg.get_platform(app_cfg.platform)
 
-	if not os.path.isdir(platform_cfg.dir):
+	if not os.path.isdir(platform_cfg.work_dir):
 		logger.warning("BSP not found - creating platform '%s' first", app_cfg.platform)
 		cmd_platform_create(cfg, platform_name=app_cfg.platform)
 
@@ -81,7 +81,7 @@ def cmd_app_create(
 
 	run_xsct(cfg, config_tcl=config, label=__name__)
 
-	logger.info(f"App: {app_cfg.name} - Create complete - {app_cfg.dir}")
+	logger.info(f"App: {app_cfg.name} - Create complete - {app_cfg.work_dir}")
 
 	if build:
 		cmd_app_build(cfg, app_name=app_name, info=True)
@@ -97,22 +97,22 @@ def cmd_app_build(cfg: XvivConfig, *, app_name: str, info: bool = False):
 	cfg.validate_app(app_name=app_name, check_elf=False, check_sources=True)
 	cfg.validate_platform(platform_name=platform_cfg.name)
 
-	_transform_app_makefile(os.path.join(app_cfg.dir, "Makefile"))
+	_transform_app_makefile(os.path.join(app_cfg.work_dir, "Makefile"))
 
-	bsp_include = os.path.join(platform_cfg.dir, platform_cfg.cpu, "include")
-	bsp_lib = os.path.join(platform_cfg.dir, platform_cfg.cpu, "lib")
+	bsp_include = os.path.join(platform_cfg.work_dir, platform_cfg.cpu, "include")
+	bsp_lib = os.path.join(platform_cfg.work_dir, platform_cfg.cpu, "lib")
 
-	logger.info("App Build %s", app_cfg.dir)
+	logger.info("App Build %s", app_cfg.work_dir)
 
 	run_tool(
 		[
 			"make",
 			f"-j{os.cpu_count() or 4}",
-			f"INCLUDEPATH=-I{bsp_include} -I{platform_cfg.dir}",
+			f"INCLUDEPATH=-I{bsp_include} -I{platform_cfg.work_dir}",
 			f"c_SOURCES={' '.join([i.file for i in app_cfg.sources])}",
 			f"LIBPATH=-L{bsp_lib}",
 		],
-		cwd=app_cfg.dir,
+		cwd=app_cfg.work_dir,
 		env=_get_vitis_env(cfg),
 		dry_run=cfg.dry_run,
 		exit_on_fail=True,
@@ -131,22 +131,22 @@ def cmd_app_build(cfg: XvivConfig, *, app_name: str, info: bool = False):
 			cfg.get_vitis().path, "gnu", "microblaze", "lin", "bin", "microblaze-xilinx-elf-objdump"
 		)
 
-		logger.info("ELF Size: %s", app_cfg.elf_file)
+		logger.info("ELF Size: %s", app_cfg.elf)
 
 		run_tool(
-			[mb_tool_size_bin, app_cfg.elf_file],
-			cwd=app_cfg.dir,
+			[mb_tool_size_bin, app_cfg.elf],
+			cwd=app_cfg.work_dir,
 			dry_run=cfg.dry_run,
 			exit_on_fail=True,
 			label=f"{__name__}_size",
 			log_dir=cfg.log_dir,
 		)
 
-		logger.info("ELF sections: %s", app_cfg.elf_file)
+		logger.info("ELF sections: %s", app_cfg.elf)
 
 		run_tool(
-			[mb_tool_objdump_bin, "-h", app_cfg.elf_file],
-			cwd=app_cfg.dir,
+			[mb_tool_objdump_bin, "-h", app_cfg.elf],
+			cwd=app_cfg.work_dir,
 			dry_run=cfg.dry_run,
 			exit_on_fail=True,
 			label=f"{__name__}_sections",
@@ -177,14 +177,14 @@ def cmd_program(
 				platform_name = cfg.get_app(app_name).platform
 
 		if platform_cfg := cfg._get_platform_cfg_optional(platform_name):
-			bitstream_file = platform_cfg.bitstream_file
+			bitstream_file = platform_cfg.bitstream
 
 	if platform_name:
 		cfg.validate_platform(platform_name=platform_name)
 
 	if elf_file is None:
 		if app_name is not None:
-			elf_file = cfg.get_app(app_name).elf_file
+			elf_file = cfg.get_app(app_name).elf
 
 	if elf_file is None and bitstream_file is None:
 		raise error.ProgramUnspecifiedIdentifiersError()
