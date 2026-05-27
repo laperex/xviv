@@ -334,6 +334,8 @@ def run_vivado_xsim(
 	if config_tcl is None:
 		return None
 
+	logger.debug("%s: %s\n%s", __name__, label, config_tcl)
+
 	config_tcl_path: str | None = None
 
 	try:
@@ -387,12 +389,15 @@ def run_vivado(
 	label: str,
 	config_tcl: str | None,
 	parallel: bool = False,
+	log_file_path: str | None = None,
 ) -> None:
 	if config_tcl is None:
 		return
 
+	logger.debug("%s: %s - parallel: %s\n%s", __name__, label, str(parallel), config_tcl)
+
 	config_tcl_path: str | None = None
-	_error_occurred = False  # Track whether an exception was raised
+	_error_occurred = False
 	try:
 		with tempfile.NamedTemporaryFile(mode="w", suffix="_config.tcl", delete=False, prefix="xviv_vivado_") as tmp:
 			tmp.write(config_tcl)
@@ -413,12 +418,13 @@ def run_vivado(
 					config_tcl_path,
 				],
 				cwd=cfg.work_dir,
-				label=f"{__name__}_{label}",
-				log_dir=cfg.log_dir,
 				interactive=interactive,
 				dry_run=cfg.dry_run,
 				exit_on_fail=True,
-				stdout_print=not parallel,
+				parallel=parallel,
+				label=f"{__name__}_{label}",
+				log_dir=cfg.log_dir if not log_file_path else None,
+				log_file_path=log_file_path,
 			)
 		except FileNotFoundError:
 			try:

@@ -1,21 +1,39 @@
+import io
 import logging
 import os
 import sys
 import tempfile
 import threading
+import time
 import traceback
 from collections.abc import Callable
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 
-from xviv.utils.log import BOLD, DIM, GREEN, RED, RESET, get_log_formatter
+from xviv.utils.log import BOLD, DIM, GREEN, LEVEL_COLORS, RED, RESET, get_log_formatter
 from xviv.utils.term import terminal_full_length_divider
 
 logger = logging.getLogger(__name__)
 
 
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
 def _fmt_duration(seconds: float) -> str:
 	m, s = divmod(int(seconds), 60)
 	return f"{m}m {s}s" if m else f"{s}s"
+
+
+def _format_exception(exc: BaseException) -> str:
+	"""Format an exception to a string, with colour on Python 3.13+."""
+	buf = io.StringIO()
+	try:
+		# colorize= was added in 3.13; fall back gracefully on older runtimes
+		traceback.print_exception(exc, file=buf, colorize=True)  # type: ignore[call-overload]
+	except TypeError:
+		traceback.print_exception(exc, file=buf)
+	return buf.getvalue()
 
 
 def _print_job(
@@ -25,7 +43,11 @@ def _print_job(
 	index: int,
 	total: int,
 	elapsed: float | None = None,
+	log_file: str | None = None,
+	*,
+	lock: threading.Lock,
 ) -> None:
+	"""Print a completed job block atomically under *lock*."""
 	failed = exc is not None
 	status_color = RED if failed else GREEN
 	status_text = "FAILED" if failed else "OK"
@@ -35,24 +57,55 @@ def _print_job(
 		else ""
 	)
 
-	print(f"\n{DIM}[{index}/{total}]{RESET} {BOLD}{label}{RESET}  {status_color}{status_text}{RESET}{duration}")
-	print(f"{DIM}{terminal_full_length_divider()}{RESET}")
+	lines: list[str] = []
+	lines.append(f"\n{DIM}[{index}/{total}]{RESET} {BOLD}{label}{RESET}  {status_color}{status_text}{RESET}{duration}")
+	lines.append(f"{DIM}{terminal_full_length_divider()}{RESET}")
 
 	if captured:
 		for line in captured.splitlines():
-			print(f"  {line}")
+			lines.append(f"  {line}")
 	else:
-		print(f"  {DIM}(no output){RESET}")
+		lines.append(f"  {DIM}(no output){RESET}")
 
-	if failed and exc:
-		if not isinstance(exc, SystemExit):
-			traceback.print_exception(exc, colorize=True)  # type: ignore[call-overload]
+	if failed and exc and not isinstance(exc, SystemExit):
+		lines.append(_format_exception(exc))
 
-	print(f"{DIM}{terminal_full_length_divider()}{RESET}")
+	if log_file:
+		lines.append(f"{DIM}{BOLD}LOG{RESET} {DIM}{log_file}{RESET}")
+
+	lines.append(f"{DIM}{terminal_full_length_divider()}{RESET}")
+
+	with lock:
+		# Single write keeps all lines together; no interleaving possible.
+		print("\n".join(lines))
+
+
+# ---------------------------------------------------------------------------
+# Per-job log routing
+# ---------------------------------------------------------------------------
 
 
 class _JobLogRouter:
+	"""
+	Routes log records emitted by worker threads so that:
+
+	- Console (StreamHandler) output from worker threads is **suppressed**
+	  while the job runs; records are shown later via _print_job's
+	  *captured* block (read from the per-job temp file).
+	- The persistent FileHandler added by setup_logging() is **not**
+	  filtered; every worker-thread record reaches the log file in real
+	  time.
+	- A lightweight _CaptureHandler mirrors each worker thread's records
+	  into a per-job temp file for later display on stdout.
+	"""
+
+	# ------------------------------------------------------------------
+	# Inner filter / handler
+	# ------------------------------------------------------------------
+
 	class _SuppressWorkerFilter(logging.Filter):
+		"""Drop records that originate from a registered worker thread."""
+
 		def __init__(self, router: "_JobLogRouter") -> None:
 			super().__init__()
 			self._router = router
@@ -61,6 +114,8 @@ class _JobLogRouter:
 			return not self._router._is_worker(threading.get_ident())
 
 	class _CaptureHandler(logging.Handler):
+		"""Write worker-thread records to that thread's temp FileHandler."""
+
 		def __init__(self, router: "_JobLogRouter") -> None:
 			super().__init__(level=logging.INFO)
 			self._router = router
@@ -70,31 +125,46 @@ class _JobLogRouter:
 			if fh is not None:
 				fh.emit(record)
 
-	def __init__(self, base_logger_name: str = "xviv") -> None:
-		import time as _time
+	# ------------------------------------------------------------------
+	# Lifecycle
+	# ------------------------------------------------------------------
 
-		self._time = _time
+	def __init__(self, base_logger_name: str = "xviv") -> None:
+		self._time = time
 		self._lock = threading.Lock()
 		self._active: dict[int, tuple[str, logging.FileHandler]] = {}
 		self._logs: dict[str, str] = {}
 		self._start_times: dict[int, float] = {}
 		self._elapsed: dict[str, float] = {}
+
 		self._suppress = self._SuppressWorkerFilter(self)
 		self._capture = self._CaptureHandler(self)
 		self._patched_handlers: list[logging.Handler] = []
 
-		node = logging.getLogger(base_logger_name)
+		# Walk the logger hierarchy and add _suppress **only** to
+		# StreamHandlers that are NOT FileHandlers.
+		#
+		# FileHandler is a subclass of StreamHandler; without the
+		# `not isinstance(..., FileHandler)` guard the isinstance check
+		# matches FileHandlers too, which would prevent worker-thread
+		# records from reaching the persistent log file.
+		node: logging.Logger | None = logging.getLogger(base_logger_name)
 		while node:
 			for hdlr in node.handlers:
-				hdlr.addFilter(self._suppress)
-				self._patched_handlers.append(hdlr)
+				if isinstance(hdlr, logging.StreamHandler) and not isinstance(hdlr, logging.FileHandler):
+					hdlr.addFilter(self._suppress)
+					self._patched_handlers.append(hdlr)
 			if not node.propagate or node.parent is None:
 				break
-			node = node.parent
+			node = node.parent  # type: ignore[assignment]
 
+		# _CaptureHandler on the root logger catches every record
+		# (regardless of logger hierarchy) and routes it to the
+		# per-job temp file.
 		logging.getLogger().addHandler(self._capture)
 
 	def register(self, label: str) -> None:
+		"""Call from within a worker thread at job start."""
 		tmp = tempfile.mktemp(suffix=".log", prefix="xviv_job_")
 		fh = logging.FileHandler(tmp, encoding="utf-8")
 		fh.setFormatter(get_log_formatter())
@@ -105,6 +175,7 @@ class _JobLogRouter:
 			self._start_times[tid] = self._time.monotonic()
 
 	def unregister(self) -> None:
+		"""Call from within a worker thread at job end."""
 		tid = threading.get_ident()
 		with self._lock:
 			entry = self._active.pop(tid, None)
@@ -126,6 +197,7 @@ class _JobLogRouter:
 		return self._elapsed.get(label)
 
 	def detach(self) -> None:
+		"""Remove all filters / handlers and clean up temp files."""
 		for hdlr in self._patched_handlers:
 			hdlr.removeFilter(self._suppress)
 		logging.getLogger().removeHandler(self._capture)
@@ -134,6 +206,10 @@ class _JobLogRouter:
 				os.unlink(path)
 			except FileNotFoundError:
 				pass
+
+	# ------------------------------------------------------------------
+	# Private helpers
+	# ------------------------------------------------------------------
 
 	def _is_worker(self, tid: int) -> bool:
 		with self._lock:
@@ -145,10 +221,14 @@ class _JobLogRouter:
 			return entry[1] if entry else None
 
 
+# ---------------------------------------------------------------------------
+# Job wrapper
+# ---------------------------------------------------------------------------
+
+
 def _wrap(fn: Callable[[], None], label: str, router: _JobLogRouter) -> Callable[[], None]:
 	def _inner() -> None:
 		router.register(label)
-
 		try:
 			fn()
 		finally:
@@ -157,8 +237,26 @@ def _wrap(fn: Callable[[], None], label: str, router: _JobLogRouter) -> Callable
 	return _inner
 
 
+def _start_log(
+	fn: Callable[[], None],
+	label: str,
+	log_file: str,
+	router: _JobLogRouter,
+	lock: threading.Lock,
+) -> None:
+	"""Print the DISPATCH banner atomically, then run the job."""
+	with lock:
+		print(f"{LEVEL_COLORS[logging.CRITICAL]}DISPATCH{RESET} {BOLD}{label}{RESET} {DIM}{log_file}{RESET}")
+	_wrap(fn, label, router)()
+
+
+# ---------------------------------------------------------------------------
+# Public entry point
+# ---------------------------------------------------------------------------
+
+
 def run_parallel(
-	jobs: list[tuple[Callable[[], None], str]],
+	jobs: list[tuple[Callable[[], None], str, str]],
 	*,
 	max_workers: int = 4,
 	dry_run: bool = False,
@@ -170,26 +268,64 @@ def run_parallel(
 	logger.info("Starting %d parallel job(s) (max_workers=%d)", total, max_workers)
 
 	router = _JobLogRouter(base_logger_name="xviv")
+	print_lock = threading.Lock()
+
 	failures: list[tuple[str, BaseException, str, float | None]] = []
 	success_count = 0
 	completed = 0
+	start_times: dict[str, float] = {}
 
 	try:
 		with ThreadPoolExecutor(max_workers=max_workers) as pool:
-			futures: dict[Future[None], str] = {pool.submit(_wrap(fn, label, router)): label for fn, label in jobs}
-			for fut in as_completed(futures):
-				completed += 1
-				label = futures[fut]
-				exc = fut.exception()
-				captured = router.read_log(label).strip()
-				elapsed = None if dry_run else router.read_elapsed(label)
+			futures: dict[Future[None], tuple[str, str]] = {}
 
-				if exc is None:
-					success_count += 1
-					_print_job(label, None, captured, completed, total, elapsed)
-				else:
-					failures.append((label, exc, captured, elapsed))
-					print(f"\n{DIM}[{completed}/{total}]{RESET} {BOLD}{label}{RESET}  {RED}FAILED{RESET} ")
+			for fn, label, log_file in jobs:
+				start_times[label] = time.time()
+				futures[pool.submit(_start_log, fn, label, log_file, router, print_lock)] = (label, log_file)
+
+			try:
+				for fut in as_completed(futures):
+					completed += 1
+					label, logfile = futures[fut]
+					exc = fut.exception()
+					captured = router.read_log(label).strip()
+					elapsed = None if dry_run else router.read_elapsed(label)
+
+					# start_time = start_times.get(label)
+					# try:
+					# 	log_mtime = os.path.getmtime(logfile)
+					# 	active_logfile = logfile if (start_time is not None and log_mtime > start_time) else None
+					# except OSError:
+					# 	active_logfile = None
+
+					active_logfile = logfile if os.path.exists(log_file) else None
+
+					if exc is None:
+						success_count += 1
+						_print_job(
+							label,
+							None,
+							captured,
+							completed,
+							total,
+							elapsed,
+							active_logfile,
+							lock=print_lock,
+						)
+					else:
+						failures.append((label, exc, captured, elapsed))
+						with print_lock:
+							print(f"\n{DIM}[{completed}/{total}]{RESET} {BOLD}{label}{RESET}  {RED}FAILED{RESET}")
+
+			except KeyboardInterrupt:
+				with print_lock:
+					print(f"\n{RED}{BOLD}Interrupted - cancelling jobs…{RESET}")
+				for fut in futures:
+					fut.cancel()
+				pool.shutdown(wait=False, cancel_futures=True)
+				router.detach()
+				sys.exit(130)
+
 	finally:
 		router.detach()
 
@@ -202,7 +338,7 @@ def run_parallel(
 	print(f"{RED}{BOLD}{terminal_full_length_divider()}{RESET}")
 
 	for i, (label, exc, captured, elapsed) in enumerate(failures, start=1):
-		_print_job(label, exc, captured, i, len(failures), elapsed)
+		_print_job(label, exc, captured, i, len(failures), elapsed, lock=print_lock)
 
 	logger.error(
 		"parallel run finished: %d/%d job(s) failed: %s",

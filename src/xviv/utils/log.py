@@ -10,7 +10,6 @@ LEVEL_COLORS = {
 	logging.ERROR: "\033[31m",  # red
 	logging.CRITICAL: "\033[35m",  # magenta
 }
-
 RESET = "\033[0m"
 BOLD = "\033[1m"
 RED = "\033[31m"
@@ -23,15 +22,13 @@ class ColorFormatter(logging.Formatter):
 		record = copy.copy(record)
 		color = LEVEL_COLORS.get(record.levelno, "")
 		record.levelname = f"{color}{BOLD}{record.levelname}{RESET}"
-		record.name = f"\033[2m{record.name}{RESET}"
-
+		record.name = f"{DIM}{record.name}{RESET}"
 		if record.levelno == logging.ERROR:
 			record.msg = f"{LEVEL_COLORS[logging.ERROR]}{record.msg}{RESET}"
-		if record.levelno == logging.CRITICAL:
+		elif record.levelno == logging.CRITICAL:
 			record.msg = f"{LEVEL_COLORS[logging.CRITICAL]}{record.msg}{RESET}"
-		if record.levelno == logging.WARNING:
+		elif record.levelno == logging.WARNING:
 			record.msg = f"{LEVEL_COLORS[logging.WARNING]}{record.msg}{RESET}"
-
 		return super().format(record)
 
 
@@ -43,18 +40,17 @@ def _supports_color() -> bool:
 	return sys.stdout.isatty()
 
 
-def _file_formatter():
+def _file_formatter() -> logging.Formatter:
 	return logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s")
 
 
-def get_log_formatter(format: str = "%(levelname)s %(message)s"):
+def get_log_formatter(format: str = "%(levelname)s %(message)s") -> logging.Formatter:
 	if _supports_color():
 		return ColorFormatter(format)
-
 	return logging.Formatter(format)
 
 
-def setup_logging(log_file: str | None = None, level_console=logging.INFO) -> None:
+def setup_logging(log_file: str | None = None, level_console: int = logging.INFO) -> None:
 	root = logging.getLogger("xviv")
 	if root.handlers:
 		return

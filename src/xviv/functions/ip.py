@@ -41,15 +41,19 @@ def cmd_ip_create(
 			if not os.path.exists(core.xci_file):
 				continue
 
+			log_file_path = os.path.join(cfg.log_dir, f"job_synth_{core.name}.log")
+
 			tasks.append(
 				(
-					lambda core=core: vivado.run_vivado(
+					lambda core=core, log_file_path=log_file_path: vivado.run_vivado(
 						cfg,
 						config_tcl=(ConfigTclCommands(cfg).generate_core(core_name=core.name).build()),
 						label=f"{__name__}_job_{ip_name}",
 						parallel=True,
+						log_file_path=log_file_path,
 					),
 					core.name,
+					log_file_path,
 				)
 			)
 

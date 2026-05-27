@@ -1,4 +1,5 @@
 import logging
+import os
 
 from xviv.config.project import XvivConfig
 from xviv.generator.tcl.commands import ConfigTclCommands
@@ -48,16 +49,25 @@ def cmd_synth(
 	if parallel_subcore_synth:
 		find_vivado_dir_path(exit_on_fail=True)
 
-		run_parallel(
-			[
+		jobs = []
+		for i in cfg.get_subcore_list(bd_name=bd_name, design_name=design_name):
+			log_file_path = os.path.join(cfg.log_dir, f"job_synth_{i.core}.log")
+			jobs.append(
 				(
-					lambda i=i: vivado.run_vivado(
-						cfg, config_tcl=(ConfigTclCommands(cfg).synth(core=i.core).build()), label=i.core, parallel=True
+					lambda i=i, log_file_path=log_file_path: vivado.run_vivado(
+						cfg,
+						config_tcl=ConfigTclCommands(cfg).synth(core=i.core).build(),
+						label=i.core,
+						parallel=True,
+						log_file_path=log_file_path,
 					),
 					i.core,
+					log_file_path,
 				)
-				for i in cfg.get_subcore_list(bd_name=bd_name, design_name=design_name)
-			],
+			)
+
+		run_parallel(
+			jobs,
 			dry_run=cfg.dry_run,
 		)
 
