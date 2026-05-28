@@ -1,17 +1,3 @@
-"""
-Honest audit of xviv — what the original test suite does NOT cover,
-and tests that actually expose real bugs or dangerous gaps.
-
-Every test here either:
-  (A) Catches a confirmed bug in the code, or
-  (B) Tests the TCL generator output (the real deliverable — actual Vivado commands), or
-  (C) Guards a dangerous silent-failure case the config layer ignores.
-
-The original test_comprehensive.py tested the config layer (data model, path
-generation, error routing). Those tests pass because they match what the code
-*does*. These tests ask whether what the code does is *correct*.
-"""
-
 from __future__ import annotations
 
 import re
