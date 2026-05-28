@@ -9,10 +9,9 @@ import traceback
 from collections.abc import Callable
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 
+from xviv.utils import error
 from xviv.utils.log import BOLD, DIM, GREEN, LEVEL_COLORS, RED, RESET, get_log_formatter
 from xviv.utils.term import terminal_full_length_divider
-
-from xviv.utils import error
 
 logger = logging.getLogger(__name__)
 
