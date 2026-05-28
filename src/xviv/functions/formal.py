@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 def generate_sby(cfg: FormalConfig) -> str:
-	basenames = [os.path.basename(s) for s in cfg.sources]
+	basenames = [os.path.basename(s.file) for s in cfg.sources]
 
 	options: list[str] = [f"mode {cfg.mode}", f"depth {cfg.depth}"]
 
@@ -75,7 +75,7 @@ def generate_sby(cfg: FormalConfig) -> str:
 		*script,
 		"",
 		"[files]",
-		*cfg.sources,
+		*[s.file for s in cfg.sources],
 		"",
 	]
 	return "\n".join(lines)

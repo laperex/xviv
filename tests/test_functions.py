@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from unittest.mock import MagicMock, patch
+from unittest.mock import ANY, MagicMock, patch
 
 import pytest
 
@@ -210,7 +210,7 @@ class TestCmdSimulate:
 		sim_cfg = _make_sim_cfg(design="my_design")
 		cfg.get_sim.return_value = sim_cfg
 		synth_cfg = MagicMock()
-		synth_cfg.synth_functional_netlist_file = "/build/synth/func.v"
+		synth_cfg.synth_functional_netlist = "/build/synth/func.v"
 		cfg.get_synth.return_value = synth_cfg
 		with (
 			patch(f"{SIM_MODULE}.assert_file_exists"),
@@ -226,7 +226,7 @@ class TestCmdSimulate:
 		sim_cfg = _make_sim_cfg(design="my_design")
 		cfg.get_sim.return_value = sim_cfg
 		synth_cfg = MagicMock()
-		synth_cfg.synth_functional_netlist_file = "/build/synth/func.v"
+		synth_cfg.synth_functional_netlist = "/build/synth/func.v"
 		cfg.get_synth.return_value = synth_cfg
 		with (
 			patch(f"{SIM_MODULE}.assert_file_exists"),
@@ -241,21 +241,21 @@ class TestCmdSimulate:
 		sim_cfg = _make_sim_cfg(design="my_design")
 		cfg.get_sim.return_value = sim_cfg
 		synth_cfg = MagicMock()
-		synth_cfg.synth_functional_netlist_file = "/build/synth/func.v"
+		synth_cfg.synth_functional_netlist = "/build/synth/func.v"
 		cfg.get_synth.return_value = synth_cfg
 		with (
 			patch(f"{SIM_MODULE}.assert_file_exists") as mock_assert,
 			patch(f"{SIM_MODULE}._run_xsim"),
 		):
 			cmd_simulate(cfg, sim_name="my_sim", mode="post_synth_functional")
-		mock_assert.assert_called_with(synth_cfg.synth_functional_netlist_file)
+		mock_assert.assert_called_with(synth_cfg.synth_functional_netlist)
 
 	def test_post_synth_timing_uses_timing_netlist(self):
 		cfg = _make_cfg()
 		sim_cfg = _make_sim_cfg(design="my_design")
 		cfg.get_sim.return_value = sim_cfg
 		synth_cfg = MagicMock()
-		synth_cfg.synth_timing_netlist_file = "/build/synth/timing.v"
+		synth_cfg.synth_timing_netlist = "/build/synth/timing.v"
 		cfg.get_synth.return_value = synth_cfg
 		with (
 			patch(f"{SIM_MODULE}.assert_file_exists"),
@@ -270,7 +270,7 @@ class TestCmdSimulate:
 		sim_cfg = _make_sim_cfg(design="my_design")
 		cfg.get_sim.return_value = sim_cfg
 		synth_cfg = MagicMock()
-		synth_cfg.impl_functional_netlist_file = "/build/synth/impl_func.v"
+		synth_cfg.impl_functional_netlist = "/build/synth/impl_func.v"
 		cfg.get_synth.return_value = synth_cfg
 		with (
 			patch(f"{SIM_MODULE}.assert_file_exists"),
@@ -285,8 +285,8 @@ class TestCmdSimulate:
 		sim_cfg = _make_sim_cfg(design="my_design", sdfmax=["tb_top/dut"])
 		cfg.get_sim.return_value = sim_cfg
 		synth_cfg = MagicMock()
-		synth_cfg.impl_timing_sdf_file = "/build/synth/timing.sdf"
-		synth_cfg.impl_timing_netlist_file = "/build/synth/timing.v"
+		synth_cfg.impl_timing_sdf = "/build/synth/timing.sdf"
+		synth_cfg.impl_timing_netlist = "/build/synth/timing.v"
 		cfg.get_synth.return_value = synth_cfg
 		with (
 			patch(f"{SIM_MODULE}.assert_file_exists"),
@@ -301,8 +301,8 @@ class TestCmdSimulate:
 		sim_cfg = _make_sim_cfg(design="my_design", sdfmax=["tb_top/dut"])
 		cfg.get_sim.return_value = sim_cfg
 		synth_cfg = MagicMock()
-		synth_cfg.impl_timing_sdf_file = "/build/synth/timing.sdf"
-		synth_cfg.impl_timing_netlist_file = "/build/synth/timing.v"
+		synth_cfg.impl_timing_sdf = "/build/synth/timing.sdf"
+		synth_cfg.impl_timing_netlist = "/build/synth/timing.v"
 		cfg.get_synth.return_value = synth_cfg
 		with (
 			patch(f"{SIM_MODULE}.assert_file_exists"),
@@ -318,8 +318,8 @@ class TestCmdSimulate:
 		sim_cfg = _make_sim_cfg(design="my_design", sdfmin=["tb_top/dut"])
 		cfg.get_sim.return_value = sim_cfg
 		synth_cfg = MagicMock()
-		synth_cfg.impl_timing_sdf_file = "/build/synth/timing.sdf"
-		synth_cfg.impl_timing_netlist_file = "/build/synth/timing.v"
+		synth_cfg.impl_timing_sdf = "/build/synth/timing.sdf"
+		synth_cfg.impl_timing_netlist = "/build/synth/timing.v"
 		cfg.get_synth.return_value = synth_cfg
 		with (
 			patch(f"{SIM_MODULE}.assert_file_exists"),
@@ -334,8 +334,8 @@ class TestCmdSimulate:
 		sim_cfg = _make_sim_cfg(design="my_design")
 		cfg.get_sim.return_value = sim_cfg
 		synth_cfg = MagicMock()
-		synth_cfg.impl_timing_sdf_file = "/build/synth/timing.sdf"
-		synth_cfg.impl_timing_netlist_file = "/build/synth/timing.v"
+		synth_cfg.impl_timing_sdf = "/build/synth/timing.sdf"
+		synth_cfg.impl_timing_netlist = "/build/synth/timing.v"
 		cfg.get_synth.return_value = synth_cfg
 		with (
 			patch(f"{SIM_MODULE}.assert_file_exists") as mock_assert,
@@ -774,7 +774,7 @@ class TestCmdIpCreate:
 		):
 			MockTcl.return_value.create_ip.return_value.build.return_value = mock_config
 			cmd_ip_create(cfg, ip_name="my_ip")
-		mock_vivado.assert_called_once_with(cfg, config_tcl=mock_config)
+		mock_vivado.assert_called_once_with(cfg, config_tcl=mock_config, label=ANY)
 
 	def test_create_ip_tcl_built_for_correct_ip(self):
 		cfg = _make_cfg()
@@ -822,7 +822,7 @@ class TestCmdIpCreate:
 
 		assert len(tasks) == 1
 
-		_, label = tasks[0]
+		_, label, _ = tasks[0]
 
 		assert label == "my_core"
 
@@ -959,7 +959,7 @@ class TestCmdIpEdit:
 		):
 			MockTcl.return_value.edit_ip.return_value.build.return_value = mock_config
 			cmd_ip_edit(cfg, ip_name="my_ip")
-		mock_vivado.assert_called_once_with(cfg, config_tcl=mock_config)
+		mock_vivado.assert_called_once_with(cfg, config_tcl=mock_config, label=ANY)
 
 	def test_sets_tcl_mode_on_cfg_vivado_when_nogui(self):
 		cfg = _make_cfg()
@@ -1016,7 +1016,7 @@ class TestCmdBdCreate:
 		):
 			MockTcl.return_value.create_bd.return_value.build.return_value = mock_config
 			cmd_bd_create(cfg, bd_name="my_bd")
-		mock_vivado.assert_called_once_with(cfg, config_tcl=mock_config)
+		mock_vivado.assert_called_once_with(cfg, config_tcl=mock_config, label=ANY)
 
 	def test_configtclcommands_initialised_with_cfg(self):
 		cfg = _make_cfg()
@@ -1064,7 +1064,7 @@ class TestCmdBdEdit:
 		):
 			MockTcl.return_value.edit_bd.return_value.build.return_value = mock_config
 			cmd_bd_edit(cfg, bd_name="my_bd")
-		mock_vivado.assert_called_once_with(cfg, config_tcl=mock_config)
+		mock_vivado.assert_called_once_with(cfg, config_tcl=mock_config, label=ANY)
 
 	def test_sets_tcl_mode_when_nogui(self):
 		cfg = _make_cfg()
@@ -1133,7 +1133,7 @@ class TestCmdBdGenerate:
 		):
 			MockTcl.return_value.generate_bd.return_value.build.return_value = mock_config
 			cmd_bd_generate(cfg, bd_name="my_bd")
-		mock_vivado.assert_called_once_with(cfg, config_tcl=mock_config)
+		mock_vivado.assert_called_once_with(cfg, config_tcl=mock_config, label=ANY)
 
 	def test_configtclcommands_initialised_with_cfg(self):
 		cfg = _make_cfg()
@@ -1171,7 +1171,7 @@ class TestCmdCoreCreate:
 		):
 			MockTcl.return_value.create_core.return_value.build.return_value = mock_config
 			cmd_core_create(cfg, core_name="my_core")
-		mock_vivado.assert_called_once_with(cfg, config_tcl=mock_config)
+		mock_vivado.assert_called_once_with(cfg, config_tcl=mock_config, label=ANY)
 
 	def test_configtclcommands_initialised_with_cfg(self):
 		cfg = _make_cfg()
@@ -1219,7 +1219,7 @@ class TestCmdCoreEdit:
 		):
 			MockTcl.return_value.edit_core.return_value.build.return_value = mock_config
 			cmd_core_edit(cfg, core_name="my_core")
-		mock_vivado.assert_called_once_with(cfg, config_tcl=mock_config)
+		mock_vivado.assert_called_once_with(cfg, config_tcl=mock_config, label=ANY)
 
 	def test_sets_tcl_mode_when_nogui(self):
 		cfg = _make_cfg()
@@ -1287,7 +1287,7 @@ class TestCmdCoreGenerate:
 		):
 			MockTcl.return_value.generate_core.return_value.build.return_value = mock_config
 			cmd_core_generate(cfg, core_name="my_core")
-		mock_vivado.assert_called_once_with(cfg, config_tcl=mock_config)
+		mock_vivado.assert_called_once_with(cfg, config_tcl=mock_config, label=ANY)
 
 	def test_configtclcommands_initialised_with_cfg(self):
 		cfg = _make_cfg()

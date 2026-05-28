@@ -128,7 +128,7 @@ class TestMinimalRtlProject:
 		artix.add_design_cfg("top", sources=[src])
 		d = artix.get_design("top")
 		assert d.top == "top"
-		assert d.fpga_ref == "main"
+		assert d.fpga == "main"
 
 	def test_add_design_explicit_top(self, artix, tmp_path):
 		src = _touch(tmp_path / "srcs/rtl/cpu.sv")
@@ -141,7 +141,7 @@ class TestMinimalRtlProject:
 		artix.add_design_cfg("top", sources=[src])
 		artix.add_synth_cfg(design="top", constraints=[xdc])
 		sc = artix.get_synth(design_name="top")
-		assert sc.fpga_ref == "main"
+		assert sc.fpga == "main"
 		assert sc.top == "top"
 
 	def test_synth_creates_expected_checkpoint_paths(self, artix, tmp_path):
@@ -150,18 +150,18 @@ class TestMinimalRtlProject:
 		artix.add_synth_cfg(design="top")
 		sc = artix.get_synth(design_name="top")
 		build_dir = str(tmp_path / "build")
-		assert sc.synth_dcp_file and sc.synth_dcp_file.startswith(build_dir)
-		assert "top" in sc.synth_dcp_file
-		assert sc.place_dcp_file and "top" in sc.place_dcp_file
-		assert sc.route_dcp_file and "top" in sc.route_dcp_file
+		assert sc.synth_dcp and sc.synth_dcp.startswith(build_dir)
+		assert "top" in sc.synth_dcp
+		assert sc.place_dcp and "top" in sc.place_dcp
+		assert sc.route_dcp and "top" in sc.route_dcp
 
 	def test_synth_bitstream_enabled_by_default_for_design(self, artix, tmp_path):
 		src = _touch(tmp_path / "srcs/rtl/top.sv")
 		artix.add_design_cfg("top", sources=[src])
 		artix.add_synth_cfg(design="top")
 		sc = artix.get_synth(design_name="top")
-		assert sc.bitstream_file is not None
-		assert sc.bitstream_file.endswith(".bit")
+		assert sc.bitstream is not None
+		assert sc.bitstream.endswith(".bit")
 
 	def test_synth_hw_platform_disabled_for_plain_design(self, artix, tmp_path):
 		src = _touch(tmp_path / "srcs/rtl/top.sv")
@@ -169,7 +169,7 @@ class TestMinimalRtlProject:
 		artix.add_synth_cfg(design="top")
 		sc = artix.get_synth(design_name="top")
 		# plain RTL design: no XSA by default
-		assert sc.hw_platform_xsa_file is None
+		assert sc.hw_platform is None
 
 	def test_validate_design_succeeds_when_sources_exist(self, artix, tmp_path):
 		src = _touch(tmp_path / "srcs/rtl/top.sv")
@@ -239,30 +239,30 @@ class TestBlockDesignEmbeddedFlow:
 	def test_bd_synth_bitstream_and_xsa_enabled(self, artix, tmp_path):
 		self._setup(artix, tmp_path)
 		sc = artix.get_synth(bd_name="system")
-		assert sc.bitstream_file is not None
-		assert sc.hw_platform_xsa_file is not None
+		assert sc.bitstream is not None
+		assert sc.hw_platform is not None
 
 	def test_platform_links_xsa_to_synth_output(self, artix, tmp_path):
 		self._setup(artix, tmp_path)
 		artix.add_platform_cfg("mb_platform", bd="system", cpu="microblaze_0")
 		pf = artix.get_platform("mb_platform")
 		sc = artix.get_synth(bd_name="system")
-		assert pf.xsa_file == sc.hw_platform_xsa_file
+		assert pf.xsa == sc.hw_platform
 
 	def test_platform_links_bitstream_to_synth_output(self, artix, tmp_path):
 		self._setup(artix, tmp_path)
 		artix.add_platform_cfg("mb_platform", bd="system")
 		pf = artix.get_platform("mb_platform")
 		sc = artix.get_synth(bd_name="system")
-		assert pf.bitstream_file == sc.bitstream_file
+		assert pf.bitstream == sc.bitstream
 
 	def test_app_config_stores_elf_under_app_subdir(self, artix, tmp_path):
 		self._setup(artix, tmp_path)
 		artix.add_platform_cfg("mb_platform", bd="system")
 		artix.add_app_cfg("firmware", platform="mb_platform")
 		app = artix.get_app("firmware")
-		assert "firmware" in app.elf_file
-		assert app.elf_file.endswith(".elf")
+		assert "firmware" in app.elf
+		assert app.elf.endswith(".elf")
 
 	def test_app_default_template(self, artix, tmp_path):
 		self._setup(artix, tmp_path)
@@ -304,7 +304,7 @@ class TestBlockDesignEmbeddedFlow:
 		artix.add_platform_cfg("mb_platform", bd="system")
 		pf = artix.get_platform("mb_platform")
 		# create XSA but not bitstream
-		_touch(pf.xsa_file)
+		_touch(pf.xsa)
 		with pytest.raises(error.PlatformBitstreamMissingError):
 			artix.validate_platform("mb_platform")
 
@@ -312,8 +312,8 @@ class TestBlockDesignEmbeddedFlow:
 		self._setup(artix, tmp_path)
 		artix.add_platform_cfg("mb_platform", bd="system")
 		pf = artix.get_platform("mb_platform")
-		_touch(pf.xsa_file)
-		_touch(pf.bitstream_file)
+		_touch(pf.xsa)
+		_touch(pf.bitstream)
 		artix.validate_platform("mb_platform")  # must not raise
 
 	def test_validate_app_fails_when_elf_missing(self, artix, tmp_path):
@@ -328,7 +328,7 @@ class TestBlockDesignEmbeddedFlow:
 		artix.add_platform_cfg("mb_platform", bd="system")
 		artix.add_app_cfg("firmware", platform="mb_platform")
 		app = artix.get_app("firmware")
-		_touch(app.elf_file)
+		_touch(app.elf)
 		with pytest.raises(error.AppSourcesEmptyError):
 			artix.validate_app("firmware")
 
@@ -338,7 +338,7 @@ class TestBlockDesignEmbeddedFlow:
 		src = _touch(tmp_path / "fw/main.c")
 		artix.add_app_cfg("firmware", platform="mb_platform", sources=[src])
 		app = artix.get_app("firmware")
-		_touch(app.elf_file)
+		_touch(app.elf)
 		artix.validate_app("firmware")  # must not raise
 
 
@@ -390,7 +390,7 @@ class TestCustomIpFlow:
 		artix.add_wrapper_cfg(ip="gamma_axi", sources=[wsrc])
 		w = artix.get_wrapper("gamma_axi")
 		assert w.wrapper_top == "gamma_axi_wrapper"
-		assert w.ip_top == "gamma_axi"
+		assert w.top == "gamma_axi"
 
 	def test_add_wrapper_custom_top(self, artix, tmp_path):
 		src = _touch(tmp_path / "srcs/ip/gamma_axi/gamma_axi.sv")
@@ -466,7 +466,7 @@ class TestMultiFpgaProject:
 		bare.add_fpga_cfg("aux", fpga_part="xc7a35tcsg324-1")
 		src = _touch(tmp_path / "blinky.sv")
 		bare.add_design_cfg("blinky", sources=[src], fpga="aux")
-		assert bare.get_design("blinky").fpga_ref == "aux"
+		assert bare.get_design("blinky").fpga == "aux"
 
 	def test_fpga_board_part_only(self, bare, tmp_path):
 		bare.add_fpga_cfg("board", board_part="xilinx.com:zcu102:part0:3.4")
@@ -612,11 +612,12 @@ class TestSimulationConfig:
 
 class TestFormalConfig:
 	def _make_formal(self, tmp_path, **kwargs) -> FormalConfig:
+		src_paths = [str(tmp_path / "gamma_axi.sv"), str(tmp_path / "gamma_axi_props.sv")]
 		defaults = dict(
 			name="gamma_props",
 			top="gamma_axi",
 			mode="prove",
-			sources=[str(tmp_path / "gamma_axi.sv"), str(tmp_path / "gamma_axi_props.sv")],
+			sources=[SourceFile.from_stages(p, {"synth", "impl", "sim", "ooc"}) for p in src_paths],
 			work_dir=str(tmp_path / "formal" / "gamma_props"),
 			depth=20,
 			append=0,
@@ -630,11 +631,20 @@ class TestFormalConfig:
 			extra_opts=[],
 		)
 		defaults.update(kwargs)
+		# If caller passes plain strings for sources, convert them
+		if defaults.get("sources") and isinstance(defaults["sources"][0], str):
+			defaults["sources"] = [SourceFile.from_stages(s, {"synth", "impl", "sim", "ooc"}) for s in defaults["sources"]]
 		return FormalConfig(**defaults)
 
-	def test_formal_invalid_mode_raises_in_post_init(self, tmp_path):
+	def test_formal_invalid_mode_raises_in_formal_validate(self, artix, tmp_path):
+		artix.add_formal_cfg(
+			"gamma_props",
+			top="gamma_axi",
+			mode="mode_invalid",
+			sources=[str(tmp_path / "ghost.sv")],
+		)
 		with pytest.raises(error.FormalInvalidModeError):
-			self._make_formal(tmp_path, mode="fuzz")
+			artix.validate_formal("gamma_props")
 
 	def test_formal_valid_modes_accepted(self, tmp_path):
 		for mode in ("bmc", "prove", "cover"):
@@ -768,7 +778,7 @@ class TestFormalConfig:
 			name="gamma_props",
 			top="gamma_axi",
 			mode="prove",
-			sources=[src],
+			sources=[SourceFile.from_stages(src, {"synth", "impl", "sim", "ooc"})],
 			work_dir=str(tmp_path / "formal" / "gamma_props"),
 			depth=20,
 			append=0,
@@ -793,7 +803,7 @@ class TestFormalConfig:
 			name="gamma_props",
 			top="gamma_axi",
 			mode="prove",
-			sources=[src],
+			sources=[SourceFile.from_stages(src, {"synth", "impl", "sim", "ooc"})],
 			work_dir=str(tmp_path / "formal" / "gamma_props"),
 			depth=20,
 			append=0,
@@ -818,7 +828,7 @@ class TestFormalConfig:
 			name="gamma_props",
 			top="gamma_axi",
 			mode="bmc",
-			sources=[src],
+			sources=[SourceFile.from_stages(src, {"synth", "impl", "sim", "ooc"})],
 			work_dir=str(tmp_path / "formal" / "gamma_props"),
 			depth=10,
 			append=0,
@@ -842,7 +852,7 @@ class TestFormalConfig:
 			name="gamma_props",
 			top="gamma_axi",
 			mode="bmc",
-			sources=[src],
+			sources=[SourceFile.from_stages(src, {"synth", "impl", "sim", "ooc"})],
 			work_dir=str(tmp_path / "formal" / "gamma_props"),
 			depth=10,
 			append=0,
@@ -872,7 +882,7 @@ class TestFormalConfig:
 			name="gamma_props",
 			top="gamma_axi",
 			mode="bmc",
-			sources=[src],
+			sources=[SourceFile.from_stages(src, {"synth", "impl", "sim", "ooc"})],
 			work_dir=str(tmp_path / "formal" / "gamma_props"),
 			depth=10,
 			append=0,
@@ -911,13 +921,13 @@ class TestSynthFlags:
 		artix.add_core_cfg("clk_wiz_0", vlnv="xilinx.com:ip:clk_wiz:6.0")
 		artix.add_synth_cfg(core="clk_wiz_0")
 		sc = artix.get_synth(core_name="clk_wiz_0")
-		assert sc.bitstream_file is None
+		assert sc.bitstream is None
 
 	def test_synth_core_stub_enabled_by_default(self, artix, tmp_path):
 		artix.add_core_cfg("clk_wiz_0", vlnv="xilinx.com:ip:clk_wiz:6.0")
 		artix.add_synth_cfg(core="clk_wiz_0")
 		sc = artix.get_synth(core_name="clk_wiz_0")
-		assert sc.synth_stub_file is not None
+		assert sc.synth_stub is not None
 
 	def test_synth_design_default_mode_is_default(self, artix, tmp_path):
 		src = _touch(tmp_path / "top.sv")
@@ -968,9 +978,9 @@ class TestSynthFlags:
 			route_dcp=False,
 		)
 		sc = artix.get_synth(design_name="top")
-		assert sc.synth_dcp_file is None
-		assert sc.place_dcp_file is None
-		assert sc.route_dcp_file is None
+		assert sc.synth_dcp is None
+		assert sc.place_dcp is None
+		assert sc.route_dcp is None
 
 	def test_synth_custom_dcp_paths(self, artix, tmp_path):
 		src = _touch(tmp_path / "top.sv")
@@ -981,8 +991,8 @@ class TestSynthFlags:
 			route_dcp=str(tmp_path / "my_route.dcp"),
 		)
 		sc = artix.get_synth(design_name="top")
-		assert sc.synth_dcp_file == str(tmp_path / "my_synth.dcp")
-		assert sc.route_dcp_file == str(tmp_path / "my_route.dcp")
+		assert sc.synth_dcp == str(tmp_path / "my_synth.dcp")
+		assert sc.route_dcp == str(tmp_path / "my_route.dcp")
 
 	def test_synth_usr_access_value_stored(self, artix, tmp_path):
 		src = _touch(tmp_path / "top.sv")
@@ -1002,24 +1012,24 @@ class TestSynthFlags:
 			route_report_power=True,
 		)
 		sc = artix.get_synth(design_name="top")
-		assert sc.synth_report_timing_summary_file is not None
-		assert sc.synth_report_utilization_file is not None
-		assert sc.route_report_drc_file is not None
-		assert sc.route_report_power_file is not None
+		assert sc.synth_report_timing_summary is not None
+		assert sc.synth_report_utilization is not None
+		assert sc.route_report_drc is not None
+		assert sc.route_report_power is not None
 
 	def test_synth_impl_timing_sdf_auto_enables_when_netlist_set(self, artix, tmp_path):
 		src = _touch(tmp_path / "top.sv")
 		artix.add_design_cfg("top", sources=[src])
 		artix.add_synth_cfg(design="top", impl_timing_netlist=True)
 		sc = artix.get_synth(design_name="top")
-		assert sc.impl_timing_sdf_file is not None
+		assert sc.impl_timing_sdf is not None
 
 	def test_synth_impl_timing_sdf_disabled_when_no_netlist(self, artix, tmp_path):
 		src = _touch(tmp_path / "top.sv")
 		artix.add_design_cfg("top", sources=[src])
 		artix.add_synth_cfg(design="top", impl_timing_netlist=False)
 		sc = artix.get_synth(design_name="top")
-		assert sc.impl_timing_sdf_file is None
+		assert sc.impl_timing_sdf is None
 
 
 # ===========================================================================
@@ -1341,7 +1351,7 @@ class TestDuplicateAndMissingErrors:
 class TestParallelJobs:
 	def test_all_succeed_no_exception(self):
 		results = []
-		jobs = [(lambda i=i: results.append(i), f"job_{i}") for i in range(5)]
+		jobs = [(lambda i=i: results.append(i), f"job_{i}", None) for i in range(5)]
 		run_parallel(jobs, max_workers=4)
 		assert sorted(results) == list(range(5))
 
@@ -1350,7 +1360,7 @@ class TestParallelJobs:
 			raise ValueError("boom")
 
 		with pytest.raises(error.ParallelJobError) as exc_info:
-			run_parallel([(bad, "bad_job")], max_workers=1)
+			run_parallel([(bad, "bad_job", None)], max_workers=1)
 		err = exc_info.value
 		assert len(err.failures) == 1
 		assert err.failures[0][0] == "bad_job"
@@ -1360,7 +1370,7 @@ class TestParallelJobs:
 		def fail(msg):
 			raise RuntimeError(msg)
 
-		jobs = [(lambda m=m: fail(m), f"job_{m}") for m in ["a", "b", "c"]]
+		jobs = [(lambda m=m: fail(m), f"job_{m}", None) for m in ["a", "b", "c"]]
 		with pytest.raises(error.ParallelJobError) as exc_info:
 			run_parallel(jobs, max_workers=3)
 		assert len(exc_info.value.failures) == 3
@@ -1375,7 +1385,7 @@ class TestParallelJobs:
 			raise RuntimeError("bad")
 
 		with pytest.raises(error.ParallelJobError):
-			run_parallel([(ok, "ok_job"), (bad, "bad_job"), (ok, "ok2_job")], max_workers=3)
+			run_parallel([(ok, "ok_job", None), (bad, "bad_job", None), (ok, "ok2_job", None)], max_workers=3)
 		# good jobs still ran
 		assert results.count("ok") == 2
 
@@ -1387,7 +1397,7 @@ class TestParallelJobs:
 			raise ValueError("exploded")
 
 		with pytest.raises(error.ParallelJobError) as exc_info:
-			run_parallel([(bad, "critical_task")], max_workers=1)
+			run_parallel([(bad, "critical_task", None)], max_workers=1)
 		assert "critical_task" in str(exc_info.value)
 		assert "ValueError" in str(exc_info.value)
 
@@ -1400,7 +1410,7 @@ class TestParallelJobs:
 			time.sleep(0.05)
 			times.append(time.monotonic())
 
-		jobs = [(slow, f"s{i}") for i in range(4)]
+		jobs = [(slow, f"s{i}", None) for i in range(4)]
 		t0 = time.monotonic()
 		run_parallel(jobs, max_workers=4)
 		elapsed = time.monotonic() - t0
@@ -1490,7 +1500,7 @@ class TestGitShaHelper:
 
 	@patch("subprocess.check_output")
 	def test_git_not_in_repo_returns_empty(self, mock_cmd):
-		mock_cmd.side_effect = subprocess.CalledProcessError(128, "git")
+		mock_cmd.side_effect = subprocess.CalledProcessError(128, "git", None)
 		sha, dirty, tag = _git_sha_tag()
 		assert sha == ""
 		assert dirty is False
@@ -1498,7 +1508,7 @@ class TestGitShaHelper:
 	@patch("subprocess.check_output")
 	def test_status_failure_treats_as_clean(self, mock_cmd):
 		"""SHA succeeds but git status raises – should not crash, treat as clean."""
-		mock_cmd.side_effect = [b"abc1234\n", subprocess.CalledProcessError(1, "git")]
+		mock_cmd.side_effect = [b"abc1234\n", subprocess.CalledProcessError(1, "git", None)]
 		sha, dirty, tag = _git_sha_tag()
 		assert sha == "abc1234"
 		assert dirty is False
@@ -1543,7 +1553,7 @@ class TestTomlLoader:
 
 		toml_text = textwrap.dedent("""\
 			[project]
-			build_dir = "build"
+			work_dir = "build"
 
 			[[fpga]]
 			name = "main"
@@ -1568,7 +1578,7 @@ class TestTomlLoader:
 
 		toml_text = textwrap.dedent(f"""\
 			[project]
-			build_dir = "build"
+			work_dir = "build"
 
 			[[fpga]]
 			name = "main"
@@ -1599,7 +1609,7 @@ class TestTomlLoader:
 
 		toml_text = textwrap.dedent("""\
 			[project]
-			build_dir = "build"
+			work_dir = "build"
 
 			[[fpga]]
 			name = "main"
@@ -1632,7 +1642,7 @@ class TestTomlLoader:
 
 		toml_text = textwrap.dedent(f"""\
 			[project]
-			build_dir = "build"
+			work_dir = "build"
 
 			[[fpga]]
 			name = "main"
@@ -1665,7 +1675,7 @@ class TestTomlLoader:
 
 		toml_text = textwrap.dedent(f"""\
 			[project]
-			build_dir = "build"
+			work_dir = "build"
 
 			[[fpga]]
 			name = "main"

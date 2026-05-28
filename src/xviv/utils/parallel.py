@@ -127,7 +127,7 @@ class _JobLogRouter:
 					self._patched_handlers.append(hdlr)
 			if not node.propagate or node.parent is None:
 				break
-			node = node.parent 
+			node = node.parent
 
 		# _CaptureHandler on the root logger catches every record
 		# (regardless of logger hierarchy) and routes it to the
@@ -260,12 +260,15 @@ def run_parallel(
 
 					start_time = start_times.get(label)
 					try:
-						log_mtime = os.path.getmtime(logfile)
-						active_logfile = logfile if (start_time is not None and log_mtime > start_time) else None
+						if logfile is not None:
+							log_mtime = os.path.getmtime(logfile)
+							active_logfile = logfile if (start_time is not None and log_mtime > start_time) else None
+						else:
+							active_logfile = None
 					except OSError:
 						active_logfile = None
 
-					active_logfile = logfile if os.path.exists(log_file) else None
+					active_logfile = logfile if (logfile is not None and os.path.exists(logfile)) else None
 
 					if exc is None:
 						success_count += 1
@@ -314,4 +317,6 @@ def run_parallel(
 		", ".join(label for label, _, _, _ in failures),
 	)
 
-	sys.exit(1)
+	from xviv.utils.error import ParallelJobError
+
+	raise ParallelJobError([(label, exc) for label, exc, _, _ in failures])

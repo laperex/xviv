@@ -959,7 +959,7 @@ class XvivConfig:
 				name=name,
 				top=top,
 				mode=mode,
-				sources=resolve_globs(sources, self.base_dir),
+				sources=self._resolve_sources(sources),
 				work_dir=os.path.join(self.formal_dir, name),
 				depth=depth,
 				append=append,
@@ -987,9 +987,13 @@ class XvivConfig:
 
 	def validate_formal(self, name: str) -> None:
 		cfg = self.get_formal(name)
+
+		if cfg.mode not in frozenset({"bmc", "prove", "cover"}):
+			raise error.FormalInvalidModeError(cfg.name, cfg.mode)
+
 		for src in cfg.sources:
-			if not os.path.exists(src):
-				raise error.FormalSourceMissingError(name, src)
+			if not os.path.exists(src.file):
+				raise error.FormalSourceMissingError(name, src.file)
 
 	def _get_formal_cfg_optional(self, name: str) -> FormalConfig | None:
 		return next((i for i in self._formal_list if i.name == name), None)

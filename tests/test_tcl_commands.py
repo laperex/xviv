@@ -213,7 +213,6 @@ class TestSynthOocStub:
 		cfg.add_design_cfg("my_design", sources=[])
 		cfg.add_synth_cfg(
 			design="my_design",
-			out_of_context_subcores=True,
 			bitstream=False,
 			hw_platform=False,
 		)
@@ -232,7 +231,7 @@ class TestSynthOocStub:
 		cmd = ConfigTclCommands(cfg)
 		with patch.object(cfg, "get_vivado", return_value=vivado_mock):
 			with pytest.raises(error.OocStubMissingError) as exc_info:
-				cmd.synth(design="my_design")
+				cmd.synth(design="my_design", parallel_subcore_synth=True)
 
 		assert exc_info.value.core == "sub_core"
 
@@ -798,9 +797,9 @@ class TestSynthAutoResume:
 		synth_cfg = cfg.get_synth(design_name="my_design")
 		dcp = tmp_path / "synth.dcp"
 		dcp.touch()
-		synth_cfg.synth_dcp_file = str(dcp)
-		synth_cfg.place_dcp_file = str(tmp_path / "no_place.dcp")  # doesn't exist
-		synth_cfg.route_dcp_file = str(tmp_path / "no_route.dcp")  # doesn't exist
+		synth_cfg.synth_dcp = str(dcp)
+		synth_cfg.place_dcp = str(tmp_path / "no_place.dcp")  # doesn't exist
+		synth_cfg.route_dcp = str(tmp_path / "no_route.dcp")  # doesn't exist
 		# Auto-resume from checkpoint - _require_project is NOT called
 		cmd.synth(design="my_design", resume="auto")
 		result = cmd.build()
@@ -811,9 +810,9 @@ class TestSynthAutoResume:
 		synth_cfg = cfg.get_synth(design_name="my_design")
 		dcp = tmp_path / "place.dcp"
 		dcp.touch()
-		synth_cfg.synth_dcp_file = str(tmp_path / "no_synth.dcp")
-		synth_cfg.place_dcp_file = str(dcp)
-		synth_cfg.route_dcp_file = str(tmp_path / "no_route.dcp")
+		synth_cfg.synth_dcp = str(tmp_path / "no_synth.dcp")
+		synth_cfg.place_dcp = str(dcp)
+		synth_cfg.route_dcp = str(tmp_path / "no_route.dcp")
 		cmd.synth(design="my_design", resume="auto")
 		result = cmd.build()
 		assert _has_cmd(result, "open_checkpoint")
@@ -824,9 +823,9 @@ class TestSynthAutoResume:
 		synth_cfg = cfg.get_synth(design_name="my_design")
 		dcp = tmp_path / "route.dcp"
 		dcp.touch()
-		synth_cfg.synth_dcp_file = str(tmp_path / "no_synth.dcp")
-		synth_cfg.place_dcp_file = str(tmp_path / "no_place.dcp")
-		synth_cfg.route_dcp_file = str(dcp)
+		synth_cfg.synth_dcp = str(tmp_path / "no_synth.dcp")
+		synth_cfg.place_dcp = str(tmp_path / "no_place.dcp")
+		synth_cfg.route_dcp = str(dcp)
 		cmd.synth(design="my_design", resume="auto")
 		result = cmd.build()
 		assert _has_cmd(result, "open_checkpoint")

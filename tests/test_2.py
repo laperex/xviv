@@ -365,12 +365,12 @@ class TestTclGeneratorCorrectness:
 
 	# --- synth_design command ---------------------------------------------
 
-	def test_synth_design_correct_top(self, tmp_path):
+	def test_correct_top_flag_in_synth_cmd(self, tmp_path):
 		cfg = _cfg(tmp_path)
 		cfg.add_design_cfg("my_module", sources=[], top="the_actual_top")
 		cfg.add_synth_cfg(design="my_module", run_place=False, run_route=False, bitstream=False)
 		tcl = _tcl(cfg, design="my_module")
-		synth_line = next(l for l in tcl.splitlines() if "synth_design" in l)
+		synth_line = next(l for l in tcl.splitlines() if l.startswith("synth_design"))
 		assert "-top the_actual_top" in synth_line
 
 	def test_synth_design_default_mode(self, tmp_path):
@@ -378,7 +378,7 @@ class TestTclGeneratorCorrectness:
 		cfg.add_design_cfg("top", sources=[])
 		cfg.add_synth_cfg(design="top", run_place=False, run_route=False, bitstream=False)
 		tcl = _tcl(cfg, design="top")
-		synth_line = next(l for l in tcl.splitlines() if "synth_design" in l)
+		synth_line = next(l for l in tcl.splitlines() if l.startswith("synth_design"))
 		assert "-mode default" in synth_line
 
 	def test_synth_design_custom_directive(self, tmp_path):
@@ -386,7 +386,7 @@ class TestTclGeneratorCorrectness:
 		cfg.add_design_cfg("top", sources=[])
 		cfg.add_synth_cfg(design="top", synth_directive="AreaOptimized_high", run_place=False, run_route=False, bitstream=False)
 		tcl = _tcl(cfg, design="top")
-		synth_line = next(l for l in tcl.splitlines() if "synth_design" in l)
+		synth_line = next(l for l in tcl.splitlines() if l.startswith("synth_design"))
 		assert '"AreaOptimized_high"' in synth_line
 
 	def test_synth_design_custom_flatten_hierarchy(self, tmp_path):
@@ -394,7 +394,7 @@ class TestTclGeneratorCorrectness:
 		cfg.add_design_cfg("top", sources=[])
 		cfg.add_synth_cfg(design="top", synth_flatten_hierarchy="full", run_place=False, run_route=False, bitstream=False)
 		tcl = _tcl(cfg, design="top")
-		synth_line = next(l for l in tcl.splitlines() if "synth_design" in l)
+		synth_line = next(l for l in tcl.splitlines() if l.startswith("synth_design"))
 		assert "-flatten_hierarchy full" in synth_line
 
 	def test_synth_design_fsm_extraction_sequential(self, tmp_path):
@@ -402,7 +402,7 @@ class TestTclGeneratorCorrectness:
 		cfg.add_design_cfg("top", sources=[])
 		cfg.add_synth_cfg(design="top", synth_fsm_extraction="sequential", run_place=False, run_route=False, bitstream=False)
 		tcl = _tcl(cfg, design="top")
-		synth_line = next(l for l in tcl.splitlines() if "synth_design" in l)
+		synth_line = next(l for l in tcl.splitlines() if l.startswith("synth_design"))
 		assert "-fsm_extraction sequential" in synth_line
 
 	# --- stage ordering ---------------------------------------------------

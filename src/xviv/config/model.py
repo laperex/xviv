@@ -471,12 +471,7 @@ class FormalConfig(Lockable):
 	work_dir: str = relpath_field()
 	include_dirs: list[str] = relpath_list_field(default_factory=list)
 
-	_VALID_MODES: typing.ClassVar[frozenset[str]] = frozenset({"bmc", "prove", "cover"})
-
 	def __post_init__(self) -> None:
-		if self.mode not in self._VALID_MODES:
-			raise ValueError(f"FormalConfig '{self.name}': invalid mode '{self.mode}'")
-
 		self.work_dir = os.path.abspath(self.work_dir)
 		self.include_dirs = [os.path.abspath(p) for p in self.include_dirs]
 		for s in self.sources:

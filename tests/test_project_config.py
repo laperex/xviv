@@ -315,7 +315,7 @@ class TestIpPositive:
 	def test_fpga_ref_stored(self, cfg_fpga, tmp_path):
 		src = _touch(tmp_path / "a.v")
 		cfg_fpga.add_ip_cfg("my_ip", sources=[src])
-		assert cfg_fpga.get_ip("my_ip").fpga_ref == "xczu9"
+		assert cfg_fpga.get_ip("my_ip").fpga == "xczu9"
 
 	def test_validate_ip_passes_with_existing_source(self, cfg_fpga, tmp_path):
 		src = _touch(tmp_path / "a.v")
@@ -350,7 +350,7 @@ class TestWrapperPositive:
 		wrap = _touch(tmp_path / "wrap.sv")
 		cfg_fpga.add_wrapper_cfg(ip="my_ip", sources=[wrap])
 		w = cfg_fpga.get_wrapper("my_ip")
-		assert w.ip_name == "my_ip"
+		assert w.ip == "my_ip"
 
 	def test_default_wrapper_top_name(self, cfg_fpga, tmp_path):
 		self._setup_ip(cfg_fpga, tmp_path)
@@ -378,7 +378,7 @@ class TestWrapperPositive:
 		wrap = _touch(tmp_path / "wrap.sv")
 		cfg_fpga.add_wrapper_cfg(ip="my_ip", sources=[wrap])
 		w = cfg_fpga.get_wrapper("my_ip")
-		assert w.ip_top == "ip_top_module"
+		assert w.top == "ip_top_module"
 
 
 # ===========================================================================
@@ -395,7 +395,7 @@ class TestBdPositive:
 	def test_bd_fpga_ref_stored(self, cfg_fpga):
 		cfg_fpga.add_bd_cfg("my_bd")
 		bd = cfg_fpga.get_bd("my_bd")
-		assert bd.fpga_ref == "xczu9"
+		assert bd.fpga == "xczu9"
 
 	def test_bd_default_save_file_path(self, cfg_fpga):
 		cfg_fpga.add_bd_cfg("my_bd")
@@ -441,7 +441,7 @@ class TestCorePositive:
 
 	def test_fpga_ref_stored(self, cfg_fpga):
 		cfg_fpga.add_core_cfg("my_core", vlnv="a:b:c:1.0")
-		assert cfg_fpga.get_core("my_core").fpga_ref == "xczu9"
+		assert cfg_fpga.get_core("my_core").fpga == "xczu9"
 
 	def test_add_core_returns_self(self, cfg_fpga):
 		result = cfg_fpga.add_core_cfg("my_core", vlnv="a:b:c:1.0")
@@ -469,7 +469,7 @@ class TestDesignPositive:
 
 	def test_fpga_ref_stored(self, cfg_fpga):
 		cfg_fpga.add_design_cfg("my_design", sources=[])
-		assert cfg_fpga.get_design("my_design").fpga_ref == "xczu9"
+		assert cfg_fpga.get_design("my_design").fpga == "xczu9"
 
 	def test_validate_design_passes_for_existing_sources(self, cfg_fpga, tmp_path):
 		src = _touch(tmp_path / "top.sv")
@@ -495,19 +495,19 @@ class TestSynthPositive:
 		cfg_fpga.add_design_cfg("my_design", sources=[])
 		cfg_fpga.add_synth_cfg(design="my_design")
 		synth = cfg_fpga.get_synth(design_name="my_design")
-		assert synth.design_name == "my_design"
+		assert synth.design == "my_design"
 
 	def test_add_synth_for_bd(self, cfg_fpga):
 		cfg_fpga.add_bd_cfg("my_bd")
 		cfg_fpga.add_synth_cfg(bd="my_bd")
 		synth = cfg_fpga.get_synth(bd_name="my_bd")
-		assert synth.bd_name == "my_bd"
+		assert synth.bd == "my_bd"
 
 	def test_add_synth_for_core(self, cfg_fpga):
 		cfg_fpga.add_core_cfg("my_core", vlnv="a:b:c:1.0")
 		cfg_fpga.add_synth_cfg(core="my_core")
 		synth = cfg_fpga.get_synth(core_name="my_core")
-		assert synth.core_name == "my_core"
+		assert synth.core == "my_core"
 
 	def test_design_synth_top_defaults_to_design_top(self, cfg_fpga):
 		cfg_fpga.add_design_cfg("my_design", sources=[], top="top_mod")
@@ -537,34 +537,34 @@ class TestSynthPositive:
 		cfg_fpga.add_design_cfg("my_design", sources=[])
 		cfg_fpga.add_synth_cfg(design="my_design")
 		synth = cfg_fpga.get_synth(design_name="my_design")
-		assert synth.bitstream_file is not None
-		assert "my_design.bit" in synth.bitstream_file
+		assert synth.bitstream is not None
+		assert "my_design.bit" in synth.bitstream
 
 	def test_design_synth_hw_platform_file_is_none(self, cfg_fpga):
 		cfg_fpga.add_design_cfg("my_design", sources=[])
 		cfg_fpga.add_synth_cfg(design="my_design")
 		synth = cfg_fpga.get_synth(design_name="my_design")
-		assert synth.hw_platform_xsa_file is None
+		assert synth.hw_platform is None
 
 	def test_synth_bitstream_disabled_with_false(self, cfg_fpga):
 		cfg_fpga.add_design_cfg("my_design", sources=[])
 		cfg_fpga.add_synth_cfg(design="my_design", bitstream=False)
 		synth = cfg_fpga.get_synth(design_name="my_design")
-		assert synth.bitstream_file is None
+		assert synth.bitstream is None
 
 	def test_synth_custom_bitstream_path(self, cfg_fpga, tmp_path):
 		cfg_fpga.add_design_cfg("my_design", sources=[])
 		custom_bit = str(tmp_path / "custom.bit")
 		cfg_fpga.add_synth_cfg(design="my_design", bitstream=custom_bit)
 		synth = cfg_fpga.get_synth(design_name="my_design")
-		assert synth.bitstream_file == custom_bit
+		assert synth.bitstream == custom_bit
 
 	def test_synth_dcp_file_path_set_by_default(self, cfg_fpga):
 		cfg_fpga.add_design_cfg("my_design", sources=[])
 		cfg_fpga.add_synth_cfg(design="my_design")
 		synth = cfg_fpga.get_synth(design_name="my_design")
-		assert synth.synth_dcp_file is not None
-		assert "synth.dcp" in synth.synth_dcp_file
+		assert synth.synth_dcp is not None
+		assert "synth.dcp" in synth.synth_dcp
 
 	def test_validate_synth_passes_with_no_constraints(self, cfg_fpga):
 		cfg_fpga.add_design_cfg("my_design", sources=[])
@@ -586,7 +586,7 @@ class TestSynthPositive:
 		cfg_fpga.add_design_cfg("my_design", sources=[])
 		cfg_fpga.add_synth_cfg(design="my_design")
 		synth = cfg_fpga.get_synth(design_name="my_design")
-		assert synth.fpga_ref == "xczu9"
+		assert synth.fpga == "xczu9"
 
 
 # ===========================================================================
@@ -698,7 +698,7 @@ class TestUvmPositive:
 class TestPlatformPositive:
 	def _setup_design_synth(self, cfg):
 		cfg.add_design_cfg("my_design", sources=[])
-		cfg.add_synth_cfg(design="my_design")
+		cfg.add_synth_cfg(design="my_design", hw_platform=True)
 
 	def test_add_platform_from_design_and_get(self, cfg_fpga):
 		self._setup_design_synth(cfg_fpga)
@@ -711,22 +711,22 @@ class TestPlatformPositive:
 		synth = cfg_fpga.get_synth(design_name="my_design")
 		cfg_fpga.add_platform_cfg("my_platform", design="my_design")
 		p = cfg_fpga.get_platform("my_platform")
-		assert p.xsa_file == synth.hw_platform_xsa_file
+		assert p.xsa == synth.hw_platform
 
 	def test_platform_bitstream_derived_from_synth(self, cfg_fpga):
 		self._setup_design_synth(cfg_fpga)
 		synth = cfg_fpga.get_synth(design_name="my_design")
 		cfg_fpga.add_platform_cfg("my_platform", design="my_design")
 		p = cfg_fpga.get_platform("my_platform")
-		assert p.bitstream_file == synth.bitstream_file
+		assert p.bitstream == synth.bitstream
 
 	def test_platform_explicit_xsa_and_bitstream(self, cfg_fpga, tmp_path):
 		xsa = _touch(tmp_path / "top.xsa")
 		bit = _touch(tmp_path / "top.bit")
 		cfg_fpga.add_platform_cfg("my_platform", xsa=xsa, bitstream=bit)
 		p = cfg_fpga.get_platform("my_platform")
-		assert p.xsa_file == xsa
-		assert p.bitstream_file == bit
+		assert p.xsa == xsa
+		assert p.bitstream == bit
 
 	def test_validate_platform_passes_with_existing_files(self, cfg_fpga, tmp_path):
 		xsa = _touch(tmp_path / "top.xsa")
@@ -779,8 +779,8 @@ class TestAppPositive:
 	def test_elf_file_under_app_subdir(self, cfg_fpga):
 		cfg_fpga.add_app_cfg("my_app", platform="p")
 		app = cfg_fpga.get_app("my_app")
-		assert "my_app" in app.elf_file
-		assert app.elf_file.endswith("executable.elf")
+		assert "my_app" in app.elf
+		assert app.elf.endswith("executable.elf")
 
 	def test_validate_app_skip_both_checks(self, cfg_fpga):
 		cfg_fpga.add_app_cfg("my_app", platform="p")
@@ -790,7 +790,7 @@ class TestAppPositive:
 	def test_validate_app_existing_elf(self, cfg_fpga, tmp_path):
 		cfg_fpga.add_app_cfg("my_app", platform="p")
 		app = cfg_fpga.get_app("my_app")
-		_touch(app.elf_file)
+		_touch(app.elf)
 		cfg_fpga.validate_app("my_app", check_sources=False, check_elf=True)
 
 	def test_add_app_returns_self(self, cfg_fpga):
@@ -1039,17 +1039,17 @@ class TestMultipleFpgas:
 		self._two_fpga_cfg(cfg)
 		src = _touch(tmp_path / "a.v")
 		cfg.add_ip_cfg("my_ip", sources=[src], fpga="fpga_b")
-		assert cfg.get_ip("my_ip").fpga_ref == "fpga_b"
+		assert cfg.get_ip("my_ip").fpga == "fpga_b"
 
 	def test_design_explicit_fpga(self, cfg, tmp_path):
 		self._two_fpga_cfg(cfg)
 		cfg.add_design_cfg("my_design", sources=[], fpga="fpga_b")
-		assert cfg.get_design("my_design").fpga_ref == "fpga_b"
+		assert cfg.get_design("my_design").fpga == "fpga_b"
 
 	def test_bd_explicit_fpga(self, cfg, tmp_path):
 		self._two_fpga_cfg(cfg)
 		cfg.add_bd_cfg("my_bd", fpga="fpga_b")
-		assert cfg.get_bd("my_bd").fpga_ref == "fpga_b"
+		assert cfg.get_bd("my_bd").fpga == "fpga_b"
 
 
 # ===========================================================================
