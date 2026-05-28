@@ -1,6 +1,6 @@
 # xviv — Complete Feature Documentation
 
-> Commit `4c16650f835812856621b59b6ba140166cc7b854` · Version 0.2.7  
+> Commit `d3d0c9f3588da205c470b1cb3576b63cfe64b975`
 > CLI project controller for Vivado and Vitis.
 
 ---
@@ -40,13 +40,15 @@
 6. [Environment Variables](#environment-variables)
 7. [Shell Completion](#shell-completion)
 8. [Project Layout](#project-layout)
-9. [Git SHA / USR_ACCESS Bitstream Tagging](#git-sha--usr_access-bitstream-tagging)
-10. [Synthesis Pipeline Details](#synthesis-pipeline-details)
-11. [Simulation Backends](#simulation-backends)
-12. [Formal Verification](#formal-verification)
-13. [Embedded / Vitis Flow](#embedded--vitis-flow)
-14. [SV Wrapper Generation](#sv-wrapper-generation)
-15. [Build Artifacts Reference](#build-artifacts-reference)
+9. [Lock File](#lock-file)
+10. [Git SHA / USR_ACCESS Bitstream Tagging](#git-sha--usr_access-bitstream-tagging)
+11. [Synthesis Pipeline Details](#synthesis-pipeline-details)
+12. [Parallel OOC Synthesis](#parallel-ooc-synthesis)
+13. [Simulation Backends](#simulation-backends)
+14. [Formal Verification](#formal-verification)
+15. [Embedded / Vitis Flow](#embedded--vitis-flow)
+16. [SV Wrapper Generation](#sv-wrapper-generation)
+17. [Build Artifacts Reference](#build-artifacts-reference)
 
 ---
 
@@ -77,27 +79,30 @@ pip install -e ".[dev]"
 pre-commit install
 ```
 
-Optional dependency: `pyslang <= 10.0.0` — required only for the SV wrapper generator (`[[wrapper]]` sections).
+`pyslang <= 10.0.0` is a declared dependency — required for the SV wrapper generator (`[[wrapper]]` sections).
 
 ---
 
 ## project.toml Reference
 
-`project.toml` is the single source of truth. Every section is an **array of tables** (e.g. `[[fpga]]`), meaning you can have multiple entries of each type. The file is loaded with Python's `tomllib`.
+`project.toml` is the single source of truth. Every section except `[project]` is an **array of tables** (e.g. `[[fpga]]`), meaning you can have multiple entries of each type. The file is loaded with Python's `tomllib`.
 
 ### `[project]`
 
-Top-level project settings. This is the only non-array section.
+Top-level project settings. This is the only non-array section. All keys are optional.
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `build_dir` | string | `"build"` | Path to the build output directory (relative to `project.toml`). |
-| `board_repo_paths` | list[string] | `[]` | Additional board repository paths to register with Vivado. |
+| `work_dir` | string | `"build"` | Path to the build output directory (relative to `project.toml`). |
+| `log_file` | string | `"<work_dir>/log/xviv.log"` | Path to the debug log file. |
+| `board_repo` | list[string] | `[]` | Additional board repository paths to register with Vivado. |
+| `ip_repo` | list[string] | `[]` | Additional IP repository paths to register with Vivado (beyond the default `build/ip`). |
 
 ```toml
 [project]
-build_dir        = "build"
-board_repo_paths = ["/opt/board_files"]
+work_dir   = "build"
+board_repo = ["/opt/board_files"]
+ip_repo    = ["/opt/myorg_ip_repo"]
 ```
 
 ---
@@ -234,7 +239,7 @@ Declares a block design. On first creation, xviv opens the Vivado GUI so you can
 | `bd_file` | string | `build/bd/<name>/<name>.bd` | Path to the Vivado `.bd` file. |
 | `bd_wrapper_file` | string | `build/bd/<name>/hdl/<name>_wrapper.v` | Path to the generated HDL wrapper. |
 
-If a `.bd` file already exists, xviv automatically parses its embedded IP list and registers each IP as a `[[core]]` + OOC `[[synth]]` entry.
+If a `.bd` file already exists, xviv automatically parses its embedded IP list and registers each IP as a `[[core]]` entry with OOC `[[synth]]` configuration.
 
 ```toml
 [[bd]]
@@ -257,11 +262,10 @@ Controls a synthesis (and optionally place-and-route) run. Exactly one of `desig
 | `run_synth` | bool | `true` | Run `synth_design`. |
 | `run_opt` | bool | `true` | Run `opt_design`. |
 | `run_place` | bool | `true` | Run `place_design`. |
-| `run_phys_opt` | bool | `true` | Run `phys_opt_design` (skipped if timing passes after place). |
+| `run_phys_opt` | bool | `true` | Run `phys_opt_design`. |
 | `run_route` | bool | `true` | Run `route_design`. |
 | `synth_incremental` | bool | `true` | Use incremental synthesis when a previous synth DCP exists. |
 | `impl_incremental` | bool | `true` | Use incremental implementation when a previous route DCP exists. |
-| `out_of_context_subcores` | bool | `false` | Synthesize sub-cores OOC before the top-level. |
 | `synth_dcp` | bool \| string | `true` | Write synth checkpoint. Pass a path string to override location. |
 | `place_dcp` | bool \| string | `true` | Write place checkpoint. |
 | `route_dcp` | bool \| string | `true` | Write route checkpoint. |
@@ -316,7 +320,7 @@ Declares a simulation target. Supports both `xsim` (Vivado bundled) and `verilat
 | `backend` | string | `"xsim"` | Simulator: `"xsim"` or `"verilator"`. |
 | `timescale` | string | `"1ns/1ps"` | Timescale passed to `xelab`. |
 | `design` | string | — | Reference a `[[design]]` to pull its sources for post-synth/impl simulation. |
-| `bd` | string | — | Reference a `[[bd]]` (not yet used, reserved). |
+| `bd` | string | — | Reference a `[[bd]]` (reserved, not yet used). |
 | `sdfmax` | list[string] | `[]` | SDF instance paths for max-delay back-annotation. |
 | `sdfmin` | list[string] | `[]` | SDF instance paths for min-delay back-annotation. |
 | `plusargs` | list[string] | `[]` | `+arg` strings passed verbatim to xsim or the verilated binary. |
@@ -372,16 +376,6 @@ verbosity  = "UVM_HIGH"
 ```
 
 UVM tests can also be declared inline inside `[[simulation]]`:
-
-```toml
-[[simulation]]
-name = "tb_gamma"
-sources = ["..."]
-
-[[simulation.uvm]]
-test = "gamma_basic_test"
-verbosity = "UVM_MEDIUM"
-```
 
 ```toml
 [[simulation]]
@@ -444,8 +438,6 @@ Vitis embedded flow — generates a BSP from the XSA file produced by synthesis.
 | `os` | string | `"standalone"` | OS type for BSP generation (e.g. `"standalone"`, `"freertos10_xilinx"`). |
 | `properties` | table | `{}` | BSP property key-value pairs. Nested tables are flattened with `.` notation. |
 
-The `properties` table maps to Vitis `set_property` calls. Nesting is supported:
-
 ```toml
 [[platform]]
 name = "mb_platform"
@@ -453,15 +445,9 @@ bd   = "system"
 cpu  = "microblaze_0"
 os   = "standalone"
 
-[platform.properties]
-CONFIG.stdout = "mdm_1"
-CONFIG.stdin  = "mdm_1"
-```
-
-This sets `CONFIG.stdout` and `CONFIG.stdin` on the BSP. equivalent to
-```TCL
-hsi::set_property CONFIG.stdout mdm_1 [hsi::get_os]
-hsi::set_property CONFIG.stdin mdm_1 [hsi::get_os]
+[platform.properties.CONFIG]
+stdout = "mdm_1"
+stdin  = "mdm_1"
 ```
 
 ---
@@ -493,7 +479,6 @@ All commands share these global options (place them before the subcommand):
 
 ```
 --config / -c FILE    project.toml path (default: project.toml)
---log FILE            append debug log to file (default: xviv.log)
 ```
 
 Each subcommand also accepts:
@@ -509,45 +494,50 @@ Each subcommand also accepts:
 Create a new IP, block design, catalog core instance, platform, or Vitis app.
 
 ```
-xviv create --ip <NAME>        [--edit] [--nogui]
-xviv create --bd <NAME>        [--source-file FILE] [--no-generate] [--edit] [--nogui]
-xviv create --core <NAME>      [--no-generate] [--edit] [--nogui]
+xviv create --ip <NAME>        [--edit] [--nogui] [--regenerate]
+xviv create --bd <NAME>        [--source-file FILE] [--generate] [--edit] [--nogui]
+xviv create --core <NAME>      [--generate] [--edit] [--nogui]
 xviv create --platform <NAME>  [--build]
-xviv create --app <NAME>       --platform <PLATFORM> [--build]
+xviv create --app <NAME>       [--platform <PLATFORM>] [--build]
 ```
 
 **`--ip <NAME>`** — Packages the custom IP declared in `project.toml` using Vivado IP Packager.
 - `--edit` — Opens Vivado GUI for interactive IP editing after creation.
 - `--nogui` — Run IP packager in TCL-only batch mode (no GUI).
+- `--regenerate` — After packaging, regenerate all catalog core (`.xci`) instances whose VLNV resolves to this IP, in parallel. Cores without an existing XCI file are skipped.
 
 **`--bd <NAME>`** — Creates a block design.
-- `--source-file FILE` — Recreate from a specific TCL snapshot instead of the default `scripts/xviv/bd/<name>.tcl`. Pass `false` to always open the GUI even if a snapshot exists.
-- `--no-generate` — Import and register the BD without generating output products.
+- `--source-file FILE` — Recreate from a specific TCL snapshot instead of the default `scripts/xviv/bd/<name>.tcl`. Pass `false` to always open the GUI even if a snapshot exists. Defaults to `true` (use the default snapshot path).
+- `--generate` — Generate output products after import. By default, output products are **not** generated automatically after BD creation.
 - `--edit` — Open the BD editor GUI after creation/import.
 - `--nogui` — Non-interactive mode; requires an existing snapshot.
 
 **`--core <NAME>`** — Instantiates a catalog IP core from its VLNV, creating the XCI file.
-- `--no-generate` — Skip output product generation.
+- `--generate` — Generate output products after instantiation. Not generated by default.
 - `--edit` — Open the IP customisation GUI.
 
 **`--platform <NAME>`** — Generates a BSP from the XSA using `hsi::generate_bsp`.
 - `--build` — Also run `build --platform` immediately after creation.
 
-**`--app <NAME> --platform <PLATFORM>`** — Scaffolds a Vitis application from the declared template.
+**`--app <NAME>`** — Scaffolds a Vitis application from the declared template.
+- `--platform <PLATFORM>` — Override the platform to use (defaults to value in `[[app]]` config).
 - `--build` — Also compile the app immediately.
 
 ```sh
 # Package custom IP
 xviv create --ip gamma_axi
 
+# Package custom IP and regenerate all cores that use it
+xviv create --ip gamma_axi --regenerate
+
 # Create BD from scratch (opens GUI)
 xviv create --bd system
 
-# Recreate BD from existing TCL snapshot
-xviv create --bd system --source-file scripts/xviv/bd/system.tcl
+# Recreate BD from existing TCL snapshot and generate output products
+xviv create --bd system --generate
 
-# Recreate BD non-interactively, skip generate
-xviv create --bd system --no-generate
+# Recreate BD non-interactively, no GUI, no generate
+xviv create --bd system --nogui
 
 # Create platform and immediately build it
 xviv create --platform mb_platform --build
@@ -560,7 +550,7 @@ xviv create --app firmware --platform mb_platform
 
 ### `edit`
 
-Open an IP, block design, or core in Vivado for interactive editing. Changes are saved back to the TCL snapshot on exit.
+Open an IP, block design, or core in Vivado for interactive editing.
 
 ```
 xviv edit --ip   <NAME>  [--nogui]
@@ -568,7 +558,7 @@ xviv edit --bd   <NAME>  [--nogui]
 xviv edit --core <NAME>  [--nogui]
 ```
 
-- `--nogui` — Opens a Vivado TCL console instead of the full GUI (useful in scripted contexts).
+- `--nogui` — Opens a Vivado TCL console instead of the full GUI.
 
 ```sh
 xviv edit --ip   gamma_axi
@@ -583,28 +573,28 @@ xviv edit --core clk_wiz_0
 Generate (or re-generate) output products for a block design or core. Skips up-to-date outputs unless `--force` is used.
 
 ```
-xviv generate --bd   <NAME>  [--force]
-xviv generate --core <NAME>  [--force]
+xviv generate --bd   <NAME>  [--force] [--reset]
+xviv generate --core <NAME>  [--force] [--reset]
 ```
 
 - `--force` — Regenerate even if the output products appear current.
+- `--reset` — Reset all output products before generating. Use this if output products are stale or corrupted.
 
 ```sh
 xviv generate --bd   system
 xviv generate --core clk_wiz_0 --force
+xviv generate --bd   system --reset
 ```
-
-After a `create --ip` run, use `generate --core <name>` to regenerate all associated output products.
 
 ---
 
 ### `synth` (command)
 
-Run synthesis (and optionally place, route, bitstream) for a design, block design, or core. The pipeline is: `synth_design → opt_design → place_design → phys_opt_design → route_design → write_bitstream`.
+Run synthesis (and optionally place, route, bitstream) for a design, block design, or core.
 
 ```
-xviv synth --design <NAME>  [--resume STAGE] [--usr-access-type TYPE]
-xviv synth --bd     <NAME>  [--resume STAGE] [--usr-access-type TYPE]
+xviv synth --design <NAME>  [--resume STAGE] [--usr-access-type TYPE] [--parallel]
+xviv synth --bd     <NAME>  [--resume STAGE] [--usr-access-type TYPE] [--parallel]
 xviv synth --core   <NAME>  [--resume STAGE]
 ```
 
@@ -615,13 +605,14 @@ xviv synth --core   <NAME>  [--resume STAGE]
   - `route` — Resume from after `route_design` (load `route.dcp`).
 - `--usr-access-type TYPE` — Controls what value is embedded in `USR_ACCESS`.
   - `git` (default) — Embeds the short git SHA (bit 28 set if working tree is dirty).
+- `--parallel` — Synthesize all registered sub-cores (from BD IP list or design) in parallel using `ThreadPoolExecutor` before running the top-level synthesis. Each sub-core runs in its own Vivado batch invocation. Per-job output is shown with colored status and elapsed time.
 
 ```sh
 # Full RTL synthesis
 xviv synth --design top
 
-# BD synthesis
-xviv synth --bd system
+# BD synthesis with parallel OOC sub-core synthesis
+xviv synth --bd system --parallel
 
 # OOC core synthesis
 xviv synth --core clk_wiz_0
@@ -629,14 +620,9 @@ xviv synth --core clk_wiz_0
 # Resume from latest checkpoint
 xviv synth --design top --resume auto
 
-# Resume specifically from after placement
-xviv synth --design top --resume place
-
 # Preview TCL without running
 xviv synth --design top --dry-run
 ```
-
-The `[[synth]]` section in `project.toml` controls which stages run, incremental flows, directives, reports, and what artifacts are written.
 
 ---
 
@@ -675,8 +661,8 @@ xviv simulate --target tb_gamma --uvm gamma_basic_test
 Open a DCP checkpoint in Vivado or a WDB waveform in xsim.
 
 ```
-xviv open --dcp <PATH>           [--nogui]
-xviv open --wdb <SIM_NAME>       [--nogui]
+xviv open --dcp <PATH>       [--nogui]
+xviv open --wdb <SIM_NAME>   [--nogui]
 ```
 
 - `--dcp <PATH>` — Open any `.dcp` checkpoint. The path tab-completes to known checkpoint locations under `build/synth/`.
@@ -707,7 +693,7 @@ xviv reload --target tb_gamma
 
 ### `build`
 
-Compile a Vitis platform (BSP) or application.
+Compile a Vitis platform (BSP) or application. `--platform` and `--app` are mutually exclusive.
 
 ```
 xviv build --platform <NAME>
@@ -730,7 +716,7 @@ Download a bitstream and/or ELF to the FPGA over JTAG using XSCT.
 
 ```
 xviv program [--platform NAME | --bitstream FILE]  [--app NAME | --elf FILE]
-			 [--fpga FILTER] [--processor FILTER] [--reset-duration MS]
+             [--fpga FILTER] [--processor FILTER] [--reset-duration MS]
 ```
 
 - `--platform NAME` — Derive bitstream + ELF paths from a `[[platform]]` entry.
@@ -750,9 +736,6 @@ xviv program --bitstream build/synth/system/system.bit --elf build/app/firmware/
 
 # Custom target filters
 xviv program --platform mb_platform --fpga "xc7a35t*" --processor "MicroBlaze #0*"
-
-# Longer reset before ELF load
-xviv program --platform mb_platform --app firmware --reset-duration 1000
 ```
 
 ---
@@ -778,16 +761,18 @@ xviv processor --status
 
 ### `search`
 
-Search the Vivado IP catalog by name, partial VLNV, or keyword. Results include the display name, vendor/library, and a short description. This is useful to find the exact VLNV string to use in `[[core]]` entries.
+Search the Vivado IP catalog by name, partial VLNV, or keyword.
 
 ```
 xviv search <QUERY>
 ```
 
+`QUERY` is a positional argument (not a flag). Results include the display name, vendor/library, and a short description.
+
 ```sh
-xviv search axi4 dma
+xviv search axi_dma
 xviv search clk_wiz
-xviv search xilinx.com:ip:fifo
+xviv search "xilinx.com:ip:fifo"
 ```
 
 ---
@@ -800,7 +785,7 @@ Run SymbiYosys formal verification on one or all `[[formal]]` targets. On failur
 xviv formal [--target NAME]
 ```
 
-- `--target NAME` — Run a specific target. Omit to run **all** `[[formal]]` targets.
+- `--target NAME` — Run a specific target. **Omitting `--target` runs all `[[formal]]` targets.**
 
 ```sh
 # Run a named target
@@ -810,13 +795,7 @@ xviv formal --target gamma_props
 xviv formal
 ```
 
-Results are displayed as a colour-coded summary table (PASS / FAIL). The command exits with code `1` if any target fails.
-
-On failure, the counterexample trace can be opened directly:
-```
-counterexample trace -> build/formal/gamma_props/engine_0/trace.vcd
-open with: gtkwave build/formal/gamma_props/engine_0/trace.vcd
-```
+Results are displayed as a colour-coded summary (PASS / FAIL). The command exits with code `1` if any target fails.
 
 ---
 
@@ -864,7 +843,9 @@ xviv supports dynamic tab completion via `argcomplete`. Completions are context-
 | `--uvm` | UVM test names filtered to the selected simulation |
 | `--dcp` | Known checkpoint file paths under `build/synth/` |
 | `--platform`, `--app` | Names from `project.toml` |
-| VLNV strings | Live Vivado IP catalog with inline descriptions |
+| VLNV strings (`[[core]]`) | Live Vivado IP catalog with inline descriptions |
+| `--bitstream` | Known bitstream paths from synth config |
+| `--elf` | Known ELF paths from app config |
 
 **Activate completion:**
 
@@ -886,6 +867,7 @@ echo 'eval "$(register-python-argcomplete xviv)"' >> ~/.bashrc
 ```
 project/
 ├── project.toml               # Single source of truth — commit this
+├── project.lock               # Auto-generated lock file — can gitignore
 ├── .env                       # Optional: XVIV_VIVADO_SOURCE_SCRIPT=...
 ├── srcs/
 │   ├── rtl/                   # RTL source files
@@ -898,24 +880,39 @@ project/
 │       └── bd/
 │           └── system.tcl     # BD TCL snapshot — commit this
 └── build/                     # Fully gitignore-able; all outputs land here
-	├── synth/
-	│   └── <name>/
-	│       ├── checkpoints/   # synth.dcp, place.dcp, route.dcp
-	│       ├── reports/       # .rpt files
-	│       ├── netlists/      # .v netlist files
-	│       ├── <name>.bit     # Bitstream
-	│       └── <name>.xsa     # Hardware platform (for Vitis)
-	├── bd/                    # Block design Vivado project files
-	├── core/                  # XCI files for catalog IP instances
-	├── ip/                    # Packaged custom IP repository
-	├── sim/<name>/            # Simulation work directories
-	├── formal/<name>/         # SymbiYosys work directories
-	├── platform/<name>/       # BSP output
-	├── app/<name>/            # App output; executable.elf lands here
-	└── wrapper/               # Generated SV wrapper files
+    ├── log/
+    │   └── xviv.log           # Debug log
+    ├── synth/
+    │   └── <name>/
+    │       ├── checkpoints/   # synth.dcp, place.dcp, route.dcp
+    │       ├── reports/       # .rpt files
+    │       ├── netlists/      # .v netlist files
+    │       ├── <name>.bit     # Bitstream
+    │       └── <name>.xsa     # Hardware platform (for Vitis)
+    ├── bd/                    # Block design Vivado project files
+    ├── core/                  # XCI files for catalog IP instances
+    ├── ip/                    # Packaged custom IP repository
+    ├── sim/<name>/            # Simulation work directories
+    ├── formal/<name>/         # SymbiYosys work directories
+    ├── platform/<name>/       # BSP output
+    ├── app/<name>/            # App output; executable.elf lands here
+    └── wrapper/               # Generated SV wrapper files
 ```
 
 Only `scripts/xviv/` (BD TCL snapshots) needs to be version-controlled alongside sources and `project.toml`. Everything under `build/` is reproducible.
+
+---
+
+## Lock File
+
+Every xviv run generates a `project.lock` file in the project root. This is a TOML snapshot of the fully-resolved configuration - all globs expanded, all defaults applied and with all paths expressed relative to the project root.
+
+The lock file is useful for:
+- Debugging: diff two lock files to see what changed between runs.
+- Reproducibility audit: the lock records the exact input state used for a given run.
+- CI: commit the lock file alongside `project.toml` to pin the resolved state.
+
+The lock file is written on every xviv run, including `dry_run`.
 
 ---
 
@@ -927,7 +924,7 @@ By default, every synthesis run embeds the current git commit SHA into the bitst
 - Bits **[27:0]** — 7-character short git SHA (hex-encoded, 28 bits).
 - Bit **28** — Set to `1` if the working tree was dirty (uncommitted changes) at build time.
 
-This is applied automatically. Override the embedded value per run in `project.toml`:
+Override the embedded value per run in `project.toml`:
 
 ```toml
 [[synth]]
@@ -941,7 +938,7 @@ Or from the CLI:
 xviv synth --design top --usr-access-type git   # default
 ```
 
-In non-git projects, the SHA falls back to a datestamp.
+In non-git projects, synthesis will fail if `usr_access_value` is not set explicitly and a bitstream is being written.
 
 ---
 
@@ -952,16 +949,35 @@ A full synthesis run executes these stages in order (each can be individually di
 1. **`synth_design`** — Logic synthesis. Writes `checkpoints/synth.dcp`.
 2. **`opt_design`** — Logic optimisation. Controlled by `opt_directive`.
 3. **`place_design`** — Placement. Writes `checkpoints/place.dcp`. Controlled by `place_directive`.
-4. **`phys_opt_design`** — Physical optimisation. Only runs when timing fails after placement. Controlled by `phys_opt_directive`.
+4. **`phys_opt_design`** — Physical optimisation. Controlled by `phys_opt_directive`.
 5. **`route_design`** — Routing. Writes `checkpoints/route.dcp`. Controlled by `route_directive`.
 6. **`write_bitstream`** — Bitstream generation with `USR_ACCESS` tagging. Writes `<name>.bit`.
 7. **`write_hw_platform`** — Hardware platform export. Writes `<name>.xsa` (for Vitis flows).
 
 **Incremental flows:** When a previous checkpoint exists, xviv automatically passes the previous DCP to `read_checkpoint` with `-incremental` for both synthesis and implementation. Disable with `synth_incremental = false` or `impl_incremental = false`.
 
-**OOC synthesis for cores:** When `synth_mode = "out_of_context"` (default for `[[core]]`), `synth_design` is called with `-mode out_of_context`. No bitstream or XSA is produced. The output DCP + stub can be used as a black-box replacement in a parent design.
+**OOC synthesis for cores:** When `synth_mode = "out_of_context"` (default for `[[core]]`), `synth_design` is called with `-mode out_of_context`. No bitstream or XSA is produced.
 
 **Resume:** The `--resume` flag loads the named checkpoint and skips earlier stages. `--resume auto` inspects `checkpoints/` and picks the latest available stage.
+
+---
+
+## Parallel OOC Synthesis
+
+The `--parallel` flag on `xviv synth` triggers parallel out-of-context synthesis of all sub-cores associated with the target BD or design. Each sub-core runs in its own Vivado batch process via `ThreadPoolExecutor`.
+
+```sh
+# Synthesize all BD sub-cores in parallel, then synthesize the BD
+xviv synth --bd system --parallel
+```
+
+Per-job output is printed with:
+- Colored `OK` / `FAILED` status
+- Elapsed time
+- Captured Vivado output
+- Path to the per-job log file (`build/log/job_synth_<core>.log`)
+
+Sub-cores are gathered from the internal sub-core registry, which is populated automatically when a `.bd` file exists (xviv parses the BD's IP list on config load). The XCI file for each sub-core must already exist (created by `create --core`) before `--parallel` is used.
 
 ---
 
@@ -972,9 +988,9 @@ A full synthesis run executes these stages in order (each can be individually di
 Vivado's bundled simulator. Full pipeline:
 
 1. `xvlog -sv [defines] [include_dirs] <sources>` — Compile SystemVerilog sources.
-2. `xelab -R [timescale] [-L uvm] <top>` — Elaborate and immediately run. The `-R` flag means simulation starts without a separate `xsim` invocation.
+2. `xelab -R [timescale] [-L uvm] <top>` — Elaborate and immediately run.
 3. A `waveform_config.tcl` is auto-generated to configure wave display.
-4. SDF back-annotation via `--sdfmax` / `--sdfmin` is applied during elaboration for timing simulation modes.
+4. SDF back-annotation via `sdfmax` / `sdfmin` is applied during elaboration for timing simulation modes.
 
 ### Verilator
 
@@ -987,7 +1003,7 @@ Open-source simulation. When `backend = "verilator"`:
 
 ### Post-synthesis / post-implementation simulation modes
 
-When `--mode` is anything other than `default`, xviv resolves the relevant netlist from the corresponding `[[synth]]` configuration and uses it as the source. The required netlist/SDF must exist (i.e. the corresponding `[[synth]]` must have the report/netlist flags enabled and have been run).
+When `--mode` is anything other than `default`, xviv resolves the relevant netlist from the corresponding `[[synth]]` configuration.
 
 | Mode | Required synth output |
 |------|-----------------------|
@@ -1002,30 +1018,7 @@ When `--mode` is anything other than `default`, xviv resolves the relevant netli
 
 xviv's formal flow uses [SymbiYosys](https://symbiyosys.readthedocs.io/) (`sby`) as the frontend with SMT solvers (default: `smtbmc yices z3`).
 
-A `.sby` script is generated from the `[[formal]]` configuration and placed in `build/formal/`. The generated script structure is:
-
-```
-[options]
-mode prove
-depth 30
-
-[engines]
-smtbmc yices z3
-
-[script]
-read_verilog -formal -sv gamma_axi.sv
-read_verilog -formal -sv gamma_axi_props.sv
-hierarchy -check -top gamma_axi
-proc
-opt -full
-flatten
-opt -full
-setundef -zero
-
-[files]
-srcs/ip/gamma_axi/gamma_axi.sv
-srcs/formal/gamma_axi_props.sv
-```
+A `.sby` script is generated from the `[[formal]]` configuration and placed in `build/formal/`. Running `xviv formal` without `--target` runs **all** declared `[[formal]]` targets.
 
 **Modes:**
 - `bmc` — Bounded model checking: checks all reachable states up to `depth` cycles.
@@ -1041,11 +1034,11 @@ If verification fails, the VCD counterexample trace path is printed and a `gtkwa
 Full MicroBlaze (or other soft processor) embedded flow:
 
 ```
-synth --bd system          # produces system.xsa + system.bit
-create --platform mb_platform  # generates BSP from system.xsa via hsi
-build --platform mb_platform   # compiles BSP with make
-create --app firmware          # scaffolds Vitis app from template
-build --app firmware           # compiles app -> executable.elf
+synth --bd system                       # produces system.xsa + system.bit
+create --platform mb_platform           # generates BSP from system.xsa via hsi
+build --platform mb_platform            # compiles BSP with make
+create --app firmware                   # scaffolds Vitis app from template
+build --app firmware                    # compiles app -> executable.elf
 program --platform mb_platform --app firmware  # downloads bit + elf over JTAG
 ```
 
@@ -1065,21 +1058,9 @@ This flattens to `CONFIG.stdout = mdm_1`, `CONFIG.stdin = mdm_1`.
 
 ## SV Wrapper Generation
 
-When a custom IP has AXI interface ports, the Vivado IP Packager expects flattened signals. The `[[wrapper]]` section automates this by generating a SystemVerilog wrapper module that re-exposes interfaces as flat ports.
-
-Requires `pyslang` to be installed.
+When a custom IP has AXI interface ports, the Vivado IP Packager expects flattened signals. The `[[wrapper]]` section automates this by generating a SystemVerilog wrapper module that re-exposes interfaces as flat ports. Requires `pyslang`.
 
 The generated wrapper is placed at `build/wrapper/<wrapper_top>.sv` and automatically included as a source when `create --ip` is run.
-
-```toml
-[[ip]]
-name    = "gamma_axi"
-sources = ["srcs/ip/gamma_axi/**/*.sv"]
-
-[[wrapper]]
-ip      = "gamma_axi"
-sources = ["srcs/ip/gamma_axi/**/*.sv"]
-```
 
 The wrapper generator is also available as a standalone entry point:
 
@@ -1092,7 +1073,7 @@ xviv_wrapper --help
 ## Build Artifacts Reference
 
 | Artifact | Location | Condition |
-|----------|----------|-----------|
+|----------|----------|-----------| 
 | Synth checkpoint | `build/synth/<name>/checkpoints/synth.dcp` | `synth_dcp = true` |
 | Place checkpoint | `build/synth/<name>/checkpoints/place.dcp` | `place_dcp = true` |
 | Route checkpoint | `build/synth/<name>/checkpoints/route.dcp` | `route_dcp = true` |
@@ -1117,4 +1098,5 @@ xviv_wrapper --help
 | SV wrapper | `build/wrapper/<wrapper_top>.sv` | `[[wrapper]]` defined |
 | Formal .sby | `build/formal/<name>.sby` | `xviv formal` |
 | Formal task dir | `build/formal/<name>/` | `xviv formal` |
-| Debug log | `xviv.log` (project root) | Always |
+| Lock file | `project.lock` (project root) | Every command |
+| Debug log | `build/log/xviv.log` | Every command |

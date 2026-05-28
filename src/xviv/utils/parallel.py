@@ -12,6 +12,8 @@ from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from xviv.utils.log import BOLD, DIM, GREEN, LEVEL_COLORS, RED, RESET, get_log_formatter
 from xviv.utils.term import terminal_full_length_divider
 
+from xviv.utils import error
+
 logger = logging.getLogger(__name__)
 
 
@@ -317,6 +319,4 @@ def run_parallel(
 		", ".join(label for label, _, _, _ in failures),
 	)
 
-	from xviv.utils.error import ParallelJobError
-
-	raise ParallelJobError([(label, exc) for label, exc, _, _ in failures])
+	raise error.ParallelJobError([(label, exc) for label, exc, _, _ in failures])
