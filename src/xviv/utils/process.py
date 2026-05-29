@@ -13,22 +13,40 @@ from xviv.utils.term import print_terminal_divider
 logger = logging.getLogger("xviv.vivado")
 
 VIVADO_PREFIX_MAP = {
-	"ERROR:": LEVEL_COLORS[logging.ERROR],
-	"CRITICAL WARNING:": LEVEL_COLORS[logging.CRITICAL],
-	"CRITICAL:": LEVEL_COLORS[logging.CRITICAL],
-	"WARNING:": LEVEL_COLORS[logging.WARNING],
-	"INFO:": LEVEL_COLORS[logging.INFO],
+	"ERROR:": logging.ERROR,
+	"CRITICAL WARNING:": logging.CRITICAL,
+	"CRITICAL:": logging.CRITICAL,
+	"WARNING:": logging.WARNING,
+	"INFO:": logging.INFO,
 }
 
+loglevel = logging.DEBUG
+next_loglevel: int = logging.DEBUG
 
-def colorize(line: str) -> str:
-	for prefix, color in VIVADO_PREFIX_MAP.items():
-		if line.startswith(prefix):
-			if color == LEVEL_COLORS[logging.INFO]:
-				return f"{color}{BOLD}{prefix}{RESET} {line[len(prefix) :].strip()}"
-			else:
-				return f"{color}{BOLD}{prefix}{RESET} {color}{line[len(prefix) :].strip()}{RESET}"
-	return line
+def _colorize(line: str) -> tuple[str, str, int]:
+    global next_loglevel
+    loggin_text = line
+    stdout_text = line
+    loglevel = next_loglevel
+
+    for prefix, level in VIVADO_PREFIX_MAP.items():
+        color = LEVEL_COLORS[level]
+        if line.startswith(prefix):
+            loglevel = level
+            logleveltext = f"{color}{BOLD}{prefix}{RESET}"
+            if color == LEVEL_COLORS[logging.INFO]:
+                loggin_text = f"{line[len(prefix):].strip()}"
+            else:
+                loggin_text = f"{color}{line[len(prefix):].strip()}{RESET}"
+            stdout_text = f"{logleveltext} {loggin_text}"
+            break
+
+    if loggin_text.endswith(":"):
+        next_loglevel = loglevel
+    else:
+        next_loglevel = logging.DEBUG
+
+    return stdout_text, loggin_text, loglevel
 
 
 def _process_pty_output(data: bytes, log_file, stdout_print: bool) -> None:
@@ -44,7 +62,8 @@ def _process_pty_output(data: bytes, log_file, stdout_print: bool) -> None:
 
 	for chunk in chunks[:-1]:
 		clean = chunk.rstrip(b"\r").decode(errors="replace")
-		colorized = colorize(clean)
+		tty_out, _, _ = _colorize(clean)
+		colorized = tty_out
 		if colorized != clean:
 			out += colorized.encode() + b"\r\n"
 		else:
@@ -205,10 +224,15 @@ def run_tool(
 				assert proc.stdout is not None
 				for line in proc.stdout:
 					stripped = line.rstrip()
-					logger.debug(stripped)
+					tty_out, log_out, level = _colorize(stripped)
+
+					if parallel:
+						logger.log(level, log_out)
+					else:
+						logger.debug(log_out)
 
 					if not parallel:
-						print(colorize(stripped))
+						print(tty_out)
 
 					if log_file:
 						log_file.write(line)

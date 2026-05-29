@@ -37,7 +37,7 @@ def _get_core_list(cfg: XvivConfig, core_name: str, recursive: bool, filter_bd_c
 	return ip_list, core_list
 
 
-def _run_from_name_list(cfg: XvivConfig, _list: list[str], config_tcl_function, log_file_prefix: str, run_config_tcl_function_in_task: bool = False):
+def _run_from_name_list(cfg: XvivConfig, _list: list[str], config_tcl_function, log_file_prefix: str):
 	tasks_list = []
 	_parallel = len(_list) > 1
 
@@ -48,7 +48,7 @@ def _run_from_name_list(cfg: XvivConfig, _list: list[str], config_tcl_function, 
 			(
 				lambda name=i, log_file_path=log_file_path: vivado.run_vivado(
 					cfg,
-					config_tcl=config_tcl_function(i),
+					config_tcl=config_tcl_function(name),
 					label=f"{__name__}_{name}",
 					log_file_path=log_file_path,
 					parallel=_parallel,
@@ -72,7 +72,7 @@ def _run_from_name_list(cfg: XvivConfig, _list: list[str], config_tcl_function, 
 # create  --core <core_id> --vlnv <vlnv_id>
 # -----------------------------------------------------------------------------
 def cmd_core_create(cfg: XvivConfig, *, core_name: str, generate: bool = True, edit: bool = True, nogui: bool = False):
-	ip_list, core_list = _get_core_list(cfg, core_name=core_name, recursive=True, filter_bd_cores=True)
+	ip_list, core_list = _get_core_list(cfg, core_name=core_name, recursive=False, filter_bd_cores=True)
 
 	if len(core_list) > 1:
 		if edit:
@@ -86,8 +86,8 @@ def cmd_core_create(cfg: XvivConfig, *, core_name: str, generate: bool = True, e
 		_run_from_name_list(
 			cfg,
 			core_list,
-			config_tcl_function=lambda name: ConfigTclCommands(cfg).create_core(name, generate=generate, edit=edit, nogui=nogui).build(),
-			log_file_prefix="create_core",
+			lambda name: ConfigTclCommands(cfg).create_core(name, generate=generate, edit=edit, nogui=nogui).build(),
+			__name__,
 		)
 
 	except error.CoreVlnvNotInCatalogError:

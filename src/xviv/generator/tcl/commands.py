@@ -400,7 +400,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 			self._write_bd_tcl(bd_cfg.save_file, force=True, no_project_wrapper=True, make_local=True)
 
 			if generate:
-				self._generate_target_get_files(bd_cfg.bd_file)
+				self._generate_target_get_files(bd_cfg.bd_file, force=True, reset=True)
 
 			if edit:
 				self.edit_bd(bd_name=bd_name, nogui=nogui)
@@ -446,7 +446,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 		self._open_bd_design(bd_cfg.bd_file)
 
 		self._bd_upgrade_ip_cells()
-		self._generate_target_get_files(bd_cfg.bd_file, reset=reset)
+		self._generate_target_get_files(bd_cfg.bd_file, force=force, reset=reset)
 
 		return self
 
@@ -670,7 +670,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 		self._create_core(core_name, dir=core_cfg.parent_dir, vlnv=core_cfg.vlnv)
 
 		if generate:
-			self._generate_target_get_files(core_cfg.xci_file, reset=False)
+			self._generate_target_get_files(core_cfg.xci_file, force=True, reset=False)
 
 			self._push(f"puts [get_files -compile_order sources -used_in simulation -of_objects [get_ips {core_name}]]")
 
@@ -693,7 +693,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 				body_func=lambda _: _._set_property("CONFIG.$key", "[lindex $val 0]", f"[get_ips {core_name}]"),
 			)
 
-			self._generate_target_get_files(core_cfg.xci_file, reset=False)
+			self._generate_target_get_files(core_cfg.xci_file, force=True, reset=False)
 
 		return self
 
@@ -706,7 +706,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 		self._read_ip(core_cfg.xci_file)
 		self._upgrade_ip_get_ips(core_name)
-		self._generate_target_get_files(core_cfg.xci_file, reset=reset)
+		self._generate_target_get_files(core_cfg.xci_file, force=True, reset=reset)
 
 		return self
 

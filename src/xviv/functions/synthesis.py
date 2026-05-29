@@ -4,7 +4,6 @@ from xviv.config.project import XvivConfig
 from xviv.functions.core import _run_from_name_list
 from xviv.generator.tcl.commands import ConfigTclCommands
 from xviv.utils import error
-from xviv.utils.fs import assert_file_exists
 from xviv.utils.git import _git_sha_tag
 from xviv.utils.tools import find_vivado_dir_path
 
@@ -53,7 +52,7 @@ def cmd_synth(
 			[i.core for i in cfg.get_subcore_list(bd_name=bd_name, design_name=design_name)],
 			lambda name: ConfigTclCommands(cfg).synth(core=name).build(),
 			__name__,
-			run_config_tcl_function_in_task=True
+			# run_config_tcl_function_in_task=True
 		)
 
 	_run_from_name_list(

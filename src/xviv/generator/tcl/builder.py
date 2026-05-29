@@ -236,7 +236,7 @@ class ConfigTclBuilder:
 		)
 		self._push(f"update_compile_order {' '.join(params)}")
 
-	def _generate_target_get_files(self, file: str, *, target="all", quiet=False, reset=True):
+	def _generate_target_get_files(self, file: str, *, target="all", quiet=False, force=True, reset=True):
 		if reset:
 			self._push(f'reset_target {target} [get_files "{file}"]')
 
@@ -244,6 +244,7 @@ class ConfigTclBuilder:
 			None,
 			[
 				"-quiet" if quiet else None,
+				"-force" if force else None,
 			],
 		)
 		self._push(f'generate_target {target} {" ".join(params)} [get_files "{file}"]')
