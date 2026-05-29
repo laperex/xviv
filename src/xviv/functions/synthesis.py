@@ -1,13 +1,11 @@
 import logging
-import os
 
 from xviv.config.project import XvivConfig
+from xviv.functions.core import _run_from_name_list
 from xviv.generator.tcl.commands import ConfigTclCommands
-from xviv.tools import vivado
 from xviv.utils import error
 from xviv.utils.fs import assert_file_exists
 from xviv.utils.git import _git_sha_tag
-from xviv.utils.parallel import run_parallel
 from xviv.utils.tools import find_vivado_dir_path
 
 logger = logging.getLogger(__name__)
@@ -41,49 +39,40 @@ def cmd_synth(
 						raise error.SynthUsrAccessValueEmbedGitShaError()
 
 					if dirty:
-						logger.warning("The Git working directory has uncommitted changes. It is highly recommended to commit before running synthesis.")
+						logger.warning(
+							"The Git working directory has uncommitted changes. It is highly recommended to commit before running synthesis."
+						)
 
 					synth_cfg.usr_access_value = int(sha, 16) | (0x10000000 if dirty else 0)
 
 	if parallel_subcore_synth:
 		find_vivado_dir_path(exit_on_fail=True)
 
-		jobs = []
-		for i in cfg.get_subcore_list(bd_name=bd_name, design_name=design_name):
-			log_file_path = os.path.join(cfg.log_dir, f"job_synth_{i.core}.log")
-			assert_file_exists(cfg.get_core(i.core).xci_file)
-
-			jobs.append(
-				(
-					lambda i=i, log_file_path=log_file_path: vivado.run_vivado(
-						cfg,
-						config_tcl=ConfigTclCommands(cfg).synth(core=i.core).build(),
-						label=i.core,
-						parallel=True,
-						log_file_path=log_file_path,
-					),
-					i.core,
-					log_file_path,
-				)
-			)
-
-		run_parallel(
-			jobs,
-			dry_run=cfg.dry_run,
+		_run_from_name_list(
+			cfg,
+			[i.core for i in cfg.get_subcore_list(bd_name=bd_name, design_name=design_name)],
+			lambda name: ConfigTclCommands(cfg).synth(core=name).build(),
+			__name__,
+			run_config_tcl_function_in_task=True
 		)
 
-	config = ConfigTclCommands(cfg).synth(design=design_name, bd=bd_name, core=core_name, resume=resume, parallel_subcore_synth=parallel_subcore_synth).build()
-
-	vivado.run_vivado(cfg, config_tcl=config, label=__name__)
+	_run_from_name_list(
+		cfg,
+		[i for i in [design_name, bd_name, core_name] if i is not None],
+		lambda _: (
+			ConfigTclCommands(cfg)
+			.synth(design=design_name, bd=bd_name, core=core_name, resume=resume, parallel_subcore_synth=parallel_subcore_synth)
+			.build()
+		),
+		__name__,
+	)
 
 
 # -----------------------------------------------------------------------------
 # open --dcp <dcp_file> | --nogui <False>
 # -----------------------------------------------------------------------------
 def cmd_dcp_open(cfg: XvivConfig, *, dcp_file: str | None, nogui: bool = False):
-	config = ConfigTclCommands(cfg).open_dcp(dcp_file=dcp_file).build()
-
 	if nogui:
 		cfg.get_vivado().mode = "tcl"
 
-	vivado.run_vivado(cfg, config_tcl=config, label=__name__)
+	_run_from_name_list(cfg, [dcp_file], lambda name: ConfigTclCommands(cfg).open_dcp(dcp_file=name).build(), __name__)

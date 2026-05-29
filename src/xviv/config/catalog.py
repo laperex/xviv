@@ -8,6 +8,7 @@ from typing import Iterator
 from xviv.config.model import CatalogCoreEntry
 from xviv.parsers import component_xml, vv_index_xml
 from xviv.utils import error
+from xviv.utils.tools import find_vivado_dir_path
 
 logger = logging.getLogger(__name__)
 
@@ -59,10 +60,11 @@ class Catalog:
 
 		return None
 
-	def lookup(self, id: str) -> CatalogCoreEntry:
+	def lookup(self, id: str, exit_on_fail=True) -> CatalogCoreEntry:
 		if entry := self.lookup_optional(id):
 			return entry
 
+		find_vivado_dir_path(exit_on_fail=exit_on_fail)
 		raise error.VlnvResolveError(id)
 
 	def find_by_name(self, ip_name: str) -> list[CatalogCoreEntry]:
@@ -75,7 +77,11 @@ class Catalog:
 		include_hidden: bool = False,
 	) -> list[CatalogCoreEntry]:
 		needle = prefix.lower()
-		return [e for e in self._cores.values() if (include_hidden or not e.hidden) and (needle in e.vlnv.lower() or needle in e.display_name.lower() or needle in e.description.lower())]
+		return [
+			e
+			for e in self._cores.values()
+			if (include_hidden or not e.hidden) and (needle in e.vlnv.lower() or needle in e.display_name.lower() or needle in e.description.lower())
+		]
 
 	def items(self) -> Iterator[tuple[str, CatalogCoreEntry]]:
 		return iter(self._cores.items())

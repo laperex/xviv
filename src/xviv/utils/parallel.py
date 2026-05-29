@@ -318,4 +318,8 @@ def run_parallel(
 		", ".join(label for label, _, _, _ in failures),
 	)
 
-	raise error.ParallelJobError([(label, exc) for label, exc, _, _ in failures])
+	try:
+		raise error.ParallelJobError([(label, exc) for label, exc, _, _ in failures])
+	except error.ParallelJobError as e:
+		logger.error(e)
+		sys.exit(1)

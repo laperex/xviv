@@ -258,7 +258,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 		assert_file_exists(platform_cfg.xsa)
 
-		self._file_delete(platform_cfg.work_dir, force=True)
+		self._file_delete(os.path.abspath(platform_cfg.work_dir), force=True)
 		self._file_mkdir(platform_cfg.work_dir)
 
 		self._set_exec("hw", lambda _: _._hsi__open_hw_design(platform_cfg.xsa))
@@ -281,7 +281,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 		assert_file_exists(platform_cfg.xsa)
 
-		self._file_delete(app_cfg.work_dir, force=True)
+		self._file_delete(os.path.abspath(app_cfg.work_dir), force=True)
 		self._file_mkdir(app_cfg.work_dir)
 
 		self._set_exec("hw", lambda _: _._hsi__open_hw_design(platform_cfg.xsa))
@@ -349,12 +349,12 @@ class ConfigTclCommands(ConfigTclBuilder):
 		nogui: bool = False,
 	) -> typing.Self:
 		bd_cfg = self._cfg.get_bd(bd_name)
-		bd_subdir = os.path.join(self._cfg.bd_dir, bd_name)
+		bd_subdir = os.path.abspath(os.path.join(self._cfg.bd_dir, bd_name))
 
 		self._require_project(fpga_ref=bd_cfg.fpga)
 
 		if os.path.isdir(bd_subdir):
-			self._file_delete(bd_subdir, force=True)
+			self._file_delete(os.path.abspath(bd_subdir), force=True)
 
 		if not os.path.isdir(self._cfg.bd_dir):
 			self._file_mkdir(self._cfg.bd_dir)
@@ -397,19 +397,19 @@ class ConfigTclCommands(ConfigTclBuilder):
 			# self._validate_bd_design()
 			self._save_bd_design()
 
+			self._write_bd_tcl(bd_cfg.save_file, force=True, no_project_wrapper=True, make_local=True)
+
 			if generate:
 				self._generate_target_get_files(bd_cfg.bd_file)
 
 			if edit:
 				self.edit_bd(bd_name=bd_name, nogui=nogui)
-			elif save_file != bd_cfg.save_file:
-				# is called inside 'edit_bd'
-				self._write_bd_tcl(bd_cfg.save_file, force=True, no_project_wrapper=True, make_local=True)
 
 			return self
 
-		self._override_save_bd_design(bd_cfg.save_file)
-		self._start_gui()
+		if edit:
+			self._override_save_bd_design(bd_cfg.save_file)
+			self._start_gui()
 
 		return self
 
@@ -457,12 +457,12 @@ class ConfigTclCommands(ConfigTclBuilder):
 	def create_ip(self, ip_name: str, edit: bool = True, nogui: bool = False) -> typing.Self:
 		ip_cfg = self._cfg.get_ip(ip_name)
 
-		ip_vid = f"{ip_cfg.name}_{ip_cfg.version}".replace(".", "_")
-		ip_dir = os.path.join(ip_cfg.repo, ip_vid)
-		ip_component_xml_file = os.path.join(ip_dir, "component.xml")
+		ip_dir = os.path.dirname(ip_cfg.component_xml_file)
 
-		ip_edit_project_dir = os.path.join("/dev/shm/build", ip_vid)
-		ip_edit_project_name = f"edit_{ip_vid}"
+		ip_edit_project_dir = os.path.join("/dev/shm/build", ip_cfg.vid)
+		ip_edit_project_name = f"edit_{ip_cfg.vid}"
+
+		self._cfg.build_attach_ip_wrapper(ip_name=ip_name)
 
 		self._require_project(fpga_ref=ip_cfg.fpga)
 
@@ -479,7 +479,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 		self._write_peripheral_ipx__find_open_core(vlnv=ip_cfg.vlnv)
 
 		self._ipx__edit_ip_in_project(
-			ip_component_xml_file,
+			ip_cfg.component_xml_file,
 			directory=ip_edit_project_dir,
 			name=ip_edit_project_name,
 			upgrade=True,
@@ -508,7 +508,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 		)
 
 		# add sources
-		self._file_delete(os.path.join(ip_dir, "hdl"), force=True)
+		self._file_delete(os.path.abspath(os.path.join(ip_dir, "hdl")), force=True)
 
 		for s in ip_cfg.sources:
 			self._add_files(s.file, scan_for_includes=True)
@@ -629,21 +629,17 @@ class ConfigTclCommands(ConfigTclBuilder):
 	def edit_ip(self, ip_name: str, nogui=False) -> typing.Self:
 		ip_cfg = self._cfg.get_ip(ip_name)
 
-		ip_vid = f"{ip_cfg.name}_{ip_cfg.version}".replace(".", "_")
-		ip_dir = os.path.join(ip_cfg.repo, ip_vid)
-		ip_component_xml_file = os.path.join(ip_dir, "component.xml")
-
-		ip_edit_project_dir = os.path.join("/dev/shm/build", ip_vid)
-		ip_edit_project_name = f"edit_{ip_vid}"
+		ip_edit_project_dir = os.path.join("/dev/shm/build", ip_cfg.vid)
+		ip_edit_project_name = f"edit_{ip_cfg.vid}"
 
 		if self._require_project(fpga_ref=ip_cfg.fpga, exists_ok=True):
-			assert_file_exists(ip_component_xml_file)
+			assert_file_exists(ip_cfg.component_xml_file)
 
 		if not nogui:
 			self._start_gui()
 
 		self._ipx__edit_ip_in_project(
-			ip_component_xml_file,
+			ip_cfg.component_xml_file,
 			directory=ip_edit_project_dir,
 			name=ip_edit_project_name,
 			upgrade=True,
@@ -661,6 +657,9 @@ class ConfigTclCommands(ConfigTclBuilder):
 	def create_core(self, core_name: str, generate: bool = True, edit: bool = True, nogui: bool = False) -> typing.Self:
 		core_cfg = self._cfg.get_core(core_name)
 
+		if core_cfg.is_bd_core:
+			return self
+
 		if entry := self._cfg.get_catalog().lookup_optional(core_cfg.vlnv):
 			core_cfg.vlnv = entry.vlnv
 		else:
@@ -668,7 +667,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 		self._require_project(fpga_ref=core_cfg.fpga)
 
-		self._create_core(core_name, dir=self._cfg.core_dir, vlnv=core_cfg.vlnv)
+		self._create_core(core_name, dir=core_cfg.parent_dir, vlnv=core_cfg.vlnv)
 
 		if generate:
 			self._generate_target_get_files(core_cfg.xci_file, reset=False)
@@ -720,7 +719,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 			if not os.path.exists(dcp_file):
 				logger.warning(f"dcp does not exist at: {dcp_file} -> skipping incremental {stage}")
 			else:
-				self._read_checkpoint(dcp_file, incremental=True)
+				self._read_checkpoint(os.path.abspath(dcp_file), incremental=True)
 
 	def synth(
 		self,

@@ -60,6 +60,8 @@ def combined_checksum(files: list[str], algorithm: str = "sha256") -> str:
 	return h.hexdigest()
 
 
-def assert_file_exists(path: str) -> None:
+def assert_file_exists(path: str) -> bool:
 	if not os.path.exists(path):
 		raise error.FileNotFoundError(path)
+
+	return True

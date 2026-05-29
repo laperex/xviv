@@ -1,18 +1,95 @@
+import logging
+import os
+
 from xviv.config.project import XvivConfig
 from xviv.generator.tcl.commands import ConfigTclCommands
 from xviv.tools import vivado
 from xviv.utils import error
+from xviv.utils.parallel import run_parallel
 from xviv.utils.tools import find_vivado_dir_path
+
+logger = logging.getLogger(__name__)
+
+
+def _get_core_list(cfg: XvivConfig, core_name: str, recursive: bool, filter_bd_cores: bool = False):
+	core_list: list[str] = []
+
+	if core_name == "*":
+		core_list = [i.name for i in cfg._core_list if not i.is_bd_core or not filter_bd_cores]
+	else:
+		core_list = [cfg.get_core(core_name).name]
+
+	ip_list: list[str] = []
+	for i in core_list:
+		core_cfg = cfg.get_core(i)
+
+		if not recursive:
+			break
+
+		if filter_bd_cores and core_cfg.is_bd_core:
+			continue
+
+		if core_entry := cfg.get_catalog().lookup_optional(core_cfg.vlnv):
+			if ip_cfg := cfg._get_ip_cfg_optional_by_vlnv(core_entry.vlnv):
+				if ip_cfg.name not in ip_list and not os.path.exists(ip_cfg.component_xml_file):
+					ip_list.append(ip_cfg.name)
+
+	return ip_list, core_list
+
+
+def _run_from_name_list(cfg: XvivConfig, _list: list[str], config_tcl_function, log_file_prefix: str, run_config_tcl_function_in_task: bool = False):
+	tasks_list = []
+	_parallel = len(_list) > 1
+
+	for i in _list:
+		log_file_path = os.path.join(cfg.log_dir, f"{log_file_prefix}_{i}.log")
+
+		tasks_list.append(
+			(
+				lambda name=i, log_file_path=log_file_path: vivado.run_vivado(
+					cfg,
+					config_tcl=config_tcl_function(i),
+					label=f"{__name__}_{name}",
+					log_file_path=log_file_path,
+					parallel=_parallel,
+				),
+				i,
+				log_file_path,
+			)
+		)
+
+	if not tasks_list:
+		return
+
+	if _parallel:
+		run_parallel(tasks_list, dry_run=cfg.dry_run)
+	else:
+		task, _, _ = tasks_list[0]
+		task()
 
 
 # -----------------------------------------------------------------------------
 # create  --core <core_id> --vlnv <vlnv_id>
 # -----------------------------------------------------------------------------
 def cmd_core_create(cfg: XvivConfig, *, core_name: str, generate: bool = True, edit: bool = True, nogui: bool = False):
-	try:
-		config = ConfigTclCommands(cfg).create_core(core_name, generate=generate, edit=edit, nogui=nogui).build()
+	ip_list, core_list = _get_core_list(cfg, core_name=core_name, recursive=True, filter_bd_cores=True)
 
-		vivado.run_vivado(cfg, config_tcl=config, label=__name__)
+	if len(core_list) > 1:
+		if edit:
+			logger.warning("For Core create with multiple jobs, disabled 'edit'")
+
+		edit = False
+
+	_run_from_name_list(cfg, ip_list, lambda name: ConfigTclCommands(cfg).create_ip(name, edit=False, nogui=nogui).build(), __name__)
+
+	try:
+		_run_from_name_list(
+			cfg,
+			core_list,
+			config_tcl_function=lambda name: ConfigTclCommands(cfg).create_core(name, generate=generate, edit=edit, nogui=nogui).build(),
+			log_file_prefix="create_core",
+		)
+
 	except error.CoreVlnvNotInCatalogError:
 		try:
 			find_vivado_dir_path()
@@ -24,21 +101,24 @@ def cmd_core_create(cfg: XvivConfig, *, core_name: str, generate: bool = True, e
 # edit --core <core_id>
 # -----------------------------------------------------------------------------
 def cmd_core_edit(cfg: XvivConfig, *, core_name: str, nogui: bool = False):
-	config = ConfigTclCommands(cfg).edit_core(core_name, nogui=nogui).build()
-
 	if nogui:
 		cfg.get_vivado().mode = "tcl"
 
-	vivado.run_vivado(cfg, config_tcl=config, label=__name__)
+	_run_from_name_list(cfg, [core_name], lambda name: ConfigTclCommands(cfg).edit_core(name, nogui=nogui).build(), __name__)
 
 
 # -----------------------------------------------------------------------------
 # generate --bd <bd_name>
 # -----------------------------------------------------------------------------
 def cmd_core_generate(cfg: XvivConfig, *, core_name: str, force: bool = True, reset: bool = True):
-	config = ConfigTclCommands(cfg).generate_core(core_name, force=force, reset=reset).build()
+	_, core_list = _get_core_list(cfg, core_name=core_name, recursive=False)
 
-	vivado.run_vivado(cfg, config_tcl=config, label=__name__)
+	_run_from_name_list(
+		cfg,
+		core_list,
+		lambda name: ConfigTclCommands(cfg).generate_core(name, force=force, reset=reset).build(),
+		__name__,
+	)
 
 
 # -----------------------------------------------------------------------------
@@ -51,7 +131,13 @@ def cmd_search_core(cfg: XvivConfig, *, query: str):
 	matches = [
 		entry
 		for entry in sorted(catalog.values(), key=lambda e: e.vlnv)
-		if not entry.hidden and (needle in entry.vlnv.lower() or needle in entry.display_name.lower() or needle in entry.name.lower() or needle in entry.description.lower())
+		if not entry.hidden
+		and (
+			needle in entry.vlnv.lower()
+			or needle in entry.display_name.lower()
+			or needle in entry.name.lower()
+			or needle in entry.description.lower()
+		)
 	]
 
 	if not matches:

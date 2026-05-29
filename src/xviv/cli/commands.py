@@ -64,10 +64,10 @@ class CreateCommand(Command):
 		super().register(sub)
 		c = cls.c
 
-		target_group(c, exclusive=True, required=True, ip=True, bd=True, app=True, platform=True, core=True)
+		target_group(c, exclusive=True, required=True, ip=True, bd=True, app=True, platform=True, core=True, _all=["ip", "bd", "core"])
 
 		c.add_argument("--source-file", metavar="FILE", help="Source File [BD]", default=True, required=False)
-		c.add_argument("--regenerate", action="store_true", help="Regenerate Instances [IP]", default=False, required=False)
+		c.add_argument("--regenerate", action="store_true", help="Regenerate Cores [IP]", default=False, required=False)
 
 		target_group(c, exclusive=True, required=False, generate=True, build=True, edit=True)
 		target_group(c, exclusive=False, required=False, nogui=True)
@@ -75,23 +75,23 @@ class CreateCommand(Command):
 	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
 		super().run(cfg, args)
 
-		if args.ip:
-			cmd_ip_create(cfg, ip_name=args.ip, edit=args.edit, nogui=args.nogui, regenerate=args.regenerate)
-		elif args.bd:
+		if args.ip or args.all == "ip":
+			cmd_ip_create(cfg, ip_name=args.ip or "*", edit=args.edit, nogui=args.nogui, regenerate=args.regenerate)
+		elif args.bd or args.all == "bd":
 			cmd_bd_create(
 				cfg,
-				bd_name=args.bd,
+				bd_name=args.bd or "*",
 				source_file=args.source_file,
 				generate=args.generate,
 				edit=args.edit,
 				nogui=args.nogui,
 			)
-		elif args.core:
-			cmd_core_create(cfg, core_name=args.core, generate=args.generate, edit=args.edit, nogui=args.nogui)
-		elif args.app:
-			cmd_app_create(cfg, app_name=args.app, platform_name=args.platform, build=args.build)
-		elif args.platform:
-			cmd_platform_create(cfg, platform_name=args.platform, build=args.build)
+		elif args.core or args.all == "core":
+			cmd_core_create(cfg, core_name=args.core or "*", generate=args.generate, edit=args.edit, nogui=args.nogui)
+		elif args.app or args.all == "app":
+			cmd_app_create(cfg, app_name=args.app or "*", platform_name=args.platform or "*", build=args.build)
+		elif args.platform or args.all == "platform":
+			cmd_platform_create(cfg, platform_name=args.platform or "*", build=args.build)
 
 
 class EditCommand(Command):
@@ -127,7 +127,7 @@ class GenerateCommand(Command):
 		super().register(sub)
 		c = cls.c
 
-		target_group(c, exclusive=True, required=True, bd=True, core=True)
+		target_group(c, exclusive=True, required=True, bd=True, core=True, _all=["bd", "core"])
 		target_group(c, exclusive=False, required=False, force=True)
 		c.add_argument(
 			"--reset",
@@ -140,10 +140,10 @@ class GenerateCommand(Command):
 	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
 		super().run(cfg, args)
 
-		if args.bd:
-			cmd_bd_generate(cfg, bd_name=args.bd, force=args.force, reset=args.reset)
-		elif args.core:
-			cmd_core_generate(cfg, core_name=args.core, force=args.force, reset=args.reset)
+		if args.bd or args.all == "bd":
+			cmd_bd_generate(cfg, bd_name=args.bd or "*", force=args.force, reset=args.reset)
+		elif args.core or args.all == "core":
+			cmd_core_generate(cfg, core_name=args.core or "*", force=args.force, reset=args.reset)
 
 
 class OpenCommand(Command):

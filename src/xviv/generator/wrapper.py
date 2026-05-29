@@ -600,18 +600,22 @@ class SystemVerilogWrapper:
 		self._create_wrapper()
 
 	def _initialize_fileset(self, fileset: list[str]) -> None:
-		logger.info("Initializing and parsing fileset...")
+		logger.debug("Initializing and parsing fileset...")
 		self.pyslang_data, self.fileset = resolve_files(fileset)
 
 	def _top_module_interface_ports(self) -> list[tuple[str, str, str]]:
 
 		pdata = self.pyslang_data[self.top]["headers"]["ports"]
-		return [(name, info["header"]["interface"], info["header"]["modport"]) for name, info in pdata.items() if info["header"].get("kind") == "InterfacePortHeaderSyntax"]
+		return [
+			(name, info["header"]["interface"], info["header"]["modport"])
+			for name, info in pdata.items()
+			if info["header"].get("kind") == "InterfacePortHeaderSyntax"
+		]
 
 	def _resolve_wrapper_io(
 		self,
 	) -> tuple[list[str], list[str], list[str], dict[str, tuple]]:
-		logger.info("Resolving wrapper IO...")
+		logger.debug("Resolving wrapper IO...")
 
 		# (instance_name, module_name, modport) - top module listed first,
 		# then each interface port module.  Reversed so top ends up last in
@@ -715,7 +719,7 @@ class SystemVerilogWrapper:
 		return flat_params, flat_ports, flat_assign, instantiations
 
 	def _create_wrapper(self) -> None:
-		logger.info("Creating wrapper...")
+		logger.debug("Creating wrapper...")
 		flat_params, flat_ports, flat_assign, instantiations = self._resolve_wrapper_io()
 
 		param_block = ",\n\t".join(flat_params).strip().rstrip(",")

@@ -746,7 +746,9 @@ class VerilatorBinaryMissingError(XvivError):
 class UvmPkgDirRequiredError(XvivError):
 	def __init__(self, sim_name: str) -> None:
 		self.sim_name = sim_name
-		super().__init__(f"sim '{sim_name}': uvm=True with backend='verilator' requires uvm_pkg_dir to be set (verilator does not ship a pre-compiled UVM library)")
+		super().__init__(
+			f"sim '{sim_name}': uvm=True with backend='verilator' requires uvm_pkg_dir to be set (verilator does not ship a pre-compiled UVM library)"
+		)
 
 
 class UvmNotSupportedError(XvivError):

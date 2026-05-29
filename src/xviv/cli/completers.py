@@ -232,6 +232,7 @@ def target_group(
 	edit: bool = False,
 	generate: bool = False,
 	force: bool = False,
+	_all: list[str] = [],
 ):
 	grp = parser
 
@@ -279,6 +280,9 @@ def target_group(
 			completer=c_bitstream,
 			required=required,
 		)
+
+	if _all:
+		grp.add_argument("--all", metavar="NAME", help="", choices=_all, default=False, required=required)
 
 	if elf:
 		arg(grp, "--elf", metavar="PATH", help="Explicit path to .elf file", completer=c_elf, required=required)

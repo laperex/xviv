@@ -53,15 +53,15 @@ class XvivConfig:
 		self.board_repo_list: list[str] = []
 		for path in board_repo:
 			if os.path.isdir(path):
-				self.board_repo_list.append(path)
+				self.board_repo_list.append(os.path.abspath(path))
 
 		self.ip_repo_list: list[str] = []
 		for path in ip_repo:
 			if os.path.isdir(path) and path not in self.ip_repo_list:
-				self.ip_repo_list.append(path)
+				self.ip_repo_list.append(os.path.abspath(path))
 
-		if self._get_ip_repo_default not in ip_repo:
-			self.ip_repo_list.append(self._get_ip_repo_default)
+		if os.path.abspath(self._get_ip_repo_default) not in self.ip_repo_list:
+			self.ip_repo_list.append(os.path.abspath(self._get_ip_repo_default))
 
 		self.project_cfg = ProjectConfig(
 			work_dir=self.work_dir,
@@ -324,9 +324,9 @@ class XvivConfig:
 		if repo is None:
 			repo = self._get_ip_repo_default
 
-		if repo not in self.ip_repo_list:
+		if os.path.abspath(repo) not in self.ip_repo_list:
 			if os.path.isdir(repo):
-				self.ip_repo_list.append(repo)
+				self.ip_repo_list.append(os.path.abspath(repo))
 
 		if top is None:
 			top = name
@@ -670,15 +670,21 @@ class XvivConfig:
 					synth_report_timing_summary,
 					os.path.join(synth_reports_subdir, "synth_report_timing_summary_file.rpt"),
 				),
-				synth_report_utilization=_resolve_val(synth_report_utilization, os.path.join(synth_reports_subdir, "synth_report_utilization_file.rpt")),
+				synth_report_utilization=_resolve_val(
+					synth_report_utilization, os.path.join(synth_reports_subdir, "synth_report_utilization_file.rpt")
+				),
 				synth_report_incremental_reuse=_resolve_val(
 					synth_report_incremental_reuse,
 					os.path.join(synth_reports_subdir, "synth_report_incremental_reuse_file.rpt"),
 				),
 				route_report_drc=_resolve_val(route_report_drc, os.path.join(synth_reports_subdir, "route_report_drc_file.rpt")),
-				route_report_methodology=_resolve_val(route_report_methodology, os.path.join(synth_reports_subdir, "route_report_methodology_file.rpt")),
+				route_report_methodology=_resolve_val(
+					route_report_methodology, os.path.join(synth_reports_subdir, "route_report_methodology_file.rpt")
+				),
 				route_report_power=_resolve_val(route_report_power, os.path.join(synth_reports_subdir, "route_report_power_file.rpt")),
-				route_report_route_status=_resolve_val(route_report_route_status, os.path.join(synth_reports_subdir, "route_report_route_status_file.rpt")),
+				route_report_route_status=_resolve_val(
+					route_report_route_status, os.path.join(synth_reports_subdir, "route_report_route_status_file.rpt")
+				),
 				route_report_timing_summary=_resolve_val(
 					route_report_timing_summary,
 					os.path.join(synth_reports_subdir, "route_report_timing_summary_file.rpt"),
@@ -692,7 +698,9 @@ class XvivConfig:
 					os.path.join(synth_netlists_subdir, f"{id_name}_synth_functional_netlist.v"),
 				),
 				synth_timing_netlist=_resolve_val(synth_timing_netlist, os.path.join(synth_netlists_subdir, f"{id_name}_synth_timing_netlist.v")),
-				impl_functional_netlist=_resolve_val(impl_functional_netlist, os.path.join(synth_netlists_subdir, f"{id_name}_impl_functional_netlist.v")),
+				impl_functional_netlist=_resolve_val(
+					impl_functional_netlist, os.path.join(synth_netlists_subdir, f"{id_name}_impl_functional_netlist.v")
+				),
 				impl_timing_netlist=_resolve_val(impl_timing_netlist, os.path.join(synth_netlists_subdir, f"{id_name}_impl_timing_netlist.v")),
 				impl_timing_sdf=_resolve_val(impl_timing_sdf, os.path.join(synth_netlists_subdir, f"{id_name}_impl_timing.sdf")),
 				synth_stub=_resolve_val(synth_stub, os.path.join(synth_subdir, f"{id_name}_stub.v")),
@@ -1125,6 +1133,9 @@ class XvivConfig:
 	def _get_ip_cfg_optional(self, name: str) -> IpConfig | None:
 		return next((i for i in self._ip_list if i.name == name), None)
 
+	def _get_ip_cfg_optional_by_vlnv(self, vlnv: str) -> IpConfig | None:
+		return next((i for i in self._ip_list if i.vlnv == vlnv), None)
+
 	def _get_wrapper_cfg_optional(self, name: str) -> IpWrapperConfig | None:
 		return next((i for i in self._wrapper_list if i.ip == name), None)
 
@@ -1146,7 +1157,13 @@ class XvivConfig:
 			raise error.SynthIdentifierMultipleError(design=design_name, core=core_name, bd=bd_name)
 
 		return next(
-			(i for i in self._synth_list if (bd_name is not None and i.bd == bd_name) or (design_name is not None and i.design == design_name) or (core_name is not None and i.core == core_name)),
+			(
+				i
+				for i in self._synth_list
+				if (bd_name is not None and i.bd == bd_name)
+				or (design_name is not None and i.design == design_name)
+				or (core_name is not None and i.core == core_name)
+			),
 			None,
 		)
 
@@ -1248,37 +1265,37 @@ class XvivConfig:
 
 	@property
 	def wrapper_dir(self):
-		return self.__path_from_build_dir("wrapper")
+		return os.path.abspath(self.__path_from_build_dir("wrapper"))
 
 	@property
 	def core_dir(self):
-		return self.__path_from_build_dir("core")
+		return os.path.abspath(self.__path_from_build_dir("core"))
 
 	@property
 	def synth_dir(self):
-		return self.__path_from_build_dir("synth")
+		return os.path.abspath(self.__path_from_build_dir("synth"))
 
 	@property
 	def bd_dir(self):
-		return self.__path_from_build_dir("bd")
+		return os.path.abspath(self.__path_from_build_dir("bd"))
 
 	@property
 	def scripts_dir(self):
-		return self.__path_from_base_dir(os.path.join("scripts", "xviv"))
+		return os.path.abspath(self.__path_from_base_dir(os.path.join("scripts", "xviv")))
 
 	@property
 	def log_dir(self):
-		return os.path.dirname(self.log_file)
+		return os.path.abspath(os.path.dirname(self.log_file))
 
 	@property
 	def formal_dir(self):
-		return self.__path_from_build_dir("formal")
+		return os.path.abspath(self.__path_from_build_dir("formal"))
 
 	def __path_from_build_dir(self, path: str):
-		return os.path.join(self.work_dir, path)
+		return os.path.abspath(os.path.join(self.work_dir, path))
 
 	def __path_from_base_dir(self, path: str):
-		return os.path.join(self.base_dir, path)
+		return os.path.abspath(os.path.join(self.base_dir, path))
 
 
 def _resolve_val(field: bool | str | None, default: str) -> str | None:

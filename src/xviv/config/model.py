@@ -133,11 +133,22 @@ class IpConfig(Lockable):
 	name: str
 	top: str
 	fpga: str
+
 	sources: list[SourceFile] = sources_field()
+
+	@property
+	def vid(self) -> str:
+		return f"{self.name}_{self.version}".replace(".", "_")
+
+	@property
+	def component_xml_file(self) -> str:
+		return os.path.abspath(os.path.join(self.repo, self.vid, "component.xml"))
 
 	def __post_init__(self) -> None:
 		for s in self.sources:
 			s.file = os.path.abspath(s.file)
+
+		self.repo = os.path.abspath(self.repo)
 
 
 @dataclasses.dataclass
@@ -150,6 +161,7 @@ class IpWrapperConfig(Lockable):
 
 	def __post_init__(self) -> None:
 		self.wrapper_file = os.path.abspath(self.wrapper_file)
+
 		for s in self.sources:
 			s.file = os.path.abspath(s.file)
 
@@ -180,6 +192,14 @@ class CoreConfig(Lockable):
 	fpga: str
 	xci_file: str = relpath_field()
 
+	@property
+	def parent_dir(self) -> str:
+		return os.path.dirname(os.path.dirname(self.xci_file))
+
+	@property
+	def is_bd_core(self) -> bool:
+		return os.path.exists(os.path.join(os.path.dirname(self.parent_dir), f"{os.path.basename(os.path.dirname(self.parent_dir))}.bd"))
+
 	def __post_init__(self) -> None:
 		self.xci_file = os.path.abspath(self.xci_file)
 
@@ -189,8 +209,8 @@ class SubCoreConfig(Lockable):
 	bd: str | None
 	design: str | None
 
-	inst_hier_path: str
 	core: str | None
+	inst_hier_path: str
 
 
 @dataclasses.dataclass

@@ -435,6 +435,6 @@ def run_vivado(
 		_error_occurred = True
 		raise
 	finally:
-		if config_tcl_path and not cfg.dry_run and not _error_occurred:
+		if config_tcl_path and not cfg.dry_run and not _error_occurred and not parallel:
 			with contextlib.suppress(OSError):
 				os.unlink(config_tcl_path)
