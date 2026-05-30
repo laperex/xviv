@@ -12,11 +12,6 @@ from xviv.utils.fs import assert_file_exists
 logger = logging.getLogger(__name__)
 
 
-# --------------------------------------------------------------------------- #
-#  Helpers                                                                    #
-# --------------------------------------------------------------------------- #
-
-
 def _build_uvm_plusargs(uvm_cfg: UvmConfig | None) -> list[str]:
 	args: list[str] = []
 
@@ -41,11 +36,6 @@ def _build_xsim_testplusargs(cfg: XvivConfig, sim_name: str, uvm_name: str | Non
 	return args
 
 
-# --------------------------------------------------------------------------- #
-#  simulate                                                                   #
-# --------------------------------------------------------------------------- #
-
-
 def cmd_simulate(
 	cfg: XvivConfig,
 	*,
@@ -59,7 +49,6 @@ def cmd_simulate(
 	if run is None:
 		run = "all"
 
-	# -- Resolve source file lists --------------------------------------- #
 	svlog_files: list[str] = []
 	sdfmax_entries: list[str] = []
 	sdfmin_entries: list[str] = []
@@ -101,7 +90,6 @@ def cmd_simulate(
 
 	svlog_files += [i.file for i in sim_cfg.sources]
 
-	# -- Backend dispatch ------------------------------------------------ #
 	match sim_cfg.backend:
 		case "xsim":
 			_run_xsim(cfg, sim_name, uvm_name, svlog_files, sdfmax_entries, sdfmin_entries, run)
@@ -109,11 +97,6 @@ def cmd_simulate(
 			_run_verilator(cfg, sim_name, uvm_name, svlog_files)
 		case _:
 			raise error.InvalidSimulationBackend(sim_cfg.backend)
-
-
-# --------------------------------------------------------------------------- #
-#  xsim backend (private)                                                    #
-# --------------------------------------------------------------------------- #
 
 
 def _run_xsim(
@@ -140,7 +123,6 @@ def _run_xsim(
 
 	xsim_lib = "xv_work"
 
-	# -- 1. xvlog - compile source files ------------------------------- #
 	vivado.run_vivado_xvlog(
 		cfg,
 		target_dir=sim_cfg.work_dir,
@@ -152,7 +134,6 @@ def _run_xsim(
 		include_dirs=sim_cfg.include_dirs,
 	)
 
-	# -- 2. xelab - elaborate ------------------------------------------- #
 	elab_libs = ["secureip", "unimacro_ver", "unisims_ver"]
 	if uvm_name:
 		elab_libs.append("uvm")
@@ -169,12 +150,10 @@ def _run_xsim(
 		debug="typical",
 		incr=True,
 		runall=(run == "all") and not uvm_name,
-		# svlog=svlog_files,
 		sdfmax=sdfmax_entries[0] if sdfmax_entries else None,
 		uvm_version=uvm_version,
 	)
 
-	# -- 3. xsim - simulate --------------------------------------------- #
 	if not (run == "all") or uvm_name:
 		x_simulate_tcl = filter(
 			None,
@@ -199,11 +178,6 @@ def _run_xsim(
 		)
 
 
-# --------------------------------------------------------------------------- #
-#  verilator backend (private)                                                #
-# --------------------------------------------------------------------------- #
-
-
 def _run_verilator(cfg: XvivConfig, sim_name: str, uvm_name: str | None, svlog_files):
 	sim_cfg = cfg.get_sim(sim_name)
 
@@ -222,7 +196,6 @@ def _run_verilator(cfg: XvivConfig, sim_name: str, uvm_name: str | None, svlog_f
 		uvm_verbosity = uvm_cfg.uvm_verbosity
 		uvm_max_quit_count = uvm_cfg.uvm_max_quit_count
 
-	# -- 1. Compile ----------------------------------------------------- #
 	include_dirs = list(sim_cfg.include_dirs)
 	if uvm_name and sim_cfg.uvm_pkg_dir is not None:
 		include_dirs.insert(0, sim_cfg.uvm_pkg_dir)
@@ -246,7 +219,6 @@ def _run_verilator(cfg: XvivConfig, sim_name: str, uvm_name: str | None, svlog_f
 		log_dir=cfg.log_dir,
 	)
 
-	# -- 2. Simulate ---------------------------------------------------- #
 	verilator.run_verilator_sim(
 		binary=binary,
 		work_dir=sim_cfg.work_dir,
@@ -261,11 +233,6 @@ def _run_verilator(cfg: XvivConfig, sim_name: str, uvm_name: str | None, svlog_f
 		label=__name__,
 		log_dir=cfg.log_dir,
 	)
-
-
-# --------------------------------------------------------------------------- #
-#  open --wdb --top <top_name>                                               #
-# --------------------------------------------------------------------------- #
 
 
 def cmd_wdb_open(cfg: XvivConfig, *, sim_name: str, nogui: bool = False):
@@ -294,13 +261,6 @@ def cmd_wdb_open(cfg: XvivConfig, *, sim_name: str, nogui: bool = False):
 
 	if pid is not None:
 		logger.info("xsim waveform PID: %d", pid)
-	# else:
-	# 	logger.info("xsim waveform exited (blocking mode)")
-
-
-# --------------------------------------------------------------------------- #
-#  reload --wdb --top <top_name>                                             #
-# --------------------------------------------------------------------------- #
 
 
 def cmd_wdb_reload(cfg: XvivConfig, *, sim_name: str):
@@ -309,7 +269,6 @@ def cmd_wdb_reload(cfg: XvivConfig, *, sim_name: str):
 	wdb_file = os.path.join(sim_cfg.work_dir, f"{sim_cfg.top}.wdb")
 	fifo_file = f"{wdb_file}.fifo"
 
-	# TODO: Proper FIFO exception for Failure
 	assert_file_exists(fifo_file)
 
 	cmd = ConfigTclCommands(cfg).waveform_reload().build()

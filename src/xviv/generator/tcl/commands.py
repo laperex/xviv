@@ -3,6 +3,17 @@ import os
 import typing
 from enum import IntEnum
 
+from xviv.config.params import (
+	BdCreateParams,
+	CoreCreateParams,
+	EditParams,
+	GenerateParams,
+	IpCreateParams,
+	OpenParams,
+	ProcessorParams,
+	ProgramParams,
+	SynthParams,
+)
 from xviv.generator.tcl.builder import ConfigTclBuilder, _tcl_list
 from xviv.utils import error
 from xviv.utils.fs import assert_file_exists, is_stale, is_stale_list
@@ -52,14 +63,14 @@ class ConfigTclCommands(ConfigTclBuilder):
 	# DCP
 	# ------------------------------------------------------
 
-	def open_dcp(self, dcp_file: str | None, nogui=False) -> typing.Self:
+	def open_dcp(self, dcp_file: str | None, params: OpenParams) -> typing.Self:
 		assert_file_exists(dcp_file)
 
 		dcp_file = os.path.abspath(dcp_file)
 
 		self._open_checkpoint(file=dcp_file)
 
-		if not nogui:
+		if not params.nogui:
 			self._start_gui()
 
 		return self
@@ -177,45 +188,37 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 		self._if("[catch {puts [rrd]} err]", __no_regs)
 
-	def program(
-		self,
-		*,
-		bitstream_file: str | None = None,
-		elf_file: str | None = None,
-		processor_target_filter: str | None = None,
-		processor_reset_duration: int | None = None,
-		fpga_target_filter: str | None = None,
-	) -> typing.Self:
+	def program(self, params: ProgramParams) -> typing.Self:
 		self._connect()
 
-		if bitstream_file is not None:
-			if fpga_target_filter is None:
+		if params.bitstream_file is not None:
+			if params.fpga_target_filter is None:
 				raise error.FpgaTargetFilterUnspecifiedError()
 
-			self._select_target(fpga_target_filter)
+			self._select_target(params.fpga_target_filter)
 
-			if not os.path.exists(bitstream_file):
-				raise error.InvalidPathError(bitstream_file, "bitstream")
+			if not os.path.exists(params.bitstream_file):
+				raise error.InvalidPathError(params.bitstream_file, "bitstream")
 
-			self._fpga(os.path.abspath(bitstream_file))
+			self._fpga(os.path.abspath(params.bitstream_file))
 
-		if elf_file is not None:
-			if not os.path.exists(elf_file):
-				raise error.InvalidPathError(elf_file, "ELF")
+		if params.elf_file is not None:
+			if not os.path.exists(params.elf_file):
+				raise error.InvalidPathError(params.elf_file, "ELF")
 
-			if bitstream_file is not None:
-				if processor_reset_duration is None:
+			if params.bitstream_file is not None:
+				if params.processor_reset_duration is None:
 					raise error.ResetDurationUnspecifiedError()
 
-				if processor_reset_duration:
-					self._after(processor_reset_duration)
+				if params.processor_reset_duration:
+					self._after(params.processor_reset_duration)
 
-			if processor_target_filter is None:
+			if params.processor_target_filter is None:
 				raise error.ProcessorTargetFilterUnspecifiedError()
 
-			self._select_target(processor_target_filter)
+			self._select_target(params.processor_target_filter)
 			self._rst(processor=True)
-			self._dow(os.path.abspath(elf_file))
+			self._dow(os.path.abspath(params.elf_file))
 			self._con()
 
 		self._disconnect()
@@ -224,14 +227,13 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 	def processor_cntrl(
 		self,
-		reset: bool | None,
-		status: bool | None,
+		params: ProcessorParams,
 		*,
 		processor_target_filter: str | None = None,
 	) -> typing.Self:
 		self._connect()
 
-		if reset:
+		if params.reset:
 			if processor_target_filter is None:
 				raise error.ProcessorTargetFilterUnspecifiedError()
 
@@ -242,8 +244,8 @@ class ConfigTclCommands(ConfigTclBuilder):
 			self._con()
 			self._puts("INFO: processor running")
 
-		if status:
-			self._processor_status()
+		if params.status:
+			self._processor_status(processor_target_filter=processor_target_filter)
 
 		self._disconnect()
 
@@ -340,14 +342,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 		self._close("$fd")
 
-	def create_bd(
-		self,
-		bd_name: str,
-		source_file: str | bool = True,
-		generate: bool = True,
-		edit: bool = True,
-		nogui: bool = False,
-	) -> typing.Self:
+	def create_bd(self, bd_name: str, params: BdCreateParams) -> typing.Self:
 		bd_cfg = self._cfg.get_bd(bd_name)
 		bd_subdir = os.path.abspath(os.path.join(self._cfg.bd_dir, bd_name))
 
@@ -361,10 +356,9 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 		self._create_bd_design(bd_name, dir=self._cfg.bd_dir)
 
-		# TODO: add a new flag --import=true flag to make this if explicit
-		while source_file:
-			if isinstance(source_file, str):
-				save_file = os.path.abspath(source_file)
+		while params.source_file:
+			if isinstance(params.source_file, str):
+				save_file = os.path.abspath(params.source_file)
 				assert_file_exists(save_file)
 			else:
 				save_file = bd_cfg.save_file
@@ -392,28 +386,25 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 			self._if("[llength [get_bd_cells]] == 0", __body)
 
-			# self._delete_bd_objs("[get_bd_addr_segs]", "[get_bd_addr_segs -excluded]")
-			# self._assign_bd_address()
-			# self._validate_bd_design()
 			self._save_bd_design()
 
 			self._write_bd_tcl(bd_cfg.save_file, force=True, no_project_wrapper=True, make_local=True)
 
-			if generate:
+			if params.generate:
 				self._generate_target_get_files(bd_cfg.bd_file, force=True, reset=True)
 
-			if edit:
-				self.edit_bd(bd_name=bd_name, nogui=nogui)
+			if params.edit:
+				self.edit_bd(bd_name=bd_name, params=EditParams(nogui=params.nogui))
 
 			return self
 
-		if edit:
+		if params.edit:
 			self._override_save_bd_design(bd_cfg.save_file)
 			self._start_gui()
 
 		return self
 
-	def edit_bd(self, bd_name: str, nogui: bool = False) -> typing.Self:
+	def edit_bd(self, bd_name: str, params: EditParams) -> typing.Self:
 		bd_cfg = self._cfg.get_bd(bd_name)
 
 		# can be called directly after create_bd
@@ -425,17 +416,17 @@ class ConfigTclCommands(ConfigTclBuilder):
 		self._override_save_bd_design(bd_cfg.save_file)
 		self._write_bd_tcl(bd_cfg.save_file, force=True, no_project_wrapper=True, make_local=True)
 
-		if not nogui:
+		if not params.nogui:
 			self._start_gui()
 
 		return self
 
-	def generate_bd(self, bd_name: str, *, force: bool = True, reset: bool = True) -> typing.Self:
+	def generate_bd(self, bd_name: str, params: GenerateParams) -> typing.Self:
 		bd_cfg = self._cfg.get_bd(bd_name)
 
 		assert_file_exists(bd_cfg.bd_file)
 
-		if not force and not is_stale(bd_cfg.bd_file, bd_cfg.bd_wrapper_file):
+		if not params.force and not is_stale(bd_cfg.bd_file, bd_cfg.bd_wrapper_file):
 			logger.info("Output products are up to date")
 			self._clear()
 			return self
@@ -446,7 +437,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 		self._open_bd_design(bd_cfg.bd_file)
 
 		self._bd_upgrade_ip_cells()
-		self._generate_target_get_files(bd_cfg.bd_file, force=force, reset=reset)
+		self._generate_target_get_files(bd_cfg.bd_file, force=params.force, reset=params.reset)
 
 		return self
 
@@ -454,7 +445,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 	# IP
 	# ------------------------------------------------------
 
-	def create_ip(self, ip_name: str, edit: bool = True, nogui: bool = False) -> typing.Self:
+	def create_ip(self, ip_name: str, params: IpCreateParams) -> typing.Self:
 		ip_cfg = self._cfg.get_ip(ip_name)
 
 		ip_dir = os.path.dirname(ip_cfg.component_xml_file)
@@ -466,7 +457,6 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 		self._require_project(fpga_ref=ip_cfg.fpga)
 
-		# _xviv_ip_scaffold
 		self._create_peripheral(
 			name=ip_name,
 			vendor=ip_cfg.vendor,
@@ -489,7 +479,6 @@ class ConfigTclCommands(ConfigTclBuilder):
 		self._close_project()
 		self._current_project(ip_edit_project_name)
 
-		# _xviv_ip_strip_scaffold
 		for i in ["S00_AXI", "S00_AXI_RST", "S00_AXI_CLK"]:
 			self._ipx__remove_bus_interface_ipx__current_core(i)
 
@@ -507,7 +496,6 @@ class ConfigTclCommands(ConfigTclBuilder):
 			body_func=__rm_for_body,
 		)
 
-		# add sources
 		self._file_delete(os.path.abspath(os.path.join(ip_dir, "hdl")), force=True)
 
 		for s in ip_cfg.sources:
@@ -522,7 +510,6 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 		self._update_compile_order(fileset="sources_1")
 
-		# _xviv_ip_infer_interfaces
 		for i in [
 			"xilinx.com:interface:axis_rtl:1.0",
 			"xilinx.com:interface:aximm_rtl:1.0",
@@ -533,7 +520,6 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 		ipx_current_core = "[ipx::current_core]"
 
-		# _xviv_ip_expose_params
 		def __expose_params_body(x: typing.Self):
 			x._set_exec("pname", lambda _: _._get_property("NAME", "$param"))
 
@@ -559,7 +545,6 @@ class ConfigTclCommands(ConfigTclBuilder):
 			body_func=__expose_params_body,
 		)
 
-		# _xviv_ip_wire_memory_maps
 		def __ip_wire_memory_maps_body(x: typing.Self):
 			x._set_exec("ifc_name", lambda m: m._get_property("NAME", "$ifc"))
 			x._set_exec("ifc_mode", lambda m: m._get_property("BUS_TYPE_NAME", "$ifc"))
@@ -579,11 +564,6 @@ class ConfigTclCommands(ConfigTclBuilder):
 					lambda m: m._ipx__add_address_block("Reg", "$ifc_memmap"),
 				)
 
-				# ipx::get_port_maps AWADDR -of_objects $ifc  -> port_map object
-				# get_property PHYSICAL_NAME $pm              -> physical port name string
-				# ipx::get_ports $name -of_objects core       -> ipx port object
-				# get_property SIZE_LEFT $port                -> MSB index (e.g. 3 for [3:0])
-				# SIZE_LEFT + 1                               -> bit width
 				x._set_exec("_awaddr_pm", lambda m: m._ipx__get_port_maps("AWADDR", of_objects="$ifc"))
 				x._set_exec("_awaddr_phys", lambda m: m._get_property("PHYSICAL_NAME", "$_awaddr_pm"))
 				x._set_exec("_awaddr_port", lambda m: m._ipx__get_ports("$_awaddr_phys", of_objects=ipx_current_core))
@@ -621,12 +601,12 @@ class ConfigTclCommands(ConfigTclBuilder):
 		self._ipx__check_integrity_ipx__current_core()
 		self._ipx__save_core_ipx__current_core()
 
-		if edit:
-			self.edit_ip(ip_name=ip_name, nogui=nogui)
+		if params.edit:
+			self.edit_ip(ip_name=ip_name, params=EditParams(nogui=params.nogui))
 
 		return self
 
-	def edit_ip(self, ip_name: str, nogui=False) -> typing.Self:
+	def edit_ip(self, ip_name: str, params: EditParams) -> typing.Self:
 		ip_cfg = self._cfg.get_ip(ip_name)
 
 		ip_edit_project_dir = os.path.join("/dev/shm/build", ip_cfg.vid)
@@ -635,7 +615,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 		if self._require_project(fpga_ref=ip_cfg.fpga, exists_ok=True):
 			assert_file_exists(ip_cfg.component_xml_file)
 
-		if not nogui:
+		if not params.nogui:
 			self._start_gui()
 
 		self._ipx__edit_ip_in_project(
@@ -654,7 +634,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 	# Core
 	# ------------------------------------------------------
 
-	def create_core(self, core_name: str, generate: bool = True, edit: bool = True, nogui: bool = False) -> typing.Self:
+	def create_core(self, core_name: str, params: CoreCreateParams) -> typing.Self:
 		core_cfg = self._cfg.get_core(core_name)
 
 		if core_cfg.is_bd_core:
@@ -669,24 +649,24 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 		self._create_core(core_name, dir=core_cfg.parent_dir, vlnv=core_cfg.vlnv)
 
-		if generate:
+		if params.generate:
 			self._generate_target_get_files(core_cfg.xci_file, force=True, reset=False)
 
 			self._push(f"puts [get_files -compile_order sources -used_in simulation -of_objects [get_ips {core_name}]]")
 
-		if edit:
-			self.edit_core(core_name=core_name, nogui=nogui)
+		if params.edit:
+			self.edit_core(core_name=core_name, params=EditParams(nogui=params.nogui))
 
 		return self
 
-	def edit_core(self, core_name: str, nogui: bool = False) -> typing.Self:
+	def edit_core(self, core_name: str, params: EditParams) -> typing.Self:
 		core_cfg = self._cfg.get_core(core_name)
 
 		if self._require_project(fpga_ref=core_cfg.fpga, exists_ok=True):
 			assert_file_exists(core_cfg.xci_file)
 			self._read_ip(core_cfg.xci_file)
 
-		if not nogui:
+		if not params.nogui:
 			self._foreach(
 				"{key val}",
 				iter_lambda=lambda _: _._start_ip_gui(f"[get_ips {core_name}]"),
@@ -697,7 +677,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 		return self
 
-	def generate_core(self, core_name: str, *, force: bool = True, reset: bool = True) -> typing.Self:
+	def generate_core(self, core_name: str, params: GenerateParams) -> typing.Self:
 		core_cfg = self._cfg.get_core(core_name)
 
 		assert_file_exists(core_cfg.xci_file)
@@ -706,7 +686,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 		self._read_ip(core_cfg.xci_file)
 		self._upgrade_ip_get_ips(core_name)
-		self._generate_target_get_files(core_cfg.xci_file, force=True, reset=reset)
+		self._generate_target_get_files(core_cfg.xci_file, force=True, reset=params.reset)
 
 		return self
 
@@ -727,8 +707,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 		bd: str | None = None,
 		design: str | None = None,
 		core: str | None = None,
-		resume: str | None = None,
-		parallel_subcore_synth: bool = False,
+		params: SynthParams,
 	) -> typing.Self:
 		# -------------------------------------------------------------------------
 		# Validation
@@ -777,12 +756,12 @@ class ConfigTclCommands(ConfigTclBuilder):
 			"route": SynthStage.WRITE,
 		}
 
-		if resume == "auto":
+		if params.resume == "auto":
 			start_stage = _auto_detect_resume_stage()
-		elif resume in _resume_map:
-			start_stage = _resume_map[resume]
-		elif resume is not None:
-			raise error.SynthResumeInvalidError(resume)
+		elif params.resume in _resume_map:
+			start_stage = _resume_map[params.resume]
+		elif params.resume is not None:
+			raise error.SynthResumeInvalidError(params.resume)
 		else:
 			start_stage = SynthStage.SYNTH
 
@@ -848,16 +827,12 @@ class ConfigTclCommands(ConfigTclBuilder):
 				assert_file_exists(core_cfg.xci_file)
 				self._read_ip(core_cfg.xci_file)
 
-				# if core_cfg.name == "bd_mblaze_system_microblaze_0_0":
-				# 	self._push("err_command")
-
 				if not is_stale_list(core_cfg.xci_file, [synth_cfg.synth_dcp, synth_cfg.synth_stub]):
 					logger.info(f"skipping up-to-date synth targets: {core_cfg.name}")
 					self._clear()
 					return self
 
 			for i in synth_cfg.constraints:
-				## ooc based constr selection
 				if synth_cfg.synth_mode == "out_of_context" and i.used_in_ooc:
 					assert_file_exists(i.file)
 					self._add_files(i.file, fileset="constrs_1")
@@ -868,7 +843,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 			self._update_compile_order(fileset="sources_1")
 
-			if parallel_subcore_synth:
+			if params.parallel_subcore_synth:
 				for i in self._cfg.get_subcore_list(bd_name=bd, design_name=design):
 					subcore_synth_cfg = self._cfg.get_synth(core_name=i.core)
 
@@ -944,7 +919,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 			if synth_cfg.synth_stub:
 				self._write_verilog(synth_cfg.synth_stub, mode="synth_stub", force=True)
 
-		# Load Impl Only Contraints
+		# Load Impl Only Constraints
 		for i in synth_cfg.constraints:
 			if i.used_in_impl and not i.used_in_synth:
 				assert_file_exists(i.file)

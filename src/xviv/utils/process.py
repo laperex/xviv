@@ -23,30 +23,31 @@ VIVADO_PREFIX_MAP = {
 loglevel = logging.DEBUG
 next_loglevel: int = logging.DEBUG
 
+
 def _colorize(line: str) -> tuple[str, str, int]:
-    global next_loglevel
-    loggin_text = line
-    stdout_text = line
-    loglevel = next_loglevel
+	global next_loglevel
+	loggin_text = line
+	stdout_text = line
+	loglevel = next_loglevel
 
-    for prefix, level in VIVADO_PREFIX_MAP.items():
-        color = LEVEL_COLORS[level]
-        if line.startswith(prefix):
-            loglevel = level
-            logleveltext = f"{color}{BOLD}{prefix}{RESET}"
-            if color == LEVEL_COLORS[logging.INFO]:
-                loggin_text = f"{line[len(prefix):].strip()}"
-            else:
-                loggin_text = f"{color}{line[len(prefix):].strip()}{RESET}"
-            stdout_text = f"{logleveltext} {loggin_text}"
-            break
+	for prefix, level in VIVADO_PREFIX_MAP.items():
+		color = LEVEL_COLORS[level]
+		if line.startswith(prefix):
+			loglevel = level
+			logleveltext = f"{color}{BOLD}{prefix}{RESET}"
+			if color == LEVEL_COLORS[logging.INFO]:
+				loggin_text = f"{line[len(prefix) :].strip()}"
+			else:
+				loggin_text = f"{color}{line[len(prefix) :].strip()}{RESET}"
+			stdout_text = f"{logleveltext} {loggin_text}"
+			break
 
-    if loggin_text.endswith(":"):
-        next_loglevel = loglevel
-    else:
-        next_loglevel = logging.DEBUG
+	if loggin_text.endswith(":"):
+		next_loglevel = loglevel
+	else:
+		next_loglevel = logging.DEBUG
 
-    return stdout_text, loggin_text, loglevel
+	return stdout_text, loggin_text, loglevel
 
 
 def _process_pty_output(data: bytes, log_file, stdout_print: bool) -> None:

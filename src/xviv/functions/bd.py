@@ -2,6 +2,7 @@ import logging
 import os
 import re
 
+from xviv.config.params import BdCreateParams, EditParams, GenerateParams, IpCreateParams
 from xviv.config.project import XvivConfig
 from xviv.functions.core import _run_from_name_list
 from xviv.generator.tcl.commands import ConfigTclCommands
@@ -38,60 +39,53 @@ def _get_bd_list(cfg: XvivConfig, bd_name: str, recursive: bool = False):
 	return ip_list, bd_list
 
 
-# -----------------------------------------------------------------------------
-# create --bd <bd_name>
-# -----------------------------------------------------------------------------
-def cmd_bd_create(
-	cfg: XvivConfig,
-	*,
-	bd_name: str,
-	source_file: str | bool = True,
-	generate: bool = True,
-	edit: bool = False,
-	nogui: bool = False,
-):
+def cmd_bd_create(cfg: XvivConfig, *, bd_name: str, params: BdCreateParams):
 	ip_list, bd_list = _get_bd_list(cfg, bd_name=bd_name, recursive=True)
 
 	if len(bd_list) > 1:
-		if edit:
+		if params.edit:
 			logger.warning("For bd create with multiple jobs, disabled 'edit'")
 
-		if isinstance(source_file, str):
+		if isinstance(params.source_file, str):
 			logger.warning("For bd create with multiple jobs, disabled 'source_file'")
 
-		edit = False
-		source_file = True
+		params.edit = False
+		params.source_file = True
 
 	if ip_list:
-		_run_from_name_list(cfg, ip_list, lambda name: ConfigTclCommands(cfg).create_ip(name, edit=False, nogui=nogui).build(), __name__)
+		_run_from_name_list(
+			cfg,
+			ip_list,
+			lambda name: ConfigTclCommands(cfg).create_ip(name, IpCreateParams(edit=False, nogui=params.nogui)).build(),
+			__name__,
+		)
 
 	_run_from_name_list(
 		cfg,
 		bd_list,
-		lambda name: ConfigTclCommands(cfg).create_bd(name, source_file=source_file, generate=generate, edit=edit, nogui=nogui).build(),
+		lambda name: ConfigTclCommands(cfg).create_bd(name, params=params).build(),
 		__name__,
 	)
 
 
-# -----------------------------------------------------------------------------
-# edit --bd <bd_name>
-# -----------------------------------------------------------------------------
-def cmd_bd_edit(cfg: XvivConfig, *, bd_name: str, nogui: bool = False):
-	if nogui:
+def cmd_bd_edit(cfg: XvivConfig, *, bd_name: str, params: EditParams):
+	if params.nogui:
 		cfg.get_vivado().mode = "tcl"
 
-	_run_from_name_list(cfg, [bd_name], lambda name: ConfigTclCommands(cfg).edit_bd(name, nogui=nogui).build(), __name__)
+	_run_from_name_list(
+		cfg,
+		[bd_name],
+		lambda name: ConfigTclCommands(cfg).edit_bd(name, params=params).build(),
+		__name__,
+	)
 
 
-# -----------------------------------------------------------------------------
-# generate --bd <bd_name>
-# -----------------------------------------------------------------------------
-def cmd_bd_generate(cfg: XvivConfig, *, bd_name: str, force: bool = True, reset: bool = True):
+def cmd_bd_generate(cfg: XvivConfig, *, bd_name: str, params: GenerateParams):
 	_, bd_list = _get_bd_list(cfg, bd_name=bd_name)
 
 	_run_from_name_list(
 		cfg,
 		bd_list,
-		lambda name: ConfigTclCommands(cfg).generate_bd(name, force=force, reset=reset).build(),
+		lambda name: ConfigTclCommands(cfg).generate_bd(name, params=params).build(),
 		__name__,
 	)

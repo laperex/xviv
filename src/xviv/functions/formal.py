@@ -12,10 +12,6 @@ from xviv.utils import error
 
 logger = logging.getLogger(__name__)
 
-# ---------------------------------------------------------------------------
-# .sby generator
-# ---------------------------------------------------------------------------
-
 
 def generate_sby(cfg: FormalConfig) -> str:
 	basenames = [os.path.basename(s.file) for s in cfg.sources]
@@ -63,7 +59,6 @@ def generate_sby(cfg: FormalConfig) -> str:
 
 	script.extend(cfg.extra_script)
 
-	# -- assemble -------------------------------------------------------------
 	lines: list[str] = [
 		"[options]",
 		*options,
@@ -81,11 +76,6 @@ def generate_sby(cfg: FormalConfig) -> str:
 	return "\n".join(lines)
 
 
-# ---------------------------------------------------------------------------
-# Result type
-# ---------------------------------------------------------------------------
-
-
 class FormalResult:
 	def __init__(self, name: str, passed: bool, last_line: str, vcd: str | None) -> None:
 		self.name = name
@@ -98,14 +88,9 @@ class FormalResult:
 		return f"FormalResult({self.name!r}, {status})"
 
 
-# ---------------------------------------------------------------------------
-# Runner
-# ---------------------------------------------------------------------------
-
-
 def run_formal(cfg: FormalConfig, *, dry_run: bool = False) -> FormalResult:
 	work_dir = Path(cfg.work_dir)
-	sby_dir = work_dir.parent  # sby file lives one level up from taskdir
+	sby_dir = work_dir.parent
 	sby_dir.mkdir(parents=True, exist_ok=True)
 
 	sby_path = sby_dir / f"{cfg.name}.sby"
@@ -155,11 +140,6 @@ def run_formal(cfg: FormalConfig, *, dry_run: bool = False) -> FormalResult:
 	)
 
 
-# ---------------------------------------------------------------------------
-# CLI entry points
-# ---------------------------------------------------------------------------
-
-
 def cmd_formal(cfg: XvivConfig, *, target: str | None = None) -> None:
 	all_cfgs = cfg.get_formal_list()
 
@@ -183,7 +163,6 @@ def cmd_formal(cfg: XvivConfig, *, target: str | None = None) -> None:
 			logger.info(f"   counterexample trace -> {result.vcd}")
 			logger.info(f"   open with: gtkwave {result.vcd}")
 
-	# -- summary table --------------------------------------------------------
 	logger.info("Formal Results " + "-" * 44)
 	for r in results:
 		status = "\033[32mPASS\033[0m" if r.passed else "\033[31mFAIL\033[0m"

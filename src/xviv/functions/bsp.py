@@ -2,6 +2,7 @@ import logging
 import os
 import re
 
+from xviv.config.params import AppBuildParams, AppCreateParams, PlatformCreateParams, ProcessorParams, ProgramParams
 from xviv.config.project import XvivConfig
 from xviv.functions.bd import ConfigTclCommands
 from xviv.tools.xsct import run_xsct
@@ -12,10 +13,7 @@ from xviv.utils.tools import find_vitis_dir_path
 logger = logging.getLogger(__name__)
 
 
-# -----------------------------------------------------------------------------
-# create --platform <platform_name>
-# -----------------------------------------------------------------------------
-def cmd_platform_create(cfg: XvivConfig, *, platform_name: str, build: bool = False):
+def cmd_platform_create(cfg: XvivConfig, *, platform_name: str, params: PlatformCreateParams):
 	cfg.validate_platform(platform_name=platform_name)
 
 	config = ConfigTclCommands(cfg).create_platform(platform_name).build()
@@ -26,13 +24,10 @@ def cmd_platform_create(cfg: XvivConfig, *, platform_name: str, build: bool = Fa
 
 	logger.info(f"Platform: {platform_cfg.name} - Create complete - {platform_cfg.work_dir}")
 
-	if build:
+	if params.build:
 		cmd_platform_build(cfg, platform_name=platform_name)
 
 
-# -----------------------------------------------------------------------------
-# build --platform <platform_name>
-# -----------------------------------------------------------------------------
 def cmd_platform_build(cfg: XvivConfig, *, platform_name: str):
 	platform_cfg = cfg.get_platform(platform_name)
 	cfg.validate_platform(platform_name=platform_name)
@@ -53,10 +48,7 @@ def cmd_platform_build(cfg: XvivConfig, *, platform_name: str):
 	)
 
 
-# -----------------------------------------------------------------------------
-# create --app <app_name> [--platform <platform_name>] [--template <template>]
-# -----------------------------------------------------------------------------
-def cmd_app_create(cfg: XvivConfig, *, app_name: str, platform_name: str | None, template: str | None = None, build: bool = False):
+def cmd_app_create(cfg: XvivConfig, *, app_name: str, platform_name: str | None, template: str | None = None, params: AppCreateParams):
 	app_cfg = cfg.get_app(app_name)
 
 	if template:
@@ -71,7 +63,7 @@ def cmd_app_create(cfg: XvivConfig, *, app_name: str, platform_name: str | None,
 
 	if not os.path.isdir(platform_cfg.work_dir):
 		logger.warning("BSP not found - creating platform '%s' first", app_cfg.platform)
-		cmd_platform_create(cfg, platform_name=app_cfg.platform)
+		cmd_platform_create(cfg, platform_name=app_cfg.platform, params=PlatformCreateParams())
 
 	cfg.validate_platform(platform_name=app_cfg.platform)
 
@@ -81,14 +73,11 @@ def cmd_app_create(cfg: XvivConfig, *, app_name: str, platform_name: str | None,
 
 	logger.info(f"App: {app_cfg.name} - Create complete - {app_cfg.work_dir}")
 
-	if build:
-		cmd_app_build(cfg, app_name=app_name, info=True)
+	if params.build:
+		cmd_app_build(cfg, app_name=app_name, params=AppBuildParams(info=True))
 
 
-# -----------------------------------------------------------------------------
-# build --app <app_name> [--info]
-# -----------------------------------------------------------------------------
-def cmd_app_build(cfg: XvivConfig, *, app_name: str, info: bool = False):
+def cmd_app_build(cfg: XvivConfig, *, app_name: str, params: AppBuildParams):
 	app_cfg = cfg.get_app(app_name)
 	platform_cfg = cfg.get_platform(app_cfg.platform)
 
@@ -121,7 +110,7 @@ def cmd_app_build(cfg: XvivConfig, *, app_name: str, info: bool = False):
 	if not cfg.dry_run:
 		cfg.validate_app(app_name=app_name, check_elf=True, check_sources=False)
 
-	if info and cfg.get_vitis().path:
+	if params.info and cfg.get_vitis().path:
 		mb_tool_size_bin = os.path.join(cfg.get_vitis().path, "gnu", "microblaze", "lin", "bin", "microblaze-xilinx-elf-size")
 		mb_tool_objdump_bin = os.path.join(cfg.get_vitis().path, "gnu", "microblaze", "lin", "bin", "microblaze-xilinx-elf-objdump")
 
@@ -148,27 +137,18 @@ def cmd_app_build(cfg: XvivConfig, *, app_name: str, info: bool = False):
 		)
 
 
-# -----------------------------------------------------------------------------
-# program [--app | --platform | --elf | --bitstream]
-# -----------------------------------------------------------------------------
-def cmd_program(
-	cfg: XvivConfig,
-	*,
-	bitstream_file: str | None = None,
-	elf_file: str | None = None,
-	app_name: str | None = None,
-	platform_name: str | None = None,
-	processor_target_filter: str | None = None,
-	processor_reset_duration: int | None = None,
-	fpga_target_filter: str | None = None,
-):
-	if app_name:
-		cfg.validate_app(app_name=app_name, check_sources=False)
+def cmd_program(cfg: XvivConfig, *, params: ProgramParams):
+	if params.app_name:
+		cfg.validate_app(app_name=params.app_name, check_sources=False)
+
+	bitstream_file = params.bitstream_file
+	elf_file = params.elf_file
+	platform_name = params.platform_name
 
 	if bitstream_file is None:
 		if platform_name is None:
-			if app_name is not None:
-				platform_name = cfg.get_app(app_name).platform
+			if params.app_name is not None:
+				platform_name = cfg.get_app(params.app_name).platform
 
 		if platform_cfg := cfg._get_platform_cfg_optional(platform_name):
 			bitstream_file = platform_cfg.bitstream
@@ -177,8 +157,8 @@ def cmd_program(
 		cfg.validate_platform(platform_name=platform_name)
 
 	if elf_file is None:
-		if app_name is not None:
-			elf_file = cfg.get_app(app_name).elf
+		if params.app_name is not None:
+			elf_file = cfg.get_app(params.app_name).elf
 
 	if elf_file is None and bitstream_file is None:
 		raise error.ProgramUnspecifiedIdentifiersError()
@@ -186,11 +166,13 @@ def cmd_program(
 	config = (
 		ConfigTclCommands(cfg)
 		.program(
-			bitstream_file=bitstream_file,
-			elf_file=elf_file,
-			processor_target_filter=processor_target_filter,
-			processor_reset_duration=processor_reset_duration,
-			fpga_target_filter=fpga_target_filter,
+			params=ProgramParams(
+				bitstream_file=bitstream_file,
+				elf_file=elf_file,
+				processor_target_filter=params.processor_target_filter,
+				processor_reset_duration=params.processor_reset_duration,
+				fpga_target_filter=params.fpga_target_filter,
+			)
 		)
 		.build()
 	)
@@ -203,27 +185,17 @@ def cmd_program(
 	run_xsct(cfg, config_tcl=config, label=__name__)
 
 
-# -----------------------------------------------------------------------------
-# processor --reset | --status
-# -----------------------------------------------------------------------------
-def cmd_processor(cfg: XvivConfig, *, reset: bool | None, status: bool | None):
-	config = ConfigTclCommands(cfg).processor_cntrl(reset=reset, status=status).build()
+def cmd_processor(cfg: XvivConfig, *, params: ProcessorParams):
+	config = ConfigTclCommands(cfg).processor_cntrl(params=params).build()
 
 	run_xsct(cfg, config_tcl=config, label=__name__)
-
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
 
 
 def _transform_app_makefile(path: str):
 	content = open(path, "rt").read()
 
 	content = re.sub(r"(patsubst\s+%\.\w+,\s*)(?!build/)%.o", r"\1build/%.o", content)
-
 	content = re.sub(r"(?<!build/)%.o(:%\.[cSs])", r"build/%.o\1", content)
-
 	content = re.sub(r"(build/%.o:%\.[cSs]\n)(?!\t@mkdir)", r"\1\t@mkdir -p $(dir $@)\n", content)
 
 	open(path, "wt").write(content)
@@ -236,7 +208,7 @@ def _get_vitis_env(cfg: XvivConfig) -> dict[str, str]:
 		find_vitis_dir_path()
 
 	extra_paths = [
-		os.path.join(vitis_path, "gnu", "microblaze", "lin", "bin"),  # mb-gcc
+		os.path.join(vitis_path, "gnu", "microblaze", "lin", "bin"),
 		os.path.join(vitis_path, "bin"),
 		os.path.join(vitis_path, "lib", "lnx64.o"),
 	]

@@ -1,6 +1,7 @@
 import logging
 import os
 
+from xviv.config.params import CoreCreateParams, EditParams, GenerateParams, IpCreateParams
 from xviv.config.project import XvivConfig
 from xviv.generator.tcl.commands import ConfigTclCommands
 from xviv.tools import vivado
@@ -68,25 +69,27 @@ def _run_from_name_list(cfg: XvivConfig, _list: list[str], config_tcl_function, 
 		task()
 
 
-# -----------------------------------------------------------------------------
-# create  --core <core_id> --vlnv <vlnv_id>
-# -----------------------------------------------------------------------------
-def cmd_core_create(cfg: XvivConfig, *, core_name: str, generate: bool = True, edit: bool = True, nogui: bool = False):
+def cmd_core_create(cfg: XvivConfig, *, core_name: str, params: CoreCreateParams):
 	ip_list, core_list = _get_core_list(cfg, core_name=core_name, recursive=False, filter_bd_cores=True)
 
 	if len(core_list) > 1:
-		if edit:
+		if params.edit:
 			logger.warning("For Core create with multiple jobs, disabled 'edit'")
 
-		edit = False
+		params.edit = False
 
-	_run_from_name_list(cfg, ip_list, lambda name: ConfigTclCommands(cfg).create_ip(name, edit=False, nogui=nogui).build(), __name__)
+	_run_from_name_list(
+		cfg,
+		ip_list,
+		lambda name: ConfigTclCommands(cfg).create_ip(name, IpCreateParams(edit=False, nogui=params.nogui)).build(),
+		__name__,
+	)
 
 	try:
 		_run_from_name_list(
 			cfg,
 			core_list,
-			lambda name: ConfigTclCommands(cfg).create_core(name, generate=generate, edit=edit, nogui=nogui).build(),
+			lambda name: ConfigTclCommands(cfg).create_core(name, params=params).build(),
 			__name__,
 		)
 
@@ -97,33 +100,29 @@ def cmd_core_create(cfg: XvivConfig, *, core_name: str, generate: bool = True, e
 			raise
 
 
-# -----------------------------------------------------------------------------
-# edit --core <core_id>
-# -----------------------------------------------------------------------------
-def cmd_core_edit(cfg: XvivConfig, *, core_name: str, nogui: bool = False):
-	if nogui:
+def cmd_core_edit(cfg: XvivConfig, *, core_name: str, params: EditParams):
+	if params.nogui:
 		cfg.get_vivado().mode = "tcl"
 
-	_run_from_name_list(cfg, [core_name], lambda name: ConfigTclCommands(cfg).edit_core(name, nogui=nogui).build(), __name__)
+	_run_from_name_list(
+		cfg,
+		[core_name],
+		lambda name: ConfigTclCommands(cfg).edit_core(name, params=params).build(),
+		__name__,
+	)
 
 
-# -----------------------------------------------------------------------------
-# generate --bd <bd_name>
-# -----------------------------------------------------------------------------
-def cmd_core_generate(cfg: XvivConfig, *, core_name: str, force: bool = True, reset: bool = True):
+def cmd_core_generate(cfg: XvivConfig, *, core_name: str, params: GenerateParams):
 	_, core_list = _get_core_list(cfg, core_name=core_name, recursive=False)
 
 	_run_from_name_list(
 		cfg,
 		core_list,
-		lambda name: ConfigTclCommands(cfg).generate_core(name, force=force, reset=reset).build(),
+		lambda name: ConfigTclCommands(cfg).generate_core(name, params=params).build(),
 		__name__,
 	)
 
 
-# -----------------------------------------------------------------------------
-# search --query <query>
-# -----------------------------------------------------------------------------
 def cmd_search_core(cfg: XvivConfig, *, query: str):
 	catalog = cfg.get_catalog()
 
@@ -145,7 +144,6 @@ def cmd_search_core(cfg: XvivConfig, *, query: str):
 		print("Tip: try a partial name like 'fifo', 'clk', 'dma', or a vendor like 'xilinx'.")
 		return
 
-	# Column widths
 	w_vlnv = min(max(len(e.vlnv) for e in matches), 52)
 	w_name = min(max(len(e.display_name) for e in matches), 30)
 	w_desc = 60
@@ -160,7 +158,6 @@ def cmd_search_core(cfg: XvivConfig, *, query: str):
 		vlnv_col = entry.vlnv[:w_vlnv]
 		name_col = entry.display_name[:w_name]
 
-		# Flags take priority over description
 		flags = []
 		if entry.board_dependent:
 			flags.append("[board-dep]")

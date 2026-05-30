@@ -1,6 +1,7 @@
 import logging
 import os
 
+from xviv.config.params import EditParams, GenerateParams, IpCreateParams
 from xviv.config.project import XvivConfig
 from xviv.functions.core import _run_from_name_list
 from xviv.generator.tcl.commands import ConfigTclCommands
@@ -35,34 +36,33 @@ def _ip_create_core_generate_list_from_ip_name(cfg: XvivConfig, ip_name: str, re
 	return ip_list, core_list
 
 
-# -----------------------------------------------------------------------------
-# create --ip <ip_name>
-# -----------------------------------------------------------------------------
-def cmd_ip_create(cfg: XvivConfig, *, ip_name: str | None = None, edit: bool = False, nogui: bool = False, regenerate: bool = False):
-	ip_list, core_list = _ip_create_core_generate_list_from_ip_name(cfg, ip_name=ip_name, regenerate=regenerate)
+def cmd_ip_create(cfg: XvivConfig, *, ip_name: str | None = None, params: IpCreateParams):
+	ip_list, core_list = _ip_create_core_generate_list_from_ip_name(cfg, ip_name=ip_name, regenerate=params.regenerate)
 
 	if len(ip_list) > 1:
-		if edit:
+		if params.edit:
 			logger.warning("For IP create with multiple jobs, disabled 'edit'")
 
-		edit = False
+		params.edit = False
 
-	_run_from_name_list(cfg, ip_list, lambda name: ConfigTclCommands(cfg).create_ip(name, edit=edit, nogui=nogui).build(), __name__)
+	_run_from_name_list(cfg, ip_list, lambda name: ConfigTclCommands(cfg).create_ip(name, params).build(), __name__)
 
-	if core_list and regenerate:
+	if core_list and params.regenerate:
 		_run_from_name_list(
 			cfg,
 			core_list,
-			config_tcl_function=lambda name: ConfigTclCommands(cfg).generate_core(name, force=True, reset=True).build(),
+			lambda name: ConfigTclCommands(cfg).generate_core(name, params=GenerateParams(force=True, reset=True)).build(),
 			log_file_prefix=__name__,
 		)
 
 
-# -----------------------------------------------------------------------------
-# edit --ip <ip_name>
-# -----------------------------------------------------------------------------
-def cmd_ip_edit(cfg: XvivConfig, *, ip_name: str, nogui: bool = False):
-	if nogui:
+def cmd_ip_edit(cfg: XvivConfig, *, ip_name: str, params: EditParams):
+	if params.nogui:
 		cfg.get_vivado().mode = "tcl"
 
-	_run_from_name_list(cfg, [ip_name], lambda name: ConfigTclCommands(cfg).edit_ip(name, nogui=nogui).build(), __name__)
+	_run_from_name_list(
+		cfg,
+		[ip_name],
+		lambda name: ConfigTclCommands(cfg).edit_ip(name, params=params).build(),
+		__name__,
+	)
