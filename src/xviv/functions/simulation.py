@@ -2,6 +2,7 @@ import logging
 import os
 
 from xviv.config.model import UvmConfig
+from xviv.config.params import SimulateParams
 from xviv.config.project import XvivConfig
 from xviv.generator.tcl.commands import ConfigTclCommands
 from xviv.tools import verilator, vivado
@@ -40,27 +41,22 @@ def cmd_simulate(
 	cfg: XvivConfig,
 	*,
 	sim_name: str,
-	uvm_name: str | None = None,
-	run: str | None = None,
-	mode: str = "default",
+	params: SimulateParams
 ):
 	sim_cfg = cfg.get_sim(sim_name)
-
-	if run is None:
-		run = "all"
 
 	svlog_files: list[str] = []
 	sdfmax_entries: list[str] = []
 	sdfmin_entries: list[str] = []
 
 	if sim_cfg.design:
-		if mode == "default":
+		if params.mode == "default":
 			design_cfg = cfg.get_design(sim_cfg.design)
 			svlog_files += [i.file for i in design_cfg.sources]
 		else:
 			synth_cfg = cfg.get_synth(design_name=sim_cfg.design)
 
-			match mode:
+			match params.mode:
 				case "post_synth_functional":
 					assert_file_exists(synth_cfg.synth_functional_netlist)
 					svlog_files.append(synth_cfg.synth_functional_netlist)
@@ -86,15 +82,15 @@ def cmd_simulate(
 					svlog_files.append(synth_cfg.impl_timing_netlist)
 
 				case _:
-					raise error.InvalidSimulationMode(mode)
+					raise error.InvalidSimulationMode(params.mode)
 
 	svlog_files += [i.file for i in sim_cfg.sources]
 
 	match sim_cfg.backend:
 		case "xsim":
-			_run_xsim(cfg, sim_name, uvm_name, svlog_files, sdfmax_entries, sdfmin_entries, run)
+			_run_xsim(cfg, sim_name, params.uvm_name, svlog_files, sdfmax_entries, sdfmin_entries, params.run)
 		case "verilator":
-			_run_verilator(cfg, sim_name, uvm_name, svlog_files)
+			_run_verilator(cfg, sim_name, params.uvm_name, svlog_files)
 		case _:
 			raise error.InvalidSimulationBackend(sim_cfg.backend)
 

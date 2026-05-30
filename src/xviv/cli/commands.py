@@ -125,19 +125,19 @@ class CreateCommand(Command):
 					nogui=args.nogui,
 				),
 			)
-		elif args.app or args.all == "app":
+		elif args.app:
 			cmd_app_create(
 				cfg,
-				app_name=args.app or "*",
-				platform_name=args.platform or "*",
+				app_name=args.app,
+				platform_name=args.platform,
 				params=AppCreateParams(
 					build=args.build,
 				),
 			)
-		elif args.platform or args.all == "platform":
+		elif args.platform:
 			cmd_platform_create(
 				cfg,
-				platform_name=args.platform or "*",
+				platform_name=args.platform,
 				params=PlatformCreateParams(
 					build=args.build,
 				),
