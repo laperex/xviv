@@ -1229,15 +1229,19 @@ class XvivConfig:
 			if isinstance(i, str):
 				files, stages = [i], default_stages
 			else:
+				files = []
 				if "used_in" not in i:
 					raise error.SourceSpecMissingKeyError("used_in", i, sources)
-				if "files" not in i:
-					raise error.SourceSpecMissingKeyError("files", i, sources)
+				if "files" in i:
+					files = i['files']
+				if "file" in i:
+					files = [i['file']]
+				if 'files' not in i and 'file' not in i:
+					raise error.SourceSpecMissingKeyError("file(s)", i, sources)
 
 				stages = set(i["used_in"])
 				if unknown := stages - _VALID_STAGES:
 					raise error.SourceSpecUnknownStageError(unknown, i)
-				files = i["files"]
 
 			for k in resolve_globs(files, self.base_dir):
 				res.append(SourceFile.from_stages(k, stages))

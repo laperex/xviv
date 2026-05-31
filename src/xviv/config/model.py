@@ -3,6 +3,8 @@ import os
 import shutil
 import typing
 
+from xviv.utils.hash import sha512_file
+
 # ---------------------------------------------------------------------------
 # Field factories
 # ---------------------------------------------------------------------------
@@ -37,7 +39,7 @@ def lock_serialize(obj: object, base_dir: str) -> dict:
 			case "relpath":
 				d[f.name] = _relpath(val, base_dir) if val else val
 			case "sources":
-				d[f.name] = [{"files": [_relpath(s.file, base_dir)], "used_in": sorted(s.used_in)} for s in val]
+				d[f.name] = [{"file": _relpath(s.file, base_dir), "hash": s.hash, "used_in": sorted(s.used_in)} for s in val]
 			case "relpath_list":
 				d[f.name] = [_relpath(p, base_dir) for p in val]
 			case _:
@@ -95,6 +97,7 @@ class VitisConfig:
 class SourceFile:
 	file: str
 	used_in: frozenset[str]
+	hash: str = ""
 
 	def uses(self, stage: str) -> bool:
 		return stage in self.used_in
@@ -116,11 +119,12 @@ class SourceFile:
 		return self.uses("sim")
 
 	@classmethod
-	def from_stages(cls, file: str, stages: typing.Iterable[str]) -> "SourceFile":
+	def from_stages(cls, file: str, stages: typing.Iterable[str]) -> typing.Self:
 		return cls(file=file, used_in=frozenset(stages))
 
 	def __post_init__(self) -> None:
 		self.file = os.path.abspath(self.file)
+		self.hash = sha512_file(self.file)
 
 
 @dataclasses.dataclass
