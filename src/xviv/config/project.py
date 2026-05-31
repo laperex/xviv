@@ -543,6 +543,7 @@ class XvivConfig:
 		fpga: str | None = None,
 		top: str | None = None,
 		constraints: list[typing.Any] = [],
+		save_file: str | None = None,
 		run_synth: bool = True,
 		run_place: bool = True,
 		run_route: bool = True,
@@ -638,13 +639,16 @@ class XvivConfig:
 		if impl_timing_sdf is None:
 			impl_timing_sdf = True if impl_timing_netlist else False
 
-		assert top is not None
-		assert fpga is not None
-
 		synth_subdir = os.path.join(self.synth_dir, id_name)
 		synth_reports_subdir = os.path.join(synth_subdir, "reports")
 		synth_netlists_subdir = os.path.join(synth_subdir, "netlists")
 		synth_checkpoints_subdir = os.path.join(synth_subdir, "checkpoints")
+
+		if save_file is None:
+			save_file = os.path.join(synth_subdir, "synth.json")
+
+		assert top is not None
+		assert fpga is not None
 
 		self._synth_list.append(
 			SynthConfig(
@@ -654,6 +658,7 @@ class XvivConfig:
 				fpga=fpga,
 				top=top,
 				constraints=self._resolve_sources(constraints, used_in_ooc=False, used_in_sim=False, used_in_impl=True, used_in_synth=True),
+				save_file=save_file,
 				synth_incremental=synth_incremental,
 				run_synth=run_synth,
 				run_opt=run_opt,
@@ -1233,10 +1238,10 @@ class XvivConfig:
 				if "used_in" not in i:
 					raise error.SourceSpecMissingKeyError("used_in", i, sources)
 				if "files" in i:
-					files = i['files']
+					files = i["files"]
 				if "file" in i:
-					files = [i['file']]
-				if 'files' not in i and 'file' not in i:
+					files = [i["file"]]
+				if "files" not in i and "file" not in i:
 					raise error.SourceSpecMissingKeyError("file(s)", i, sources)
 
 				stages = set(i["used_in"])

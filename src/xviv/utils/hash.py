@@ -1,6 +1,7 @@
 import hashlib
 import os
 
+
 def sha512_file(file) -> str:
 	if os.path.exists(file):
 		h = hashlib.sha512()

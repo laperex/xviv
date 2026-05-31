@@ -37,12 +37,7 @@ def _build_xsim_testplusargs(cfg: XvivConfig, sim_name: str, uvm_name: str | Non
 	return args
 
 
-def cmd_simulate(
-	cfg: XvivConfig,
-	*,
-	sim_name: str,
-	params: SimulateParams
-):
+def cmd_simulate(cfg: XvivConfig, *, sim_name: str, params: SimulateParams):
 	sim_cfg = cfg.get_sim(sim_name)
 
 	svlog_files: list[str] = []

@@ -1,4 +1,7 @@
+import json
 import logging
+
+import tomlkit
 
 from xviv.config.params import OpenParams, SynthParams
 from xviv.config.project import XvivConfig
@@ -17,7 +20,6 @@ def cmd_synth(
 	design_name: str | None = None,
 	bd_name: str | None = None,
 	core_name: str | None = None,
-	usr_access_type: str | None = None,
 	params: SynthParams,
 ):
 	cfg.validate_synth(bd=bd_name, design=design_name, core=core_name)
@@ -26,7 +28,7 @@ def cmd_synth(
 
 	if synth_cfg.bitstream:
 		if synth_cfg.usr_access_value is None:
-			match usr_access_type:
+			match params.usr_access_type:
 				case "git":
 					sha, dirty, _ = _git_sha_tag()
 
@@ -56,6 +58,10 @@ def cmd_synth(
 		lambda _: ConfigTclCommands(cfg).synth(design=design_name, bd=bd_name, core=core_name, params=params).build(),
 		__name__,
 	)
+
+	# # if not cfg.dry_run:
+	# with open(synth_cfg.save_file, "w", encoding="utf-8") as f:
+	# 	f.write(json.dumps(synth_cfg.to_lock(base_dir=cfg.base_dir), indent=4))
 
 
 def cmd_dcp_open(cfg: XvivConfig, *, dcp_file: str | None, params: OpenParams):

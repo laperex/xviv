@@ -28,7 +28,7 @@ def relpath_list_field(**kw) -> typing.Any:
 
 
 def _relpath(path: str, relpath: str) -> str:
-	return f"./{os.path.relpath(path, relpath)}"
+	return ("./" if relpath != "/" else "/") + os.path.relpath(path, relpath)
 
 
 def lock_serialize(obj: object, base_dir: str) -> dict:
@@ -267,6 +267,8 @@ class SynthConfig(Lockable):
 
 	constraints: list[SourceFile] = sources_field()
 
+	save_file: str = relpath_field()
+
 	# checkpoints
 
 	synth_dcp: str | None = relpath_field(default=None)
@@ -307,6 +309,7 @@ class SynthConfig(Lockable):
 	def __post_init__(self) -> None:
 		for s in self.constraints:
 			s.file = os.path.abspath(s.file)
+		self.save_file = os.path.abspath(self.save_file)
 
 		_optional_paths = (
 			"synth_dcp",
