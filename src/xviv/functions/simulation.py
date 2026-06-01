@@ -5,7 +5,10 @@ from xviv.config.model import UvmConfig
 from xviv.config.params import SimulateParams
 from xviv.config.project import XvivConfig
 from xviv.generator.tcl.commands import ConfigTclCommands
-from xviv.tools import verilator, vivado
+
+# from xviv.tools import verilator, vivado
+from xviv.tools.verilator import VerilatorRunner
+from xviv.tools.vivado import XelabRunner, XsimRunner
 from xviv.utils import error
 from xviv.utils.fifo import _ensure_fifo, _fifo_send
 from xviv.utils.fs import assert_file_exists
@@ -114,26 +117,30 @@ def _run_xsim(
 
 	xsim_lib = "xv_work"
 
-	vivado.run_vivado_xvlog(
+	XelabRunner(
 		cfg,
+	).job(
 		target_dir=sim_cfg.work_dir,
 		fileset=svlog_files,
 		label=__name__,
+		log_file=os.path.join(cfg.log_dir, "xvlog.log"),
 		lib=filter(None, ["uvm" if uvm_name else None]),
 		xsim_lib=xsim_lib,
 		defines=sim_cfg.defines,
 		include_dirs=sim_cfg.include_dirs,
-	)
+	).run()
 
 	elab_libs = ["secureip", "unimacro_ver", "unisims_ver"]
 	if uvm_name:
 		elab_libs.append("uvm")
 
-	vivado.run_vivado_xelab(
+	XelabRunner(
 		cfg,
+	).job(
 		sim_cfg.work_dir,
 		[f"{xsim_lib}.{top}", f"{xsim_lib}.glbl"],
 		label=__name__,
+		log_file=os.path.join(cfg.log_dir, "xelab.log"),
 		timescale=timescale,
 		mt=str(20),
 		snapshot=top,
@@ -143,7 +150,7 @@ def _run_xsim(
 		runall=(run == "all") and not uvm_name,
 		sdfmax=sdfmax_entries[0] if sdfmax_entries else None,
 		uvm_version=uvm_version,
-	)
+	).run()
 
 	if not (run == "all") or uvm_name:
 		x_simulate_tcl = filter(
@@ -155,18 +162,18 @@ def _run_xsim(
 			],
 		)
 
-		vivado.run_vivado_xsim(
-			cfg,
+		XsimRunner(cfg).job(
 			target_dir=sim_cfg.work_dir,
-			config_tcl="\n".join(x_simulate_tcl),
 			label=__name__,
+			log_file=os.path.join(cfg.log_dir, "xsim_simulate.log"),
+			config_tcl="\n".join(x_simulate_tcl),
 			top=top,
 			stats=True,
 			nogui=True,
 			popen=False,
 			testplusarg=_build_xsim_testplusargs(cfg, sim_name, uvm_name),
 			runall=False,
-		)
+		).run()
 
 
 def _run_verilator(cfg: XvivConfig, sim_name: str, uvm_name: str | None, svlog_files):
@@ -191,28 +198,25 @@ def _run_verilator(cfg: XvivConfig, sim_name: str, uvm_name: str | None, svlog_f
 	if uvm_name and sim_cfg.uvm_pkg_dir is not None:
 		include_dirs.insert(0, sim_cfg.uvm_pkg_dir)
 
-	binary = verilator.run_verilator_compile(
-		work_dir=sim_cfg.work_dir,
-		fileset=svlog_files,
+	VerilatorRunner(cfg).compile_job(
+		target_dir=sim_cfg.work_dir,
+		label=__name__,
+		log_file=os.path.join(cfg.log_dir, "verilator_compile.log"),
 		top=top,
 		defines=sim_cfg.defines,
 		include_dirs=include_dirs,
 		timescale=timescale,
+		fileset=svlog_files,
 		threads=sim_cfg.threads,
-		trace=sim_cfg.trace,
 		trace_fst=sim_cfg.trace_fst,
+		trace=sim_cfg.trace,
 		trace_depth=sim_cfg.trace_depth,
 		uvm=uvm_name is not None,
 		uvm_pkg_dir=sim_cfg.uvm_pkg_dir,
-		extra_args=sim_cfg.verilator_args,
-		dry_run=cfg.dry_run,
+	).sim_job(
+		target_dir=sim_cfg.work_dir,
 		label=__name__,
-		log_dir=cfg.log_dir,
-	)
-
-	verilator.run_verilator_sim(
-		binary=binary,
-		work_dir=sim_cfg.work_dir,
+		log_file=os.path.join(cfg.log_dir, "verilator_sim.log"),
 		plusargs=sim_cfg.plusargs,
 		uvm=uvm_name is not None,
 		uvm_test=uvm_test,
@@ -220,10 +224,7 @@ def _run_verilator(cfg: XvivConfig, sim_name: str, uvm_name: str | None, svlog_f
 		uvm_max_quit_count=uvm_max_quit_count,
 		trace=sim_cfg.trace,
 		trace_fst=sim_cfg.trace_fst,
-		dry_run=cfg.dry_run,
-		label=__name__,
-		log_dir=cfg.log_dir,
-	)
+	).run()
 
 
 def cmd_wdb_open(cfg: XvivConfig, *, sim_name: str, nogui: bool = False):
@@ -237,21 +238,21 @@ def cmd_wdb_open(cfg: XvivConfig, *, sim_name: str, nogui: bool = False):
 
 	_ensure_fifo(fifo_file)
 
-	pid = vivado.run_vivado_xsim(
-		cfg,
+	XsimRunner(cfg).job(
 		target_dir=sim_cfg.work_dir,
-		config_tcl=config,
 		label=__name__,
+		log_file=os.path.join(cfg.log_dir, "xsim_wdb_open.log"),
+		config_tcl=config,
 		top=sim_cfg.top,
 		stats=False,
 		wdb_file=wdb_file,
 		nogui=nogui,
 		popen=True,
 		unlink_config_file=False,
-	)
+	).run()
 
-	if pid is not None:
-		logger.info("xsim waveform PID: %d", pid)
+	# if pid is not None:
+	# 	logger.info("xsim waveform PID: %d", pid)
 
 
 def cmd_wdb_reload(cfg: XvivConfig, *, sim_name: str):

@@ -26,6 +26,7 @@ class ToolRunner:
 	def __init__(self, cfg: XvivConfig) -> None:
 		self._cfg = cfg
 		self._pairs: list[tuple[Path, Job]] = []
+		self.sequential_exec: bool = False
 
 	@classmethod
 	def classify(cls, raw: str) -> OutputLine:
@@ -56,7 +57,7 @@ class ToolRunner:
 
 	def _run_internal(self, jobs: list[Job], *, max_workers: int | None = None) -> None:
 		n = max_workers if max_workers is not None else self._DEFAULT_WORKERS
-		run_job_list(jobs, max_workers=n)
+		run_job_list(jobs, max_workers=n, sequential_exec=self.sequential_exec)
 
 	def run(
 		self,

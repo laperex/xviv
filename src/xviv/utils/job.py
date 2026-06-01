@@ -206,16 +206,16 @@ def _run_parallel(jobs: list[Job], max_workers: int) -> None:
 	logger.debug("All %d job(s) succeeded", total)
 
 
-def run_job_list(
-	jobs: list[Job],
-	*,
-	max_workers: int = 4,
-) -> None:
+def run_job_list(jobs: list[Job], *, max_workers: int = 4, sequential_exec: bool = False) -> None:
 	if not jobs:
 		return
 
-	if len(jobs) == 1:
-		_run_sequential(jobs[0])
+	if len(jobs) == 1 or sequential_exec:
+		if sequential_exec:
+			for i in jobs:
+				_run_sequential(i)
+		else:
+			_run_sequential(jobs[0])
 	else:
 		_run_parallel(jobs, max_workers=max_workers)
 
