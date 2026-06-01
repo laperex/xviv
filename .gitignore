@@ -28,4 +28,6 @@ src/xviv/_version.py
 text.md
 todo.md
 DESIGN.md
+FUTURE.md
 ISSUES.md
+TESTING.md
