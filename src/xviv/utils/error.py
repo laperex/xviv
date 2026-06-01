@@ -896,18 +896,6 @@ class PlatformBspDirectoryMissingError(XvivError):
 		return f"BSP directory not found: {self.dir}\n\tRun: xviv create --platform {self.name}"
 
 
-class ParallelJobError(XvivError):
-	def __init__(self, failures: list[tuple[str, BaseException]]) -> None:
-		self.failures = failures
-		super().__init__(self._format())
-
-	def _format(self) -> str:
-		lines = [f"{len(self.failures)} parallel job(s) failed:"]
-		for label, exc in self.failures:
-			lines.append(f"  [{label}] {type(exc).__name__}: {exc}")
-		return "\n".join(lines)
-
-
 class ToolError(XvivError):
 	"""Base for internal tool-resolution errors."""
 
@@ -955,3 +943,22 @@ class ToolBinaryNotFoundError(ToolError):
 
 	def __str__(self) -> str:
 		return self._TOOL_NOT_FOUND_HINT.format(tool=self.tool, env_var=self.SETTINGS_ENV_VAR)
+
+
+class JobFailedError(XvivError):
+	"""Raised by run_jobs() when one or more jobs exit with a non-zero status.
+
+	Attributes:
+		failed: List of (label, exc) pairs for every job that failed.
+				exc is either a CalledProcessError (non-zero returncode) or
+				another BaseException (unexpected error in the sink).
+	"""
+
+	def __init__(self, failed: list[tuple[str, BaseException]]) -> None:
+		self.failed = failed
+		labels = ", ".join(label for label, _ in failed)
+		super().__init__(f"{len(failed)} job(s) failed: {labels}")
+
+
+class VivadoBinaryNotFoundError(XvivError):
+	"""Raised when the Vivado binary cannot be located."""

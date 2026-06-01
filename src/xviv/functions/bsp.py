@@ -1,218 +1,218 @@
-import logging
-import os
-import re
+# import logging
+# import os
+# import re
 
-from xviv.config.params import AppBuildParams, AppCreateParams, PlatformCreateParams, ProcessorParams, ProgramParams
-from xviv.config.project import XvivConfig
-from xviv.functions.bd import ConfigTclCommands
-from xviv.tools.xsct import run_xsct
-from xviv.utils import error
-from xviv.utils.process import run_tool
-from xviv.utils.tools import find_vitis_dir_path
+# from xviv.config.params import AppBuildParams, AppCreateParams, PlatformCreateParams, ProcessorParams, ProgramParams
+# from xviv.config.project import XvivConfig
+# from xviv.functions.bd import ConfigTclCommands
+# from xviv.tools.xsct import run_xsct
+# from xviv.utils import error
+# from xviv.utils.process import run_tool
+# from xviv.utils.tools import find_vitis_dir_path
 
-logger = logging.getLogger(__name__)
-
-
-def cmd_platform_create(cfg: XvivConfig, *, platform_name: str, params: PlatformCreateParams):
-	cfg.validate_platform(platform_name=platform_name)
-
-	config = ConfigTclCommands(cfg).create_platform(platform_name).build()
-
-	run_xsct(cfg, config_tcl=config, label=__name__)
-
-	platform_cfg = cfg.get_platform(name=platform_name)
-
-	logger.info(f"Platform: {platform_cfg.name} - Create complete - {platform_cfg.work_dir}")
-
-	if params.build:
-		cmd_platform_build(cfg, platform_name=platform_name)
+# logger = logging.getLogger(__name__)
 
 
-def cmd_platform_build(cfg: XvivConfig, *, platform_name: str):
-	platform_cfg = cfg.get_platform(platform_name)
-	cfg.validate_platform(platform_name=platform_name)
+# def cmd_platform_create(cfg: XvivConfig, *, platform_name: str, params: PlatformCreateParams):
+# 	cfg.validate_platform(platform_name=platform_name)
 
-	if not os.path.isdir(platform_cfg.work_dir):
-		raise error.PlatformBspDirectoryMissingError(platform_cfg.name, platform_cfg.work_dir)
+# 	config = ConfigTclCommands(cfg).create_platform(platform_name).build()
 
-	logger.info("Platform Build: %s", platform_cfg.work_dir)
+# 	run_xsct(cfg, config_tcl=config, label=__name__)
 
-	run_tool(
-		["make", f"-j{os.cpu_count() or 4}"],
-		cwd=platform_cfg.work_dir,
-		env=_get_vitis_env(cfg),
-		dry_run=cfg.dry_run,
-		exit_on_fail=True,
-		label=__name__,
-		log_dir=cfg.log_dir,
-	)
+# 	platform_cfg = cfg.get_platform(name=platform_name)
+
+# 	logger.info(f"Platform: {platform_cfg.name} - Create complete - {platform_cfg.work_dir}")
+
+# 	if params.build:
+# 		cmd_platform_build(cfg, platform_name=platform_name)
 
 
-def cmd_app_create(cfg: XvivConfig, *, app_name: str, platform_name: str | None, template: str | None = None, params: AppCreateParams):
-	app_cfg = cfg.get_app(app_name)
+# def cmd_platform_build(cfg: XvivConfig, *, platform_name: str):
+# 	platform_cfg = cfg.get_platform(platform_name)
+# 	cfg.validate_platform(platform_name=platform_name)
 
-	if template:
-		app_cfg.template = template
+# 	if not os.path.isdir(platform_cfg.work_dir):
+# 		raise error.PlatformBspDirectoryMissingError(platform_cfg.name, platform_cfg.work_dir)
 
-	if platform_name:
-		app_cfg.platform = platform_name
+# 	logger.info("Platform Build: %s", platform_cfg.work_dir)
 
-	cfg.validate_app(app_name=app_name, check_elf=False)
-
-	platform_cfg = cfg.get_platform(app_cfg.platform)
-
-	if not os.path.isdir(platform_cfg.work_dir):
-		logger.warning("BSP not found - creating platform '%s' first", app_cfg.platform)
-		cmd_platform_create(cfg, platform_name=app_cfg.platform, params=PlatformCreateParams())
-
-	cfg.validate_platform(platform_name=app_cfg.platform)
-
-	config = ConfigTclCommands(cfg).create_app(app_name).build()
-
-	run_xsct(cfg, config_tcl=config, label=__name__)
-
-	logger.info(f"App: {app_cfg.name} - Create complete - {app_cfg.work_dir}")
-
-	if params.build:
-		cmd_app_build(cfg, app_name=app_name, params=AppBuildParams(info=True))
+# 	run_tool(
+# 		["make", f"-j{os.cpu_count() or 4}"],
+# 		cwd=platform_cfg.work_dir,
+# 		env=_get_vitis_env(cfg),
+# 		dry_run=cfg.dry_run,
+# 		exit_on_fail=True,
+# 		label=__name__,
+# 		log_dir=cfg.log_dir,
+# 	)
 
 
-def cmd_app_build(cfg: XvivConfig, *, app_name: str, params: AppBuildParams):
-	app_cfg = cfg.get_app(app_name)
-	platform_cfg = cfg.get_platform(app_cfg.platform)
+# def cmd_app_create(cfg: XvivConfig, *, app_name: str, platform_name: str | None, template: str | None = None, params: AppCreateParams):
+# 	app_cfg = cfg.get_app(app_name)
 
-	cfg.validate_app(app_name=app_name, check_elf=False, check_sources=True)
-	cfg.validate_platform(platform_name=platform_cfg.name)
+# 	if template:
+# 		app_cfg.template = template
 
-	_transform_app_makefile(os.path.join(app_cfg.work_dir, "Makefile"))
+# 	if platform_name:
+# 		app_cfg.platform = platform_name
 
-	bsp_include = os.path.join(platform_cfg.work_dir, platform_cfg.cpu, "include")
-	bsp_lib = os.path.join(platform_cfg.work_dir, platform_cfg.cpu, "lib")
+# 	cfg.validate_app(app_name=app_name, check_elf=False)
 
-	logger.info("App Build %s", app_cfg.work_dir)
+# 	platform_cfg = cfg.get_platform(app_cfg.platform)
 
-	run_tool(
-		[
-			"make",
-			f"-j{os.cpu_count() or 4}",
-			f"INCLUDEPATH=-I{bsp_include} -I{platform_cfg.work_dir}",
-			f"c_SOURCES={' '.join([i.file for i in app_cfg.sources])}",
-			f"LIBPATH=-L{bsp_lib}",
-		],
-		cwd=app_cfg.work_dir,
-		env=_get_vitis_env(cfg),
-		dry_run=cfg.dry_run,
-		exit_on_fail=True,
-		label=__name__,
-		log_dir=cfg.log_dir,
-	)
+# 	if not os.path.isdir(platform_cfg.work_dir):
+# 		logger.warning("BSP not found - creating platform '%s' first", app_cfg.platform)
+# 		cmd_platform_create(cfg, platform_name=app_cfg.platform, params=PlatformCreateParams())
 
-	if not cfg.dry_run:
-		cfg.validate_app(app_name=app_name, check_elf=True, check_sources=False)
+# 	cfg.validate_platform(platform_name=app_cfg.platform)
 
-	if params.info and cfg.get_vitis().path:
-		mb_tool_size_bin = os.path.join(cfg.get_vitis().path, "gnu", "microblaze", "lin", "bin", "microblaze-xilinx-elf-size")
-		mb_tool_objdump_bin = os.path.join(cfg.get_vitis().path, "gnu", "microblaze", "lin", "bin", "microblaze-xilinx-elf-objdump")
+# 	config = ConfigTclCommands(cfg).create_app(app_name).build()
 
-		logger.info("ELF Size: %s", app_cfg.elf)
+# 	run_xsct(cfg, config_tcl=config, label=__name__)
 
-		run_tool(
-			[mb_tool_size_bin, app_cfg.elf],
-			cwd=app_cfg.work_dir,
-			dry_run=cfg.dry_run,
-			exit_on_fail=True,
-			label=f"{__name__}_size",
-			log_dir=cfg.log_dir,
-		)
+# 	logger.info(f"App: {app_cfg.name} - Create complete - {app_cfg.work_dir}")
 
-		logger.info("ELF sections: %s", app_cfg.elf)
-
-		run_tool(
-			[mb_tool_objdump_bin, "-h", app_cfg.elf],
-			cwd=app_cfg.work_dir,
-			dry_run=cfg.dry_run,
-			exit_on_fail=True,
-			label=f"{__name__}_sections",
-			log_dir=cfg.log_dir,
-		)
+# 	if params.build:
+# 		cmd_app_build(cfg, app_name=app_name, params=AppBuildParams(info=True))
 
 
-def cmd_program(cfg: XvivConfig, *, params: ProgramParams):
-	if params.app_name:
-		cfg.validate_app(app_name=params.app_name, check_sources=False)
+# def cmd_app_build(cfg: XvivConfig, *, app_name: str, params: AppBuildParams):
+# 	app_cfg = cfg.get_app(app_name)
+# 	platform_cfg = cfg.get_platform(app_cfg.platform)
 
-	bitstream_file = params.bitstream_file
-	elf_file = params.elf_file
-	platform_name = params.platform_name
+# 	cfg.validate_app(app_name=app_name, check_elf=False, check_sources=True)
+# 	cfg.validate_platform(platform_name=platform_cfg.name)
 
-	if bitstream_file is None:
-		if platform_name is None:
-			if params.app_name is not None:
-				platform_name = cfg.get_app(params.app_name).platform
+# 	_transform_app_makefile(os.path.join(app_cfg.work_dir, "Makefile"))
 
-		if platform_cfg := cfg._get_platform_cfg_optional(platform_name):
-			bitstream_file = platform_cfg.bitstream
+# 	bsp_include = os.path.join(platform_cfg.work_dir, platform_cfg.cpu, "include")
+# 	bsp_lib = os.path.join(platform_cfg.work_dir, platform_cfg.cpu, "lib")
 
-	if platform_name:
-		cfg.validate_platform(platform_name=platform_name)
+# 	logger.info("App Build %s", app_cfg.work_dir)
 
-	if elf_file is None:
-		if params.app_name is not None:
-			elf_file = cfg.get_app(params.app_name).elf
+# 	run_tool(
+# 		[
+# 			"make",
+# 			f"-j{os.cpu_count() or 4}",
+# 			f"INCLUDEPATH=-I{bsp_include} -I{platform_cfg.work_dir}",
+# 			f"c_SOURCES={' '.join([i.file for i in app_cfg.sources])}",
+# 			f"LIBPATH=-L{bsp_lib}",
+# 		],
+# 		cwd=app_cfg.work_dir,
+# 		env=_get_vitis_env(cfg),
+# 		dry_run=cfg.dry_run,
+# 		exit_on_fail=True,
+# 		label=__name__,
+# 		log_dir=cfg.log_dir,
+# 	)
 
-	if elf_file is None and bitstream_file is None:
-		raise error.ProgramUnspecifiedIdentifiersError()
+# 	if not cfg.dry_run:
+# 		cfg.validate_app(app_name=app_name, check_elf=True, check_sources=False)
 
-	config = (
-		ConfigTclCommands(cfg)
-		.program(
-			params=ProgramParams(
-				bitstream_file=bitstream_file,
-				elf_file=elf_file,
-				processor_target_filter=params.processor_target_filter,
-				processor_reset_duration=params.processor_reset_duration,
-				fpga_target_filter=params.fpga_target_filter,
-			)
-		)
-		.build()
-	)
+# 	if params.info and cfg.get_vitis().path:
+# 		mb_tool_size_bin = os.path.join(cfg.get_vitis().path, "gnu", "microblaze", "lin", "bin", "microblaze-xilinx-elf-size")
+# 		mb_tool_objdump_bin = os.path.join(cfg.get_vitis().path, "gnu", "microblaze", "lin", "bin", "microblaze-xilinx-elf-objdump")
 
-	if bitstream_file:
-		logger.info("Bitstream: %s", bitstream_file)
-	if elf_file:
-		logger.info("ELF: %s", elf_file)
+# 		logger.info("ELF Size: %s", app_cfg.elf)
 
-	run_xsct(cfg, config_tcl=config, label=__name__)
+# 		run_tool(
+# 			[mb_tool_size_bin, app_cfg.elf],
+# 			cwd=app_cfg.work_dir,
+# 			dry_run=cfg.dry_run,
+# 			exit_on_fail=True,
+# 			label=f"{__name__}_size",
+# 			log_dir=cfg.log_dir,
+# 		)
 
+# 		logger.info("ELF sections: %s", app_cfg.elf)
 
-def cmd_processor(cfg: XvivConfig, *, params: ProcessorParams):
-	config = ConfigTclCommands(cfg).processor_cntrl(params=params).build()
-
-	run_xsct(cfg, config_tcl=config, label=__name__)
-
-
-def _transform_app_makefile(path: str):
-	content = open(path, "rt").read()
-
-	content = re.sub(r"(patsubst\s+%\.\w+,\s*)(?!build/)%.o", r"\1build/%.o", content)
-	content = re.sub(r"(?<!build/)%.o(:%\.[cSs])", r"build/%.o\1", content)
-	content = re.sub(r"(build/%.o:%\.[cSs]\n)(?!\t@mkdir)", r"\1\t@mkdir -p $(dir $@)\n", content)
-
-	open(path, "wt").write(content)
+# 		run_tool(
+# 			[mb_tool_objdump_bin, "-h", app_cfg.elf],
+# 			cwd=app_cfg.work_dir,
+# 			dry_run=cfg.dry_run,
+# 			exit_on_fail=True,
+# 			label=f"{__name__}_sections",
+# 			log_dir=cfg.log_dir,
+# 		)
 
 
-def _get_vitis_env(cfg: XvivConfig) -> dict[str, str]:
-	vitis_path = cfg.get_vitis().path
+# def cmd_program(cfg: XvivConfig, *, params: ProgramParams):
+# 	if params.app_name:
+# 		cfg.validate_app(app_name=params.app_name, check_sources=False)
 
-	if vitis_path is None:
-		find_vitis_dir_path()
+# 	bitstream_file = params.bitstream_file
+# 	elf_file = params.elf_file
+# 	platform_name = params.platform_name
 
-	extra_paths = [
-		os.path.join(vitis_path, "gnu", "microblaze", "lin", "bin"),
-		os.path.join(vitis_path, "bin"),
-		os.path.join(vitis_path, "lib", "lnx64.o"),
-	]
-	env = os.environ.copy()
-	env["PATH"] = os.pathsep.join(extra_paths) + os.pathsep + env.get("PATH", "")
+# 	if bitstream_file is None:
+# 		if platform_name is None:
+# 			if params.app_name is not None:
+# 				platform_name = cfg.get_app(params.app_name).platform
 
-	return env
+# 		if platform_cfg := cfg._get_platform_cfg_optional(platform_name):
+# 			bitstream_file = platform_cfg.bitstream
+
+# 	if platform_name:
+# 		cfg.validate_platform(platform_name=platform_name)
+
+# 	if elf_file is None:
+# 		if params.app_name is not None:
+# 			elf_file = cfg.get_app(params.app_name).elf
+
+# 	if elf_file is None and bitstream_file is None:
+# 		raise error.ProgramUnspecifiedIdentifiersError()
+
+# 	config = (
+# 		ConfigTclCommands(cfg)
+# 		.program(
+# 			params=ProgramParams(
+# 				bitstream_file=bitstream_file,
+# 				elf_file=elf_file,
+# 				processor_target_filter=params.processor_target_filter,
+# 				processor_reset_duration=params.processor_reset_duration,
+# 				fpga_target_filter=params.fpga_target_filter,
+# 			)
+# 		)
+# 		.build()
+# 	)
+
+# 	if bitstream_file:
+# 		logger.info("Bitstream: %s", bitstream_file)
+# 	if elf_file:
+# 		logger.info("ELF: %s", elf_file)
+
+# 	run_xsct(cfg, config_tcl=config, label=__name__)
+
+
+# def cmd_processor(cfg: XvivConfig, *, params: ProcessorParams):
+# 	config = ConfigTclCommands(cfg).processor_cntrl(params=params).build()
+
+# 	run_xsct(cfg, config_tcl=config, label=__name__)
+
+
+# def _transform_app_makefile(path: str):
+# 	content = open(path, "rt").read()
+
+# 	content = re.sub(r"(patsubst\s+%\.\w+,\s*)(?!build/)%.o", r"\1build/%.o", content)
+# 	content = re.sub(r"(?<!build/)%.o(:%\.[cSs])", r"build/%.o\1", content)
+# 	content = re.sub(r"(build/%.o:%\.[cSs]\n)(?!\t@mkdir)", r"\1\t@mkdir -p $(dir $@)\n", content)
+
+# 	open(path, "wt").write(content)
+
+
+# def _get_vitis_env(cfg: XvivConfig) -> dict[str, str]:
+# 	vitis_path = cfg.get_vitis().path
+
+# 	if vitis_path is None:
+# 		find_vitis_dir_path()
+
+# 	extra_paths = [
+# 		os.path.join(vitis_path, "gnu", "microblaze", "lin", "bin"),
+# 		os.path.join(vitis_path, "bin"),
+# 		os.path.join(vitis_path, "lib", "lnx64.o"),
+# 	]
+# 	env = os.environ.copy()
+# 	env["PATH"] = os.pathsep.join(extra_paths) + os.pathsep + env.get("PATH", "")
+
+# 	return env

@@ -1,4 +1,3 @@
-import json
 import logging
 import os
 import typing
@@ -861,7 +860,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 					_id = i.inst_hier_path
 					if bd:
-						_id = f'[get_cells -filter {{IS_PRIMITIVE == 0 && PARENT == ""}}]/{_id}'
+						_id = f"$bd_cell_name/{_id}"
 
 					out_of_context_hier_dcp_map[_id] = subcore_synth_cfg.synth_dcp
 					logger.info(f"OOC subcore: {i.core} - {_id}")
@@ -887,6 +886,10 @@ class ConfigTclCommands(ConfigTclBuilder):
 					flatten_hierarchy=synth_cfg.synth_flatten_hierarchy,
 					fsm_extraction=synth_cfg.synth_fsm_extraction,
 				)
+
+			if out_of_context_hier_dcp_map:
+				self._set_exec("bd_cell", lambda x: x._get_cells(filter='{IS_PRIMITIVE == 0 && PARENT == ""}'))
+				self._set_exec("bd_cell_name", lambda x: x._get_property("NAME", context="$bd_cell"))
 
 			for inst_hier_path, dcp_file in out_of_context_hier_dcp_map.items():
 				self._read_checkpoint(dcp_file, cell=inst_hier_path)

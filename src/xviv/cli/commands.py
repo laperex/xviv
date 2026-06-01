@@ -4,36 +4,27 @@ from abc import ABC, abstractmethod
 
 from xviv.cli.completers import target_group
 from xviv.config.params import (
-	AppBuildParams,
-	AppCreateParams,
-	BdCreateParams,
-	CoreCreateParams,
-	EditParams,
 	GenerateParams,
-	IpCreateParams,
-	OpenParams,
-	PlatformCreateParams,
-	ProcessorParams,
-	ProgramParams,
-	SimulateParams,
 	SynthParams,
 )
 from xviv.config.project import XvivConfig
-from xviv.functions.bd import cmd_bd_create, cmd_bd_edit, cmd_bd_generate
-from xviv.functions.bsp import (
-	cmd_app_build,
-	cmd_app_create,
-	cmd_platform_build,
-	cmd_platform_create,
-	cmd_processor,
-	cmd_program,
-)
-from xviv.functions.core import cmd_core_create, cmd_core_edit, cmd_core_generate, cmd_search_core
-from xviv.functions.formal import cmd_formal
-from xviv.functions.ip import cmd_ip_create, cmd_ip_edit
-from xviv.functions.simulation import cmd_simulate, cmd_wdb_open, cmd_wdb_reload
-from xviv.functions.synthesis import cmd_dcp_open, cmd_synth
-from xviv.utils import error
+
+# from xviv.functions.bd import cmd_bd_create, cmd_bd_edit, cmd_bd_generate
+# from xviv.functions.bsp import (
+# 	cmd_app_build,
+# 	cmd_app_create,
+# 	cmd_platform_build,
+# 	cmd_platform_create,
+# 	cmd_processor,
+# 	cmd_program,
+# )
+from xviv.functions.core import cmd_core_generate
+from xviv.functions.synthesis import cmd_synth
+
+# from xviv.functions.formal import cmd_formal
+# from xviv.functions.ip import cmd_ip_create, cmd_ip_edit
+# from xviv.functions.simulation import cmd_simulate, cmd_wdb_open, cmd_wdb_reload
+# from xviv.functions.synthesis import cmd_dcp_open, cmd_synth
 
 # ---------------------------------------------------------------------------
 # Command Base & Registry
@@ -77,94 +68,94 @@ def register_commands(sub) -> dict[str, Command]:
 # ---------------------------------------------------------------------------
 
 
-class CreateCommand(Command):
-	name = "create"
-	help = "Create an IP, BD, core, platform, or app"
+# class CreateCommand(Command):
+# 	name = "create"
+# 	help = "Create an IP, BD, core, platform, or app"
 
-	@classmethod
-	def register(cls, sub: argparse._SubParsersAction) -> None:
-		super().register(sub)
-		c = cls.c
-		target_group(c, exclusive=True, required=True, ip=True, bd=True, app=True, platform=True, core=True, _all=["ip", "bd", "core"])
-		c.add_argument("--source-file", metavar="FILE", help="Source File [BD]", default=True, required=False)
-		c.add_argument("--regenerate", action="store_true", help="Regenerate Cores [IP]", default=False, required=False)
-		target_group(c, exclusive=True, required=False, generate=True, build=True, edit=True)
-		target_group(c, exclusive=False, required=False, nogui=True)
+# 	@classmethod
+# 	def register(cls, sub: argparse._SubParsersAction) -> None:
+# 		super().register(sub)
+# 		c = cls.c
+# 		target_group(c, exclusive=True, required=True, ip=True, bd=True, app=True, platform=True, core=True, _all=["ip", "bd", "core"])
+# 		c.add_argument("--source-file", metavar="FILE", help="Source File [BD]", default=True, required=False)
+# 		c.add_argument("--regenerate", action="store_true", help="Regenerate Cores [IP]", default=False, required=False)
+# 		target_group(c, exclusive=True, required=False, generate=True, build=True, edit=True)
+# 		target_group(c, exclusive=False, required=False, nogui=True)
 
-	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
-		super().run(cfg, args)
+# 	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
+# 		super().run(cfg, args)
 
-		if args.ip or args.all == "ip":
-			cmd_ip_create(
-				cfg,
-				ip_name=args.ip or "*",
-				params=IpCreateParams(
-					edit=args.edit,
-					nogui=args.nogui,
-					regenerate=args.regenerate,
-				),
-			)
-		elif args.bd or args.all == "bd":
-			cmd_bd_create(
-				cfg,
-				bd_name=args.bd or "*",
-				params=BdCreateParams(
-					source_file=args.source_file,
-					generate=args.generate,
-					edit=args.edit,
-					nogui=args.nogui,
-				),
-			)
-		elif args.core or args.all == "core":
-			cmd_core_create(
-				cfg,
-				core_name=args.core or "*",
-				params=CoreCreateParams(
-					generate=args.generate,
-					edit=args.edit,
-					nogui=args.nogui,
-				),
-			)
-		elif args.app:
-			cmd_app_create(
-				cfg,
-				app_name=args.app,
-				platform_name=args.platform,
-				params=AppCreateParams(
-					build=args.build,
-				),
-			)
-		elif args.platform:
-			cmd_platform_create(
-				cfg,
-				platform_name=args.platform,
-				params=PlatformCreateParams(
-					build=args.build,
-				),
-			)
+# 		if args.ip or args.all == "ip":
+# 			cmd_ip_create(
+# 				cfg,
+# 				ip_name=args.ip or "*",
+# 				params=IpCreateParams(
+# 					edit=args.edit,
+# 					nogui=args.nogui,
+# 					regenerate=args.regenerate,
+# 				),
+# 			)
+# 		elif args.bd or args.all == "bd":
+# 			cmd_bd_create(
+# 				cfg,
+# 				bd_name=args.bd or "*",
+# 				params=BdCreateParams(
+# 					source_file=args.source_file,
+# 					generate=args.generate,
+# 					edit=args.edit,
+# 					nogui=args.nogui,
+# 				),
+# 			)
+# 		elif args.core or args.all == "core":
+# 			cmd_core_create(
+# 				cfg,
+# 				core_name=args.core or "*",
+# 				params=CoreCreateParams(
+# 					generate=args.generate,
+# 					edit=args.edit,
+# 					nogui=args.nogui,
+# 				),
+# 			)
+# 		elif args.app:
+# 			cmd_app_create(
+# 				cfg,
+# 				app_name=args.app,
+# 				platform_name=args.platform,
+# 				params=AppCreateParams(
+# 					build=args.build,
+# 				),
+# 			)
+# 		elif args.platform:
+# 			cmd_platform_create(
+# 				cfg,
+# 				platform_name=args.platform,
+# 				params=PlatformCreateParams(
+# 					build=args.build,
+# 				),
+# 			)
 
 
-class EditCommand(Command):
-	name = "edit"
-	help = "Open an IP, BD, or core in Vivado for editing"
+# class EditCommand(Command):
+# 	name = "edit"
+# 	help = "Open an IP, BD, or core in Vivado for editing"
 
-	@classmethod
-	def register(cls, sub: argparse._SubParsersAction) -> None:
-		super().register(sub)
-		c = cls.c
-		target_group(c, exclusive=True, required=True, ip=True, bd=True, core=True)
-		target_group(c, exclusive=False, required=False, nogui=True)
+# 	@classmethod
+# 	def register(cls, sub: argparse._SubParsersAction) -> None:
+# 		super().register(sub)
+# 		c = cls.c
+# 		target_group(c, exclusive=True, required=True, ip=True, bd=True, core=True)
+# 		target_group(c, exclusive=False, required=False, nogui=True)
 
-	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
-		super().run(cfg, args)
-		params = EditParams(nogui=args.nogui)
+# 	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
+# 		super().run(cfg, args)
+# 		params = EditParams(nogui=args.nogui)
 
-		if args.ip:
-			cmd_ip_edit(cfg, ip_name=args.ip, params=params)
-		elif args.bd:
-			cmd_bd_edit(cfg, bd_name=args.bd, params=params)
-		elif args.core:
-			cmd_core_edit(cfg, core_name=args.core, params=params)
+# 		if args.ip:
+# 			cmd_ip_edit(cfg, ip_name=args.ip, params=params)
+# 		elif args.bd:
+# 			cmd_bd_edit(cfg, bd_name=args.bd, params=params)
+# 		elif args.core:
+# 			cmd_core_edit(cfg, core_name=args.core, params=params)
 
 
 class GenerateCommand(Command):
@@ -184,166 +175,167 @@ class GenerateCommand(Command):
 		params = GenerateParams(force=args.force, reset=args.reset)
 
 		if args.bd or args.all == "bd":
-			cmd_bd_generate(cfg, bd_name=args.bd or "*", params=params)
+			...
+		# cmd_bd_generate(cfg, bd_name=args.bd or "*", params=params)
 		elif args.core or args.all == "core":
 			cmd_core_generate(cfg, core_name=args.core or "*", params=params)
 
 
-class OpenCommand(Command):
-	name = "open"
-	help = "Open a DCP checkpoint or WDB waveform"
+# class OpenCommand(Command):
+# 	name = "open"
+# 	help = "Open a DCP checkpoint or WDB waveform"
 
-	@classmethod
-	def register(cls, sub: argparse._SubParsersAction) -> None:
-		super().register(sub)
-		c = cls.c
-		target_group(c, exclusive=True, required=True, wdb=True, dcp=True)
-		target_group(c, exclusive=True, required=False, bd=True, design=True, core=True)
-		target_group(c, exclusive=False, required=False, nogui=True)
+# 	@classmethod
+# 	def register(cls, sub: argparse._SubParsersAction) -> None:
+# 		super().register(sub)
+# 		c = cls.c
+# 		target_group(c, exclusive=True, required=True, wdb=True, dcp=True)
+# 		target_group(c, exclusive=True, required=False, bd=True, design=True, core=True)
+# 		target_group(c, exclusive=False, required=False, nogui=True)
 
-	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
-		super().run(cfg, args)
-		params = OpenParams(nogui=args.nogui)
+# 	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
+# 		super().run(cfg, args)
+# 		params = OpenParams(nogui=args.nogui)
 
-		if args.dcp:
-			cmd_dcp_open(cfg, dcp_file=args.dcp, params=params)
-		elif args.wdb:
-			cmd_wdb_open(cfg, sim_name=args.wdb, params=params)
-
-
-class ReloadCommand(Command):
-	name = "reload"
-	help = "Reload a live WDB waveform"
-
-	@classmethod
-	def register(cls, sub: argparse._SubParsersAction) -> None:
-		super().register(sub)
-		c = cls.c
-		target_group(c, exclusive=True, required=True, sim_target=True)
-
-	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
-		super().run(cfg, args)
-		cmd_wdb_reload(cfg, sim_name=args.target)
+# 		if args.dcp:
+# 			cmd_dcp_open(cfg, dcp_file=args.dcp, params=params)
+# 		elif args.wdb:
+# 			cmd_wdb_open(cfg, sim_name=args.wdb, params=params)
 
 
-class ProcessorCommand(Command):
-	name = "processor"
-	help = "Control the embedded processor via JTAG"
+# class ReloadCommand(Command):
+# 	name = "reload"
+# 	help = "Reload a live WDB waveform"
 
-	@classmethod
-	def register(cls, sub: argparse._SubParsersAction) -> None:
-		super().register(sub)
-		c = cls.c
-		c.add_argument("--reset", action="store_true", help="Soft-reset the processor")
-		c.add_argument("--status", action="store_true", help="Print processor state and registers")
+# 	@classmethod
+# 	def register(cls, sub: argparse._SubParsersAction) -> None:
+# 		super().register(sub)
+# 		c = cls.c
+# 		target_group(c, exclusive=True, required=True, sim_target=True)
 
-	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
-		super().run(cfg, args)
-		cmd_processor(cfg, params=ProcessorParams(reset=args.reset, status=args.status))
-
-
-class BuildCommand(Command):
-	name = "build"
-	help = "Compile a platform or app"
-
-	@classmethod
-	def register(cls, sub: argparse._SubParsersAction) -> None:
-		super().register(sub)
-		c = cls.c
-		target_group(c, exclusive=True, required=True, app=True, platform=True)
-		c.add_argument("--info", action="store_true", help="Print ELF section sizes after build")
-
-	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
-		super().run(cfg, args)
-
-		if args.platform:
-			cmd_platform_build(cfg, platform_name=args.platform)
-		elif args.app:
-			cmd_app_build(cfg, app_name=args.app, params=AppBuildParams(info=args.info))
+# 	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
+# 		super().run(cfg, args)
+# 		cmd_wdb_reload(cfg, sim_name=args.target)
 
 
-class ProgramCommand(Command):
-	name = "program"
-	help = "Download bitstream and/or ELF to FPGA"
+# class ProcessorCommand(Command):
+# 	name = "processor"
+# 	help = "Control the embedded processor via JTAG"
 
-	@classmethod
-	def register(cls, sub: argparse._SubParsersAction) -> None:
-		super().register(sub)
-		c = cls.c
-		target_group(c, exclusive=True, required=False, platform=True, bitstream=True)
-		target_group(c, exclusive=True, required=False, app=True, elf=True)
-		c.add_argument("--fpga", metavar="NAME", help="Filter to select FPGA (default: %(default)s)", default="xc7a*", required=False)
-		c.add_argument(
-			"--processor", metavar="NAME", help="Filter to select soft processor (default: %(default)s)", default="Microblaze #0*", required=False
-		)
-		c.add_argument(
-			"--reset-duration", metavar="MS", type=int, help="Soft-reset duration in ms (default: %(default)s)", default=500, required=False
-		)
+# 	@classmethod
+# 	def register(cls, sub: argparse._SubParsersAction) -> None:
+# 		super().register(sub)
+# 		c = cls.c
+# 		c.add_argument("--reset", action="store_true", help="Soft-reset the processor")
+# 		c.add_argument("--status", action="store_true", help="Print processor state and registers")
 
-	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
-		super().run(cfg, args)
-		params = ProgramParams(
-			bitstream_file=args.bitstream,
-			elf_file=args.elf,
-			app_name=args.app,
-			platform_name=args.platform,
-			processor_target_filter=args.processor,
-			processor_reset_duration=args.reset_duration,
-			fpga_target_filter=args.fpga,
-		)
-		try:
-			cmd_program(cfg, params=params)
-		except error.ProgramUnspecifiedIdentifiersError as e:
-			self.c.print_help()
-			self.c.exit(2, f"\n{e}\n")
+# 	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
+# 		super().run(cfg, args)
+# 		cmd_processor(cfg, params=ProcessorParams(reset=args.reset, status=args.status))
 
 
-class SearchCommand(Command):
-	name = "search"
-	help = "Search Vivado's IP catalog by name, VLNV, or keyword"
+# class BuildCommand(Command):
+# 	name = "build"
+# 	help = "Compile a platform or app"
 
-	@classmethod
-	def register(cls, sub: argparse._SubParsersAction) -> None:
-		super().register(sub)
-		c = cls.c
-		c.add_argument("query", metavar="QUERY", help="IP name, partial VLNV, or keyword")
+# 	@classmethod
+# 	def register(cls, sub: argparse._SubParsersAction) -> None:
+# 		super().register(sub)
+# 		c = cls.c
+# 		target_group(c, exclusive=True, required=True, app=True, platform=True)
+# 		c.add_argument("--info", action="store_true", help="Print ELF section sizes after build")
 
-	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
-		super().run(cfg, args)
-		cmd_search_core(cfg, query=args.query)
+# 	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
+# 		super().run(cfg, args)
+
+# 		if args.platform:
+# 			cmd_platform_build(cfg, platform_name=args.platform)
+# 		elif args.app:
+# 			cmd_app_build(cfg, app_name=args.app, params=AppBuildParams(info=args.info))
 
 
-class SimulateCommand(Command):
-	name = "simulate"
-	help = "Run simulation"
+# class ProgramCommand(Command):
+# 	name = "program"
+# 	help = "Download bitstream and/or ELF to FPGA"
 
-	@classmethod
-	def register(cls, sub: argparse._SubParsersAction) -> None:
-		super().register(sub)
-		c = cls.c
-		target_group(c, exclusive=True, required=True, sim_target=True)
-		target_group(c, exclusive=True, required=False, uvm_test=True)
-		c.add_argument(
-			"--mode",
-			metavar="MODE",
-			choices=["post_synth_functional", "post_synth_timing", "post_impl_functional", "post_impl_timing", "default"],
-			default="default",
-			help="simulation mode (default: %(default)s)",
-			required=False,
-		)
-		c.add_argument("--run", metavar="TIME", help="Simulation run time (default: %(default)s)", default="all", required=False)
+# 	@classmethod
+# 	def register(cls, sub: argparse._SubParsersAction) -> None:
+# 		super().register(sub)
+# 		c = cls.c
+# 		target_group(c, exclusive=True, required=False, platform=True, bitstream=True)
+# 		target_group(c, exclusive=True, required=False, app=True, elf=True)
+# 		c.add_argument("--fpga", metavar="NAME", help="Filter to select FPGA (default: %(default)s)", default="xc7a*", required=False)
+# 		c.add_argument(
+# 			"--processor", metavar="NAME", help="Filter to select soft processor (default: %(default)s)", default="Microblaze #0*", required=False
+# 		)
+# 		c.add_argument(
+# 			"--reset-duration", metavar="MS", type=int, help="Soft-reset duration in ms (default: %(default)s)", default=500, required=False
+# 		)
 
-	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
-		super().run(cfg, args)
-		cmd_simulate(
-			cfg,
-			sim_name=args.target,
-			params=SimulateParams(
-				uvm_name=args.uvm,
-				run=args.run,
-				mode=args.mode,
-			),
-		)
+# 	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
+# 		super().run(cfg, args)
+# 		params = ProgramParams(
+# 			bitstream_file=args.bitstream,
+# 			elf_file=args.elf,
+# 			app_name=args.app,
+# 			platform_name=args.platform,
+# 			processor_target_filter=args.processor,
+# 			processor_reset_duration=args.reset_duration,
+# 			fpga_target_filter=args.fpga,
+# 		)
+# 		try:
+# 			cmd_program(cfg, params=params)
+# 		except error.ProgramUnspecifiedIdentifiersError as e:
+# 			self.c.print_help()
+# 			self.c.exit(2, f"\n{e}\n")
+
+
+# class SearchCommand(Command):
+# 	name = "search"
+# 	help = "Search Vivado's IP catalog by name, VLNV, or keyword"
+
+# 	@classmethod
+# 	def register(cls, sub: argparse._SubParsersAction) -> None:
+# 		super().register(sub)
+# 		c = cls.c
+# 		c.add_argument("query", metavar="QUERY", help="IP name, partial VLNV, or keyword")
+
+# 	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
+# 		super().run(cfg, args)
+# 		cmd_search_core(cfg, query=args.query)
+
+
+# class SimulateCommand(Command):
+# 	name = "simulate"
+# 	help = "Run simulation"
+
+# 	@classmethod
+# 	def register(cls, sub: argparse._SubParsersAction) -> None:
+# 		super().register(sub)
+# 		c = cls.c
+# 		target_group(c, exclusive=True, required=True, sim_target=True)
+# 		target_group(c, exclusive=True, required=False, uvm_test=True)
+# 		c.add_argument(
+# 			"--mode",
+# 			metavar="MODE",
+# 			choices=["post_synth_functional", "post_synth_timing", "post_impl_functional", "post_impl_timing", "default"],
+# 			default="default",
+# 			help="simulation mode (default: %(default)s)",
+# 			required=False,
+# 		)
+# 		c.add_argument("--run", metavar="TIME", help="Simulation run time (default: %(default)s)", default="all", required=False)
+
+# 	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
+# 		super().run(cfg, args)
+# 		cmd_simulate(
+# 			cfg,
+# 			sim_name=args.target,
+# 			params=SimulateParams(
+# 				uvm_name=args.uvm,
+# 				run=args.run,
+# 				mode=args.mode,
+# 			),
+# 		)
 
 
 class SynthCommand(Command):
@@ -383,16 +375,16 @@ class SynthCommand(Command):
 		)
 
 
-class FormalCommand(Command):
-	name = "formal"
-	help = "Run SymbiYosys formal verification targets"
+# class FormalCommand(Command):
+# 	name = "formal"
+# 	help = "Run SymbiYosys formal verification targets"
 
-	@classmethod
-	def register(cls, sub: argparse._SubParsersAction) -> None:
-		super().register(sub)
-		c = cls.c
-		target_group(c, exclusive=True, required=False, formal_target=True)
+# 	@classmethod
+# 	def register(cls, sub: argparse._SubParsersAction) -> None:
+# 		super().register(sub)
+# 		c = cls.c
+# 		target_group(c, exclusive=True, required=False, formal_target=True)
 
-	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
-		super().run(cfg, args)
-		cmd_formal(cfg, target=args.target)
+# 	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
+# 		super().run(cfg, args)
+# 		cmd_formal(cfg, target=args.target)

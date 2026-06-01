@@ -1,350 +1,464 @@
-import contextlib
-import logging
-import os
-import tempfile
+from __future__ import annotations
 
-# from pathlib import Path
+import logging
+import tempfile
+import typing
+from contextlib import contextmanager
+from pathlib import Path
+from typing import Callable, Iterator
+
 from xviv.config.project import XvivConfig
-from xviv.utils.process import run_tool
+from xviv.utils.display import _counter, terminal_full_length_divider
+from xviv.utils.error import JobFailedError
+from xviv.utils.job import Job, run_jobs
+from xviv.utils.log import DIM, RESET
+from xviv.utils.stream import OutputLine
 from xviv.utils.tools import find_vivado_dir_path
 
 logger = logging.getLogger(__name__)
 
 
-def run_vivado_xvlog(
-	cfg: XvivConfig,
-	target_dir: str,
-	fileset: list[str],
-	xsim_lib: str,
-	*,
-	label: str,
-	lib: list[str] | None = None,
-	defines: list[str] = [],
-	include_dirs: list[str] = [],
-) -> None:
-	# if cfg.get_vivado().path:
-	# 	extra_files = [os.path.join(cfg.get_vivado().path, "data/verilog/src/glbl.v")]
+class ToolRunner:
+	# Base runner for tools
+	_PREFIX_MAP: dict[str, int] = {}
+	_DEFAULT_WORKERS: int = 1
 
-	cmd = [cfg.get_vivado().xvlog_bin, "--sv", "--incr", "--work", xsim_lib]
+	def __init__(self, cfg: XvivConfig) -> None:
+		self._cfg = cfg
+		self._pairs: list[tuple[Path, Job]] = []
 
-	for d in defines:
-		cmd += ["-d", d]
-	for i in include_dirs:
-		cmd += ["-i", i]
-	for x in lib or []:
-		cmd += ["-L", x]
+	@classmethod
+	def classify(cls, raw: str) -> OutputLine:
+		# Map raw output to log level
+		line = raw.rstrip()
+		for prefix, level in cls._PREFIX_MAP.items():
+			if line.startswith(prefix):
+				return OutputLine(text=line[len(prefix) :].strip(), level=level, raw=raw)
+		return OutputLine(text=line, level=logging.DEBUG, raw=raw)
 
-	cmd += fileset
-
-	if cfg.get_vivado().glbl_file:
-		cmd += [cfg.get_vivado().glbl_file]
-
-	try:
-		run_tool(
-			cmd,
-			cwd=target_dir,
-			label=f"{__name__}_{label}",
-			log_dir=cfg.log_dir,
-			dry_run=cfg.dry_run,
-			exit_on_fail=True,
-		)
-	except FileNotFoundError:
+	@staticmethod
+	@contextmanager
+	def jobs_ctx(
+		pairs: list[tuple[Path, Job] | None],
+	) -> Iterator[list[Job]]:
+		# Yield jobs and clean up tempfiles
+		clean = [p for p in pairs if p is not None]
+		paths = [path for path, _ in clean]
+		jobs = [job for _, job in clean]
 		try:
-			find_vivado_dir_path(exit_on_fail=True)
+			yield jobs
 		finally:
-			raise
+			for p in paths:
+				# try:
+				# 	# p.unlink(missing_ok=True)
+				# except OSError:
+				pass
+
+	def run(self, jobs: list[Job], *, max_workers: int | None = None) -> None:
+		n = max_workers if max_workers is not None else self._DEFAULT_WORKERS
+		run_jobs(jobs, self._cfg, max_workers=n)
+
+	def run_pairs(
+		self,
+		*,
+		max_workers: int | None = None,
+	) -> None:
+		with self.jobs_ctx(self._pairs) as jobs:
+			self.run(jobs, max_workers=max_workers)
 
 
-def run_vivado_xelab(
-	cfg: XvivConfig,
-	target_dir: str,
-	units: list[str],
-	*,
-	label: str,
-	debug: str = "off",
-	incr: bool = False,
-	run: bool = False,
-	runall: bool = False,
-	standalone: bool = False,
-	relax: bool = False,
-	nolog: bool = False,
-	stats: bool = False,
-	override_timeunit: bool = False,
-	override_timeprecision: bool = False,
-	noname_unnamed_generate: bool = False,
-	rangecheck: bool = False,
-	transform_timing_checkers: bool = False,
-	suppress_localparam_override_error: bool = False,
-	ignore_assertions: bool = False,
-	report_assertion_pass: bool = False,
-	ignore_coverage: bool = False,
-	maxdelay: bool = False,
-	mindelay: bool = False,
-	typdelay: bool = False,
-	nosdfinterconnectdelays: bool = False,
-	nospecify: bool = False,
-	notimingchecks: bool = False,
-	transport_int_delays: bool = False,
-	sdfnoerror: bool = False,
-	sdfnowarn: bool = False,
-	dup_entity_as_module: bool = False,
-	dpi_absolute: bool = False,
-	cc_celldefines: bool = False,
-	cc_libs: bool = False,
-	O0: bool = False,
-	file: str | None = None,
-	log: str | None = None,
-	initfile: str | None = None,
-	mt: str | None = None,
-	snapshot: str | None = None,
-	timescale: str | None = None,
-	uvm_version: str | None = None,
-	ccExclusionFile: str | None = None,
-	prj: str | None = None,
-	timeprecision_vhdl: str | None = None,
-	sdfmax: str | None = None,
-	sdfmin: str | None = None,
-	sdftyp: str | None = None,
-	sdfroot: str | None = None,
-	pulse_e_style: str | None = None,
-	dpiheader: str | None = None,
-	dpi_stacksize: str | None = None,
-	sc_lib: str | None = None,
-	sv_lib: str | None = None,
-	sv_liblist: str | None = None,
-	sc_root: str | None = None,
-	sv_root: str | None = None,
-	cov_db_dir: str | None = None,
-	cov_db_name: str | None = None,
-	cc_type: str | None = None,
-	verbose: int | None = None,
-	maxarraysize: int | None = None,
-	maxdesigndepth: int | None = None,
-	driver_display_limit: int | None = None,
-	pulse_int_e: int | None = None,
-	pulse_int_r: int | None = None,
-	pulse_e: int | None = None,
-	pulse_r: int | None = None,
-	define: list[str] | None = None,
-	lib: list[str] | None = None,
-	include: list[str] | None = None,
-	svlog: list[str] | None = None,
-	vlog: list[str] | None = None,
-	vhdl: list[str] | None = None,
-	vhdl2008: list[str] | None = None,
-	vhdl2019: list[str] | None = None,
-	generic_top: list[str] | None = None,
-	sourcelibdir: list[str] | None = None,
-	sourcelibext: list[str] | None = None,
-	sourcelibfile: list[str] | None = None,
-) -> None:
-	cmd = [cfg.get_vivado().xelab_bin, *units]
+class XilinxToolRunner(ToolRunner):
+	# Base runner for Xilinx tools
+	_PREFIX_MAP: dict[str, int] = {
+		"ERROR:": logging.ERROR,
+		"CRITICAL WARNING:": logging.CRITICAL,
+		"CRITICAL:": logging.CRITICAL,
+		"WARNING:": logging.WARNING,
+		"INFO:": logging.INFO,
+	}
 
-	cmd += ["--debug", debug]
-
-	# Boolean flags
-	if standalone:
-		cmd += ["--standalone"]
-	if run:
-		cmd += ["--run"]
-	if runall:
-		cmd += ["--runall"]
-	if incr:
-		cmd += ["--incr"]
-	if relax:
-		cmd += ["--relax"]
-	if nolog:
-		cmd += ["--nolog"]
-	if stats:
-		cmd += ["--stats"]
-	if override_timeunit:
-		cmd += ["--override_timeunit"]
-	if override_timeprecision:
-		cmd += ["--override_timeprecision"]
-	if noname_unnamed_generate:
-		cmd += ["--noname_unnamed_generate"]
-	if rangecheck:
-		cmd += ["--rangecheck"]
-	if transform_timing_checkers:
-		cmd += ["--transform_timing_checkers"]
-	if suppress_localparam_override_error:
-		cmd += ["--suppress_localparam_override_error"]
-	if ignore_assertions:
-		cmd += ["--ignore_assertions"]
-	if report_assertion_pass:
-		cmd += ["--report_assertion_pass"]
-	if ignore_coverage:
-		cmd += ["--ignore_coverage"]
-	if nosdfinterconnectdelays:
-		cmd += ["--nosdfinterconnectdelays"]
-	if nospecify:
-		cmd += ["--nospecify"]
-	if notimingchecks:
-		cmd += ["--notimingchecks"]
-	if mindelay:
-		cmd += ["--mindelay"]
-	if maxdelay:
-		cmd += ["--maxdelay"]
-	if typdelay:
-		cmd += ["--typdelay"]
-	if transport_int_delays:
-		cmd += ["--transport_int_delays"]
-	if sdfnoerror:
-		cmd += ["--sdfnoerror"]
-	if sdfnowarn:
-		cmd += ["--sdfnowarn"]
-	if dup_entity_as_module:
-		cmd += ["--dup_entity_as_module"]
-	if dpi_absolute:
-		cmd += ["--dpi_absolute"]
-	if cc_celldefines:
-		cmd += ["--cc_celldefines"]
-	if cc_libs:
-		cmd += ["--cc_libs"]
-	if O0:
-		cmd += ["--O0"]
-
-	# String options
-	if file:
-		cmd += ["--file", file]
-	if log:
-		cmd += ["--log", log]
-	if prj:
-		cmd += ["--prj", prj]
-	if initfile:
-		cmd += ["--initfile", initfile]
-	if ccExclusionFile:
-		cmd += ["--ccExclusionFile", ccExclusionFile]
-	if uvm_version:
-		cmd += ["--uvm_version", uvm_version]
-	if timescale:
-		cmd += ["--timescale", timescale]
-	if timeprecision_vhdl:
-		cmd += ["--timeprecision_vhdl", timeprecision_vhdl]
-	if snapshot:
-		cmd += ["--snapshot", snapshot]
-	if mt:
-		cmd += ["--mt", mt]
-	if pulse_e_style:
-		cmd += ["--pulse_e_style", pulse_e_style]
-	if sdfmax:
-		cmd += ["--sdfmax", sdfmax]
-	if sdfmin:
-		cmd += ["--sdfmin", sdfmin]
-	if sdftyp:
-		cmd += ["--sdftyp", sdftyp]
-	if sdfroot:
-		cmd += ["--sdfroot", sdfroot]
-	if dpiheader:
-		cmd += ["--dpiheader", dpiheader]
-	if dpi_stacksize:
-		cmd += ["--dpi_stacksize", dpi_stacksize]
-	if sc_lib:
-		cmd += ["--sc_lib", sc_lib]
-	if sv_lib:
-		cmd += ["--sv_lib", sv_lib]
-	if sv_liblist:
-		cmd += ["--sv_liblist", sv_liblist]
-	if sc_root:
-		cmd += ["--sc_root", sc_root]
-	if sv_root:
-		cmd += ["--sv_root", sv_root]
-	if cov_db_dir:
-		cmd += ["--cov_db_dir", cov_db_dir]
-	if cov_db_name:
-		cmd += ["--cov_db_name", cov_db_name]
-	if cc_type:
-		cmd += ["--cc_type", cc_type]
-
-	# Integer options
-	if verbose is not None:
-		cmd += ["--verbose", str(verbose)]
-	if maxarraysize is not None:
-		cmd += ["--maxarraysize", str(maxarraysize)]
-	if maxdesigndepth is not None:
-		cmd += ["--maxdesigndepth", str(maxdesigndepth)]
-	if driver_display_limit is not None:
-		cmd += ["--driver_display_limit", str(driver_display_limit)]
-	if pulse_int_e is not None:
-		cmd += ["--pulse_int_e", str(pulse_int_e)]
-	if pulse_int_r is not None:
-		cmd += ["--pulse_int_r", str(pulse_int_r)]
-	if pulse_e is not None:
-		cmd += ["--pulse_e", str(pulse_e)]
-	if pulse_r is not None:
-		cmd += ["--pulse_r", str(pulse_r)]
-
-	# Repeatable options
-	for x in lib or []:
-		cmd += ["-L", x]
-	for x in define or []:
-		cmd += ["-d", x]
-	for x in svlog or []:
-		cmd += ["--svlog", x]
-	for x in vlog or []:
-		cmd += ["--vlog", x]
-	for x in vhdl or []:
-		cmd += ["--vhdl", x]
-	for x in vhdl2008 or []:
-		cmd += ["--vhdl2008", x]
-	for x in vhdl2019 or []:
-		cmd += ["--vhdl2019", x]
-	for x in include or []:
-		cmd += ["-i", x]
-	for x in generic_top or []:
-		cmd += ["--generic_top", x]
-	for x in sourcelibdir or []:
-		cmd += ["--sourcelibdir", x]
-	for x in sourcelibext or []:
-		cmd += ["--sourcelibext", x]
-	for x in sourcelibfile or []:
-		cmd += ["--sourcelibfile", x]
-
-	try:
-		run_tool(
-			cmd,
-			cwd=target_dir,
-			label=f"{__name__}_{label}",
-			log_dir=cfg.log_dir,
-			dry_run=cfg.dry_run,
-			exit_on_fail=True,
-		)
-	except FileNotFoundError:
+	@typing.override
+	def run(self, jobs: list[Job], *, max_workers: int | None = None) -> None:
+		n = max_workers if max_workers is not None else self._DEFAULT_WORKERS
 		try:
-			find_vivado_dir_path(exit_on_fail=True)
-		finally:
-			raise
+			run_jobs(jobs, self._cfg, max_workers=n)
+		except JobFailedError as exc:
+			for _, inner in exc.failed:
+				if isinstance(inner, FileNotFoundError):
+					find_vivado_dir_path(exit_on_fail=True)
+			# raise
+
+	def make_pairs(
+		self, names: list[str], tcl_fn: Callable[[str], str], *, label_prefix: str, log_prefix: str, annotate: bool = False
+	) -> typing.Self:
+		# Build (path, job) pairs
+		for idx, name in enumerate(names):
+			if annotate:
+				print()
+				print(_counter(idx + 1, len(names)), f"{label_prefix}_{name}")
+				print(f"{DIM}{terminal_full_length_divider()}{RESET}")
+			result = self.job(
+				tcl_fn(name),
+				label=f"{label_prefix}_{name}",
+				log_file=str(Path(self._cfg.log_dir) / f"{log_prefix}_{name}.log"),
+			)
+			if annotate:
+				print(f"{DIM}{terminal_full_length_divider()}{RESET}")
+			if result is not None:
+				self._pairs.append(result)
+
+		return self
 
 
-def run_vivado_xsim(
-	cfg: XvivConfig,
-	target_dir: str,
-	*,
-	label: str,
-	config_tcl: str | None,
-	top: str | None = None,
-	wdb_file: str | None = None,
-	stats: bool = True,
-	nogui: bool = False,
-	runall: bool = False,
-	popen: bool = False,
-	testplusarg: list[str] | None = None,
-	unlink_config_file: bool = True,
-) -> int | None:
-	if config_tcl is None:
-		return None
+class VivadoRunner(XilinxToolRunner):
+	# Vivado batch/TCL runner
+	_DEFAULT_WORKERS: int = 4
 
-	logger.debug("%s: %s\n%s", __name__, label, config_tcl)
+	def __init__(self, cfg: XvivConfig):
+		super().__init__(cfg)
 
-	config_tcl_path: str | None = None
+	def job(
+		self,
+		tcl: str | None,
+		*,
+		label: str,
+		log_file: str,
+	) -> tuple[Path, Job] | None:
+		# Build Vivado job
+		if tcl is None:
+			return None
 
-	try:
-		with tempfile.NamedTemporaryFile(mode="w", suffix="_sim_config.tcl", delete=False, prefix="xviv_") as tmp:
-			tmp.write(config_tcl)
-			config_tcl_path = tmp.name
+		tmp = tempfile.NamedTemporaryFile(mode="w", suffix="_config.tcl", delete=False, prefix="xviv_vivado_")
+		tmp.write(tcl)
+		tmp.close()
+		tcl_path = Path(tmp.name)
+		logger.debug("VivadoRunner.job %s: tcl → %s", label, tcl_path)
 
-		cmd = [cfg.get_vivado().xsim_bin]
+		viv = self._cfg.get_vivado()
+		return tcl_path, Job(
+			label=label,
+			cmd=(
+				viv.vivado_bin,
+				"-mode",
+				viv.mode,
+				"-nolog",
+				"-nojournal",
+				"-notrace",
+				"-quiet",
+				"-source",
+				str(tcl_path),
+			),
+			cwd=self._cfg.work_dir,
+			log_file=log_file,
+			classifier=self.classify,
+			dry_run=self._cfg.dry_run,
+			interactive=viv.mode == "tcl",
+			detach=False,
+			env=None,
+		)
 
+
+class XvlogRunner(XilinxToolRunner):
+	# SystemVerilog compiler
+	_DEFAULT_WORKERS: int = 4
+
+	@classmethod
+	def classify(cls, raw: str) -> OutputLine:
+		# Demote repetitive INFO to DEBUG
+		oline = super().classify(raw)
+		if oline.level == logging.INFO and oline.text.startswith("Analyzing "):
+			return OutputLine(text=oline.text, level=logging.DEBUG, raw=raw)
+		return oline
+
+	def job(
+		self,
+		target_dir: str,
+		fileset: list[str],
+		xsim_lib: str,
+		*,
+		label: str,
+		log_file: str,
+		lib: list[str] | None = None,
+		defines: list[str] | None = None,
+		include_dirs: list[str] | None = None,
+	) -> Job:
+		viv = self._cfg.get_vivado()
+		cmd: list[str] = [viv.xvlog_bin, "--sv", "--incr", "--work", xsim_lib]
+
+		for d in defines or []:
+			cmd += ["-d", d]
+		for i in include_dirs or []:
+			cmd += ["-i", i]
+		for x in lib or []:
+			cmd += ["-L", x]
+
+		cmd += fileset
+
+		if viv.glbl_file:
+			cmd.append(viv.glbl_file)
+
+		return Job(
+			label=label,
+			cmd=tuple(cmd),
+			cwd=target_dir,
+			log_file=log_file,
+			classifier=self.classify,
+			dry_run=self._cfg.dry_run,
+			interactive=False,
+			detach=False,
+			env=None,
+		)
+
+
+class XelabRunner(XilinxToolRunner):
+	# Elaboration tool
+	_DEFAULT_WORKERS: int = 2
+
+	@classmethod
+	def classify(cls, raw: str) -> OutputLine:
+		# Promote success to WARNING for visibility
+		oline = super().classify(raw)
+		if oline.level == logging.INFO and "Elaboration Successful" in oline.text:
+			return OutputLine(text=oline.text, level=logging.WARNING, raw=raw)
+		return oline
+
+	def job(
+		self,
+		target_dir: str,
+		units: list[str],
+		*,
+		label: str,
+		log_file: str,
+		debug: str = "off",
+		incr: bool = False,
+		run: bool = False,
+		runall: bool = False,
+		standalone: bool = False,
+		relax: bool = False,
+		nolog: bool = False,
+		stats: bool = False,
+		override_timeunit: bool = False,
+		override_timeprecision: bool = False,
+		noname_unnamed_generate: bool = False,
+		rangecheck: bool = False,
+		transform_timing_checkers: bool = False,
+		suppress_localparam_override_error: bool = False,
+		ignore_assertions: bool = False,
+		report_assertion_pass: bool = False,
+		ignore_coverage: bool = False,
+		maxdelay: bool = False,
+		mindelay: bool = False,
+		typdelay: bool = False,
+		nosdfinterconnectdelays: bool = False,
+		nospecify: bool = False,
+		notimingchecks: bool = False,
+		transport_int_delays: bool = False,
+		sdfnoerror: bool = False,
+		sdfnowarn: bool = False,
+		dup_entity_as_module: bool = False,
+		dpi_absolute: bool = False,
+		cc_celldefines: bool = False,
+		cc_libs: bool = False,
+		O0: bool = False,
+		file: str | None = None,
+		log: str | None = None,
+		initfile: str | None = None,
+		mt: str | None = None,
+		snapshot: str | None = None,
+		timescale: str | None = None,
+		uvm_version: str | None = None,
+		ccExclusionFile: str | None = None,
+		prj: str | None = None,
+		timeprecision_vhdl: str | None = None,
+		sdfmax: str | None = None,
+		sdfmin: str | None = None,
+		sdftyp: str | None = None,
+		sdfroot: str | None = None,
+		pulse_e_style: str | None = None,
+		dpiheader: str | None = None,
+		dpi_stacksize: str | None = None,
+		sc_lib: str | None = None,
+		sv_lib: str | None = None,
+		sv_liblist: str | None = None,
+		sc_root: str | None = None,
+		sv_root: str | None = None,
+		cov_db_dir: str | None = None,
+		cov_db_name: str | None = None,
+		cc_type: str | None = None,
+		verbose: int | None = None,
+		maxarraysize: int | None = None,
+		maxdesigndepth: int | None = None,
+		driver_display_limit: int | None = None,
+		pulse_int_e: int | None = None,
+		pulse_int_r: int | None = None,
+		pulse_e: int | None = None,
+		pulse_r: int | None = None,
+		define: list[str] | None = None,
+		lib: list[str] | None = None,
+		include: list[str] | None = None,
+		svlog: list[str] | None = None,
+		vlog: list[str] | None = None,
+		vhdl: list[str] | None = None,
+		vhdl2008: list[str] | None = None,
+		vhdl2019: list[str] | None = None,
+		generic_top: list[str] | None = None,
+		sourcelibdir: list[str] | None = None,
+		sourcelibext: list[str] | None = None,
+		sourcelibfile: list[str] | None = None,
+	) -> Job:
+		cmd: list[str] = [self._cfg.get_vivado().xelab_bin, *units, "--debug", debug]
+
+		for flag, opt in [
+			(standalone, "--standalone"),
+			(run, "--run"),
+			(runall, "--runall"),
+			(incr, "--incr"),
+			(relax, "--relax"),
+			(nolog, "--nolog"),
+			(stats, "--stats"),
+			(override_timeunit, "--override_timeunit"),
+			(override_timeprecision, "--override_timeprecision"),
+			(noname_unnamed_generate, "--noname_unnamed_generate"),
+			(rangecheck, "--rangecheck"),
+			(transform_timing_checkers, "--transform_timing_checkers"),
+			(suppress_localparam_override_error, "--suppress_localparam_override_error"),
+			(ignore_assertions, "--ignore_assertions"),
+			(report_assertion_pass, "--report_assertion_pass"),
+			(ignore_coverage, "--ignore_coverage"),
+			(nosdfinterconnectdelays, "--nosdfinterconnectdelays"),
+			(nospecify, "--nospecify"),
+			(notimingchecks, "--notimingchecks"),
+			(mindelay, "--mindelay"),
+			(maxdelay, "--maxdelay"),
+			(typdelay, "--typdelay"),
+			(transport_int_delays, "--transport_int_delays"),
+			(sdfnoerror, "--sdfnoerror"),
+			(sdfnowarn, "--sdfnowarn"),
+			(dup_entity_as_module, "--dup_entity_as_module"),
+			(dpi_absolute, "--dpi_absolute"),
+			(cc_celldefines, "--cc_celldefines"),
+			(cc_libs, "--cc_libs"),
+			(O0, "--O0"),
+		]:
+			if flag:
+				cmd.append(opt)
+
+		for val, opt in [
+			(file, "--file"),
+			(log, "--log"),
+			(prj, "--prj"),
+			(initfile, "--initfile"),
+			(ccExclusionFile, "--ccExclusionFile"),
+			(uvm_version, "--uvm_version"),
+			(timescale, "--timescale"),
+			(timeprecision_vhdl, "--timeprecision_vhdl"),
+			(snapshot, "--snapshot"),
+			(mt, "--mt"),
+			(pulse_e_style, "--pulse_e_style"),
+			(sdfmax, "--sdfmax"),
+			(sdfmin, "--sdfmin"),
+			(sdftyp, "--sdftyp"),
+			(sdfroot, "--sdfroot"),
+			(dpiheader, "--dpiheader"),
+			(dpi_stacksize, "--dpi_stacksize"),
+			(sc_lib, "--sc_lib"),
+			(sv_lib, "--sv_lib"),
+			(sv_liblist, "--sv_liblist"),
+			(sc_root, "--sc_root"),
+			(sv_root, "--sv_root"),
+			(cov_db_dir, "--cov_db_dir"),
+			(cov_db_name, "--cov_db_name"),
+			(cc_type, "--cc_type"),
+		]:
+			if val is not None:
+				cmd += [opt, val]
+
+		for val, opt in [
+			(verbose, "--verbose"),
+			(maxarraysize, "--maxarraysize"),
+			(maxdesigndepth, "--maxdesigndepth"),
+			(driver_display_limit, "--driver_display_limit"),
+			(pulse_int_e, "--pulse_int_e"),
+			(pulse_int_r, "--pulse_int_r"),
+			(pulse_e, "--pulse_e"),
+			(pulse_r, "--pulse_r"),
+		]:
+			if val is not None:
+				cmd += [opt, str(val)]
+
+		for items, opt in [
+			(lib, "-L"),
+			(define, "-d"),
+			(include, "-i"),
+			(svlog, "--svlog"),
+			(vlog, "--vlog"),
+			(vhdl, "--vhdl"),
+			(vhdl2008, "--vhdl2008"),
+			(vhdl2019, "--vhdl2019"),
+			(generic_top, "--generic_top"),
+			(sourcelibdir, "--sourcelibdir"),
+			(sourcelibext, "--sourcelibext"),
+			(sourcelibfile, "--sourcelibfile"),
+		]:
+			for x in items or []:
+				cmd += [opt, x]
+
+		return Job(
+			label=label,
+			cmd=tuple(cmd),
+			cwd=target_dir,
+			log_file=log_file,
+			classifier=self.classify,
+			dry_run=self._cfg.dry_run,
+			interactive=False,
+			detach=False,
+			env=None,
+		)
+
+
+class XsimRunner(XilinxToolRunner):
+	# Simulation runner
+	_DEFAULT_WORKERS: int = 4
+
+	@classmethod
+	def classify(cls, raw: str) -> OutputLine:
+		# Handle SV system tasks
+		line = raw.rstrip()
+		if line.startswith("$fatal"):
+			return OutputLine(text=line, level=logging.CRITICAL, raw=raw)
+		if line.startswith("$error"):
+			return OutputLine(text=line, level=logging.ERROR, raw=raw)
+		if line.startswith("$warning"):
+			return OutputLine(text=line, level=logging.WARNING, raw=raw)
+		if line.startswith(("$info", "$finish")):
+			return OutputLine(text=line, level=logging.INFO, raw=raw)
+		return super().classify(raw)
+
+	def job(
+		self,
+		target_dir: str,
+		*,
+		label: str,
+		log_file: str,
+		config_tcl: str | None,
+		top: str | None = None,
+		wdb_file: str | None = None,
+		stats: bool = True,
+		nogui: bool = False,
+		runall: bool = False,
+		popen: bool = False,
+		testplusarg: list[str] | None = None,
+	) -> tuple[Path, Job] | None:
+		# Build simulation job
+		if config_tcl is None:
+			return None
+
+		tmp = tempfile.NamedTemporaryFile(mode="w", suffix="_sim_config.tcl", delete=False, prefix="xviv_")
+		tmp.write(config_tcl)
+		tmp.close()
+		tcl_path = Path(tmp.name)
+
+		cmd: list[str] = [self._cfg.get_vivado().xsim_bin]
 		if top:
 			cmd += [top]
 		if wdb_file:
@@ -355,86 +469,18 @@ def run_vivado_xsim(
 			cmd += ["-g"]
 		if runall:
 			cmd += ["--runall"]
-
-		cmd += ["-t", config_tcl_path]
-
+		cmd += ["-t", str(tcl_path)]
 		for x in testplusarg or []:
 			cmd += ["--testplusarg", x]
 
-		try:
-			return run_tool(
-				cmd,
-				cwd=target_dir,
-				label=f"{__name__}_{label}",
-				log_dir=cfg.log_dir,
-				dry_run=cfg.dry_run,
-				popen=popen,
-				exit_on_fail=True,
-			)
-		except FileNotFoundError:
-			try:
-				find_vivado_dir_path(exit_on_fail=True)
-			finally:
-				raise
-
-	finally:
-		if unlink_config_file and config_tcl_path and not cfg.dry_run:
-			with contextlib.suppress(OSError):
-				os.unlink(config_tcl_path)
-
-
-def run_vivado(
-	cfg: XvivConfig,
-	*,
-	label: str,
-	config_tcl: str | None,
-	parallel: bool = False,
-	log_file_path: str | None = None,
-) -> None:
-	if config_tcl is None:
-		return
-
-	logger.debug("%s: %s - parallel: %s\n%s", __name__, label, str(parallel), config_tcl)
-
-	config_tcl_path: str | None = None
-	_error_occurred = False
-	try:
-		with tempfile.NamedTemporaryFile(mode="w", suffix="_config.tcl", delete=False, prefix="xviv_vivado_") as tmp:
-			tmp.write(config_tcl)
-			config_tcl_path = tmp.name
-
-		interactive = cfg.get_vivado().mode == "tcl"
-		try:
-			run_tool(
-				[
-					cfg.get_vivado().vivado_bin,
-					"-mode",
-					cfg.get_vivado().mode,
-					"-nolog",
-					"-nojournal",
-					"-notrace",
-					"-quiet",
-					"-source",
-					config_tcl_path,
-				],
-				cwd=cfg.work_dir,
-				interactive=interactive,
-				dry_run=cfg.dry_run,
-				exit_on_fail=True,
-				parallel=parallel,
-				label=f"{__name__}_{label}",
-				log_dir=cfg.log_dir if not log_file_path else None,
-				log_file_path=log_file_path,
-			)
-		except FileNotFoundError:
-			try:
-				find_vivado_dir_path(exit_on_fail=True)
-			finally:
-				raise
-	except BaseException as _:
-		_error_occurred = True
-		raise
-	finally:
-		if config_tcl_path and not cfg.dry_run and not _error_occurred and not parallel:
-			with contextlib.suppress(OSError):
-				os.unlink(config_tcl_path)
+		return tcl_path, Job(
+			label=label,
+			cmd=tuple(cmd),
+			cwd=target_dir,
+			log_file=log_file,
+			classifier=self.classify,
+			dry_run=self._cfg.dry_run,
+			interactive=False,
+			detach=popen,
+			env=None,
+		)

@@ -1,12 +1,9 @@
-import json
 import logging
-
-import tomlkit
 
 from xviv.config.params import OpenParams, SynthParams
 from xviv.config.project import XvivConfig
-from xviv.functions.core import _run_from_name_list
 from xviv.generator.tcl.commands import ConfigTclCommands
+from xviv.tools.vivado import VivadoRunner
 from xviv.utils import error
 from xviv.utils.git import _git_sha_tag
 from xviv.utils.tools import find_vivado_dir_path
@@ -45,32 +42,29 @@ def cmd_synth(
 	if params.parallel_subcore_synth:
 		find_vivado_dir_path(exit_on_fail=True)
 
-		_run_from_name_list(
-			cfg,
+		VivadoRunner(cfg).make_pairs(
 			[i.core for i in cfg.get_subcore_list(bd_name=bd_name, design_name=design_name)],
 			lambda name: ConfigTclCommands(cfg).synth(core=name, params=SynthParams()).build(),
-			__name__,
-		)
+			label_prefix="ooc_synth",
+			log_prefix="ooc_synth_core",
+			annotate=True,
+		).run_pairs()
 
-	_run_from_name_list(
-		cfg,
+	VivadoRunner(cfg).make_pairs(
 		[i for i in [design_name, bd_name, core_name] if i is not None],
 		lambda _: ConfigTclCommands(cfg).synth(design=design_name, bd=bd_name, core=core_name, params=params).build(),
-		__name__,
-	)
-
-	# # if not cfg.dry_run:
-	# with open(synth_cfg.save_file, "w", encoding="utf-8") as f:
-	# 	f.write(json.dumps(synth_cfg.to_lock(base_dir=cfg.base_dir), indent=4))
+		label_prefix="ooc_synth",
+		log_prefix="ooc_synth_core",
+	).run_pairs()
 
 
 def cmd_dcp_open(cfg: XvivConfig, *, dcp_file: str | None, params: OpenParams):
 	if params.nogui:
 		cfg.get_vivado().mode = "tcl"
 
-	_run_from_name_list(
-		cfg,
+	VivadoRunner(cfg).make_pairs(
 		[dcp_file],
 		lambda name: ConfigTclCommands(cfg).open_dcp(dcp_file=name, params=params).build(),
-		__name__,
-	)
+		label_prefix="dcp_open",
+		log_prefix="dcp_open",
+	).run_pairs()
