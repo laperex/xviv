@@ -32,6 +32,7 @@ from xviv.config.project import XvivConfig
 from xviv.functions.bd import cmd_bd_create, cmd_bd_edit, cmd_bd_generate
 from xviv.functions.bsp import cmd_app_build, cmd_app_create, cmd_platform_build, cmd_platform_create, cmd_processor, cmd_program
 from xviv.functions.core import cmd_core_create, cmd_core_edit, cmd_core_generate, cmd_search_core
+from xviv.functions.formal import cmd_formal
 from xviv.functions.ip import cmd_ip_create, cmd_ip_edit
 from xviv.functions.simulation import cmd_simulate, cmd_wdb_open, cmd_wdb_reload
 from xviv.functions.synthesis import cmd_dcp_open, cmd_synth
@@ -390,16 +391,16 @@ class SynthCommand(Command):
 		)
 
 
-# class FormalCommand(Command):
-# 	name = "formal"
-# 	help = "Run SymbiYosys formal verification targets"
+class FormalCommand(Command):
+	name = "formal"
+	help = "Run SymbiYosys formal verification targets"
 
-# 	@classmethod
-# 	def register(cls, sub: argparse._SubParsersAction) -> None:
-# 		super().register(sub)
-# 		c = cls.c
-# 		target_group(c, exclusive=True, required=False, formal_target=True)
+	@classmethod
+	def register(cls, sub: argparse._SubParsersAction) -> None:
+		super().register(sub)
+		c = cls.c
+		target_group(c, exclusive=True, required=False, formal_target=True)
 
-# 	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
-# 		super().run(cfg, args)
-# 		cmd_formal(cfg, target=args.target)
+	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
+		super().run(cfg, args)
+		cmd_formal(cfg, target=args.target)
