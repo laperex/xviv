@@ -10,7 +10,7 @@ from typing import Callable, Iterator
 from xviv.config.project import XvivConfig
 from xviv.utils.display import _counter, terminal_full_length_divider
 from xviv.utils.error import JobFailedError
-from xviv.utils.job import Job, run_jobs
+from xviv.utils.job import Job, run_job_list
 from xviv.utils.log import DIM, RESET
 from xviv.utils.stream import OutputLine
 from xviv.utils.tools import find_vivado_dir_path
@@ -56,7 +56,7 @@ class ToolRunner:
 
 	def run(self, jobs: list[Job], *, max_workers: int | None = None) -> None:
 		n = max_workers if max_workers is not None else self._DEFAULT_WORKERS
-		run_jobs(jobs, self._cfg, max_workers=n)
+		run_job_list(jobs, max_workers=n)
 
 	def run_pairs(
 		self,
@@ -81,7 +81,7 @@ class XilinxToolRunner(ToolRunner):
 	def run(self, jobs: list[Job], *, max_workers: int | None = None) -> None:
 		n = max_workers if max_workers is not None else self._DEFAULT_WORKERS
 		try:
-			run_jobs(jobs, self._cfg, max_workers=n)
+			run_job_list(jobs, max_workers=n)
 		except JobFailedError as exc:
 			for _, inner in exc.failed:
 				if isinstance(inner, FileNotFoundError):

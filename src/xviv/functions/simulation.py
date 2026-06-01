@@ -1,268 +1,268 @@
-# import logging
-# import os
+import logging
+import os
 
-# from xviv.config.model import UvmConfig
-# from xviv.config.params import SimulateParams
-# from xviv.config.project import XvivConfig
-# from xviv.generator.tcl.commands import ConfigTclCommands
-# from xviv.tools import verilator, vivado
-# from xviv.utils import error
-# from xviv.utils.fifo import _ensure_fifo, _fifo_send
-# from xviv.utils.fs import assert_file_exists
+from xviv.config.model import UvmConfig
+from xviv.config.params import SimulateParams
+from xviv.config.project import XvivConfig
+from xviv.generator.tcl.commands import ConfigTclCommands
+from xviv.tools import verilator, vivado
+from xviv.utils import error
+from xviv.utils.fifo import _ensure_fifo, _fifo_send
+from xviv.utils.fs import assert_file_exists
 
-# logger = logging.getLogger(__name__)
-
-
-# def _build_uvm_plusargs(uvm_cfg: UvmConfig | None) -> list[str]:
-# 	args: list[str] = []
-
-# 	if uvm_cfg.test is not None:
-# 		args.append(f"UVM_TESTNAME={uvm_cfg.test}")
-
-# 	args.append(f"UVM_VERBOSITY={uvm_cfg.verbosity}")
-
-# 	if uvm_cfg.max_quit_count is not None:
-# 		args.append(f"UVM_MAX_QUIT_COUNT={uvm_cfg.max_quit_count}")
-
-# 	return args
+logger = logging.getLogger(__name__)
 
 
-# def _build_xsim_testplusargs(cfg: XvivConfig, sim_name: str, uvm_name: str | None) -> list[str]:
-# 	sim_cfg = cfg.get_sim(sim_name)
+def _build_uvm_plusargs(uvm_cfg: UvmConfig | None) -> list[str]:
+	args: list[str] = []
 
-# 	if uvm_name:
-# 		args = _build_uvm_plusargs(cfg.get_uvm(uvm_name, sim_name))
+	if uvm_cfg.test is not None:
+		args.append(f"UVM_TESTNAME={uvm_cfg.test}")
 
-# 	args += [a.lstrip("+") for a in sim_cfg.plusargs]
-# 	return args
+	args.append(f"UVM_VERBOSITY={uvm_cfg.verbosity}")
 
+	if uvm_cfg.max_quit_count is not None:
+		args.append(f"UVM_MAX_QUIT_COUNT={uvm_cfg.max_quit_count}")
 
-# def cmd_simulate(cfg: XvivConfig, *, sim_name: str, params: SimulateParams):
-# 	sim_cfg = cfg.get_sim(sim_name)
-
-# 	svlog_files: list[str] = []
-# 	sdfmax_entries: list[str] = []
-# 	sdfmin_entries: list[str] = []
-
-# 	if sim_cfg.design:
-# 		if params.mode == "default":
-# 			design_cfg = cfg.get_design(sim_cfg.design)
-# 			svlog_files += [i.file for i in design_cfg.sources]
-# 		else:
-# 			synth_cfg = cfg.get_synth(design_name=sim_cfg.design)
-
-# 			match params.mode:
-# 				case "post_synth_functional":
-# 					assert_file_exists(synth_cfg.synth_functional_netlist)
-# 					svlog_files.append(synth_cfg.synth_functional_netlist)
-
-# 				case "post_synth_timing":
-# 					assert_file_exists(synth_cfg.synth_timing_netlist)
-# 					svlog_files.append(synth_cfg.synth_timing_netlist)
-
-# 				case "post_impl_functional":
-# 					assert_file_exists(synth_cfg.impl_functional_netlist)
-# 					svlog_files.append(synth_cfg.impl_functional_netlist)
-
-# 				case "post_impl_timing":
-# 					assert_file_exists(synth_cfg.impl_timing_sdf)
-
-# 					for s in sim_cfg.sdfmax:
-# 						sdfmax_entries.append(f"{s}={synth_cfg.impl_timing_sdf}")
-
-# 					for s in sim_cfg.sdfmin:
-# 						sdfmin_entries.append(f"{s}={synth_cfg.impl_timing_sdf}")
-
-# 					assert_file_exists(synth_cfg.impl_timing_netlist)
-# 					svlog_files.append(synth_cfg.impl_timing_netlist)
-
-# 				case _:
-# 					raise error.InvalidSimulationMode(params.mode)
-
-# 	svlog_files += [i.file for i in sim_cfg.sources]
-
-# 	match sim_cfg.backend:
-# 		case "xsim":
-# 			_run_xsim(cfg, sim_name, params.uvm_name, svlog_files, sdfmax_entries, sdfmin_entries, params.run)
-# 		case "verilator":
-# 			_run_verilator(cfg, sim_name, params.uvm_name, svlog_files)
-# 		case _:
-# 			raise error.InvalidSimulationBackend(sim_cfg.backend)
+	return args
 
 
-# def _run_xsim(
-# 	cfg: XvivConfig,
-# 	sim_name: str,
-# 	uvm_name: str | None,
-# 	svlog_files: list[str],
-# 	sdfmax_entries: list[str],
-# 	sdfmin_entries: list[str],
-# 	run: str,
-# ):
-# 	sim_cfg = cfg.get_sim(sim_name)
+def _build_xsim_testplusargs(cfg: XvivConfig, sim_name: str, uvm_name: str | None) -> list[str]:
+	sim_cfg = cfg.get_sim(sim_name)
 
-# 	top = sim_cfg.top
-# 	timescale = sim_cfg.timescale
-# 	uvm_version = None
+	if uvm_name:
+		args = _build_uvm_plusargs(cfg.get_uvm(uvm_name, sim_name))
 
-# 	if uvm_name:
-# 		uvm_cfg = cfg.get_uvm(uvm_name, sim_name)
-
-# 		top = uvm_cfg.top
-# 		timescale = uvm_cfg.timescale
-# 		uvm_version = uvm_cfg.version
-
-# 	xsim_lib = "xv_work"
-
-# 	vivado.run_vivado_xvlog(
-# 		cfg,
-# 		target_dir=sim_cfg.work_dir,
-# 		fileset=svlog_files,
-# 		label=__name__,
-# 		lib=filter(None, ["uvm" if uvm_name else None]),
-# 		xsim_lib=xsim_lib,
-# 		defines=sim_cfg.defines,
-# 		include_dirs=sim_cfg.include_dirs,
-# 	)
-
-# 	elab_libs = ["secureip", "unimacro_ver", "unisims_ver"]
-# 	if uvm_name:
-# 		elab_libs.append("uvm")
-
-# 	vivado.run_vivado_xelab(
-# 		cfg,
-# 		sim_cfg.work_dir,
-# 		[f"{xsim_lib}.{top}", f"{xsim_lib}.glbl"],
-# 		label=__name__,
-# 		timescale=timescale,
-# 		mt=str(20),
-# 		snapshot=top,
-# 		lib=elab_libs,
-# 		debug="typical",
-# 		incr=True,
-# 		runall=(run == "all") and not uvm_name,
-# 		sdfmax=sdfmax_entries[0] if sdfmax_entries else None,
-# 		uvm_version=uvm_version,
-# 	)
-
-# 	if not (run == "all") or uvm_name:
-# 		x_simulate_tcl = filter(
-# 			None,
-# 			[
-# 				"log_wave -recursive *",
-# 				f"run {run}",
-# 				"exit",
-# 			],
-# 		)
-
-# 		vivado.run_vivado_xsim(
-# 			cfg,
-# 			target_dir=sim_cfg.work_dir,
-# 			config_tcl="\n".join(x_simulate_tcl),
-# 			label=__name__,
-# 			top=top,
-# 			stats=True,
-# 			nogui=True,
-# 			popen=False,
-# 			testplusarg=_build_xsim_testplusargs(cfg, sim_name, uvm_name),
-# 			runall=False,
-# 		)
+	args += [a.lstrip("+") for a in sim_cfg.plusargs]
+	return args
 
 
-# def _run_verilator(cfg: XvivConfig, sim_name: str, uvm_name: str | None, svlog_files):
-# 	sim_cfg = cfg.get_sim(sim_name)
+def cmd_simulate(cfg: XvivConfig, *, sim_name: str, params: SimulateParams):
+	sim_cfg = cfg.get_sim(sim_name)
 
-# 	top = sim_cfg.top
-# 	timescale = sim_cfg.timescale
-# 	uvm_test = None
-# 	uvm_verbosity = sim_cfg.uvm_verbosity
-# 	uvm_max_quit_count = sim_cfg.uvm_max_quit_count
+	svlog_files: list[str] = []
+	sdfmax_entries: list[str] = []
+	sdfmin_entries: list[str] = []
 
-# 	if uvm_name:
-# 		uvm_cfg = cfg.get_uvm(uvm_name, sim_name)
-# 		top = uvm_cfg.top
-# 		timescale = uvm_cfg.timescale
+	if sim_cfg.design:
+		if params.mode == "default":
+			design_cfg = cfg.get_design(sim_cfg.design)
+			svlog_files += [i.file for i in design_cfg.sources]
+		else:
+			synth_cfg = cfg.get_synth(design_name=sim_cfg.design)
 
-# 		uvm_test = uvm_cfg.test
-# 		uvm_verbosity = uvm_cfg.uvm_verbosity
-# 		uvm_max_quit_count = uvm_cfg.uvm_max_quit_count
+			match params.mode:
+				case "post_synth_functional":
+					assert_file_exists(synth_cfg.synth_functional_netlist)
+					svlog_files.append(synth_cfg.synth_functional_netlist)
 
-# 	include_dirs = list(sim_cfg.include_dirs)
-# 	if uvm_name and sim_cfg.uvm_pkg_dir is not None:
-# 		include_dirs.insert(0, sim_cfg.uvm_pkg_dir)
+				case "post_synth_timing":
+					assert_file_exists(synth_cfg.synth_timing_netlist)
+					svlog_files.append(synth_cfg.synth_timing_netlist)
 
-# 	binary = verilator.run_verilator_compile(
-# 		work_dir=sim_cfg.work_dir,
-# 		fileset=svlog_files,
-# 		top=top,
-# 		defines=sim_cfg.defines,
-# 		include_dirs=include_dirs,
-# 		timescale=timescale,
-# 		threads=sim_cfg.threads,
-# 		trace=sim_cfg.trace,
-# 		trace_fst=sim_cfg.trace_fst,
-# 		trace_depth=sim_cfg.trace_depth,
-# 		uvm=uvm_name is not None,
-# 		uvm_pkg_dir=sim_cfg.uvm_pkg_dir,
-# 		extra_args=sim_cfg.verilator_args,
-# 		dry_run=cfg.dry_run,
-# 		label=__name__,
-# 		log_dir=cfg.log_dir,
-# 	)
+				case "post_impl_functional":
+					assert_file_exists(synth_cfg.impl_functional_netlist)
+					svlog_files.append(synth_cfg.impl_functional_netlist)
 
-# 	verilator.run_verilator_sim(
-# 		binary=binary,
-# 		work_dir=sim_cfg.work_dir,
-# 		plusargs=sim_cfg.plusargs,
-# 		uvm=uvm_name is not None,
-# 		uvm_test=uvm_test,
-# 		uvm_verbosity=uvm_verbosity,
-# 		uvm_max_quit_count=uvm_max_quit_count,
-# 		trace=sim_cfg.trace,
-# 		trace_fst=sim_cfg.trace_fst,
-# 		dry_run=cfg.dry_run,
-# 		label=__name__,
-# 		log_dir=cfg.log_dir,
-# 	)
+				case "post_impl_timing":
+					assert_file_exists(synth_cfg.impl_timing_sdf)
+
+					for s in sim_cfg.sdfmax:
+						sdfmax_entries.append(f"{s}={synth_cfg.impl_timing_sdf}")
+
+					for s in sim_cfg.sdfmin:
+						sdfmin_entries.append(f"{s}={synth_cfg.impl_timing_sdf}")
+
+					assert_file_exists(synth_cfg.impl_timing_netlist)
+					svlog_files.append(synth_cfg.impl_timing_netlist)
+
+				case _:
+					raise error.InvalidSimulationMode(params.mode)
+
+	svlog_files += [i.file for i in sim_cfg.sources]
+
+	match sim_cfg.backend:
+		case "xsim":
+			_run_xsim(cfg, sim_name, params.uvm_name, svlog_files, sdfmax_entries, sdfmin_entries, params.run)
+		case "verilator":
+			_run_verilator(cfg, sim_name, params.uvm_name, svlog_files)
+		case _:
+			raise error.InvalidSimulationBackend(sim_cfg.backend)
 
 
-# def cmd_wdb_open(cfg: XvivConfig, *, sim_name: str, nogui: bool = False):
-# 	sim_cfg = cfg.get_sim(sim_name)
+def _run_xsim(
+	cfg: XvivConfig,
+	sim_name: str,
+	uvm_name: str | None,
+	svlog_files: list[str],
+	sdfmax_entries: list[str],
+	sdfmin_entries: list[str],
+	run: str,
+):
+	sim_cfg = cfg.get_sim(sim_name)
 
-# 	wdb_file = os.path.join(sim_cfg.work_dir, f"{sim_cfg.top}.wdb")
-# 	wcfg_file = os.path.join(sim_cfg.work_dir, f"{sim_cfg.top}.wcfg")
-# 	fifo_file = f"{wdb_file}.fifo"
+	top = sim_cfg.top
+	timescale = sim_cfg.timescale
+	uvm_version = None
 
-# 	config = ConfigTclCommands(cfg).waveform_setup(wdb_file=wdb_file, top_name=sim_cfg.top, wcfg_file=wcfg_file, fifo_file=fifo_file).build()
+	if uvm_name:
+		uvm_cfg = cfg.get_uvm(uvm_name, sim_name)
 
-# 	_ensure_fifo(fifo_file)
+		top = uvm_cfg.top
+		timescale = uvm_cfg.timescale
+		uvm_version = uvm_cfg.version
 
-# 	pid = vivado.run_vivado_xsim(
-# 		cfg,
-# 		target_dir=sim_cfg.work_dir,
-# 		config_tcl=config,
-# 		label=__name__,
-# 		top=sim_cfg.top,
-# 		stats=False,
-# 		wdb_file=wdb_file,
-# 		nogui=nogui,
-# 		popen=True,
-# 		unlink_config_file=False,
-# 	)
+	xsim_lib = "xv_work"
 
-# 	if pid is not None:
-# 		logger.info("xsim waveform PID: %d", pid)
+	vivado.run_vivado_xvlog(
+		cfg,
+		target_dir=sim_cfg.work_dir,
+		fileset=svlog_files,
+		label=__name__,
+		lib=filter(None, ["uvm" if uvm_name else None]),
+		xsim_lib=xsim_lib,
+		defines=sim_cfg.defines,
+		include_dirs=sim_cfg.include_dirs,
+	)
+
+	elab_libs = ["secureip", "unimacro_ver", "unisims_ver"]
+	if uvm_name:
+		elab_libs.append("uvm")
+
+	vivado.run_vivado_xelab(
+		cfg,
+		sim_cfg.work_dir,
+		[f"{xsim_lib}.{top}", f"{xsim_lib}.glbl"],
+		label=__name__,
+		timescale=timescale,
+		mt=str(20),
+		snapshot=top,
+		lib=elab_libs,
+		debug="typical",
+		incr=True,
+		runall=(run == "all") and not uvm_name,
+		sdfmax=sdfmax_entries[0] if sdfmax_entries else None,
+		uvm_version=uvm_version,
+	)
+
+	if not (run == "all") or uvm_name:
+		x_simulate_tcl = filter(
+			None,
+			[
+				"log_wave -recursive *",
+				f"run {run}",
+				"exit",
+			],
+		)
+
+		vivado.run_vivado_xsim(
+			cfg,
+			target_dir=sim_cfg.work_dir,
+			config_tcl="\n".join(x_simulate_tcl),
+			label=__name__,
+			top=top,
+			stats=True,
+			nogui=True,
+			popen=False,
+			testplusarg=_build_xsim_testplusargs(cfg, sim_name, uvm_name),
+			runall=False,
+		)
 
 
-# def cmd_wdb_reload(cfg: XvivConfig, *, sim_name: str):
-# 	sim_cfg = cfg.get_sim(sim_name)
+def _run_verilator(cfg: XvivConfig, sim_name: str, uvm_name: str | None, svlog_files):
+	sim_cfg = cfg.get_sim(sim_name)
 
-# 	wdb_file = os.path.join(sim_cfg.work_dir, f"{sim_cfg.top}.wdb")
-# 	fifo_file = f"{wdb_file}.fifo"
+	top = sim_cfg.top
+	timescale = sim_cfg.timescale
+	uvm_test = None
+	uvm_verbosity = sim_cfg.uvm_verbosity
+	uvm_max_quit_count = sim_cfg.uvm_max_quit_count
 
-# 	assert_file_exists(fifo_file)
+	if uvm_name:
+		uvm_cfg = cfg.get_uvm(uvm_name, sim_name)
+		top = uvm_cfg.top
+		timescale = uvm_cfg.timescale
 
-# 	cmd = ConfigTclCommands(cfg).waveform_reload().build()
+		uvm_test = uvm_cfg.test
+		uvm_verbosity = uvm_cfg.uvm_verbosity
+		uvm_max_quit_count = uvm_cfg.uvm_max_quit_count
 
-# 	logger.info("Reloading waveform: %s", fifo_file)
-# 	_fifo_send(fifo_file, cmd)
+	include_dirs = list(sim_cfg.include_dirs)
+	if uvm_name and sim_cfg.uvm_pkg_dir is not None:
+		include_dirs.insert(0, sim_cfg.uvm_pkg_dir)
+
+	binary = verilator.run_verilator_compile(
+		work_dir=sim_cfg.work_dir,
+		fileset=svlog_files,
+		top=top,
+		defines=sim_cfg.defines,
+		include_dirs=include_dirs,
+		timescale=timescale,
+		threads=sim_cfg.threads,
+		trace=sim_cfg.trace,
+		trace_fst=sim_cfg.trace_fst,
+		trace_depth=sim_cfg.trace_depth,
+		uvm=uvm_name is not None,
+		uvm_pkg_dir=sim_cfg.uvm_pkg_dir,
+		extra_args=sim_cfg.verilator_args,
+		dry_run=cfg.dry_run,
+		label=__name__,
+		log_dir=cfg.log_dir,
+	)
+
+	verilator.run_verilator_sim(
+		binary=binary,
+		work_dir=sim_cfg.work_dir,
+		plusargs=sim_cfg.plusargs,
+		uvm=uvm_name is not None,
+		uvm_test=uvm_test,
+		uvm_verbosity=uvm_verbosity,
+		uvm_max_quit_count=uvm_max_quit_count,
+		trace=sim_cfg.trace,
+		trace_fst=sim_cfg.trace_fst,
+		dry_run=cfg.dry_run,
+		label=__name__,
+		log_dir=cfg.log_dir,
+	)
+
+
+def cmd_wdb_open(cfg: XvivConfig, *, sim_name: str, nogui: bool = False):
+	sim_cfg = cfg.get_sim(sim_name)
+
+	wdb_file = os.path.join(sim_cfg.work_dir, f"{sim_cfg.top}.wdb")
+	wcfg_file = os.path.join(sim_cfg.work_dir, f"{sim_cfg.top}.wcfg")
+	fifo_file = f"{wdb_file}.fifo"
+
+	config = ConfigTclCommands(cfg).waveform_setup(wdb_file=wdb_file, top_name=sim_cfg.top, wcfg_file=wcfg_file, fifo_file=fifo_file).build()
+
+	_ensure_fifo(fifo_file)
+
+	pid = vivado.run_vivado_xsim(
+		cfg,
+		target_dir=sim_cfg.work_dir,
+		config_tcl=config,
+		label=__name__,
+		top=sim_cfg.top,
+		stats=False,
+		wdb_file=wdb_file,
+		nogui=nogui,
+		popen=True,
+		unlink_config_file=False,
+	)
+
+	if pid is not None:
+		logger.info("xsim waveform PID: %d", pid)
+
+
+def cmd_wdb_reload(cfg: XvivConfig, *, sim_name: str):
+	sim_cfg = cfg.get_sim(sim_name)
+
+	wdb_file = os.path.join(sim_cfg.work_dir, f"{sim_cfg.top}.wdb")
+	fifo_file = f"{wdb_file}.fifo"
+
+	assert_file_exists(fifo_file)
+
+	cmd = ConfigTclCommands(cfg).waveform_reload().build()
+
+	logger.info("Reloading waveform: %s", fifo_file)
+	_fifo_send(fifo_file, cmd)

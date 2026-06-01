@@ -1,22 +1,9 @@
-"""
-Pure process-streaming utilities.
-
-This module owns exactly one responsibility: running subprocesses and
-yielding their output line-by-line as typed OutputLine objects.
-
-Invariants enforced here:
-- subprocess is imported only in this module.
-- pty, select, termios, tty are imported only in this module.
-- No scheduling logic (sequential vs parallel) lives here.
-- No file I/O (log files are the caller's concern).
-- No terminal rendering (display is the caller's concern).
-"""
-
 from __future__ import annotations
 
 import logging
 import os
 import pty
+import re
 import select
 import subprocess
 import sys
@@ -24,10 +11,6 @@ import termios
 import tty
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
-
-# ---------------------------------------------------------------------------
-# Output line type
-# ---------------------------------------------------------------------------
 
 
 @dataclass
@@ -37,19 +20,8 @@ class OutputLine:
 	raw: str
 
 
-# ---------------------------------------------------------------------------
-# Classifiers
-# ---------------------------------------------------------------------------
-
-
 def identity_classifier(raw: str) -> OutputLine:
-	"""Pass-through classifier: all lines are DEBUG level."""
 	return OutputLine(text=raw, level=logging.DEBUG, raw=raw)
-
-
-# ---------------------------------------------------------------------------
-# Streaming functions
-# ---------------------------------------------------------------------------
 
 
 def stream_pipe(
@@ -71,9 +43,8 @@ def stream_pipe(
 		assert proc.stdout is not None
 		for line in proc.stdout:
 			yield classifier(line.rstrip("\r\n"))
-	# Popen.__exit__ has called proc.wait(); returncode is now set.
-	if proc.returncode != 0:
-		raise subprocess.CalledProcessError(proc.returncode, list(cmd))
+		if proc.returncode != 0:
+			raise subprocess.CalledProcessError(proc.returncode, list(cmd))
 
 
 def stream_pty(
@@ -83,7 +54,20 @@ def stream_pty(
 	env: dict[str, str] | None = None,
 	classifier: Callable[[str], OutputLine],
 ) -> Iterator[OutputLine]:
+	if not sys.stdin.isatty():
+		yield from stream_pipe(cmd, cwd=cwd, env=env, classifier=classifier)
+		return
+
 	master_fd, slave_fd = pty.openpty()
+
+	try:
+		import fcntl
+		import termios as _t
+
+		winsz = fcntl.ioctl(sys.stdout.fileno(), _t.TIOCGWINSZ, b"\x00" * 8)
+		fcntl.ioctl(master_fd, _t.TIOCSWINSZ, winsz)
+	except Exception:
+		pass
 
 	proc = subprocess.Popen(
 		list(cmd),
@@ -96,20 +80,18 @@ def stream_pty(
 	)
 	os.close(slave_fd)
 
-	old_settings: list | None = None
-	if sys.stdin.isatty():
-		old_settings = termios.tcgetattr(sys.stdin)
-		tty.setraw(sys.stdin.fileno())
+	stdin_fd = sys.stdin.fileno()
+	stdout_fd = sys.stdout.fileno()
 
-	buf = b""
+	old_settings = termios.tcgetattr(stdin_fd)
+	tty.setraw(stdin_fd)
+
+	received: list[bytes] = []
+
 	try:
 		while True:
-			fds = [master_fd]
-			if sys.stdin.isatty():
-				fds.append(sys.stdin.fileno())
-
 			try:
-				r, _, _ = select.select(fds, [], [], 0.05)
+				r, _, _ = select.select([master_fd, stdin_fd], [], [], 0.05)
 			except (ValueError, OSError):
 				break
 
@@ -119,22 +101,18 @@ def stream_pty(
 				except OSError:
 					break
 				if data:
-					buf += data
-					while b"\n" in buf:
-						raw_bytes, buf = buf.split(b"\n", 1)
-						decoded = raw_bytes.rstrip(b"\r").decode(errors="replace")
-						yield classifier(decoded)
+					received.append(data)
+					os.write(stdout_fd, data)
 
-			if sys.stdin.isatty() and sys.stdin.fileno() in r:
+			if stdin_fd in r:
 				try:
-					data = os.read(sys.stdin.fileno(), 4096)
+					data = os.read(stdin_fd, 4096)
 				except OSError:
 					break
 				if data:
 					os.write(master_fd, data)
 
 			if proc.poll() is not None:
-				# Drain any remaining bytes from the master side.
 				try:
 					while True:
 						r2, _, _ = select.select([master_fd], [], [], 0.1)
@@ -143,26 +121,33 @@ def stream_pty(
 						data = os.read(master_fd, 4096)
 						if not data:
 							break
-						buf += data
+						received.append(data)
+						os.write(stdout_fd, data)
 				except OSError:
 					pass
 				break
 
 	finally:
-		if old_settings is not None:
-			termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_settings)
+		termios.tcsetattr(stdin_fd, termios.TCSADRAIN, old_settings)
 		try:
 			os.close(master_fd)
 		except OSError:
 			pass
 
-	# Yield any bytes still in the buffer after the process exited.
-	for raw_bytes in buf.split(b"\n"):
-		decoded = raw_bytes.rstrip(b"\r").decode(errors="replace")
-		if decoded:
-			yield classifier(decoded)
-
 	proc.wait()
+
+	raw_output = b"".join(received)
+	text_output = raw_output.decode(errors="replace")
+	text_output = text_output.replace("\r\n", "\n").replace("\r", "\n")
+
+	ansi_escape = re.compile(r"\x1b(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
+	text_output = ansi_escape.sub("", text_output)
+
+	for raw_line in text_output.splitlines():
+		stripped = raw_line.rstrip()
+		if stripped:
+			yield classifier(stripped)
+
 	if proc.returncode != 0:
 		raise subprocess.CalledProcessError(proc.returncode, list(cmd))
 

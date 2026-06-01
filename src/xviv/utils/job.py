@@ -7,7 +7,6 @@ from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from subprocess import CalledProcessError
-from typing import Any
 
 import xviv.utils.display as _display
 from xviv.utils.display import EvComplete, EvDispatch, EvLine, EvSummary
@@ -17,27 +16,17 @@ from xviv.utils.stream import OutputLine, stream_pipe, stream_popen, stream_pty
 logger = logging.getLogger(__name__)
 
 
-# ---------------------------------------------------------------------------
-# Job descriptor
-# ---------------------------------------------------------------------------
-
-
 @dataclass(frozen=True)
 class Job:
 	label: str
 	cmd: tuple[str, ...]
 	cwd: str
-	log_file: str
 	classifier: Callable[[str], OutputLine]
 	dry_run: bool
 	interactive: bool
 	detach: bool
 	env: dict[str, str] | None = None
-
-
-# ---------------------------------------------------------------------------
-# Job result
-# ---------------------------------------------------------------------------
+	log_file: str = ""
 
 
 @dataclass
@@ -57,11 +46,6 @@ class JobResult:
 		return not self.succeeded
 
 
-# ---------------------------------------------------------------------------
-# Sinks
-# ---------------------------------------------------------------------------
-
-
 class LiveSink:
 	def run(self, job: Job) -> JobResult:  # noqa: C901
 		if job.dry_run:
@@ -75,10 +59,7 @@ class LiveSink:
 
 		os.makedirs(os.path.dirname(os.path.abspath(job.log_file)), exist_ok=True)
 
-		if job.interactive:
-			stream_fn = stream_pty
-		else:
-			stream_fn = stream_pipe
+		stream_fn = stream_pty if job.interactive else stream_pipe
 
 		t0 = time.monotonic()
 		exc: BaseException | None = None
@@ -89,7 +70,8 @@ class LiveSink:
 				for line in stream_fn(job.cmd, cwd=job.cwd, env=job.env, classifier=job.classifier):
 					fh.write(line.raw + "\n")
 					fh.flush()
-					_display.emit(EvLine(job=job, line=line))
+					if not job.interactive:
+						_display.emit(EvLine(job=job, line=line))
 		except CalledProcessError as e:
 			exc = e
 			rc = e.returncode
@@ -159,11 +141,6 @@ class BufferedSink:
 		return JobResult(job=job, returncode=rc, elapsed=elapsed, exc=exc, captured=buffer)
 
 
-# ---------------------------------------------------------------------------
-# Runner implementations
-# ---------------------------------------------------------------------------
-
-
 def _run_sequential(job: Job) -> None:
 	_display.emit(EvDispatch(job=job, parallel=False))
 	result = LiveSink().run(job)
@@ -178,7 +155,6 @@ def _run_parallel(jobs: list[Job], max_workers: int) -> None:
 	total = len(jobs)
 	logger.debug("Starting %d parallel job(s)  max_workers=%d", total, max_workers)
 
-	# All dispatch events before any thread starts.
 	for job in jobs:
 		_display.emit(EvDispatch(job=job, parallel=True))
 
@@ -213,7 +189,7 @@ def _run_parallel(jobs: list[Job], max_workers: int) -> None:
 			for f in future_to_job:
 				f.cancel()
 			pool.shutdown(wait=False, cancel_futures=True)
-			raise  # propagates to CLI entry point which calls sys.exit(130)
+			raise
 
 	_display.emit(EvSummary(results=results))
 
@@ -230,14 +206,8 @@ def _run_parallel(jobs: list[Job], max_workers: int) -> None:
 	logger.debug("All %d job(s) succeeded", total)
 
 
-# ---------------------------------------------------------------------------
-# Public API
-# ---------------------------------------------------------------------------
-
-
-def run_jobs(
+def run_job_list(
 	jobs: list[Job],
-	cfg: Any = None,
 	*,
 	max_workers: int = 4,
 ) -> None:
@@ -248,3 +218,7 @@ def run_jobs(
 		_run_sequential(jobs[0])
 	else:
 		_run_parallel(jobs, max_workers=max_workers)
+
+
+def run_job(job: Job):
+	run_job_list(jobs=[job])
