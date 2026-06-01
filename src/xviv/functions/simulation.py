@@ -8,7 +8,7 @@ from xviv.generator.tcl.commands import ConfigTclCommands
 
 # from xviv.tools import verilator, vivado
 from xviv.tools.verilator import VerilatorRunner
-from xviv.tools.vivado import XelabRunner, XsimRunner
+from xviv.tools.vivado import XelabRunner, XsimRunner, XvlogRunner
 from xviv.utils import error
 from xviv.utils.fifo import _ensure_fifo, _fifo_send
 from xviv.utils.fs import assert_file_exists
@@ -117,7 +117,7 @@ def _run_xsim(
 
 	xsim_lib = "xv_work"
 
-	XelabRunner(
+	XvlogRunner(
 		cfg,
 	).job(
 		target_dir=sim_cfg.work_dir,
