@@ -48,14 +48,14 @@ def cmd_synth(
 			label_prefix="ooc_synth",
 			log_prefix="ooc_synth_core",
 			annotate=True,
-		).run_pairs()
+		).run()
 
 	VivadoRunner(cfg).make_pairs(
 		[i for i in [design_name, bd_name, core_name] if i is not None],
 		lambda _: ConfigTclCommands(cfg).synth(design=design_name, bd=bd_name, core=core_name, params=params).build(),
 		label_prefix="ooc_synth",
 		log_prefix="ooc_synth_core",
-	).run_pairs()
+	).run()
 
 
 def cmd_dcp_open(cfg: XvivConfig, *, dcp_file: str | None, params: OpenParams):
@@ -67,4 +67,4 @@ def cmd_dcp_open(cfg: XvivConfig, *, dcp_file: str | None, params: OpenParams):
 		lambda name: ConfigTclCommands(cfg).open_dcp(dcp_file=name, params=params).build(),
 		label_prefix="dcp_open",
 		log_prefix="dcp_open",
-	).run_pairs()
+	).run()

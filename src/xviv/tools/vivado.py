@@ -54,17 +54,17 @@ class ToolRunner:
 				# except OSError:
 				pass
 
-	def run(self, jobs: list[Job], *, max_workers: int | None = None) -> None:
+	def _run_internal(self, jobs: list[Job], *, max_workers: int | None = None) -> None:
 		n = max_workers if max_workers is not None else self._DEFAULT_WORKERS
 		run_job_list(jobs, max_workers=n)
 
-	def run_pairs(
+	def run(
 		self,
 		*,
 		max_workers: int | None = None,
 	) -> None:
 		with self.jobs_ctx(self._pairs) as jobs:
-			self.run(jobs, max_workers=max_workers)
+			self._run_internal(jobs, max_workers=max_workers)
 
 
 class XilinxToolRunner(ToolRunner):
@@ -78,7 +78,7 @@ class XilinxToolRunner(ToolRunner):
 	}
 
 	@typing.override
-	def run(self, jobs: list[Job], *, max_workers: int | None = None) -> None:
+	def _run_internal(self, jobs: list[Job], *, max_workers: int | None = None) -> None:
 		n = max_workers if max_workers is not None else self._DEFAULT_WORKERS
 		try:
 			run_job_list(jobs, max_workers=n)
@@ -86,7 +86,6 @@ class XilinxToolRunner(ToolRunner):
 			for _, inner in exc.failed:
 				if isinstance(inner, FileNotFoundError):
 					find_vivado_dir_path(exit_on_fail=True)
-			# raise
 
 	def make_pairs(
 		self, names: list[str], tcl_fn: Callable[[str], str], *, label_prefix: str, log_prefix: str, annotate: bool = False
@@ -97,15 +96,15 @@ class XilinxToolRunner(ToolRunner):
 				print()
 				print(_counter(idx + 1, len(names)), f"{label_prefix}_{name}")
 				print(f"{DIM}{terminal_full_length_divider()}{RESET}")
-			result = self.job(
+			self.job(
 				tcl_fn(name),
 				label=f"{label_prefix}_{name}",
 				log_file=str(Path(self._cfg.log_dir) / f"{log_prefix}_{name}.log"),
 			)
 			if annotate:
 				print(f"{DIM}{terminal_full_length_divider()}{RESET}")
-			if result is not None:
-				self._pairs.append(result)
+			# if result is not None:
+			# 	self._pairs.append((result)
 
 		return self
 
@@ -123,10 +122,10 @@ class VivadoRunner(XilinxToolRunner):
 		*,
 		label: str,
 		log_file: str,
-	) -> tuple[Path, Job] | None:
+	) -> typing.Self:
 		# Build Vivado job
 		if tcl is None:
-			return None
+			return self
 
 		tmp = tempfile.NamedTemporaryFile(mode="w", suffix="_config.tcl", delete=False, prefix="xviv_vivado_")
 		tmp.write(tcl)
@@ -135,26 +134,31 @@ class VivadoRunner(XilinxToolRunner):
 		logger.debug("VivadoRunner.job %s: tcl → %s", label, tcl_path)
 
 		viv = self._cfg.get_vivado()
-		return tcl_path, Job(
-			label=label,
-			cmd=(
-				viv.vivado_bin,
-				"-mode",
-				viv.mode,
-				"-nolog",
-				"-nojournal",
-				"-notrace",
-				"-quiet",
-				"-source",
-				str(tcl_path),
-			),
-			cwd=self._cfg.work_dir,
-			log_file=log_file,
-			classifier=self.classify,
-			dry_run=self._cfg.dry_run,
-			interactive=viv.mode == "tcl",
-			detach=False,
-			env=None,
+		self._pairs.append(
+			(
+				tcl_path,
+				Job(
+					label=label,
+					cmd=(
+						viv.vivado_bin,
+						"-mode",
+						viv.mode,
+						"-nolog",
+						"-nojournal",
+						"-notrace",
+						"-quiet",
+						"-source",
+						str(tcl_path),
+					),
+					cwd=self._cfg.work_dir,
+					log_file=log_file,
+					classifier=self.classify,
+					dry_run=self._cfg.dry_run,
+					interactive=viv.mode == "tcl",
+					detach=False,
+					env=None,
+				),
+			)
 		)
 
 
@@ -181,7 +185,7 @@ class XvlogRunner(XilinxToolRunner):
 		lib: list[str] | None = None,
 		defines: list[str] | None = None,
 		include_dirs: list[str] | None = None,
-	) -> Job:
+	) -> typing.Self:
 		viv = self._cfg.get_vivado()
 		cmd: list[str] = [viv.xvlog_bin, "--sv", "--incr", "--work", xsim_lib]
 
@@ -197,17 +201,24 @@ class XvlogRunner(XilinxToolRunner):
 		if viv.glbl_file:
 			cmd.append(viv.glbl_file)
 
-		return Job(
-			label=label,
-			cmd=tuple(cmd),
-			cwd=target_dir,
-			log_file=log_file,
-			classifier=self.classify,
-			dry_run=self._cfg.dry_run,
-			interactive=False,
-			detach=False,
-			env=None,
+		self._pairs.append(
+			(
+				"",
+				Job(
+					label=label,
+					cmd=tuple(cmd),
+					cwd=target_dir,
+					log_file=log_file,
+					classifier=self.classify,
+					dry_run=self._cfg.dry_run,
+					interactive=False,
+					detach=False,
+					env=None,
+				),
+			)
 		)
+
+		return self
 
 
 class XelabRunner(XilinxToolRunner):
@@ -305,7 +316,7 @@ class XelabRunner(XilinxToolRunner):
 		sourcelibdir: list[str] | None = None,
 		sourcelibext: list[str] | None = None,
 		sourcelibfile: list[str] | None = None,
-	) -> Job:
+	) -> typing.Self:
 		cmd: list[str] = [self._cfg.get_vivado().xelab_bin, *units, "--debug", debug]
 
 		for flag, opt in [
@@ -403,17 +414,24 @@ class XelabRunner(XilinxToolRunner):
 			for x in items or []:
 				cmd += [opt, x]
 
-		return Job(
-			label=label,
-			cmd=tuple(cmd),
-			cwd=target_dir,
-			log_file=log_file,
-			classifier=self.classify,
-			dry_run=self._cfg.dry_run,
-			interactive=False,
-			detach=False,
-			env=None,
+		self._pairs.append(
+			(
+				"",
+				Job(
+					label=label,
+					cmd=tuple(cmd),
+					cwd=target_dir,
+					log_file=log_file,
+					classifier=self.classify,
+					dry_run=self._cfg.dry_run,
+					interactive=False,
+					detach=False,
+					env=None,
+				),
+			)
 		)
+
+		return self
 
 
 class XsimRunner(XilinxToolRunner):
@@ -448,7 +466,7 @@ class XsimRunner(XilinxToolRunner):
 		runall: bool = False,
 		popen: bool = False,
 		testplusarg: list[str] | None = None,
-	) -> tuple[Path, Job] | None:
+	) -> typing.Self:
 		# Build simulation job
 		if config_tcl is None:
 			return None
@@ -473,14 +491,21 @@ class XsimRunner(XilinxToolRunner):
 		for x in testplusarg or []:
 			cmd += ["--testplusarg", x]
 
-		return tcl_path, Job(
-			label=label,
-			cmd=tuple(cmd),
-			cwd=target_dir,
-			log_file=log_file,
-			classifier=self.classify,
-			dry_run=self._cfg.dry_run,
-			interactive=False,
-			detach=popen,
-			env=None,
+		self._pairs.append(
+			(
+				tcl_path,
+				Job(
+					label=label,
+					cmd=tuple(cmd),
+					cwd=target_dir,
+					log_file=log_file,
+					classifier=self.classify,
+					dry_run=self._cfg.dry_run,
+					interactive=False,
+					detach=popen,
+					env=None,
+				),
+			)
 		)
+
+		return self

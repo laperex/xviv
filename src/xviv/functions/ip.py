@@ -47,7 +47,7 @@ def cmd_ip_create(cfg: XvivConfig, *, ip_name: str | None = None, params: IpCrea
 
 	VivadoRunner(cfg).make_pairs(
 		ip_list, lambda name: ConfigTclCommands(cfg).create_ip(name, params).build(), label_prefix="ip", log_prefix="ip_create"
-	).run_pairs()
+	).run()
 
 	if core_list and params.regenerate:
 		VivadoRunner(cfg).make_pairs(
@@ -55,7 +55,7 @@ def cmd_ip_create(cfg: XvivConfig, *, ip_name: str | None = None, params: IpCrea
 			lambda name: ConfigTclCommands(cfg).generate_core(name, params=GenerateParams(force=True, reset=True)).build(),
 			label_prefix="ip_regenerate_cores",
 			log_prefix="ip_create_regenerate_cores",
-		).run_pairs()
+		).run()
 
 
 def cmd_ip_edit(cfg: XvivConfig, *, ip_name: str, params: EditParams):
@@ -67,4 +67,4 @@ def cmd_ip_edit(cfg: XvivConfig, *, ip_name: str, params: EditParams):
 		lambda name: ConfigTclCommands(cfg).edit_ip(name, params=params).build(),
 		label_prefix="ip",
 		log_prefix="ip_edit",
-	).run_pairs()
+	).run()

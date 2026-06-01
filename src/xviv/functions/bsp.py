@@ -20,7 +20,7 @@ def cmd_platform_create(cfg: XvivConfig, *, platform_name: str, params: Platform
 
 	XsctRunner(cfg).make_pairs(
 		[platform_cfg.name], lambda name: ConfigTclCommands(cfg).create_platform(name).build(), label_prefix="create", log_prefix="create_platform"
-	).run_pairs()
+	).run()
 
 	logger.info(f"Platform: {platform_cfg.name} - Create complete - {platform_cfg.work_dir}")
 
@@ -70,7 +70,7 @@ def cmd_app_create(cfg: XvivConfig, *, app_name: str, platform_name: str | None,
 
 	XsctRunner(cfg).make_pairs(
 		[app_cfg.name], lambda name: ConfigTclCommands(cfg).create_app(name).build(), label_prefix="create", log_prefix="create_app"
-	).run_pairs()
+	).run()
 
 	logger.info(f"App: {app_cfg.name} - Create complete - {app_cfg.work_dir}")
 
@@ -189,7 +189,7 @@ def cmd_program(cfg: XvivConfig, *, params: ProgramParams):
 		),
 		label_prefix="program",
 		log_prefix="program",
-	).run_pairs()
+	).run()
 
 
 def cmd_processor(cfg: XvivConfig, *, params: ProcessorParams):
@@ -198,7 +198,7 @@ def cmd_processor(cfg: XvivConfig, *, params: ProcessorParams):
 		lambda _: ConfigTclCommands(cfg).processor_cntrl(params=params).build(),
 		label_prefix="processor",
 		log_prefix="processor",
-	).run_pairs()
+	).run()
 
 
 def _transform_app_makefile(path: str):

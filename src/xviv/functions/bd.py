@@ -60,7 +60,7 @@ def cmd_bd_create(cfg: XvivConfig, *, bd_name: str, params: BdCreateParams):
 			lambda name: ConfigTclCommands(cfg).create_ip(name, IpCreateParams(edit=False, nogui=params.nogui)).build(),
 			label_prefix="ip",
 			log_prefix="ip_create",
-		).run_pairs()
+		).run()
 
 	VivadoRunner(
 		cfg,
@@ -69,7 +69,7 @@ def cmd_bd_create(cfg: XvivConfig, *, bd_name: str, params: BdCreateParams):
 		lambda name: ConfigTclCommands(cfg).create_bd(name, params=params).build(),
 		label_prefix="bd",
 		log_prefix="bd",
-	).run_pairs()
+	).run()
 
 
 def cmd_bd_edit(cfg: XvivConfig, *, bd_name: str, params: EditParams):
@@ -83,7 +83,7 @@ def cmd_bd_edit(cfg: XvivConfig, *, bd_name: str, params: EditParams):
 		lambda name: ConfigTclCommands(cfg).edit_bd(name, params=params).build(),
 		label_prefix="bd",
 		log_prefix="bd",
-	).run_pairs()
+	).run()
 
 
 def cmd_bd_generate(cfg: XvivConfig, *, bd_name: str, params: GenerateParams):
@@ -96,4 +96,4 @@ def cmd_bd_generate(cfg: XvivConfig, *, bd_name: str, params: GenerateParams):
 		lambda name: ConfigTclCommands(cfg).generate_bd(name, params=params).build(),
 		label_prefix="bd",
 		log_prefix="bd",
-	).run_pairs()
+	).run()

@@ -66,7 +66,7 @@ def cmd_core_create(cfg: XvivConfig, *, core_name: str, params: CoreCreateParams
 			lambda name: ConfigTclCommands(cfg).create_ip(name, IpCreateParams(edit=False, nogui=params.nogui)).build(),
 			label_prefix="ip",
 			log_prefix="ip_create",
-		).run_pairs()
+		).run()
 
 	try:
 		VivadoRunner(cfg).make_pairs(
@@ -74,7 +74,7 @@ def cmd_core_create(cfg: XvivConfig, *, core_name: str, params: CoreCreateParams
 			lambda name: ConfigTclCommands(cfg).create_core(name, params=params).build(),
 			label_prefix="core",
 			log_prefix="core_create",
-		).run_pairs()
+		).run()
 
 	except error.CoreVlnvNotInCatalogError:
 		try:
@@ -92,7 +92,7 @@ def cmd_core_edit(cfg: XvivConfig, *, core_name: str, params: EditParams) -> Non
 		lambda name: ConfigTclCommands(cfg).edit_core(name, params=params).build(),
 		label_prefix="core",
 		log_prefix="core_edit",
-	).run_pairs()
+	).run()
 
 
 def cmd_core_generate(cfg: XvivConfig, *, core_name: str, params: GenerateParams) -> None:
@@ -103,7 +103,7 @@ def cmd_core_generate(cfg: XvivConfig, *, core_name: str, params: GenerateParams
 		lambda name: ConfigTclCommands(cfg).generate_core(name, params=params).build(),
 		label_prefix="generate",
 		log_prefix="core_generate",
-	).run_pairs()
+	).run()
 
 
 def cmd_search_core(cfg: XvivConfig, *, query: str) -> None:
