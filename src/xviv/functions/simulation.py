@@ -5,8 +5,6 @@ from xviv.config.model import UvmConfig
 from xviv.config.params import SimulateParams
 from xviv.config.project import XvivConfig
 from xviv.generator.tcl.commands import ConfigTclCommands
-
-# from xviv.tools import verilator, vivado
 from xviv.tools.verilator import VerilatorRunner
 from xviv.tools.vivado import XelabRunner, XsimRunner, XvlogRunner
 from xviv.utils import error
@@ -117,6 +115,10 @@ def _run_xsim(
 
 	xsim_lib = "xv_work"
 
+	elab_libs = ["secureip", "unimacro_ver", "unisims_ver"]
+	if uvm_name:
+		elab_libs.append("uvm")
+
 	XvlogRunner(
 		cfg,
 	).job(
@@ -129,10 +131,6 @@ def _run_xsim(
 		defines=sim_cfg.defines,
 		include_dirs=sim_cfg.include_dirs,
 	).run()
-
-	elab_libs = ["secureip", "unimacro_ver", "unisims_ver"]
-	if uvm_name:
-		elab_libs.append("uvm")
 
 	XelabRunner(
 		cfg,
@@ -153,20 +151,17 @@ def _run_xsim(
 	).run()
 
 	if not (run == "all") or uvm_name:
-		x_simulate_tcl = filter(
-			None,
-			[
-				"log_wave -recursive *",
-				f"run {run}",
-				"exit",
-			],
-		)
-
 		XsimRunner(cfg).job(
 			target_dir=sim_cfg.work_dir,
 			label=__name__,
 			log_file=os.path.join(cfg.log_dir, "xsim_simulate.log"),
-			config_tcl="\n".join(x_simulate_tcl),
+			config_tcl="\n".join(
+				[
+					"log_wave -recursive *",
+					f"run {run}",
+					"exit",
+				]
+			),
 			top=top,
 			stats=True,
 			nogui=True,
