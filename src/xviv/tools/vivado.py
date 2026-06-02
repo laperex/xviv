@@ -11,7 +11,7 @@ from xviv.config.project import XvivConfig
 from xviv.utils.display import _counter, terminal_full_length_divider
 from xviv.utils.error import JobFailedError
 from xviv.utils.job import Job, run_job_list
-from xviv.utils.log import DIM, RESET
+from xviv.utils.log import COLOR_DIM, COLOR_RESET
 from xviv.utils.stream import OutputLine
 from xviv.utils.tools import find_vivado_dir_path
 
@@ -96,14 +96,14 @@ class XilinxToolRunner(ToolRunner):
 			if annotate:
 				print()
 				print(_counter(idx + 1, len(names)), f"{label_prefix}_{name}")
-				print(f"{DIM}{terminal_full_length_divider()}{RESET}")
+				print(f"{COLOR_DIM}{terminal_full_length_divider()}{COLOR_RESET}")
 			self.job(
 				tcl_fn(name),
 				label=f"{label_prefix}_{name}",
 				log_file=str(Path(self._cfg.log_dir) / f"{log_prefix}_{name}.log"),
 			)
 			if annotate:
-				print(f"{DIM}{terminal_full_length_divider()}{RESET}")
+				print(f"{COLOR_DIM}{terminal_full_length_divider()}{COLOR_RESET}")
 			# if result is not None:
 			# 	self._pairs.append((result)
 

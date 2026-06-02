@@ -1,6 +1,6 @@
 import shutil
 
-from xviv.utils.log import DIM, RESET
+from xviv.utils.log import COLOR_DIM, COLOR_RESET
 
 
 def terminal_full_length_divider() -> str:
@@ -9,4 +9,4 @@ def terminal_full_length_divider() -> str:
 
 
 def print_terminal_divider() -> None:
-	print(f"{DIM}{terminal_full_length_divider()}{RESET}")
+	print(f"{COLOR_DIM}{terminal_full_length_divider()}{COLOR_RESET}")

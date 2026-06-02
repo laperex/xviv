@@ -6,12 +6,13 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from xviv.utils.log import (
-	BOLD,
-	DIM,
-	GREEN,
+	COLOR_BOLD,
+	COLOR_DIM,
+	COLOR_GREEN,
+	COLOR_MAGENTA,
+	COLOR_RED,
+	COLOR_RESET,
 	LEVEL_COLORS,
-	RED,
-	RESET,
 	_supports_color,
 )
 from xviv.utils.term import terminal_full_length_divider
@@ -19,9 +20,6 @@ from xviv.utils.term import terminal_full_length_divider
 if TYPE_CHECKING:
 	from xviv.utils.job import Job, JobResult
 	from xviv.utils.stream import OutputLine
-
-MAGENTA: str = LEVEL_COLORS[logging.CRITICAL]
-YELLOW: str = LEVEL_COLORS[logging.WARNING]
 
 
 # ---------------------------------------------------------------------------
@@ -90,27 +88,27 @@ def _render_output_line(line: OutputLine) -> str:
 		return f"{text}"
 	if lvl == logging.INFO:
 		c = LEVEL_COLORS[logging.INFO]
-		return f"{c}{BOLD}INFO:{RESET} {text}"
+		return f"{c}{COLOR_BOLD}INFO:{COLOR_RESET} {text}"
 	if lvl == logging.WARNING:
 		c = LEVEL_COLORS[logging.WARNING]
-		return f"{c}{BOLD}WARNING:{RESET} {c}{text}{RESET}"
+		return f"{c}{COLOR_BOLD}WARNING:{COLOR_RESET} {c}{text}{COLOR_RESET}"
 	if lvl == logging.ERROR:
 		c = LEVEL_COLORS[logging.ERROR]
-		return f"{c}{BOLD}ERROR:{RESET} {c}{text}{RESET}"
+		return f"{c}{COLOR_BOLD}ERROR:{COLOR_RESET} {c}{text}{COLOR_RESET}"
 	if lvl == logging.CRITICAL:
 		c = LEVEL_COLORS[logging.CRITICAL]
-		return f"{c}{BOLD}CRITICAL WARNING:{RESET} {c}{text}{RESET}"
+		return f"{c}{COLOR_BOLD}CRITICAL WARNING:{COLOR_RESET} {c}{text}{COLOR_RESET}"
 	return text
 
 
 def _counter(index: int, total: int, suffix: str = "") -> str:
 	mid = f"{index}/{total} {suffix}".rstrip() if suffix else f"{index}/{total}"
-	return f"{DIM}[{RESET}{mid}{DIM}]{RESET}"
+	return f"{COLOR_DIM}[{COLOR_RESET}{mid}{COLOR_DIM}]{COLOR_RESET}"
 
 
 def _header_line(result: JobResult, index: int, total: int, suffix: str = "") -> str:
 	ctr = _counter(index, total, suffix)
-	label = f"{BOLD}{result.job.label}{RESET}"
+	label = f"{COLOR_BOLD}{result.job.label}{COLOR_RESET}"
 	elapsed = result.elapsed
 	dur = _fmt_duration(elapsed) if elapsed is not None else "?"
 
@@ -119,12 +117,12 @@ def _header_line(result: JobResult, index: int, total: int, suffix: str = "") ->
 	if result.returncode is not None:
 		if result.succeeded:
 			verb = "finished in"
-			status = f"{GREEN}{BOLD}OK{RESET}"
+			status = f"{COLOR_GREEN}{COLOR_BOLD}OK{COLOR_RESET}"
 		else:
 			verb = "after"
-			status = f"{RED}{BOLD}FAILED{RESET}"
+			status = f"{COLOR_RED}{COLOR_BOLD}FAILED{COLOR_RESET}"
 
-	timing = f"{DIM}{verb} {dur}{RESET}"
+	timing = f"{COLOR_DIM}{verb} {dur}{COLOR_RESET}"
 	return f"{ctr}  {label}  {status}  {timing}"
 
 
@@ -150,20 +148,20 @@ def _build_parallel_block(
 	parts: list[str] = [
 		"",
 		_header_line(result, index, total, counter_suffix),
-		f"{DIM}{div}{RESET}",
+		f"{COLOR_DIM}{div}{COLOR_RESET}",
 	]
 
 	if display_lines:
 		for ln in display_lines:
 			parts.append(f"  {_render_output_line(ln)}")
 	else:
-		parts.append(f"  {DIM}(no output){RESET}")
+		parts.append(f"  {COLOR_DIM}(no output){COLOR_RESET}")
 
 	if omitted:
-		parts.append(f"  {DIM}... {omitted} lines omitted ...{RESET}")
+		parts.append(f"  {COLOR_DIM}... {omitted} lines omitted ...{COLOR_RESET}")
 
-	parts.append(f"  {DIM}{BOLD}LOG{RESET} {DIM}{log_path}{RESET}")
-	parts.append(f"{DIM}{div}{RESET}")
+	parts.append(f"  {COLOR_DIM}{COLOR_BOLD}LOG{COLOR_RESET} {COLOR_DIM}{log_path}{COLOR_RESET}")
+	parts.append(f"{COLOR_DIM}{div}{COLOR_RESET}")
 
 	return "\n".join(parts)
 
@@ -176,13 +174,13 @@ def _build_parallel_block(
 def _on_dispatch_sequential(ev: EvDispatch) -> None:
 	div = terminal_full_length_divider()
 	cmd_str = " ".join(ev.job.cmd)
-	print(f"{DIM}{div}{RESET}")
-	print(f"{DIM}{BOLD}▶{RESET} {BOLD}{cmd_str}{RESET}")
+	print(f"{COLOR_DIM}{div}{COLOR_RESET}")
+	print(f"{COLOR_DIM}{COLOR_BOLD}▶{COLOR_RESET} {COLOR_BOLD}{cmd_str}{COLOR_RESET}")
 
 
 def _on_dispatch_parallel(ev: EvDispatch) -> None:
 	log_path = _rel_path(ev.job.log_file)
-	print(f"{MAGENTA}{BOLD}DISPATCH{RESET} {BOLD}{ev.job.label}{RESET} {DIM}{log_path}{RESET}")
+	print(f"{COLOR_MAGENTA}{COLOR_BOLD}DISPATCH{COLOR_RESET} {COLOR_BOLD}{ev.job.label}{COLOR_RESET} {COLOR_DIM}{log_path}{COLOR_RESET}")
 
 
 def _on_line(ev: EvLine) -> None:
@@ -193,8 +191,8 @@ def _on_complete_sequential(ev: EvComplete) -> None:
 	div = terminal_full_length_divider()
 	log_path = _rel_path(ev.job.log_file)
 
-	print(f"{DIM}{BOLD}LOG{RESET} {DIM}{log_path}{RESET}")
-	print(f"{DIM}{div}{RESET}")
+	print(f"{COLOR_DIM}{COLOR_BOLD}LOG{COLOR_RESET} {COLOR_DIM}{log_path}{COLOR_RESET}")
+	print(f"{COLOR_DIM}{div}{COLOR_RESET}")
 	print(_header_line(ev.result, ev.index, ev.total))
 
 
@@ -214,9 +212,9 @@ def _on_summary(ev: EvSummary) -> None:
 	f = len(failures)
 	s = total - f
 
-	print(f"\n{RED}{BOLD}{div}{RESET}")
-	print(f"{RED}{BOLD}  {f} job(s) failed  ({s}/{total} succeeded){RESET}")
-	print(f"{RED}{BOLD}{div}{RESET}")
+	print(f"\n{COLOR_RED}{COLOR_BOLD}{div}{COLOR_RESET}")
+	print(f"{COLOR_RED}{COLOR_BOLD}  {f} job(s) failed  ({s}/{total} succeeded){COLOR_RESET}")
+	print(f"{COLOR_RED}{COLOR_BOLD}{div}{COLOR_RESET}")
 
 	for i, result in enumerate(failures, start=1):
 		print(

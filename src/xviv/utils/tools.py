@@ -12,15 +12,14 @@ logger = logging.getLogger(__name__)
 # When set, xviv will source it automatically if the tools are not on PATH.
 SETTINGS_ENV_VAR = "XVIV_VIVADO_SOURCE_SCRIPT"
 
-_TOOL_NOT_FOUND_HINT = """\
-ERROR: '{tool}' not found on PATH.
-Source the Vivado settings script to add it to PATH, e.g.:
-\tsource <install_dir>/settings64.sh
-\t(typically /tools/Xilinx/Vivado/<version>/settings64.sh)
-Or let xviv source it automatically by setting:
-\texport {env_var}=/tools/Xilinx/Vivado/<version>/settings64.sh
-"""
-
+_TOOL_NOT_FOUND_HINT = (
+	"ERROR: '{tool}' not found on PATH.\n"
+	"Source the Vivado settings script to add it to PATH, e.g.:\n"
+	"\tsource <install_dir>/settings64.sh\n"
+	"\t(typically /tools/Xilinx/Vivado/<version>/settings64.sh)\n"
+	"Or let xviv source it automatically by setting:\n"
+	"\texport {env_var}=/tools/Xilinx/Vivado/<version>/settings64.sh\n"
+)
 # Track which settings scripts have already been sourced so we don't re-run them.
 _settings_sourced: set[str] = set()
 

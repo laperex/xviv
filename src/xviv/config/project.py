@@ -173,9 +173,7 @@ class XvivConfig:
 			if not os.path.exists(i.file):
 				raise error.DesignSourcesMissingError(design_name, i.file)
 
-	def validate_sim(self, sim_name: str):
-		...
-		# sim_cfg = self.get_sim(sim_name)
+	def validate_sim(self, sim_name: str): ...
 
 	def validate_app(self, app_name: str, check_sources: bool = True, check_elf: bool = True):
 		app_cfg = self.get_app(app_name)
