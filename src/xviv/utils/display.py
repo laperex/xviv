@@ -160,7 +160,8 @@ def _build_parallel_block(
 	if omitted:
 		parts.append(f"  {COLOR_DIM}... {omitted} lines omitted ...{COLOR_RESET}")
 
-	parts.append(f"  {COLOR_DIM}{COLOR_BOLD}LOG{COLOR_RESET} {COLOR_DIM}{log_path}{COLOR_RESET}")
+	if log_path:
+		parts.append(f"  {COLOR_DIM}{COLOR_BOLD}LOG{COLOR_RESET} {COLOR_DIM}{log_path}{COLOR_RESET}")
 	parts.append(f"{COLOR_DIM}{div}{COLOR_RESET}")
 
 	return "\n".join(parts)
@@ -174,7 +175,8 @@ def _build_parallel_block(
 def _on_dispatch_sequential(ev: EvDispatch) -> None:
 	div = terminal_full_length_divider()
 	cmd_str = " ".join(ev.job.cmd)
-	print(f"{COLOR_DIM}{div}{COLOR_RESET}")
+	if not ev.job.detach:
+		print(f"{COLOR_DIM}{div}{COLOR_RESET}")
 	print(f"{COLOR_DIM}{COLOR_BOLD}▶{COLOR_RESET} {COLOR_BOLD}{cmd_str}{COLOR_RESET}")
 
 
@@ -191,9 +193,10 @@ def _on_complete_sequential(ev: EvComplete) -> None:
 	div = terminal_full_length_divider()
 	log_path = _rel_path(ev.job.log_file)
 
-	print(f"{COLOR_DIM}{COLOR_BOLD}LOG{COLOR_RESET} {COLOR_DIM}{log_path}{COLOR_RESET}")
-	print(f"{COLOR_DIM}{div}{COLOR_RESET}")
-	print(_header_line(ev.result, ev.index, ev.total))
+	if not ev.job.detach:
+		print(f"{COLOR_DIM}{COLOR_BOLD}LOG{COLOR_RESET} {COLOR_DIM}{log_path}{COLOR_RESET}")
+		print(f"{COLOR_DIM}{div}{COLOR_RESET}")
+		print(_header_line(ev.result, ev.index, ev.total))
 
 
 def _on_complete_parallel(ev: EvComplete) -> None:

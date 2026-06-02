@@ -47,22 +47,26 @@ class VerilatorRunner(ToolRunner):
 
 		self.sequential_exec = True
 
+	def configure(self, target_dir: str, label: str, log_file: str, trace_fst: bool = False, trace: bool = False, uvm: bool = False) -> typing.Self:
+		self._target_dir = target_dir
+		self._label = label
+		self._log_file = log_file
+		self._trace_fst = trace_fst
+		self._trace = trace
+		self._uvm = uvm
+
+		return self
+
 	def compile_job(
 		self,
-		target_dir: str,
 		*,
-		label: str,
-		log_file: str,
 		top: str,
 		defines: list[str] = [],
 		include_dirs: list[str] = [],
 		timescale: str | None = None,
 		fileset: list[str],
 		threads: int = 1,
-		trace_fst: bool = False,
-		trace: bool = False,
 		trace_depth: int | None = None,
-		uvm: bool = False,
 		uvm_pkg_dir: str | None = None,
 		popen: bool = False,
 	) -> typing.Self:
@@ -87,15 +91,15 @@ class VerilatorRunner(ToolRunner):
 			cmd += ["--threads", str(threads)]
 
 		# Waveform tracing
-		if trace_fst:
+		if self._trace_fst:
 			cmd += ["--trace-fst"]
-		elif trace:
+		elif self._trace:
 			cmd += ["--trace"]
 		if trace_depth is not None:
 			cmd += ["--trace-depth", str(trace_depth)]
 
 		# UVM
-		if uvm:
+		if self._uvm:
 			if uvm_pkg_dir is not None:
 				cmd += [f"-I{uvm_pkg_dir}"]
 			cmd += ["--uvm-prefix", "uvm_"]
@@ -115,10 +119,10 @@ class VerilatorRunner(ToolRunner):
 			(
 				"",
 				Job(
-					label=label,
+					label=self._label,
 					cmd=tuple(cmd),
-					cwd=target_dir,
-					log_file=log_file,
+					cwd=self._target_dir,
+					log_file=self._log_file,
 					classifier=self.classify,
 					dry_run=self._cfg.dry_run,
 					interactive=False,
@@ -132,17 +136,11 @@ class VerilatorRunner(ToolRunner):
 
 	def sim_job(
 		self,
-		target_dir: str,
 		*,
-		label: str,
-		log_file: str,
-		plusargs: list[str] = [],
-		uvm: bool = False,
 		uvm_test: str | None = None,
 		uvm_verbosity: str = "UVM_MEDIUM",
 		uvm_max_quit_count: int | None = None,
-		trace: bool = False,
-		trace_fst: bool = False,
+		plusargs: list[str] = [],
 		trace_file: str | None = None,
 		popen: bool = False,
 	) -> typing.Self:
@@ -153,15 +151,15 @@ class VerilatorRunner(ToolRunner):
 		cmd: list[str] = [self.binary]
 
 		# UVM plusargs
-		if uvm:
+		if self._uvm:
 			if uvm_test is not None:
 				cmd += [f"+UVM_TESTNAME={uvm_test}"]
 			cmd += [f"+UVM_VERBOSITY={uvm_verbosity}"]
 			if uvm_max_quit_count is not None:
 				cmd += [f"+UVM_MAX_QUIT_COUNT={uvm_max_quit_count}"]
 
-		if trace or trace_fst:
-			tf = trace_file or os.path.join(target_dir, "dump.vcd" if trace else "dump.fst")
+		if self._trace or self._trace_fst:
+			tf = trace_file or os.path.join(self._target_dir, "dump.vcd" if self._trace else "dump.fst")
 			cmd += ["+verilator+rand+reset+2"]
 			os.environ["VERILATOR_TRACE_FILE"] = tf
 
@@ -171,10 +169,10 @@ class VerilatorRunner(ToolRunner):
 			(
 				"",
 				Job(
-					label=label,
+					label=self._label,
 					cmd=tuple(cmd),
-					cwd=target_dir,
-					log_file=log_file,
+					cwd=self._target_dir,
+					log_file=self._log_file,
 					classifier=self.classify,
 					dry_run=self._cfg.dry_run,
 					interactive=False,

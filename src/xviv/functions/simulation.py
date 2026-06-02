@@ -2,7 +2,7 @@ import logging
 import os
 
 from xviv.config.model import UvmConfig
-from xviv.config.params import SimulateParams
+from xviv.config.params import OpenParams, SimulateParams
 from xviv.config.project import XvivConfig
 from xviv.generator.tcl.commands import ConfigTclCommands
 from xviv.tools.verilator import VerilatorRunner
@@ -119,9 +119,7 @@ def _run_xsim(
 	if uvm_name:
 		elab_libs.append("uvm")
 
-	XvlogRunner(
-		cfg,
-	).job(
+	XvlogRunner(cfg).job(
 		target_dir=sim_cfg.work_dir,
 		fileset=svlog_files,
 		label=__name__,
@@ -132,9 +130,7 @@ def _run_xsim(
 		include_dirs=sim_cfg.include_dirs,
 	).run()
 
-	XelabRunner(
-		cfg,
-	).job(
+	XelabRunner(cfg).job(
 		sim_cfg.work_dir,
 		[f"{xsim_lib}.{top}", f"{xsim_lib}.glbl"],
 		label=__name__,
@@ -193,36 +189,31 @@ def _run_verilator(cfg: XvivConfig, sim_name: str, uvm_name: str | None, svlog_f
 	if uvm_name and sim_cfg.uvm_pkg_dir is not None:
 		include_dirs.insert(0, sim_cfg.uvm_pkg_dir)
 
-	VerilatorRunner(cfg).compile_job(
+	VerilatorRunner(cfg).configure(
 		target_dir=sim_cfg.work_dir,
 		label=__name__,
 		log_file=os.path.join(cfg.log_dir, "verilator_compile.log"),
+		trace_fst=sim_cfg.trace_fst,
+		trace=sim_cfg.trace,
+		uvm=uvm_name is not None,
+	).compile_job(
 		top=top,
 		defines=sim_cfg.defines,
 		include_dirs=include_dirs,
 		timescale=timescale,
 		fileset=svlog_files,
 		threads=sim_cfg.threads,
-		trace_fst=sim_cfg.trace_fst,
-		trace=sim_cfg.trace,
 		trace_depth=sim_cfg.trace_depth,
-		uvm=uvm_name is not None,
 		uvm_pkg_dir=sim_cfg.uvm_pkg_dir,
 	).sim_job(
-		target_dir=sim_cfg.work_dir,
-		label=__name__,
-		log_file=os.path.join(cfg.log_dir, "verilator_sim.log"),
 		plusargs=sim_cfg.plusargs,
-		uvm=uvm_name is not None,
 		uvm_test=uvm_test,
 		uvm_verbosity=uvm_verbosity,
 		uvm_max_quit_count=uvm_max_quit_count,
-		trace=sim_cfg.trace,
-		trace_fst=sim_cfg.trace_fst,
 	).run()
 
 
-def cmd_wdb_open(cfg: XvivConfig, *, sim_name: str, nogui: bool = False):
+def cmd_wdb_open(cfg: XvivConfig, *, sim_name: str, params: OpenParams):
 	sim_cfg = cfg.get_sim(sim_name)
 
 	wdb_file = os.path.join(sim_cfg.work_dir, f"{sim_cfg.top}.wdb")
@@ -241,9 +232,8 @@ def cmd_wdb_open(cfg: XvivConfig, *, sim_name: str, nogui: bool = False):
 		top=sim_cfg.top,
 		stats=False,
 		wdb_file=wdb_file,
-		nogui=nogui,
+		nogui=params.nogui,
 		popen=True,
-		unlink_config_file=False,
 	).run()
 
 	# if pid is not None:

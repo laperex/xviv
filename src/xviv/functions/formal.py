@@ -24,19 +24,11 @@ logger = logging.getLogger(__name__)
 # Constants
 # ---------------------------------------------------------------------------
 
-_VALID_MODES: frozenset[str] = frozenset({"bmc", "prove", "cover", "live"})
-
 # ANSI status colours
 _COLOR_PASS = f"{COLOR_BOLD}{COLOR_GREEN}"
 _COLOR_FAIL = f"{COLOR_BOLD}{COLOR_RED}"
 _COLOR_WARN = f"{COLOR_BOLD}{COLOR_YELLOW}"
 _COLOR_RESET = COLOR_RESET
-
-# Regex: VCD/trace path written to sby stdout
-_RE_VCD = re.compile(
-	r"Writing (?:trace|counterexample) to (?:VCD )?file[:\s]+(.+\.vcd)",
-	re.IGNORECASE,
-)
 
 # Regex: elapsed time in sby logfile  "SBY [00:01:23] ..."
 _RE_SBY_TS = re.compile(r"SBY\s+\[(\d+):(\d+):(\d+)\]")
