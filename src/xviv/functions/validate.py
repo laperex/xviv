@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import logging
+import os
 import re
 from dataclasses import dataclass
-from typing import Dict, List, Optional
 
 from xviv.config.params import ValidateParams
 from xviv.config.project import XvivConfig
@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 def _xdc_pat_to_re(pattern: str) -> re.Pattern:
 
-	buf: List[str] = []
+	buf: list[str] = []
 	i = 0
 	while i < len(pattern):
 		c = pattern[i]
@@ -94,22 +94,22 @@ class LintResult:
 class XDCLinter:
 	def __init__(
 		self,
-		port_constraints: Dict[str, PortConstraint],
-		rtl_ports: List[PortInfo],
-		clocks: Dict[str, PortConstraint],
+		port_constraints: dict[str, PortConstraint],
+		rtl_ports: list[PortInfo],
+		clocks: dict[str, PortConstraint],
 	) -> None:
 		self.port_constraints = port_constraints
 		self.rtl_ports = rtl_ports
 		self.clocks = clocks
-		self.results: List[LintResult] = []
-		self.stale_patterns: List[str] = []
+		self.results: list[LintResult] = []
+		self.stale_patterns: list[str] = []
 
 	def run(self) -> None:
 		self.results.clear()
 		self.stale_patterns.clear()
 
 		# Expand every RTL port to its individual bits.
-		all_bits: Dict[str, PortInfo] = {}
+		all_bits: dict[str, PortInfo] = {}
 		for pi in self.rtl_ports:
 			for bit in pi.expand_bits():
 				all_bits[bit] = pi
@@ -152,57 +152,16 @@ class XDCLinter:
 	# ------------------------------------------------------------------
 
 	@property
-	def errors(self) -> List[LintResult]:
+	def errors(self) -> list[LintResult]:
 		return [r for r in self.results if r.no_xdc_entry]
 
 	@property
-	def warnings(self) -> List[LintResult]:
+	def warnings(self) -> list[LintResult]:
 		return [r for r in self.results if not r.no_xdc_entry and (r.missing_pkg_pin or r.missing_iostd or r.missing_clk_def)]
 
 	@property
-	def ok(self) -> List[LintResult]:
+	def ok(self) -> list[LintResult]:
 		return [r for r in self.results if not r.no_xdc_entry and not r.missing_pkg_pin and not r.missing_iostd and not r.missing_clk_def]
-
-
-# ---------------------------------------------------------------------------
-# Terminal report
-# ---------------------------------------------------------------------------
-
-# _DIR_CODES = {"In": "36", "Out": "33;1", "InOut": "35"}
-
-
-# def _dir_str(d: str) -> str:
-# 	code = _DIR_CODES.get(d, "0")
-# 	return _c(code, f"{d:6}")
-
-
-# def _timing_str(c: PortConstraint) -> str:
-# 	if c.is_clock:
-# 		ps = f"{c.clock_period_ns:.2f}ns" if c.clock_period_ns else "?"
-# 		return theme_cfg.green(f"CLK({ps})")
-# 	if c.has_false_path:
-# 		return theme_cfg.dim("FP")
-# 	if c.has_input_delay:
-# 		return theme_cfg.green("IN_DLY")
-# 	if c.has_output_delay:
-# 		return theme_cfg.green("OUT_DLY")
-# 	if c.has_max_delay:
-# 		return theme_cfg.dim("MAX_DLY")
-# 	if c.has_set_logic:
-# 		return theme_cfg.dim("SET_LGC")
-# 	return theme_cfg.dim("─")
-
-
-# def _print_bit_row(r: LintResult, indent: int = 2) -> None:
-# 	c = r.constraint
-# 	bad = r.no_xdc_entry or r.missing_pkg_pin or r.missing_iostd
-# 	pkg = c.package_pin or ""
-# 	std = c.iostandard or ""
-# 	pkg_d = theme.green(pkg) if pkg else (theme.red(theme_cfg.error("MISSING")) if not r.no_xdc_entry else theme.dim("─"))
-# 	std_d = theme.green(std) if std else (theme.red(theme_cfg.error("MISSING")) if not r.no_xdc_entry else theme.dim("─"))
-# 	marker = theme.red("✗") if r.no_xdc_entry else (theme.yellow("⚠") if bad else theme.green("✓"))
-# 	name_str = " " * indent + r.port_bit
-# 	print(f"  {marker} {name_str}  {_dir_str(r.direction)}  {r.port_info.type_str}  {pkg_d}  {std_d}  {_timing_str(c)}")
 
 
 def _truncate_str(s: str, MAX_NAME=30) -> str:
@@ -213,8 +172,8 @@ def print_io_report(
 	linter: XDCLinter,
 	rtl_extractor: RTLPortExtractor,
 	xdc_parser: XDCParser,
-	xdc_paths: List[str],
-	rtl_paths: List[str],
+	xdc_paths: list[str],
+	rtl_paths: list[str],
 ) -> None:
 	def get_timing(c: PortConstraint) -> str:
 		if c.is_clock:
@@ -270,9 +229,9 @@ def print_io_report(
 
 	# --- Build table rows ---
 
-	rows: List[List[str]] = []
+	rows: list[list[str]] = []
 
-	port_groups: Dict[str, List[LintResult]] = {}
+	port_groups: dict[str, list[LintResult]] = {}
 	for r in linter.results:
 		port_groups.setdefault(r.port_info.name, []).append(r)
 
@@ -287,42 +246,30 @@ def print_io_report(
 			c = r.constraint
 
 			if bus_compact and i == 0:
-				status = theme_cfg.fail("FAIL") if all_nocon else theme_cfg.ok("OK")
+				status = theme_cfg.fail("ERROR") if all_nocon else theme_cfg.ok("OK")
 				name = _truncate_str(f"{port_name}[{pi.lsb}..{pi.msb}]")
 				direc = dir_str(pi.direction)
 				type_ = type_str(pi.type_str)
-			elif bus_compact:  # i > 0: repeat rows for remaining bus bits
+			elif bus_compact:
 				status = name = direc = type_ = ""
-			else:  # width==1  or  mixed status
+			else:
 				status = row_status(r)
 				name = _truncate_str(r.port_bit)
 				direc = dir_str(r.direction)
 				type_ = type_str(r.port_info.type_str)
 
+			if not status and not name and not direc and not type_:
+				continue
+
 			rows.append([status, name, direc, type_, pkg_pin_str(c, r.no_xdc_entry), iostd_str(c, r.no_xdc_entry), get_timing(c)])
-
-	# --- Render box table ---
-
-	# # --- Header ---
-	# for p in rtl_paths:
-	# 	print(f"RTL : {theme_cfg.cyan(p)}")
-	# print(f"Top : {theme_cfg.bold(rtl_extractor.module_name or '?')}")
-	# for p in xdc_paths:
-	# 	print(f"XDC : {theme_cfg.cyan(p)}")
-	# for e in rtl_extractor.errors:
-	# 	print(theme_cfg.red(f"RTL error: {e}"))
-	# for w in xdc_parser.parse_warnings:
-	# 	print(theme_cfg.yellow(f"XDC warning: {w}"))
 
 	t = AsciiTable(
 		title="I/O COVERAGE",
-		headers=["Status", "Port", "Dir", "Type", "PKG_PIN", "IOSTANDARD", "Timing"],
-		# max_widths=[6, 30],
+		headers=["STATUS", "Port", "Dir", "Type", "PKG_PIN", "IOSTANDARD", "Timing"],
 	)
 
 	for row in rows:
 		t.add_row(*row)
-	# print()
 	t.print()
 
 	# # --- Issues ---
@@ -427,8 +374,8 @@ def cmd_validate_synth(cfg: XvivConfig, params: ValidateParams) -> None:
 		logger.warning("No .xdc constraint files found for this synth target.")
 
 	# --- Collect RTL source files + determine top -------------------------
-	rtl_files: List[str] = []
-	top_module: Optional[str] = synth_cfg.top
+	rtl_files: list[str] = []
+	top_module: str | None = synth_cfg.top
 
 	if design_name:
 		design_cfg = cfg.get_design(design_name)
@@ -473,18 +420,57 @@ def cmd_validate_synth(cfg: XvivConfig, params: ValidateParams) -> None:
 
 	print()
 	if bd_name:
-		print(f"BD - {bd_name}")
+		print(f"BD     : {bd_name}")
 	if design_name:
-		print(f"Design - {design_name}")
+		print(f"Design : {design_name}")
 	if core_name:
-		print(f"Core - {core_name}")
-	
-	print(f'Top - {synth_cfg.top}')
-	print(f'FPGA - {synth_cfg.fpga}')
-	
-	if fpga_cfg := cfg._get_fpga_cfg_optional(synth_cfg.fpga): ...
-		# logger.info()
+		print(f"Core   : {core_name}")
+
+	print(f"Top    : {synth_cfg.top}")
+	print(f"FPGA   : {synth_cfg.fpga}")
+
+	if fpga_cfg := cfg._get_fpga_cfg_optional(synth_cfg.fpga):
+		if fpga_cfg.board_part:
+			print(f"  {fpga_cfg.board_part}")
+		if fpga_cfg.fpga_part:
+			print(f"  {fpga_cfg.fpga_part}")
 	else:
-		logger.error(f'FPGA - {synth_cfg.fpga} specified in [[synth]] not defined in config.')
+		logger.error(f"FPGA - {synth_cfg.fpga} specified in [[synth]] not defined in config.")
 
+	print(
+		"STAGES:\t"
+		+ "  ──▶  ".join(
+			[
+				theme_cfg.green(name)
+				for name, flag in [
+					("SYNTH", synth_cfg.run_synth),
+					("OPT", synth_cfg.run_opt),
+					("PLACE", synth_cfg.run_place),
+					("PHYS_OPT", synth_cfg.run_phys_opt),
+					("ROUTE", synth_cfg.run_route),
+				]
+				if flag
+			]
+		)
+	)
 
+	t_srcs = AsciiTable(
+		title="SOURCE FILES",
+		headers=["STATUS", "FILE", "TYPE", "INFO"],
+	)
+
+	for file in rtl_files:
+		t_srcs.add_row(
+			theme_cfg.green("OK") if os.path.exists(file) else theme_cfg.error("NOT FOUND"),
+			file,
+			"RTL",
+			"",
+		)
+
+	if rtl_files:
+		if xdc_files:
+			t_srcs.add_divider()
+
+	for file in xdc_files:
+		t_srcs.add_row(theme_cfg.green("OK") if os.path.exists(file) else theme_cfg.error("NOT FOUND"), file, "XDC", "")
+	t_srcs.print()
