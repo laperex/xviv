@@ -1,6 +1,7 @@
 import re
 import sys
 from typing import Any, Callable, Dict, List, Optional
+from xviv.utils.theme import theme_cfg
 
 _ANSI_RE = re.compile(r"\033\[[0-9;]*m")
 _ALIGN_CHARS = {"l": "<", "r": ">", "c": "^"}
@@ -10,18 +11,18 @@ _DIVIDER = object()  # sentinel — marks a horizontal rule inside the body
 # -- minimal internal colour helpers ------------------------------------------
 
 
-def _supports_color() -> bool:
-	return hasattr(sys.stdout, "isatty") and sys.stdout.isatty()
+# def _supports_color() -> bool:
+# 	return hasattr(sys.stdout, "isatty") and sys.stdout.isatty()
 
 
-def _c(code: str, text: str) -> str:
-	if not _supports_color():
-		return text
-	return f"\033[{code}m{text}\033[0m"
+# def _c(code: str, text: str) -> str:
+# 	if not _supports_color():
+# 		return text
+# 	return f"\033[{code}m{text}\033[0m"
 
 
-def _dim(t: str) -> str:
-	return _c("2", t)
+# def _dim(t: str) -> str:
+# 	return _c("2", t)
 
 
 # -- ANSI-aware string helpers -------------------------------------------------
@@ -49,12 +50,14 @@ def _pad(s: str, width: int, align: str = "<") -> str:
 class AsciiTable:
 	def __init__(
 		self,
+		title: str,
 		headers: Optional[List[str]] = None,
 		max_widths: Optional[List[Optional[int]]] = None,
 		align: Optional[List[str]] = None,
 		color_map: Optional[Dict[str, Callable[[str], str]]] = None,
 		dim_borders: bool = True,
 	) -> None:
+		self._title = title
 		self._headers: Optional[List[str]] = [str(h) for h in headers] if headers else None
 		self._rows: List[Any] = []
 		self._max_widths: List[Optional[int]] = list(max_widths) if max_widths else []
@@ -113,7 +116,7 @@ class AsciiTable:
 
 	def _b(self, s: str) -> str:
 
-		return _dim(s) if self._dim_borders else s
+		return theme_cfg.dim(s) if self._dim_borders else s
 
 	def _sep(self, widths: List[int]) -> str:
 		return self._b("+" + "+".join("-" * (w + 2) for w in widths) + "+")
@@ -141,12 +144,11 @@ class AsciiTable:
 	# --------------------------------------------------------------- render
 
 	def render(self) -> str:
-
 		widths = self._col_widths()
 		if not widths:
 			return ""
 		sep = self._sep(widths)
-		lines: List[str] = [sep]
+		lines: List[str] = [self._title, sep]
 		if self._headers:
 			lines.append(self._fmt_row(self._headers, widths, colorize=False))
 			lines.append(sep)
@@ -159,7 +161,7 @@ class AsciiTable:
 		return "\n".join(lines)
 
 	def print(self) -> None:
-
+		print()
 		print(self.render())
 
 	def __str__(self) -> str:

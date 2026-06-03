@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+import sys
 import time
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -72,6 +73,9 @@ class LiveSink:
 					fh.flush()
 					if not job.interactive:
 						_display.emit(EvLine(job=job, line=line))
+		except KeyboardInterrupt:
+			logger.warning("Interrupted - cancelling job")
+			sys.exit(1)
 		except CalledProcessError as e:
 			exc = e
 			rc = e.returncode

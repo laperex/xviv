@@ -14,8 +14,9 @@ from xviv.config.project import XvivConfig
 from xviv.generator.sby import SbyGenerator
 from xviv.tools.symbiyosys import SbyRunner
 from xviv.utils import error
-from xviv.utils.error import JobFailedError
-from xviv.utils.log import COLOR_BOLD, COLOR_DIM, COLOR_GREEN, COLOR_RED, COLOR_RESET, COLOR_YELLOW
+from xviv.utils.theme import theme_cfg
+
+# from xviv.utils.error import JobFailedError
 
 logger = logging.getLogger(__name__)
 
@@ -23,12 +24,6 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
-
-# ANSI status colours
-_COLOR_PASS = f"{COLOR_BOLD}{COLOR_GREEN}"
-_COLOR_FAIL = f"{COLOR_BOLD}{COLOR_RED}"
-_COLOR_WARN = f"{COLOR_BOLD}{COLOR_YELLOW}"
-_COLOR_RESET = COLOR_RESET
 
 # Regex: elapsed time in sby logfile  "SBY [00:01:23] ..."
 _RE_SBY_TS = re.compile(r"SBY\s+\[(\d+):(\d+):(\d+)\]")
@@ -226,7 +221,7 @@ def run_formal(
 			work_dir=str(sby_dir),
 			force=True,
 		).run()
-	except JobFailedError:
+	except error.JobFailedError:
 		# sby exits non-zero on FAIL/UNKNOWN/ERROR - this is expected.
 		# We determine the true status from the output directory below.
 		pass
@@ -276,10 +271,11 @@ def run_formal(
 def _format_status(result: FormalResult) -> str:
 
 	if result.status == "PASS":
-		return f"{_COLOR_PASS}PASS{_COLOR_RESET}"
+		return theme_cfg.passed("PASS")
 	if result.status in {"FAIL", "ERROR"}:
-		return f"{_COLOR_FAIL}{result.status}{_COLOR_RESET}"
-	return f"{_COLOR_WARN}{result.status}{_COLOR_RESET}"
+		return theme_cfg.fail(result.status)
+
+	return theme_cfg.warn(result.status)
 
 
 def _log_result(result: FormalResult) -> None:
@@ -344,7 +340,7 @@ def cmd_formal(
 	results: list[FormalResult] = []
 
 	if parallel and len(targets) > 1:
-		logger.info("%sParallel execution  max_workers=%d%s", COLOR_DIM, max_workers, COLOR_RESET)
+		logger.info(theme_cfg.dim(f"Parallel execution  max_workers={max_workers}"))
 
 		def _run(fcfg: FormalConfig) -> FormalResult:
 			_log_target_header(fcfg)
@@ -394,13 +390,11 @@ def cmd_formal(
 		elapsed_str = f"{result.elapsed:.0f}s" if result.elapsed is not None else "-"
 		status_tag = _format_status(result)
 		logger.info(
-			"  %-32s  %-8s  %s  %s(%s)%s",
+			"  %-32s  %-8s  %s  %s",
 			result.name,
 			result.mode,
 			status_tag,
-			COLOR_DIM,
-			elapsed_str,
-			COLOR_RESET,
+			theme_cfg.dim(f"({elapsed_str})"),
 		)
 
 	logger.info("  %s", divider)
@@ -412,13 +406,9 @@ def cmd_formal(
 	passed = [r for r in results if r.passed]
 
 	logger.info(
-		"\n  %s%d passed%s   %s%d failed%s",
-		_COLOR_PASS if passed else "",
-		len(passed),
-		_COLOR_RESET if passed else "",
-		_COLOR_FAIL if failed else "",
-		len(failed),
-		_COLOR_RESET if failed else "",
+		"\n  %s   %s",
+		theme_cfg.passed(f"{len(passed)} passed"),
+		theme_cfg.fail(f"{len(failed)} failed"),
 	)
 
 	if failed:
@@ -430,7 +420,6 @@ def cmd_formal(
 
 
 def _log_target_header(fcfg: FormalConfig) -> None:
-
 	title = f"formal: {fcfg.name}  [{fcfg.mode}, depth={fcfg.depth}]"
-	pad = max(0, 60 - len(title))
-	logger.info("\n%s%s %s%s", COLOR_BOLD, title, "─" * pad, COLOR_RESET)
+
+	logger.info("\n%s", theme_cfg.bold(title))

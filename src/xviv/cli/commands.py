@@ -423,14 +423,7 @@ class ValidateCommand(Command):
 
 		target_group(synth_p, exclusive=True, required=True, bd=True, design=True, core=True)
 
-		synth_p.add_argument(
-			"--io",
-			metavar="BOOL",
-			choices=["true", "false"],
-			default="true",
-			help="Run I/O constraint check (default: true)",
-			required=False,
-		)
+		synth_p.add_argument("--io", action="store_true", help="Run I/O constraint check", default=False, required=False)
 
 	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
 		super().run(cfg, args)
@@ -439,13 +432,13 @@ class ValidateCommand(Command):
 			self.c.print_help()
 			self.c.exit(2, "\nSpecify a sub-command, e.g.:  xviv validate synth --design NAME\n")
 
-		io_flag = getattr(args, "io", "true").lower() != "false"
+		# io_flag = getattr(args, "io", "true").lower() != "false"
 
 		params = ValidateParams(
 			design=getattr(args, "design", None),
 			bd=getattr(args, "bd", None),
 			core=getattr(args, "core", None),
-			io=io_flag,
+			io=args.io,
 		)
 
 		if params.io:

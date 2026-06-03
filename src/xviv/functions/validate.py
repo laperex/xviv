@@ -11,44 +11,9 @@ from xviv.config.project import XvivConfig
 from xviv.parsers.rtl import PortInfo, RTLPortExtractor
 from xviv.parsers.xdc import PortConstraint, XDCParser
 from xviv.utils.ascii_table import AsciiTable
-from xviv.utils.log import _supports_color
+from xviv.utils.theme import theme_cfg
 
 logger = logging.getLogger(__name__)
-
-
-# ---------------------------------------------------------------------------
-# ANSI colour helpers (honour NO_COLOR / non-TTY)
-# ---------------------------------------------------------------------------
-
-
-def _c(code: str, text: str) -> str:
-	if not _supports_color():
-		return text
-	return f"\033[{code}m{text}\033[0m"
-
-
-def _RED(t: str) -> str:
-	return _c("31;1", t)
-
-
-def _YELLOW(t: str) -> str:
-	return _c("33;1", t)
-
-
-def _GREEN(t: str) -> str:
-	return _c("32;1", t)
-
-
-def _CYAN(t: str) -> str:
-	return _c("36", t)
-
-
-def _BOLD(t: str) -> str:
-	return _c("1", t)
-
-
-def _DIM(t: str) -> str:
-	return _c("2", t)
 
 
 # ---------------------------------------------------------------------------
@@ -204,41 +169,45 @@ class XDCLinter:
 # Terminal report
 # ---------------------------------------------------------------------------
 
-_DIR_CODES = {"In": "36", "Out": "33;1", "InOut": "35"}
+# _DIR_CODES = {"In": "36", "Out": "33;1", "InOut": "35"}
 
 
-def _dir_str(d: str) -> str:
-	code = _DIR_CODES.get(d, "0")
-	return _c(code, f"{d:6}")
+# def _dir_str(d: str) -> str:
+# 	code = _DIR_CODES.get(d, "0")
+# 	return _c(code, f"{d:6}")
 
 
-def _timing_str(c: PortConstraint) -> str:
-	if c.is_clock:
-		ps = f"{c.clock_period_ns:.2f}ns" if c.clock_period_ns else "?"
-		return _GREEN(f"CLK({ps})")
-	if c.has_false_path:
-		return _DIM("FP")
-	if c.has_input_delay:
-		return _GREEN("IN_DLY")
-	if c.has_output_delay:
-		return _GREEN("OUT_DLY")
-	if c.has_max_delay:
-		return _DIM("MAX_DLY")
-	if c.has_set_logic:
-		return _DIM("SET_LGC")
-	return _DIM("─")
+# def _timing_str(c: PortConstraint) -> str:
+# 	if c.is_clock:
+# 		ps = f"{c.clock_period_ns:.2f}ns" if c.clock_period_ns else "?"
+# 		return theme_cfg.green(f"CLK({ps})")
+# 	if c.has_false_path:
+# 		return theme_cfg.dim("FP")
+# 	if c.has_input_delay:
+# 		return theme_cfg.green("IN_DLY")
+# 	if c.has_output_delay:
+# 		return theme_cfg.green("OUT_DLY")
+# 	if c.has_max_delay:
+# 		return theme_cfg.dim("MAX_DLY")
+# 	if c.has_set_logic:
+# 		return theme_cfg.dim("SET_LGC")
+# 	return theme_cfg.dim("─")
 
 
-def _print_bit_row(r: LintResult, indent: int = 2) -> None:
-	c = r.constraint
-	bad = r.no_xdc_entry or r.missing_pkg_pin or r.missing_iostd
-	pkg = c.package_pin or ""
-	std = c.iostandard or ""
-	pkg_d = _GREEN(pkg) if pkg else (_RED("MISSING") if not r.no_xdc_entry else _DIM("─"))
-	std_d = _GREEN(std) if std else (_RED("MISSING") if not r.no_xdc_entry else _DIM("─"))
-	marker = _RED("✗") if r.no_xdc_entry else (_YELLOW("⚠") if bad else _GREEN("✓"))
-	name_str = " " * indent + r.port_bit
-	print(f"  {marker} {name_str}  {_dir_str(r.direction)}  {r.port_info.type_str}  {pkg_d}  {std_d}  {_timing_str(c)}")
+# def _print_bit_row(r: LintResult, indent: int = 2) -> None:
+# 	c = r.constraint
+# 	bad = r.no_xdc_entry or r.missing_pkg_pin or r.missing_iostd
+# 	pkg = c.package_pin or ""
+# 	std = c.iostandard or ""
+# 	pkg_d = theme.green(pkg) if pkg else (theme.red(theme_cfg.error("MISSING")) if not r.no_xdc_entry else theme.dim("─"))
+# 	std_d = theme.green(std) if std else (theme.red(theme_cfg.error("MISSING")) if not r.no_xdc_entry else theme.dim("─"))
+# 	marker = theme.red("✗") if r.no_xdc_entry else (theme.yellow("⚠") if bad else theme.green("✓"))
+# 	name_str = " " * indent + r.port_bit
+# 	print(f"  {marker} {name_str}  {_dir_str(r.direction)}  {r.port_info.type_str}  {pkg_d}  {std_d}  {_timing_str(c)}")
+
+
+def _truncate_str(s: str, MAX_NAME=30) -> str:
+	return s if len(s) <= MAX_NAME else s[: MAX_NAME - 3] + "..."
 
 
 def print_io_report(
@@ -248,48 +217,56 @@ def print_io_report(
 	xdc_paths: List[str],
 	rtl_paths: List[str],
 ) -> int:
-
-	MAX_NAME = 30
-
-	def trunc(s: str) -> str:
-		return s if len(s) <= MAX_NAME else s[: MAX_NAME - 3] + "..."
-
-	def timing_plain(c: PortConstraint) -> str:
+	def get_timing(c: PortConstraint) -> str:
 		if c.is_clock:
 			ps = f"{c.clock_period_ns:.2f}ns" if c.clock_period_ns else "?"
-			return f"CLK({ps})"
-		if c.has_false_path:
-			return "FP"
-		if c.has_input_delay:
-			return "IN_DLY"
-		if c.has_output_delay:
-			return "OUT_DLY"
-		if c.has_max_delay:
-			return "MAX_DLY"
-		if c.has_set_logic:
-			return "SET_LGC"
-		return "-"
+			return theme_cfg.bold(theme_cfg.cyan(f"CLK({ps})"))  # bold cyan
+		if c.has_false_path:   return theme_cfg.dim("FP")
+		if c.has_input_delay:  return theme_cfg.green("IN_DLY")
+		if c.has_output_delay: return theme_cfg.green("OUT_DLY")
+		if c.has_max_delay:    return theme_cfg.dim("MAX_DLY")
+		if c.has_set_logic:    return theme_cfg.dim("SET_LGC")
+		return theme_cfg.dim("-")
+
 
 	def row_status(r: LintResult) -> str:
 		if r.no_xdc_entry:
-			return "FAIL"
-		if r.missing_pkg_pin or r.missing_iostd or r.missing_clk_def:
-			return "WARN"
-		return "OK"
+			return theme_cfg.fail("FAIL")
+		if r.missing_pkg_pin or r.missing_iostd or r.missing_clk_def: return theme_cfg.warn("WARN")
+		return theme_cfg.ok("OK")
 
-	# --- Header ---
-	for p in rtl_paths:
-		print(f"RTL : {_CYAN(p)}")
-	print(f"Top : {_BOLD(rtl_extractor.module_name or '?')}")
-	for p in xdc_paths:
-		print(f"XDC : {_CYAN(p)}")
-	for e in rtl_extractor.errors:
-		print(_RED(f"RTL error: {e}"))
-	for w in xdc_parser.parse_warnings:
-		print(_YELLOW(f"XDC warning: {w}"))
+
+	def pkg_pin_str(c: PortConstraint, no_xdc: bool) -> str:
+		if c.package_pin: return c.package_pin                
+		if not no_xdc:    return theme_cfg.error("MISSING")
+		return theme_cfg.dim("-")
+
+
+	def iostd_str(c: PortConstraint, no_xdc: bool) -> str:
+		if c.iostandard: return theme_cfg.bold(c.iostandard)  
+		if not no_xdc:   return theme_cfg.error("MISSING")
+		return theme_cfg.dim("-")
+
+	def dir_str(c: str) -> str:
+		if c == 'In':
+			return theme_cfg.cyan(c)
+
+		return theme_cfg.magenta(c)
+
+	def type_str(c: str) -> str:
+		if c == '<error>':
+			return theme_cfg.error("MISSING")
+
+		if c:
+			return c
+
+		return theme_cfg.dim("-")
+
 
 	# --- Build table rows ---
+
 	rows: List[List[str]] = []
+
 	port_groups: Dict[str, List[LintResult]] = {}
 	for r in linter.results:
 		port_groups.setdefault(r.port_info.name, []).append(r)
@@ -297,125 +274,119 @@ def print_io_report(
 	for port_name, group in port_groups.items():
 		pi = group[0].port_info
 
-		if pi.width == 1:
-			r = group[0]
-			c = r.constraint
-			rows.append(
-				[
-					row_status(r),
-					trunc(r.port_bit),
-					pi.direction,
-					pi.type_str,
-					c.package_pin or "-",
-					c.iostandard or "-",
-					timing_plain(c),
-				]
-			)
-			continue
-
-		all_ok = all(not (r.no_xdc_entry or r.missing_pkg_pin or r.missing_iostd) for r in group)
+		all_ok    = all(not (r.no_xdc_entry or r.missing_pkg_pin or r.missing_iostd) for r in group)
 		all_nocon = all(r.no_xdc_entry for r in group)
+		bus_compact = pi.width > 1 and (all_ok or all_nocon)
 
-		if all_ok or all_nocon:
-			combined = PortConstraint()
-			for r in group:
-				combined.merge(r.constraint)
-			rows.append(
-				[
-					"FAIL" if all_nocon else "OK",
-					trunc(f"{port_name}[{pi.lsb}..{pi.msb}]"),
-					pi.direction,
-					pi.type_str,
-					combined.package_pin or "-",
-					combined.iostandard or "-",
-					timing_plain(combined),
-				]
-			)
-		else:
-			# Mixed status: expand to one row per bit
-			for r in group:
-				c = r.constraint
-				rows.append(
-					[
-						row_status(r),
-						trunc(r.port_bit),
-						r.direction,
-						r.port_info.type_str,
-						c.package_pin or ("MISSING" if not r.no_xdc_entry else "-"),
-						c.iostandard or ("MISSING" if not r.no_xdc_entry else "-"),
-						timing_plain(c),
-					]
-				)
+		for i, r in enumerate(group):
+			c = r.constraint
+
+			if bus_compact and i == 0:
+				status = theme_cfg.fail("FAIL") if all_nocon else theme_cfg.ok("OK")
+				name   = _truncate_str(f"{port_name}[{pi.lsb}..{pi.msb}]")
+				direc  = dir_str(pi.direction)
+				type_  = type_str(pi.type_str)
+			elif bus_compact:           # i > 0: repeat rows for remaining bus bits
+				status = name = direc = type_ = ""
+			else:                       # width==1  or  mixed status
+				status = row_status(r)
+				name   = _truncate_str(r.port_bit)
+				direc  = dir_str(r.direction)
+				type_  = type_str(r.port_info.type_str)
+
+			rows.append([status, name, direc, type_, pkg_pin_str(c, r.no_xdc_entry), iostd_str(c, r.no_xdc_entry), get_timing(c)])
 
 	# --- Render box table ---
 
-	# COLOR_MAP = {
-	# 	"OK": _GREEN,
-	# 	"FAIL": _RED,
-	# 	"WARN": _YELLOW,
-	# 	"-": _DIM,
-	# 	"FP": _DIM,
-	# 	"MISSING": _RED,
-	# 	"IN_DLY": _GREEN,
-	# 	"OUT_DLY": _GREEN,
-	# 	"MAX_DLY": _DIM,
-	# 	"SET_LGC": _DIM,
-	# 	"In": _BLUE,
-	# }
+	# # --- Header ---
+	# for p in rtl_paths:
+	# 	print(f"RTL : {theme_cfg.cyan(p)}")
+	# print(f"Top : {theme_cfg.bold(rtl_extractor.module_name or '?')}")
+	# for p in xdc_paths:
+	# 	print(f"XDC : {theme_cfg.cyan(p)}")
+	# for e in rtl_extractor.errors:
+	# 	print(theme_cfg.red(f"RTL error: {e}"))
+	# for w in xdc_parser.parse_warnings:
+	# 	print(theme_cfg.yellow(f"XDC warning: {w}"))
 
 	t = AsciiTable(
+		title="PORT COVERAGE",
 		headers=["Status", "Port", "Dir", "Type", "PKG_PIN", "IOSTANDARD", "Timing"],
-		max_widths=[6, 30],
-		# color_map=COLOR_MAP,
+		# max_widths=[6, 30],
 	)
 
 	for row in rows:
 		t.add_row(*row)
+	# print()
 	t.print()
 
-	# --- Issues ---
-	errors = linter.errors
+	# # --- Issues ---
+	errors   = linter.errors
 	warnings = linter.warnings
-	stale = linter.stale_patterns
+	stale    = linter.stale_patterns
 
-	if errors:
-		print(f"\n{_RED('ERRORS')} - ports with no XDC entry:")
+	if errors or warnings or stale:
+		t = AsciiTable(title="ISSUES",)
+
 		for r in errors:
-			print(f"  x {r.port_bit}  [{r.direction}]")
+			t.add_row(
+				theme_cfg.fail("FAIL"),
+				r.port_bit,
+				dir_str(r.direction),
+				"no XDC entry",
+			)
 
-	if warnings:
-		print(f"\n{_YELLOW('WARNINGS')} - partially constrained ports:")
+		if warnings:
+			if errors:
+				t.add_divider()
+
 		for r in warnings:
-			issues: List[str] = []
-			if r.missing_pkg_pin:
-				issues.append("no PACKAGE_PIN")
-			if r.missing_iostd:
-				issues.append("no IOSTANDARD")
-			if r.missing_clk_def:
-				issues.append("clock - no create_clock")
-			print(f"  ! {r.port_bit}  {', '.join(issues)}")
+			issues = []
+			if r.missing_pkg_pin: issues.append("no PACKAGE_PIN")
+			if r.missing_iostd:   issues.append("no IOSTANDARD")
+			if r.missing_clk_def: issues.append("no create_clock")
+			t.add_row(
+				theme_cfg.warn("WARN"),
+				r.port_bit,
+				dir_str(r.direction),
+				"  ·  ".join(issues),
+			)
 
-	if stale:
-		print(f"\n{_YELLOW('STALE XDC')} - patterns matching no RTL port:")
+		if stale:
+			if errors or warnings:
+				t.add_divider()
+
 		for p in stale:
-			print(f"  ? {p}")
+			t.add_row(
+				theme_cfg.critical("STALE XDC"),
+				p,
+				"",
+				"",
+			)
 
-	# --- Summary ---
-	total = len(linter.results)
-	n_ok = len(linter.ok)
-	n_warn = len(warnings)
-	n_err = len(errors)
-	pct_ok = int(100 * n_ok / total) if total else 0
+		t.print()
 
-	print("\nSUMMARY")
-	print(f"  Total   : {total}")
-	print(f"  OK      : {_GREEN(str(n_ok))}  ({pct_ok}%)")
-	print(f"  Warnings: {_YELLOW(str(n_warn)) if n_warn else str(n_warn)}")
-	print(f"  Errors  : {_RED(str(n_err)) if n_err else str(n_err)}")
+	# if stale:
+	# 	print(f"\n{theme_cfg.header('STALE XDC')}")
+	# 	for p in stale:
+	# 		print(f"  {theme_cfg.dim('?')}  {p}")
 
-	if not (errors or warnings or stale):
-		print(_GREEN("\nAll RTL ports are fully constrained."))
-		return 0
+	# # --- Summary ---
+	# total = len(linter.results)
+	# n_ok = len(linter.ok)
+	# n_warn = len(warnings)
+	# n_err = len(errors)
+	# pct_ok = int(100 * n_ok / total) if total else 0
+
+	# print("\nSUMMARY")
+	# print(f"  Total   : {total}")
+	# print(f"  OK      : {theme_cfg.green(str(n_ok))}  ({pct_ok}%)")
+	# print(f"  Warnings: {theme_cfg.yellow(str(n_warn)) if n_warn else str(n_warn)}")
+	# print(f"  Errors  : {theme_cfg.red(str(n_err)) if n_err else str(n_err)}")
+
+	# if not (errors or warnings or stale):
+	# 	print(theme_cfg.green("\nAll RTL ports are fully constrained."))
+	# 	return 0
 	return 1
 
 
