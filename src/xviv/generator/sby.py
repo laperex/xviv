@@ -418,7 +418,7 @@ class SbyGenerator:
 		builder = SbyScript()
 
 		if not self._sources:
-			raise ValueError("SbyGenerator: cannot generate [script] — no source files have been added")
+			raise ValueError("SbyGenerator: cannot generate [script] - no source files have been added")
 
 		# Read every source file.  Defines and include dirs apply to the
 		# first file only; subsequent files inherit them through Yosys's

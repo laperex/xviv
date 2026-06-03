@@ -17,6 +17,7 @@ from xviv.config.params import (
 	ProgramParams,
 	SimulateParams,
 	SynthParams,
+	ValidateParams,
 )
 from xviv.config.project import XvivConfig
 
@@ -36,6 +37,7 @@ from xviv.functions.formal import cmd_formal
 from xviv.functions.ip import cmd_ip_create, cmd_ip_edit
 from xviv.functions.simulation import cmd_simulate, cmd_wdb_open, cmd_wdb_reload
 from xviv.functions.synthesis import cmd_dcp_open, cmd_synth
+from xviv.functions.validate import cmd_validate_io
 from xviv.utils import error
 
 # from xviv.functions.formal import cmd_formal
@@ -404,3 +406,47 @@ class FormalCommand(Command):
 	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
 		super().run(cfg, args)
 		cmd_formal(cfg, target=args.target)
+
+
+class ValidateCommand(Command):
+	name = "validate"
+	help = "Validate XDC constraints against RTL port declarations"
+
+	@classmethod
+	def register(cls, sub: argparse._SubParsersAction) -> None:
+		super().register(sub)
+		c = cls.c
+
+		# Sub-command: "synth" selects the synth target to validate.
+		sub2 = c.add_subparsers(dest="validate_sub", metavar="SUBCOMMAND")
+		synth_p = sub2.add_parser("synth", help="Validate a synth target's I/O constraints")
+
+		target_group(synth_p, exclusive=True, required=True, bd=True, design=True, core=True)
+
+		synth_p.add_argument(
+			"--io",
+			metavar="BOOL",
+			choices=["true", "false"],
+			default="true",
+			help="Run I/O constraint check (default: true)",
+			required=False,
+		)
+
+	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
+		super().run(cfg, args)
+
+		if args.validate_sub != "synth":
+			self.c.print_help()
+			self.c.exit(2, "\nSpecify a sub-command, e.g.:  xviv validate synth --design NAME\n")
+
+		io_flag = getattr(args, "io", "true").lower() != "false"
+
+		params = ValidateParams(
+			design=getattr(args, "design", None),
+			bd=getattr(args, "bd", None),
+			core=getattr(args, "core", None),
+			io=io_flag,
+		)
+
+		if params.io:
+			cmd_validate_io(cfg, params)

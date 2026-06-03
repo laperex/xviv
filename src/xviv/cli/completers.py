@@ -40,7 +40,7 @@ def core_instance_completer(prefix: str, parsed_args, **kwargs) -> dict[str, str
 		if avail > 10 and desc_text:
 			if len(desc_text) > avail:
 				desc_text = desc_text[: avail - 1] + "…"
-			parts.append(f"— {desc_text}")
+			parts.append(f"- {desc_text}")
 		return "  ".join(parts)
 
 	try:
@@ -109,7 +109,7 @@ def c_dcp_file(prefix, parsed_args, **kwargs):
 						if name != val:
 							continue
 					else:
-						result[rel] = f"{phase} — {kind} — {name}"
+						result[rel] = f"{phase} - {kind} - {name}"
 						continue
 
 					result[rel] = f"post-{phase}"

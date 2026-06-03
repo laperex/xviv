@@ -4,525 +4,18 @@ import argparse
 import logging
 import os
 import re
-import tempfile
 
-import pyslang
-
+from xviv.parsers.rtl import (
+	IfaceSignal,
+	ModuleInfo,
+	ParamDecl,
+	PortDecl,
+	resolve_modules,
+)
 from xviv.utils.fs import assert_file_exists
 from xviv.utils.log import setup_logging
 
 logger = logging.getLogger(__name__)
-
-# ---------------------------------------------------------------------------
-# Type aliases
-# ---------------------------------------------------------------------------
-DatatypeInfo = dict
-PortInfo = dict
-ParamInfo = dict
-MemberInfo = dict
-ModuleData = dict
-TreeData = dict
-
-
-# ---------------------------------------------------------------------------
-# Token / tree helpers
-# ---------------------------------------------------------------------------
-
-
-def _get_all_tokens(node: pyslang.SyntaxNode):
-	for child in node:
-		if isinstance(child, pyslang.Token):
-			yield child
-		elif isinstance(child, pyslang.SyntaxNode):
-			yield from _get_all_tokens(child)
-
-
-def filter_comments_from_tree(tree: pyslang.SyntaxTree) -> pyslang.SyntaxTree:
-	_COMMENT_KINDS = (pyslang.TriviaKind.LineComment, pyslang.TriviaKind.BlockComment)
-
-	clean_parts: list[str] = []
-	for token in _get_all_tokens(tree.root):
-		for trivia in token.trivia:
-			if trivia.kind not in _COMMENT_KINDS:
-				clean_parts.append(trivia.getRawText())
-		clean_parts.append(token.valueText)
-
-	clean_text = "".join(clean_parts)
-
-	# Write to a temp file so fromFiles guarantees CompilationUnitSyntax root.
-	with tempfile.NamedTemporaryFile(mode="w", suffix=".sv", delete=False, encoding="utf-8") as tmp:
-		tmp.write(clean_text)
-		tmp_path = tmp.name
-
-	try:
-		return pyslang.SyntaxTree.fromFiles([tmp_path])
-	finally:
-		os.unlink(tmp_path)
-
-
-# ---------------------------------------------------------------------------
-# Datatype / declarator extraction
-# ---------------------------------------------------------------------------
-
-
-def get_datatype_info(node) -> DatatypeInfo:
-	if node is None or isinstance(node, str):
-		return {}
-
-	match type(node):
-		case pyslang.IntegerTypeSyntax:
-			return {
-				"kind": "IntegerTypeSyntax",
-				"dimensions": "".join(str(d).strip() for d in getattr(node, "dimensions", "")),
-				"keyword": str(getattr(node, "keyword", "")).strip(),
-				"signing": str(getattr(node, "signing", "")).strip(),
-			}
-
-		case pyslang.NamedTypeSyntax:
-			return {
-				"kind": "NamedTypeSyntax",
-				"name": str(getattr(node, "name", "")).strip(),
-			}
-
-		case pyslang.ImplicitTypeSyntax:
-			return {
-				"kind": "ImplicitTypeSyntax",
-				"dimensions": "".join(str(d).strip() for d in getattr(node, "dimensions", "")),
-				"placeholder": str(getattr(node, "placeholder", "")).strip(),
-				"signing": str(getattr(node, "signing", "")).strip(),
-			}
-
-		case pyslang.KeywordTypeSyntax:
-			return {
-				"kind": "KeywordTypeSyntax",
-				"keyword": str(getattr(node, "keyword", "")).strip(),
-			}
-
-		case _:
-			raise TypeError(f"Unhandled datatype node: {type(node)!r}")
-
-
-def get_declarator(declarator: pyslang.DeclaratorSyntax) -> tuple[pyslang.Token | None, dict]:
-	if not declarator or isinstance(declarator, str):
-		return None, {}
-
-	initializer = getattr(declarator, "initializer", None)
-	name = getattr(declarator, "name", "")
-	dimensions = "".join(str(d).strip() for d in getattr(declarator, "dimensions", []))
-	expr = str(getattr(initializer, "expr", "")).strip() if initializer else ""
-	itype = str(getattr(initializer, "type", "")).strip() if initializer else ""
-
-	return name, {
-		"dimensions": dimensions,
-		"expr": expr + itype,
-	}
-
-
-# ---------------------------------------------------------------------------
-# Port-header extraction
-# ---------------------------------------------------------------------------
-
-
-def get_port_header_info(node) -> PortInfo:
-	if node is None or isinstance(node, str):
-		return {}
-
-	match type(node):
-		case pyslang.InterfacePortHeaderSyntax:
-			name_or_kw = getattr(node, "nameOrKeyword", "")
-			modport = getattr(node, "modport", "")
-			member = getattr(modport, "member", "")
-			return {
-				"kind": "InterfacePortHeaderSyntax",
-				"interface": str(name_or_kw).strip(),
-				"modport": str(member).strip(),
-			}
-
-		case pyslang.NetPortHeaderSyntax:
-			return {
-				"kind": "NetPortHeaderSyntax",
-				"type": get_datatype_info(getattr(node, "dataType", None)),
-				"direction": str(getattr(node, "direction", "")).strip(),
-				"netType": str(getattr(node, "netType", "")).strip(),
-			}
-
-		case pyslang.VariablePortHeaderSyntax:
-			return {
-				"kind": "VariablePortHeaderSyntax",
-				"constKeyword": str(getattr(node, "constKeyword", "")).strip(),
-				"type": get_datatype_info(getattr(node, "dataType", None)),
-				"direction": str(getattr(node, "direction", "")).strip(),
-				"varKeyword": str(getattr(node, "varKeyword", "")).strip(),
-			}
-
-		case _:
-			raise TypeError(f"Unhandled port-header node: {type(node)!r}")
-
-
-# ---------------------------------------------------------------------------
-# Parameter resolution
-# ---------------------------------------------------------------------------
-
-
-def resolve_parameters(param_list) -> dict[str, ParamInfo]:
-	params: dict[str, ParamInfo] = {}
-
-	for decl in getattr(param_list, "declarations", []):
-		if isinstance(decl, pyslang.Token):
-			continue
-
-		decl_type = getattr(decl, "type", "")
-		keyword = getattr(decl, "keyword", "")
-
-		for declarator in getattr(decl, "declarators", []):
-			if isinstance(declarator, pyslang.Token):
-				continue
-
-			match type(declarator):
-				case pyslang.DeclaratorSyntax:
-					name_tok, decl_dict = get_declarator(declarator)
-					if name_tok is None:
-						continue
-					params[name_tok.valueText] = {
-						"kind": "DeclaratorSyntax",
-						"keyword": str(keyword).strip(),
-						"decl": decl_dict,
-						"type": get_datatype_info(decl_type),
-					}
-
-				case pyslang.TypeAssignmentSyntax:
-					name_tok = getattr(declarator, "name", "")
-					assignment = getattr(declarator, "assignment", None)
-					assigned_t = getattr(assignment, "type", None) if assignment else None
-					params[name_tok.valueText] = {
-						"kind": "TypeAssignmentSyntax",
-						"type": get_datatype_info(assigned_t),
-					}
-
-				case _:
-					raise TypeError(f"Unhandled declarator type in parameters: {type(declarator)!r}")
-
-	return params
-
-
-# ---------------------------------------------------------------------------
-# Port resolution
-# ---------------------------------------------------------------------------
-
-
-def resolve_ports(
-	port_list: pyslang.AnsiPortListSyntax | pyslang.NonAnsiPortListSyntax | pyslang.WildcardPortListSyntax | None,
-) -> dict[str, PortInfo]:
-	ports: dict[str, PortInfo] = {}
-
-	if port_list is None:
-		return ports
-
-	# WildcardPortListSyntax (.*)  has no 'ports' iterable; return empty.
-	if isinstance(port_list, pyslang.WildcardPortListSyntax):
-		logger.debug("Wildcard port list encountered - skipping")
-		return ports
-
-	for decl in getattr(port_list, "ports", []):
-		if isinstance(decl, pyslang.Token):
-			continue
-
-		match type(decl):
-			# ------------------------------------------------------------------
-			# ANSI implicit port  (input logic clk)
-			# ------------------------------------------------------------------
-			case pyslang.ImplicitAnsiPortSyntax:
-				declarator = getattr(decl, "declarator", None)
-				header = getattr(decl, "header", None)
-				attributes = getattr(decl, "attributes", "")
-
-				name_tok = getattr(declarator, "name", "")
-				initializer = getattr(declarator, "initializer", None)
-				dimensions = "".join(str(d).strip() for d in getattr(declarator, "dimensions", []))
-				expr = str(getattr(initializer, "expr", "")).strip() if initializer else ""
-
-				header_val = get_port_header_info(header)
-
-				# Inherit direction from previous port when not explicit
-				if header_val and header_val.get("kind") != "InterfacePortHeaderSyntax" and not header_val.get("direction") and ports:
-					header_val = next(reversed(ports.values()))["header"]
-
-				ports[name_tok.valueText] = {
-					"kind": "ImplicitAnsiPortSyntax",
-					"attributes": str(attributes).strip(),
-					"dimensions": dimensions,
-					"expr": expr,
-					"header": header_val,
-				}
-
-			# ------------------------------------------------------------------
-			# Non-ANSI implicit port  (clk)
-			# ------------------------------------------------------------------
-			case pyslang.ImplicitNonAnsiPortSyntax:
-				expr = getattr(decl, "expr", "")
-				name_tok = getattr(expr, "name", "")
-				select = getattr(expr, "select", None)
-
-				ports[name_tok.valueText] = {
-					"kind": "ImplicitNonAnsiPortSyntax",
-					"select": str(select).strip() if select is not None else None,
-				}
-
-			# ------------------------------------------------------------------
-			# Non-ANSI explicit port  (.clk(clk_sig))
-			# ------------------------------------------------------------------
-			case pyslang.ExplicitNonAnsiPortSyntax:
-				name_tok = getattr(decl, "name", "")
-				expr = getattr(decl, "expr", "")
-				expr_name = getattr(expr, "name", "")
-				expr_sel = getattr(expr, "select", None)
-
-				ports[name_tok.valueText] = {
-					"kind": "ExplicitNonAnsiPortSyntax",
-					"select": str(expr_sel).strip() if expr_sel is not None else None,
-					"signal": str(expr_name).strip(),
-				}
-
-			case pyslang.EmptyNonAnsiPortSyntax:
-				pass  # empty port slot - legal in SV, nothing to record
-
-			# ------------------------------------------------------------------
-			# Modport port list  (input clk, output data)
-			# ------------------------------------------------------------------
-			case pyslang.ModportSimplePortListSyntax | pyslang.ModportSubroutinePortListSyntax:
-				direction_tok = getattr(decl, "direction", None)
-				import_tok = getattr(decl, "importExport", None)
-				direction_str = str(direction_tok if direction_tok is not None else import_tok).strip()
-
-				for port in getattr(decl, "ports", []):
-					if isinstance(port, pyslang.Token):
-						continue
-
-					match type(port):
-						case pyslang.ModportExplicitPortSyntax:
-							name_tok = getattr(port, "name", "")
-							expr_tok = getattr(port, "expr", "")
-							ports[name_tok.valueText] = {
-								"kind": "ModportExplicitPortSyntax",
-								"expr": str(expr_tok).strip(),
-								"direction": direction_str,
-							}
-
-						case pyslang.ModportNamedPortSyntax:
-							name_tok = getattr(port, "name", "")
-							ports[name_tok.valueText] = {
-								"kind": "ModportNamedPortSyntax",
-								"direction": direction_str,
-							}
-
-						case pyslang.ModportSubroutinePortSyntax:
-							# FIX: was using undefined `_name` from outer scope.
-							proto = getattr(port, "prototype", "")
-							name_tok = getattr(proto, "name", "") if proto else getattr(port, "name", "")
-							ports[name_tok.valueText] = {
-								"kind": "ModportSubroutinePortSyntax",
-								"direction": str(proto).strip(),
-							}
-
-						case _:
-							raise TypeError(f"Unhandled modport port type: {type(port)!r}")
-
-			case _:
-				raise TypeError(f"Unhandled port declaration type: {type(decl)!r}")
-
-	return ports
-
-
-# ---------------------------------------------------------------------------
-# Member resolution
-# ---------------------------------------------------------------------------
-
-
-def resolve_members(members) -> MemberInfo:
-	port_dict: dict = {}
-	decl_dict: dict = {}
-	inst_dict: dict = {}
-	modp_dict: dict = {}
-
-	for member in members:
-		match type(member):
-			# ------------------------------------------------------------------
-			case pyslang.ModportDeclarationSyntax:
-				for item in getattr(member, "items", []):
-					name_tok = getattr(item, "name", "")
-					ports_sn = getattr(item, "ports", None)
-					modp_dict[name_tok.valueText] = {
-						"ports": resolve_ports(ports_sn),
-					}
-
-			# ------------------------------------------------------------------
-			case pyslang.DataDeclarationSyntax | pyslang.NetDeclarationSyntax:
-				modifiers = " ".join(str(m).strip() for m in getattr(member, "modifiers", []))
-				member_type = getattr(member, "type", None)
-				attributes = getattr(member, "attributes", "")
-				delay = getattr(member, "delay", "")
-				expansion_hint = getattr(member, "expansionHint", "")
-				net_type = getattr(member, "netType", "")
-				strength = getattr(member, "strength", "")
-
-				for declarator in getattr(member, "declarators", []):
-					if isinstance(declarator, pyslang.Token):
-						continue
-
-					match type(declarator):
-						case pyslang.DeclaratorSyntax:
-							name_tok, decl_info = get_declarator(declarator)
-							if name_tok is None:
-								continue
-							decl_dict[name_tok.valueText] = {
-								"kind": str(member.kind),
-								"attributes": str(attributes).strip(),
-								"modifiers": modifiers,
-								"netType": str(net_type).strip(),
-								"expansionHint": str(expansion_hint).strip(),
-								"strength": str(strength).strip(),
-								"delay": str(delay).strip(),
-								"decl": decl_info,
-								"type": get_datatype_info(member_type),
-							}
-
-						case _:
-							raise TypeError(f"Unhandled declarator in data/net decl: {type(declarator)!r}")
-
-			# ------------------------------------------------------------------
-			case pyslang.PortDeclarationSyntax:
-				header = getattr(member, "header", None)
-				attributes = getattr(member, "attributes", "")
-
-				for declarator in getattr(member, "declarators", []):
-					if isinstance(declarator, pyslang.Token):
-						continue
-
-					match type(declarator):
-						case pyslang.DeclaratorSyntax:
-							name_tok, decl_info = get_declarator(declarator)
-							if name_tok is None:
-								continue
-							port_dict[name_tok.valueText] = {
-								"kind": "DeclaratorSyntax",
-								"attributes": str(attributes).strip(),
-								"decl": decl_info,
-								"header": get_port_header_info(header),
-							}
-
-						case _:
-							raise TypeError(f"Unhandled declarator in port decl: {type(declarator)!r}")
-
-			# ------------------------------------------------------------------
-			case pyslang.HierarchyInstantiationSyntax | pyslang.PrimitiveInstantiationSyntax:
-				member_type = getattr(member, "type", "")
-				delay = getattr(member, "delay", "")
-				strength = getattr(member, "strength", "")
-
-				for inst in getattr(member, "instances", []):
-					decl = getattr(inst, "decl", None)
-					if decl is None:
-						continue
-					dims = getattr(decl, "dimensions", "")
-					name_tok = getattr(decl, "name", "")
-					inst_dict[name_tok.valueText] = {
-						"kind": str(member.kind),
-						"type": str(member_type).strip(),
-						"dimensions": str(dims).strip(),
-						"delay": str(delay).strip(),
-						"strength": str(strength).strip(),
-					}
-
-			# ------------------------------------------------------------------
-			case _:
-				logger.debug("Skipping unhandled member type: %s", type(member).__name__)
-
-	return {
-		"declarations": decl_dict,
-		"modports": modp_dict,
-		"instantiations": inst_dict,
-		"ports": port_dict,
-	}
-
-
-# ---------------------------------------------------------------------------
-# Module / header resolution
-# ---------------------------------------------------------------------------
-
-
-def resolve_header(header: pyslang.ModuleHeaderSyntax) -> tuple:
-	imports = getattr(header, "imports", "")
-	lifetime = getattr(header, "lifetime", "")
-	keyword = getattr(header, "moduleKeyword", "")
-	name = getattr(header, "name", "")
-	parameters = getattr(header, "parameters", None)
-	ports = getattr(header, "ports", None)
-
-	return name, {
-		"keyword": str(keyword).strip(),
-		"lifetime": str(lifetime).strip(),
-		"imports": str(imports).strip(),
-		"parameters": resolve_parameters(parameters),
-		"ports": resolve_ports(ports),
-	}
-
-
-def resolve_module(node: pyslang.ModuleDeclarationSyntax) -> tuple:
-	block_name = getattr(node, "blockName", None)
-	header = getattr(node, "header", None)
-	members = getattr(node, "members", [])
-	attributes = getattr(node, "attributes", "")
-
-	name_tok, header_dict = resolve_header(header)
-	member_dict = resolve_members(members)
-
-	return name_tok, {
-		"attributes": str(attributes).strip(),
-		"block_name": str(block_name).strip() if block_name is not None else None,
-		"headers": header_dict,
-		"members": member_dict,
-	}
-
-
-def resolve_tree(node: pyslang.CompilationUnitSyntax | pyslang.ModuleDeclarationSyntax) -> TreeData:
-	tree_data: TreeData = {}
-
-	# Handle the case where fromText returns a bare ModuleDeclarationSyntax.
-	if isinstance(node, pyslang.ModuleDeclarationSyntax):
-		name_tok, mdata = resolve_module(node)
-		tree_data[name_tok.valueText] = mdata
-		return tree_data
-
-	for member in getattr(node, "members", []):
-		if isinstance(member, pyslang.ModuleDeclarationSyntax):
-			name_tok, mdata = resolve_module(member)
-			tree_data[name_tok.valueText] = mdata
-		else:
-			logger.debug(
-				"resolve_tree: skipping top-level member of type %s (kind=%s)",
-				type(member).__name__,
-				getattr(member, "kind", "?"),
-			)
-
-	return tree_data
-
-
-# ---------------------------------------------------------------------------
-# File resolution
-# ---------------------------------------------------------------------------
-
-
-def resolve_files(fileset: list[str]) -> tuple[TreeData, list[str]]:
-	tree = pyslang.SyntaxTree.fromFiles(fileset)
-
-	resolved: list[str] = []
-	for member in getattr(tree.root, "members", []):
-		path = os.path.abspath(tree.sourceManager.getFileName(member.sourceRange.start))
-		if path not in resolved:
-			resolved.append(path)
-
-	tree = filter_comments_from_tree(tree)
-	return resolve_tree(tree.root), resolved
 
 
 # ---------------------------------------------------------------------------
@@ -530,196 +23,171 @@ def resolve_files(fileset: list[str]) -> tuple[TreeData, list[str]]:
 # ---------------------------------------------------------------------------
 
 
-def construct_datatype(info: DatatypeInfo) -> tuple[tuple[str, str, str], tuple[int, int, int]]:
-	match info.get("kind"):
-		case "IntegerTypeSyntax":
-			kw = info["keyword"]
-			sgn = info["signing"]
-			dim = info["dimensions"]
-			return (kw, sgn, dim), (len(kw), len(sgn), len(dim))
-
-		case "NamedTypeSyntax":
-			nm = info["name"]
-			return (nm, "", ""), (len(nm), 0, 0)
-
-		case "ImplicitTypeSyntax":
-			sgn = info["signing"]
-			dim = info["dimensions"]
-			return ("", sgn, dim), (0, len(sgn), len(dim))
-
-		case "KeywordTypeSyntax":
-			kw = info["keyword"]
-			return (kw, "", ""), (len(kw), 0, 0)
-
-		case _:
-			raise ValueError(f"Unknown datatype kind: {info.get('kind')!r}")
+def _param_decl_str(name: str, pdecl: ParamDecl, mapped: str) -> str:
+	"""Format a single parameter declaration line for the wrapper module."""
+	parts = [pdecl.keyword, pdecl.type_str, mapped]
+	if pdecl.default_str:
+		parts.append(f"= {pdecl.default_str}")
+	return " ".join(p for p in parts if p)
 
 
-def construct_port_header_info(
-	info: PortInfo,
-) -> tuple[tuple[str, str, str, str], tuple[int, int, int, int]]:
-	match info.get("kind"):
-		case "InterfacePortHeaderSyntax":
-			iface = info["interface"]
-			mport = info["modport"]
-			full = f"{iface}.{mport}" if mport else iface
-			return (full, "", "", ""), (len(full), 0, 0, 0)
+def _port_decl_str(pdecl: PortDecl) -> str:
+	"""Format a single port declaration line for a regular (non-interface) port."""
+	parts = [pdecl.direction, pdecl.type_str, pdecl.name]
+	return " ".join(p for p in parts if p)
 
-		case "NetPortHeaderSyntax":
-			dtype, _ = construct_datatype(info["type"])
-			dtype_s = " ".join(p for p in dtype if p)
-			direction = info["direction"]
-			net_type = info["netType"]
-			return (direction, net_type, dtype_s, ""), (len(direction), len(net_type), len(dtype_s), 0)
 
-		case "VariablePortHeaderSyntax":
-			const = info["constKeyword"]
-			dtype, _ = construct_datatype(info["type"])
-			dtype_s = " ".join(p for p in dtype if p)
-			direction = info["direction"]
-			var_kw = info["varKeyword"]
-			return (const, direction, var_kw, dtype_s), (len(const), len(direction), len(var_kw), len(dtype_s))
+def _iface_port_decl_str(sig: IfaceSignal, io_name: str, subbed_type: str) -> str:
+	"""Format a flat port declaration derived from an interface signal."""
+	parts = [sig.direction, subbed_type, io_name]
+	return " ".join(p for p in parts if p)
 
-		case _:
-			raise ValueError(f"Unknown port-header kind: {info.get('kind')!r}")
+
+# ---------------------------------------------------------------------------
+# SystemVerilogWrapper
+# ---------------------------------------------------------------------------
 
 
 class SystemVerilogWrapper:
-	def __init__(self, top: str, wrapper_top: str, wrapper_file: str, sources: list[str]) -> None:
-		logger.info(f"Create Wrapper for {top}")
+	def __init__(
+		self,
+		top: str,
+		wrapper_top: str,
+		wrapper_file: str,
+		sources: list[str],
+	) -> None:
+		logger.info("Create Wrapper for %s", top)
 
 		self.top = top
 		self.wrapper_top = wrapper_top
 		self.wrapper_file = wrapper_file
 
-		logger.debug(f"wrapper sources: {sources}")
+		logger.debug("wrapper sources: %s", sources)
 
 		os.makedirs(os.path.dirname(self.wrapper_file), exist_ok=True)
 
 		self._initialize_fileset(sources)
 		self._create_wrapper()
 
+	# ------------------------------------------------------------------
+	# Initialisation
+	# ------------------------------------------------------------------
+
 	def _initialize_fileset(self, fileset: list[str]) -> None:
-		logger.debug("Initializing and parsing fileset...")
-		self.pyslang_data, self.fileset = resolve_files(fileset)
+		logger.debug("Initialising and parsing fileset…")
+		self.module_data: dict[str, ModuleInfo] = resolve_modules(fileset)
+		logger.debug("Modules resolved: %s", list(self.module_data.keys()))
 
-	def _top_module_interface_ports(self) -> list[tuple[str, str, str]]:
+	# ------------------------------------------------------------------
+	# Interface-port helpers
+	# ------------------------------------------------------------------
 
-		pdata = self.pyslang_data[self.top]["headers"]["ports"]
-		return [
-			(name, info["header"]["interface"], info["header"]["modport"])
-			for name, info in pdata.items()
-			if info["header"].get("kind") == "InterfacePortHeaderSyntax"
-		]
+	def _top_interface_ports(self) -> list[tuple[str, str, str]]:
+		"""
+		Return ``[(port_name, interface_name, modport_name), …]`` for every
+		interface port on the top module.
+		"""
+		top_info = self.module_data[self.top]
+		return [(pname, pdecl.interface_name, pdecl.modport_name) for pname, pdecl in top_info.ports.items() if pdecl.is_interface]
+
+	# ------------------------------------------------------------------
+	# I/O resolution
+	# ------------------------------------------------------------------
 
 	def _resolve_wrapper_io(
 		self,
 	) -> tuple[list[str], list[str], list[str], dict[str, tuple]]:
-		logger.debug("Resolving wrapper IO...")
+		"""
+		Walk the top module and all interface ports it references, returning
+		four flat lists / dicts that ``_create_wrapper`` formats into SV:
 
-		# (instance_name, module_name, modport) - top module listed first,
-		# then each interface port module.  Reversed so top ends up last in
-		# the instantiation list (matches original ordering intent).
-		flat_port_module_list: list[tuple[str, str, str]] = [(f"u_{self.top}", self.top, "")] + self._top_module_interface_ports()
+		* ``flat_params``     – parameter declaration strings
+		* ``flat_ports``      – port declaration strings
+		* ``flat_assign``     – ``assign`` statement strings
+		* ``instantiations``  – ``{fmt_string: (param_conns, port_conns)}``
+		"""
+		logger.debug("Resolving wrapper IO…")
+
+		top_info = self.module_data[self.top]
+
+		# Processing order: top module first, then one entry per interface port.
+		# The list is reversed when iterating so instantiation order matches
+		# the original behaviour (interface instances precede the top module).
+		flat_port_module_list: list[tuple[str, str, str]] = [(f"u_{self.top}", self.top, "")] + self._top_interface_ports()
 
 		flat_params: list[str] = []
 		flat_ports: list[str] = []
 		flat_assign: list[str] = []
 		instantiations: dict[str, tuple] = {}
 
-		for p_name, module, modport in reversed(flat_port_module_list):
-			inst_ports: list[tuple[str, str]] = []
+		for inst_name, module_name, modport_name in reversed(flat_port_module_list):
+			mod_info = self.module_data[module_name]
 			inst_params: list[tuple[str, str]] = []
+			inst_ports: list[tuple[str, str]] = []
 			param_map: dict[str, str] = {}
 
-			# ---- parameters ------------------------------------------------
-			for pname, pval in self.pyslang_data[module]["headers"]["parameters"].items():
-				dtype, _ = construct_datatype(pval["type"])
-				keyword = pval.get("keyword", "")
-				decl = pval.get("decl", {})
-				dims = decl.get("dimensions", "")
-				expr = decl.get("expr", "")
-
+			# ---- parameters ----------------------------------------
+			for pname, pdecl in mod_info.params.items():
 				# Prefix parameter names for interface modules to avoid clashes
-				mapped = pname if module == self.top else f"{p_name.upper()}_{pname}"
+				# with the top module's own parameters.
+				mapped = pname if module_name == self.top else f"{inst_name.upper()}_{pname}"
 				param_map[pname] = mapped
 				inst_params.append((f".{pname}", f"({mapped})"))
+				flat_params.append(_param_decl_str(pname, pdecl, mapped))
 
-				parts = [keyword] + [p for p in dtype if p] + [mapped, dims]
-				if expr:
-					parts.append(f"= {expr}")
-				flat_params.append(" ".join(p for p in parts if p))
-
-			# ---- ports -----------------------------------------------------
-			if module == self.top:
-				port_items = self.pyslang_data[module]["headers"]["ports"].items()
-			elif modport:
-				port_items = self.pyslang_data[module]["members"]["modports"][modport]["ports"].items()
-			else:
-				port_items = iter(())
-
-			# Build regex only when there are parameters to substitute
+			# Build a substitution function for parameter name replacement
+			# inside interface signal types (e.g. WIDTH → U_M_AXI_WIDTH).
 			if param_map:
-				_re_params = re.compile("|".join(re.escape(k) for k in param_map))
+				_pat = re.compile(r"\b(" + "|".join(re.escape(k) for k in param_map) + r")\b")
 
-				def _sub_params(s: str) -> str:
-					return _re_params.sub(lambda m: param_map[m.group(0)], s)
+				def _sub(s: str, _pm: dict = param_map, _re: re.Pattern = _pat) -> str:
+					return _re.sub(lambda m: _pm[m.group(0)], s)
 			else:
 
-				def _sub_params(s: str) -> str:  # type: ignore[misc]
+				def _sub(s: str) -> str:  # type: ignore[misc]
 					return s
 
-			for name, value in port_items:
-				if module != self.top:
-					direction = value["direction"]
-					declaration = self.pyslang_data[module]["members"]["declarations"][name]
-					dtype, _ = construct_datatype(declaration["type"])
-					dims = declaration["decl"]["dimensions"]
-
-					attrs = declaration["attributes"]
-					mods = declaration["modifiers"]
-					net_type = declaration["netType"]
-					strength = declaration["strength"]
-					exp_hint = declaration["expansionHint"]
-
-					io_pname = f"{p_name}_{name}"
-					parts = [
-						attrs,
-						direction,
-						mods,
-						net_type,
-						strength,
-						exp_hint,
-						*dtype,
-						io_pname,
-						dims,
-					]
-					type_str = _sub_params(" ".join(p for p in parts if p))
-					flat_ports.append(type_str)
-
-					if "output" in direction:
-						flat_assign.append(f"assign {io_pname} = {p_name}.{name};")
+			# ---- ports ---------------------------------------------
+			if module_name == self.top:
+				# Emit every non-interface port as a flat wrapper port and
+				# connect it directly to the top instance by name.
+				for pname, pdecl in mod_info.ports.items():
+					if pdecl.is_interface:
+						# Connect to the interface instance (same name as port)
+						inst_ports.append((f".{pname}", f"({pname})"))
 					else:
-						flat_assign.append(f"assign {p_name}.{name} = {io_pname};")
+						inst_ports.append((f".{pname} ", f"({pname})"))
+						flat_ports.append(_port_decl_str(pdecl))
 
-				else:
-					inst_ports.append((f".{name} ", f"({name})"))
-					if value["header"].get("kind") != "InterfacePortHeaderSyntax":
-						attrs = value["attributes"]
-						dims = value["dimensions"]
-						hdr, _ = construct_port_header_info(value["header"])
-						parts = [attrs, *hdr, name, dims]
-						flat_ports.append(" ".join(p for p in parts if p))
+			else:
+				# Interface module: expand modport signals into flat ports and
+				# connect via assign statements.
+				# The signals for this port live in top_info.iface_signals,
+				# keyed by the port name (= inst_name for interface entries).
+				signals = top_info.iface_signals.get(inst_name, {})
+				for sig_name, sig in signals.items():
+					io_pname = f"{inst_name}_{sig_name}"
+					type_str = _sub(sig.type_str)
+					flat_ports.append(_iface_port_decl_str(sig, io_pname, type_str))
 
-			instantiations[f"{module} #({{}}) {p_name} ({{}});"] = (
+					if "output" in sig.direction:
+						flat_assign.append(f"assign {io_pname} = {inst_name}.{sig_name};")
+					else:
+						flat_assign.append(f"assign {inst_name}.{sig_name} = {io_pname};")
+
+			instantiations[f"{module_name} #({{}}) {inst_name} ({{}});"] = (
 				inst_params,
 				inst_ports,
 			)
 
 		return flat_params, flat_ports, flat_assign, instantiations
 
+	# ------------------------------------------------------------------
+	# SV file generation
+	# ------------------------------------------------------------------
+
 	def _create_wrapper(self) -> None:
-		logger.debug("Creating wrapper...")
+		logger.debug("Creating wrapper…")
 		flat_params, flat_ports, flat_assign, instantiations = self._resolve_wrapper_io()
 
 		param_block = ",\n\t".join(flat_params).strip().rstrip(",")
@@ -757,7 +225,7 @@ class SystemVerilogWrapper:
 
 
 # ---------------------------------------------------------------------------
-# CLI
+# CLI (unchanged)
 # ---------------------------------------------------------------------------
 
 

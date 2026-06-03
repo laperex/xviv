@@ -92,3 +92,12 @@ class SynthParams:
 	usr_access_type: str = "git"
 	resume: str | None = None
 	parallel_subcore_synth: bool = False
+
+
+@dataclasses.dataclass
+class ValidateParams:
+	design: str | None = None
+	bd: str | None = None
+	core: str | None = None
+
+	io: bool = True

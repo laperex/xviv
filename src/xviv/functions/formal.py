@@ -202,7 +202,7 @@ def run_formal(
 	logger.debug("[formal:%s] wrote %s", cfg.name, sby_path)
 
 	if dry_run:
-		logger.info("[formal:%s] dry-run — skipping sby execution", cfg.name)
+		logger.info("[formal:%s] dry-run - skipping sby execution", cfg.name)
 		logger.debug("[formal:%s] .sby content:\n%s", cfg.name, sby_path.read_text())
 		return FormalResult(
 			name=cfg.name,
@@ -227,7 +227,7 @@ def run_formal(
 			force=True,
 		).run()
 	except JobFailedError:
-		# sby exits non-zero on FAIL/UNKNOWN/ERROR — this is expected.
+		# sby exits non-zero on FAIL/UNKNOWN/ERROR - this is expected.
 		# We determine the true status from the output directory below.
 		pass
 	except CalledProcessError:
@@ -339,7 +339,7 @@ def cmd_formal(
 	)
 
 	# ------------------------------------------------------------------
-	# Execute — parallel or sequential
+	# Execute - parallel or sequential
 	# ------------------------------------------------------------------
 	results: list[FormalResult] = []
 
@@ -391,7 +391,7 @@ def cmd_formal(
 	logger.info("  %s", divider)
 
 	for result in results:
-		elapsed_str = f"{result.elapsed:.0f}s" if result.elapsed is not None else "—"
+		elapsed_str = f"{result.elapsed:.0f}s" if result.elapsed is not None else "-"
 		status_tag = _format_status(result)
 		logger.info(
 			"  %-32s  %-8s  %s  %s(%s)%s",
