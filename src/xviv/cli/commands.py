@@ -37,7 +37,7 @@ from xviv.functions.formal import cmd_formal
 from xviv.functions.ip import cmd_ip_create, cmd_ip_edit
 from xviv.functions.simulation import cmd_simulate, cmd_wdb_open, cmd_wdb_reload
 from xviv.functions.synthesis import cmd_dcp_open, cmd_synth
-from xviv.functions.validate import cmd_validate_io
+from xviv.functions.validate import cmd_validate_synth
 from xviv.utils import error
 
 # from xviv.functions.formal import cmd_formal
@@ -417,7 +417,6 @@ class ValidateCommand(Command):
 		super().register(sub)
 		c = cls.c
 
-		# Sub-command: "synth" selects the synth target to validate.
 		sub2 = c.add_subparsers(dest="validate_sub", metavar="SUBCOMMAND")
 		synth_p = sub2.add_parser("synth", help="Validate a synth target's I/O constraints")
 
@@ -428,12 +427,6 @@ class ValidateCommand(Command):
 	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
 		super().run(cfg, args)
 
-		if args.validate_sub != "synth":
-			self.c.print_help()
-			self.c.exit(2, "\nSpecify a sub-command, e.g.:  xviv validate synth --design NAME\n")
-
-		# io_flag = getattr(args, "io", "true").lower() != "false"
-
 		params = ValidateParams(
 			design=getattr(args, "design", None),
 			bd=getattr(args, "bd", None),
@@ -441,5 +434,10 @@ class ValidateCommand(Command):
 			io=args.io,
 		)
 
-		if params.io:
-			cmd_validate_io(cfg, params)
+		match args.validate_sub:
+			case "synth":
+				cmd_validate_synth(cfg, params)
+
+			case _:
+				self.c.print_help()
+				self.c.exit(2, "\nSpecify a sub-command, e.g.:  xviv validate synth --design NAME\n")

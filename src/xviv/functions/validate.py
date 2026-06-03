@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 import re
-import sys
 from dataclasses import dataclass
 from typing import Dict, List, Optional
 
@@ -216,52 +215,58 @@ def print_io_report(
 	xdc_parser: XDCParser,
 	xdc_paths: List[str],
 	rtl_paths: List[str],
-) -> int:
+) -> None:
 	def get_timing(c: PortConstraint) -> str:
 		if c.is_clock:
 			ps = f"{c.clock_period_ns:.2f}ns" if c.clock_period_ns else "?"
 			return theme_cfg.bold(theme_cfg.cyan(f"CLK({ps})"))  # bold cyan
-		if c.has_false_path:   return theme_cfg.dim("FP")
-		if c.has_input_delay:  return theme_cfg.green("IN_DLY")
-		if c.has_output_delay: return theme_cfg.green("OUT_DLY")
-		if c.has_max_delay:    return theme_cfg.dim("MAX_DLY")
-		if c.has_set_logic:    return theme_cfg.dim("SET_LGC")
+		if c.has_false_path:
+			return theme_cfg.dim("FP")
+		if c.has_input_delay:
+			return theme_cfg.green("IN_DLY")
+		if c.has_output_delay:
+			return theme_cfg.green("OUT_DLY")
+		if c.has_max_delay:
+			return theme_cfg.dim("MAX_DLY")
+		if c.has_set_logic:
+			return theme_cfg.dim("SET_LGC")
 		return theme_cfg.dim("-")
-
 
 	def row_status(r: LintResult) -> str:
 		if r.no_xdc_entry:
-			return theme_cfg.fail("FAIL")
-		if r.missing_pkg_pin or r.missing_iostd or r.missing_clk_def: return theme_cfg.warn("WARN")
+			return theme_cfg.fail("ERROR")
+		if r.missing_pkg_pin or r.missing_iostd or r.missing_clk_def:
+			return theme_cfg.warn("WARN")
 		return theme_cfg.ok("OK")
 
-
 	def pkg_pin_str(c: PortConstraint, no_xdc: bool) -> str:
-		if c.package_pin: return c.package_pin                
-		if not no_xdc:    return theme_cfg.error("MISSING")
+		if c.package_pin:
+			return c.package_pin
+		if not no_xdc:
+			return theme_cfg.error("MISSING")
 		return theme_cfg.dim("-")
 
-
 	def iostd_str(c: PortConstraint, no_xdc: bool) -> str:
-		if c.iostandard: return theme_cfg.bold(c.iostandard)  
-		if not no_xdc:   return theme_cfg.error("MISSING")
+		if c.iostandard:
+			return theme_cfg.bold(c.iostandard)
+		if not no_xdc:
+			return theme_cfg.error("MISSING")
 		return theme_cfg.dim("-")
 
 	def dir_str(c: str) -> str:
-		if c == 'In':
+		if c == "In":
 			return theme_cfg.cyan(c)
 
 		return theme_cfg.magenta(c)
 
 	def type_str(c: str) -> str:
-		if c == '<error>':
+		if c == "<error>":
 			return theme_cfg.error("MISSING")
 
 		if c:
 			return c
 
 		return theme_cfg.dim("-")
-
 
 	# --- Build table rows ---
 
@@ -274,7 +279,7 @@ def print_io_report(
 	for port_name, group in port_groups.items():
 		pi = group[0].port_info
 
-		all_ok    = all(not (r.no_xdc_entry or r.missing_pkg_pin or r.missing_iostd) for r in group)
+		all_ok = all(not (r.no_xdc_entry or r.missing_pkg_pin or r.missing_iostd) for r in group)
 		all_nocon = all(r.no_xdc_entry for r in group)
 		bus_compact = pi.width > 1 and (all_ok or all_nocon)
 
@@ -283,16 +288,16 @@ def print_io_report(
 
 			if bus_compact and i == 0:
 				status = theme_cfg.fail("FAIL") if all_nocon else theme_cfg.ok("OK")
-				name   = _truncate_str(f"{port_name}[{pi.lsb}..{pi.msb}]")
-				direc  = dir_str(pi.direction)
-				type_  = type_str(pi.type_str)
-			elif bus_compact:           # i > 0: repeat rows for remaining bus bits
+				name = _truncate_str(f"{port_name}[{pi.lsb}..{pi.msb}]")
+				direc = dir_str(pi.direction)
+				type_ = type_str(pi.type_str)
+			elif bus_compact:  # i > 0: repeat rows for remaining bus bits
 				status = name = direc = type_ = ""
-			else:                       # width==1  or  mixed status
+			else:  # width==1  or  mixed status
 				status = row_status(r)
-				name   = _truncate_str(r.port_bit)
-				direc  = dir_str(r.direction)
-				type_  = type_str(r.port_info.type_str)
+				name = _truncate_str(r.port_bit)
+				direc = dir_str(r.direction)
+				type_ = type_str(r.port_info.type_str)
 
 			rows.append([status, name, direc, type_, pkg_pin_str(c, r.no_xdc_entry), iostd_str(c, r.no_xdc_entry), get_timing(c)])
 
@@ -310,7 +315,7 @@ def print_io_report(
 	# 	print(theme_cfg.yellow(f"XDC warning: {w}"))
 
 	t = AsciiTable(
-		title="PORT COVERAGE",
+		title="I/O COVERAGE",
 		headers=["Status", "Port", "Dir", "Type", "PKG_PIN", "IOSTANDARD", "Timing"],
 		# max_widths=[6, 30],
 	)
@@ -321,16 +326,18 @@ def print_io_report(
 	t.print()
 
 	# # --- Issues ---
-	errors   = linter.errors
+	errors = linter.errors
 	warnings = linter.warnings
-	stale    = linter.stale_patterns
+	stale = linter.stale_patterns
 
 	if errors or warnings or stale:
-		t = AsciiTable(title="ISSUES",)
+		t = AsciiTable(
+			title="I/O ISSUES",
+		)
 
 		for r in errors:
 			t.add_row(
-				theme_cfg.fail("FAIL"),
+				theme_cfg.fail("UNCONSTRAINED"),
 				r.port_bit,
 				dir_str(r.direction),
 				"no XDC entry",
@@ -342,11 +349,14 @@ def print_io_report(
 
 		for r in warnings:
 			issues = []
-			if r.missing_pkg_pin: issues.append("no PACKAGE_PIN")
-			if r.missing_iostd:   issues.append("no IOSTANDARD")
-			if r.missing_clk_def: issues.append("no create_clock")
+			if r.missing_pkg_pin:
+				issues.append("no PACKAGE_PIN")
+			if r.missing_iostd:
+				issues.append("no IOSTANDARD")
+			if r.missing_clk_def:
+				issues.append("no create_clock")
 			t.add_row(
-				theme_cfg.warn("WARN"),
+				theme_cfg.warn("PARTIALLY CONSTRAINED"),
 				r.port_bit,
 				dir_str(r.direction),
 				"  ·  ".join(issues),
@@ -358,7 +368,7 @@ def print_io_report(
 
 		for p in stale:
 			t.add_row(
-				theme_cfg.critical("STALE XDC"),
+				theme_cfg.critical("STALE"),
 				p,
 				"",
 				"",
@@ -387,7 +397,7 @@ def print_io_report(
 	# if not (errors or warnings or stale):
 	# 	print(theme_cfg.green("\nAll RTL ports are fully constrained."))
 	# 	return 0
-	return 1
+	# return 1
 
 
 # ---------------------------------------------------------------------------
@@ -395,12 +405,11 @@ def print_io_report(
 # ---------------------------------------------------------------------------
 
 
-def cmd_validate_io(cfg: XvivConfig, params: ValidateParams) -> None:
+def cmd_validate_synth(cfg: XvivConfig, params: ValidateParams) -> None:
 	design_name = params.design
 	bd_name = params.bd
 	core_name = params.core
 
-	# --- core: not yet implemented ----------------------------------------
 	if core_name:
 		logger.warning("validate synth --core is not yet implemented for standalone core targets.  Skipping validation.")
 		return
@@ -422,12 +431,10 @@ def cmd_validate_io(cfg: XvivConfig, params: ValidateParams) -> None:
 	top_module: Optional[str] = synth_cfg.top
 
 	if design_name:
-		# Sources come from the [[sources]] block of the [[design]] entry.
 		design_cfg = cfg.get_design(design_name)
 		rtl_files = [sf.file for sf in design_cfg.sources if sf.used_in_synth]
 
 	elif bd_name:
-		# For a BD target the single RTL source is the generated wrapper file.
 		bd_cfg = cfg.get_bd(bd_name)
 		rtl_files = [bd_cfg.bd_wrapper_file]
 
@@ -435,12 +442,10 @@ def cmd_validate_io(cfg: XvivConfig, params: ValidateParams) -> None:
 		logger.error("No RTL source files could be resolved for the validate target.")
 		return
 
-	# --- Parse XDC --------------------------------------------------------
 	xdc_parser = XDCParser()
 	for xdc_file in xdc_files:
 		xdc_parser.parse(xdc_file)
 
-	# --- Extract RTL ports ------------------------------------------------
 	rtl_extractor = RTLPortExtractor(rtl_files, top_module=top_module)
 
 	if rtl_extractor.errors and not rtl_extractor.ports:
@@ -448,21 +453,38 @@ def cmd_validate_io(cfg: XvivConfig, params: ValidateParams) -> None:
 			logger.error("RTL extraction failed: %s", e)
 		return
 
-	# --- Run lint ---------------------------------------------------------
-	linter = XDCLinter(
-		xdc_parser.port_constraints,
-		rtl_extractor.ports,
-		xdc_parser.clocks,
-	)
-	linter.run()
+	if params.io:
+		linter = XDCLinter(
+			xdc_parser.port_constraints,
+			rtl_extractor.ports,
+			xdc_parser.clocks,
+		)
+		linter.run()
 
-	# --- Report -----------------------------------------------------------
+		print_io_report(
+			linter,
+			rtl_extractor,
+			xdc_parser,
+			xdc_paths=xdc_files,
+			rtl_paths=rtl_files,
+		)
 
-	if rc := print_io_report(
-		linter,
-		rtl_extractor,
-		xdc_parser,
-		xdc_paths=xdc_files,
-		rtl_paths=rtl_files,
-	):
-		sys.exit(rc)
+	synth_cfg = cfg.get_synth(bd_name=params.bd, design_name=params.design, core_name=params.core)
+
+	print()
+	if bd_name:
+		print(f"BD - {bd_name}")
+	if design_name:
+		print(f"Design - {design_name}")
+	if core_name:
+		print(f"Core - {core_name}")
+	
+	print(f'Top - {synth_cfg.top}')
+	print(f'FPGA - {synth_cfg.fpga}')
+	
+	if fpga_cfg := cfg._get_fpga_cfg_optional(synth_cfg.fpga): ...
+		# logger.info()
+	else:
+		logger.error(f'FPGA - {synth_cfg.fpga} specified in [[synth]] not defined in config.')
+
+

@@ -1,24 +1,3 @@
-"""
-xviv.parsers.rtl
-~~~~~~~~~~~~~~~~
-RTL parsing via pyslang's Semantic API.
-
-Two layers are provided:
-
-``RTLPortExtractor``
-	Thin class used by the ``validate`` command — compiles files and yields
-	``PortInfo`` objects (one per physical port bit) needed for XDC linting.
-
-``resolve_modules``
-	Richer function used by the wrapper generator — returns a
-	``dict[name, ModuleInfo]`` containing fully-typed ports, parameters, and
-	expanded interface-port signal tables extracted entirely through the
-	pyslang Semantic API (``Compilation`` / ``topInstances`` / ``portList``).
-
-No syntax-tree walking remains in wrapper.py; all pyslang interaction lives
-here.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -41,8 +20,6 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class PortInfo:
-	"""A single top-level port bit, used by the XDC linter."""
-
 	name: str
 	direction: str  # "In" | "Out" | "InOut"
 	type_str: str  # e.g. "logic", "logic[7:0]"
@@ -51,7 +28,7 @@ class PortInfo:
 	width: int = 1
 
 	def expand_bits(self) -> List[str]:
-		"""Return individual bit names, e.g. ``["data[0]", "data[1]", ...]``."""
+
 		if self.width == 1:
 			return [self.name]
 		lo = min(self.lsb, self.msb)
@@ -60,18 +37,6 @@ class PortInfo:
 
 
 class RTLPortExtractor:
-	"""
-	Compile one or more RTL files and expose the port list of the
-	designated top module as ``PortInfo`` objects.
-
-	Parameters
-	----------
-	rtl_files:
-		``.v`` / ``.sv`` paths; all files compile together.
-	top_module:
-		Module to inspect; auto-selects the first top instance when *None*.
-	"""
-
 	def __init__(self, rtl_files: List[str], top_module: Optional[str] = None) -> None:
 		self.rtl_files = rtl_files
 		self.top_module = top_module
@@ -136,8 +101,6 @@ class RTLPortExtractor:
 
 @dataclass
 class PortDecl:
-	"""A port declaration on a module, resolved via the Semantic API."""
-
 	name: str
 	direction: str  # "input" | "output" | "inout" | "ref" | ""
 	type_str: str  # e.g. "logic[7:0]"; "" for interface ports
@@ -148,8 +111,6 @@ class PortDecl:
 
 @dataclass
 class ParamDecl:
-	"""A parameter (non-localparam) declaration."""
-
 	name: str
 	type_str: str  # e.g. "int", "logic"
 	default_str: str  # elaborated default, e.g. "8"
@@ -158,8 +119,6 @@ class ParamDecl:
 
 @dataclass
 class IfaceSignal:
-	"""One signal inside an interface, from a specific modport's perspective."""
-
 	name: str
 	direction: str  # "input" | "output" | "inout" — from modport's perspective
 	type_str: str  # source-form type tokens, e.g. "logic[WIDTH-1:0]"
@@ -167,16 +126,6 @@ class IfaceSignal:
 
 @dataclass
 class ModuleInfo:
-	"""
-	All information extracted from one module (or interface definition)
-	needed for wrapper generation.
-
-	``iface_signals``
-		Keyed by the **port name** on the owning top module (e.g. ``"m_axi"``).
-		Each value is ``{signal_name: IfaceSignal}`` giving the direction and
-		source-form type of every signal exposed by that modport.
-	"""
-
 	name: str
 	params: Dict[str, ParamDecl]
 	ports: Dict[str, PortDecl]
@@ -189,7 +138,7 @@ class ModuleInfo:
 
 
 def _parse_dims(type_str: str) -> Tuple[int, int, int]:
-	"""Extract (msb, lsb, width) from a type string such as ``logic[7:0]``."""
+
 	m = re.search(r"\[(\d+):(\d+)\]", type_str)
 	if m:
 		msb, lsb = int(m.group(1)), int(m.group(2))
@@ -206,20 +155,12 @@ _DIR_MAP: Dict[str, str] = {
 
 
 def _dir_kw(direction) -> str:
-	"""Convert a pyslang ``ArgumentDirection`` enum to an SV direction keyword."""
+
 	return _DIR_MAP.get(str(direction).split(".")[-1], "input")
 
 
 def _modport_dirs(modport_sym) -> Dict[str, str]:
-	"""
-	Return ``{signal_name: direction_keyword}`` for every port in a
-	``ModportSymbol`` by walking its syntax tree.
 
-	The path is:
-	``ModportItemSyntax.ports``          → ``AnsiPortListSyntax``
-		→ first child (``SeparatedList``)  → ``ModportSimplePortListSyntax`` items
-		→ ``ModportNamedPortSyntax`` / ``ModportExplicitPortSyntax``
-	"""
 	result: Dict[str, str] = {}
 	ports_list = modport_sym.syntax.ports  # AnsiPortListSyntax
 
@@ -246,13 +187,6 @@ def _modport_dirs(modport_sym) -> Dict[str, str]:
 
 
 def _iface_sig_types(idef_syntax) -> Dict[str, str]:
-	"""
-	Return ``{signal_name: source_type_str}`` for every variable declared
-	in an interface by walking its ``ModuleDeclarationSyntax`` members.
-
-	Source-form tokens are concatenated so that parameter references such as
-	``WIDTH`` are preserved for later substitution in the wrapper.
-	"""
 
 	def _tokens_text(node) -> str:
 		parts: List[str] = []
@@ -283,10 +217,7 @@ def _iface_sig_types(idef_syntax) -> Dict[str, str]:
 
 
 def _extract_params(body) -> Dict[str, ParamDecl]:
-	"""
-	Extract non-localparam ``ParamDecl`` objects from an
-	``InstanceBodySymbol`` via ``body.parameters``.
-	"""
+
 	params: Dict[str, ParamDecl] = {}
 	for p in body.parameters:
 		if p.isLocalParam:
@@ -307,14 +238,7 @@ def _extract_params(body) -> Dict[str, ParamDecl]:
 def _extract_iface_port(
 	p,
 ) -> Tuple[PortDecl, Optional["ModuleInfo"], Dict[str, IfaceSignal]]:
-	"""
-	From an ``InterfacePortSymbol`` return:
 
-	* ``PortDecl``          — the interface port entry for the top module
-	* ``ModuleInfo | None`` — ModuleInfo for the interface definition itself
-							(params only; no ports / iface_signals)
-	* ``dict``              — ``{signal_name: IfaceSignal}`` for the chosen modport
-	"""
 	iface_inst_sym, modport_sym = p.connection
 	iface_def = p.interfaceDef  # DefinitionSymbol
 	modport_name: str = p.modport  # plain string
@@ -353,10 +277,7 @@ def _extract_iface_port(
 
 
 def _resolve_module(inst) -> Tuple["ModuleInfo", Dict[str, "ModuleInfo"]]:
-	"""
-	Build ``ModuleInfo`` for one top-level ``InstanceSymbol`` and return any
-	interface definitions it references as a secondary dict.
-	"""
+
 	params = _extract_params(inst.body)
 	ports: Dict[str, PortDecl] = {}
 	iface_signals: Dict[str, Dict[str, IfaceSignal]] = {}
@@ -391,12 +312,7 @@ def _resolve_module(inst) -> Tuple["ModuleInfo", Dict[str, "ModuleInfo"]]:
 
 
 def resolve_modules(files: List[str]) -> Dict[str, ModuleInfo]:
-	"""
-	Compile *files* and return ``{module_name: ModuleInfo}`` for every
-	top-level module found, plus any interface definitions they reference.
 
-	This is the single entry point used by the wrapper generator.
-	"""
 	if not files:
 		raise ValueError("resolve_modules: no source files provided")
 

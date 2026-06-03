@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 
 def _param_decl_str(name: str, pdecl: ParamDecl, mapped: str) -> str:
-	"""Format a single parameter declaration line for the wrapper module."""
+
 	parts = [pdecl.keyword, pdecl.type_str, mapped]
 	if pdecl.default_str:
 		parts.append(f"= {pdecl.default_str}")
@@ -32,13 +32,13 @@ def _param_decl_str(name: str, pdecl: ParamDecl, mapped: str) -> str:
 
 
 def _port_decl_str(pdecl: PortDecl) -> str:
-	"""Format a single port declaration line for a regular (non-interface) port."""
+
 	parts = [pdecl.direction, pdecl.type_str, pdecl.name]
 	return " ".join(p for p in parts if p)
 
 
 def _iface_port_decl_str(sig: IfaceSignal, io_name: str, subbed_type: str) -> str:
-	"""Format a flat port declaration derived from an interface signal."""
+
 	parts = [sig.direction, subbed_type, io_name]
 	return " ".join(p for p in parts if p)
 
@@ -83,10 +83,7 @@ class SystemVerilogWrapper:
 	# ------------------------------------------------------------------
 
 	def _top_interface_ports(self) -> list[tuple[str, str, str]]:
-		"""
-		Return ``[(port_name, interface_name, modport_name), …]`` for every
-		interface port on the top module.
-		"""
+
 		top_info = self.module_data[self.top]
 		return [(pname, pdecl.interface_name, pdecl.modport_name) for pname, pdecl in top_info.ports.items() if pdecl.is_interface]
 
@@ -97,15 +94,7 @@ class SystemVerilogWrapper:
 	def _resolve_wrapper_io(
 		self,
 	) -> tuple[list[str], list[str], list[str], dict[str, tuple]]:
-		"""
-		Walk the top module and all interface ports it references, returning
-		four flat lists / dicts that ``_create_wrapper`` formats into SV:
 
-		* ``flat_params``     – parameter declaration strings
-		* ``flat_ports``      – port declaration strings
-		* ``flat_assign``     – ``assign`` statement strings
-		* ``instantiations``  – ``{fmt_string: (param_conns, port_conns)}``
-		"""
 		logger.debug("Resolving wrapper IO…")
 
 		top_info = self.module_data[self.top]
