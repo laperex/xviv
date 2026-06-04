@@ -17,14 +17,6 @@ from xviv.utils.tools import find_vivado_dir_path
 
 logger = logging.getLogger(__name__)
 
-import sys
-
-if sys.version_info >= (3, 12):
-    from typing import override
-else:
-    def override(f):   # no-op shim for Python 3.11
-        return f
-
 class ToolRunner:
 	# Base runner for tools
 	_PREFIX_MAP: dict[str, int] = {}
@@ -85,7 +77,6 @@ class XilinxToolRunner(ToolRunner):
 		"INFO:": logging.INFO,
 	}
 
-	@override
 	def _run_internal(self, jobs: list[Job], *, max_workers: int | None = None) -> None:
 		n = max_workers if max_workers is not None else self._DEFAULT_WORKERS
 		try:
