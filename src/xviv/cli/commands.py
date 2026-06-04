@@ -429,7 +429,7 @@ class ValidateCommand(Command):
 
 		target_group(synth_p, exclusive=True, required=True, bd=True, design=True, core=True)
 
-		synth_p.add_argument("--io", action="store_true", help="Run I/O constraint check", default=False, required=False)
+		synth_p.add_argument("--io", metavar="LEVEL", choices=["info", "error"], help="Run I/O constraint check", default=None, required=False)
 
 	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
 		super().run(cfg, args)

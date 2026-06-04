@@ -169,11 +169,7 @@ def _truncate_str(s: str, MAX_NAME=30) -> str:
 
 
 def print_io_report(
-	linter: XDCLinter,
-	rtl_extractor: RTLPortExtractor,
-	xdc_parser: XDCParser,
-	xdc_paths: list[str],
-	rtl_paths: list[str],
+	linter: XDCLinter, rtl_extractor: RTLPortExtractor, xdc_parser: XDCParser, xdc_paths: list[str], rtl_paths: list[str], error_only: bool = False
 ) -> None:
 	def get_timing(c: PortConstraint) -> str:
 		if c.is_clock:
@@ -229,6 +225,13 @@ def print_io_report(
 
 	# --- Build table rows ---
 
+	errors = linter.errors
+	warnings = linter.warnings
+	stale = linter.stale_patterns
+
+	if not errors and not warnings and not stale:
+		error_only = False
+
 	rows: list[list[str]] = []
 
 	port_groups: dict[str, list[LintResult]] = {}
@@ -261,34 +264,29 @@ def print_io_report(
 			if not status and not name and not direc and not type_:
 				continue
 
+			if error_only and "OK" in status:
+				continue
+
 			rows.append([status, name, direc, type_, pkg_pin_str(c, r.no_xdc_entry), iostd_str(c, r.no_xdc_entry), get_timing(c)])
 
-	t = AsciiTable(
-		title="I/O COVERAGE",
-		headers=["STATUS", "Port", "Dir", "Type", "PKG_PIN", "IOSTANDARD", "Timing"],
-	)
+	if rows:
+		t = AsciiTable(
+			title="I/O COVERAGE" + (" ERRORS" if error_only else "") + (" - OK" if not errors and not warnings and not stale else ""),
+			headers=["STATUS", "Port", "Dir", "Type", "PKG_PIN", "IOSTANDARD", "Timing"],
+		)
 
-	for row in rows:
-		t.add_row(*row)
-	t.print()
+		for row in rows:
+			t.add_row(*row)
+		t.print()
 
 	# # --- Issues ---
-	errors = linter.errors
-	warnings = linter.warnings
-	stale = linter.stale_patterns
-
 	if errors or warnings or stale:
 		t = AsciiTable(
-			title="I/O ISSUES",
+			title="I/O ISSUES" + (" ERRORS" if error_only else ""),
 		)
 
 		for r in errors:
-			t.add_row(
-				theme_cfg.fail("UNCONSTRAINED"),
-				r.port_bit,
-				dir_str(r.direction),
-				"no XDC entry",
-			)
+			t.add_row(theme_cfg.fail("UNCONSTRAINED"), r.port_bit, dir_str(r.direction), "no XDC entry", "RTL")
 
 		if warnings:
 			if errors:
@@ -302,24 +300,14 @@ def print_io_report(
 				issues.append("no IOSTANDARD")
 			if r.missing_clk_def:
 				issues.append("no create_clock")
-			t.add_row(
-				theme_cfg.warn("PARTIALLY CONSTRAINED"),
-				r.port_bit,
-				dir_str(r.direction),
-				"  ·  ".join(issues),
-			)
+			t.add_row(theme_cfg.warn("PARTIALLY CONSTRAINED"), r.port_bit, dir_str(r.direction), "  ·  ".join(issues), "RTL")
 
 		if stale:
 			if errors or warnings:
 				t.add_divider()
 
 		for p in stale:
-			t.add_row(
-				theme_cfg.critical("STALE"),
-				p,
-				"",
-				"",
-			)
+			t.add_row(theme_cfg.critical("STALE"), p, "", "", "XDC")
 
 		t.print()
 
@@ -482,10 +470,4 @@ def cmd_validate_synth(cfg: XvivConfig, params: ValidateParams) -> None:
 		)
 		linter.run()
 
-		print_io_report(
-			linter,
-			rtl_extractor,
-			xdc_parser,
-			xdc_paths=xdc_files,
-			rtl_paths=rtl_files,
-		)
+		print_io_report(linter, rtl_extractor, xdc_parser, xdc_paths=xdc_files, rtl_paths=rtl_files, error_only=(params.io == "error"))

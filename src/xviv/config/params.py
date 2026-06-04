@@ -96,8 +96,7 @@ class SynthParams:
 
 @dataclasses.dataclass
 class ValidateParams:
+	io: str | None = None
 	design: str | None = None
 	bd: str | None = None
 	core: str | None = None
-
-	io: bool = True
