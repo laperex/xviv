@@ -89,7 +89,6 @@ class SimulateParams:
 
 @dataclasses.dataclass
 class SynthParams:
-	usr_access_type: str = "git"
 	resume: str | None = None
 	parallel_subcore_synth: bool = False
 

@@ -27,6 +27,7 @@ from xviv.generator.wrapper import SystemVerilogWrapper
 from xviv.parsers.bd_json import get_bd_core_list
 from xviv.utils import error
 from xviv.utils.fs import resolve_globs
+from xviv.utils.git import _git_sha_tag
 
 
 class XvivConfig:
@@ -99,29 +100,33 @@ class XvivConfig:
 
 		self._catalog_cfg: Catalog | None = None
 
-	def generate_lock(self, lock_file: str | None = None) -> None:
+	def generate_lock(self, lock_file: str | None = None, base_dir: str | None = None) -> None:
 		if lock_file is None:
 			lock_file = os.path.join(self.base_dir, "project.lock")
 
+		if base_dir is None:
+			base_dir = self.base_dir
+
 		raw_lock_dict = [
-			("project", self.project_cfg.to_lock(self.base_dir)),
+			("project", self.project_cfg.to_lock(base_dir)),
 			("fpga", [c.to_lock() for c in self._fpga_list]),
-			("ip", [c.to_lock(self.base_dir) for c in self._ip_list]),
-			("wrapper", [c.to_lock(self.base_dir) for c in self._wrapper_list]),
-			("core", [c.to_lock(self.base_dir) for c in self._core_list]),
-			("subcore", [c.to_lock() for c in self._subcore_list if c.bd is not None]),
-			("synth", [c.to_lock(self.base_dir) for c in self._synth_list if c.core is not None]),
-			("bd", [c.to_lock(self.base_dir) for c in self._bd_list]),
-			("design", [c.to_lock(self.base_dir) for c in self._design_list]),
-			("subcore", [c.to_lock() for c in self._subcore_list if c.bd is None]),
-			("synth", [c.to_lock(self.base_dir) for c in self._synth_list if c.core is None]),
-			("platform", [c.to_lock(self.base_dir) for c in self._platform_list]),
-			("app", [c.to_lock(self.base_dir) for c in self._app_list]),
-			("simulation", [c.to_lock(self.base_dir) for c in self._sim_list]),
+			("ip", [c.to_lock(base_dir) for c in self._ip_list]),
+			("wrapper", [c.to_lock(base_dir) for c in self._wrapper_list]),
+			("core", [c.to_lock(base_dir) for c in self._core_list]),
+			("subcore", [c.to_lock() for c in self._subcore_list]),
+			("synth", [c.to_lock(base_dir) for c in self._synth_list]),
+			("bd", [c.to_lock(base_dir) for c in self._bd_list]),
+			("design", [c.to_lock(base_dir) for c in self._design_list]),
+			("platform", [c.to_lock(base_dir) for c in self._platform_list]),
+			("app", [c.to_lock(base_dir) for c in self._app_list]),
+			("simulation", [c.to_lock(base_dir) for c in self._sim_list]),
 			("uvm", [c.to_lock() for c in self._uvm_list]),
-			("formal", [c.to_lock(self.base_dir) for c in self._formal_list]),
+			("formal", [c.to_lock(base_dir) for c in self._formal_list]),
 		]
 
+		self._toml_writer(file=lock_file, raw_lock_dict=raw_lock_dict)
+
+	def _toml_writer(self, file: str, raw_lock_dict: list[tuple[str, typing.Any]]):
 		def _strip_none(obj: typing.Any) -> typing.Any:
 			if isinstance(obj, dict):
 				return {k: _strip_none(v) for k, v in obj.items() if v is not None}
@@ -135,8 +140,23 @@ class XvivConfig:
 			if stripped or isinstance(stripped, (bool, int, float)):
 				doc.add(key, stripped)
 
-		with open(lock_file, "w", encoding="utf-8") as f:
+		with open(file, "w", encoding="utf-8") as f:
 			f.write(tomlkit.dumps(doc))
+
+	def generate_synth_manifest(self, synth_cfg: SynthConfig, *, base_dir: str = "/") -> None:
+		raw_lock_dict = [("synth", [synth_cfg.to_lock(base_dir=base_dir)])]
+
+		if synth_cfg.bd:
+			bd_cfg = self.get_bd(synth_cfg.bd)
+			raw_lock_dict.append(("bd", [bd_cfg.to_lock(base_dir=base_dir)]))
+		if synth_cfg.core:
+			core_cfg = self.get_core(synth_cfg.core)
+			raw_lock_dict.append(("core", [core_cfg.to_lock(base_dir=base_dir)]))
+		if synth_cfg.design:
+			design_cfg = self.get_design(synth_cfg.design)
+			raw_lock_dict.append(("design", [design_cfg.to_lock(base_dir=base_dir)]))
+
+		self._toml_writer(raw_lock_dict=raw_lock_dict, file=synth_cfg.lock_file)
 
 	def build(self) -> typing.Self:
 		os.makedirs(self.work_dir, exist_ok=True)
@@ -542,7 +562,7 @@ class XvivConfig:
 		fpga: str | None = None,
 		top: str | None = None,
 		constraints: list[typing.Any] = [],
-		save_file: str | None = None,
+		lock_file: str | None = None,
 		run_synth: bool = True,
 		run_place: bool = True,
 		run_route: bool = True,
@@ -578,7 +598,7 @@ class XvivConfig:
 		place_directive: str = "default",
 		phys_opt_directive: str = "default",
 		route_directive: str = "default",
-		usr_access_value: int | None = None,
+		usr_access_value: int | str | None = None,
 	) -> typing.Self:
 		param_ids = [i for i in [design, core, bd] if i]
 
@@ -621,6 +641,14 @@ class XvivConfig:
 			if hw_platform is None:
 				hw_platform = False
 
+		if usr_access_value is None:
+			sha, dirty, _ = _git_sha_tag()
+
+			if sha:
+				usr_access_value = int(sha, 16) | (0x10000000 if dirty else 0)
+		elif isinstance(usr_access_value, str):
+			usr_access_value = int(usr_access_value, base=0)
+
 		if synth_mode == "out_of_context":
 			bitstream = bitstream or False
 			hw_platform = hw_platform or False
@@ -643,8 +671,8 @@ class XvivConfig:
 		synth_netlists_subdir = os.path.join(synth_subdir, "netlists")
 		synth_checkpoints_subdir = os.path.join(synth_subdir, "checkpoints")
 
-		if save_file is None:
-			save_file = os.path.join(synth_subdir, "synth.json")
+		if lock_file is None:
+			lock_file = os.path.join(synth_subdir, "synth.toml")
 
 		assert top is not None
 		assert fpga is not None
@@ -657,7 +685,7 @@ class XvivConfig:
 				fpga=fpga,
 				top=top,
 				constraints=self._resolve_sources(constraints, used_in_ooc=False, used_in_sim=False, used_in_impl=True, used_in_synth=True),
-				save_file=save_file,
+				lock_file=lock_file,
 				synth_incremental=synth_incremental,
 				run_synth=run_synth,
 				run_opt=run_opt,
@@ -1258,7 +1286,7 @@ class XvivConfig:
 
 	@property
 	def _get_ip_repo_default(self) -> str:
-		return self.__path_from_build_dir("ip")
+		return self._path_from_build_dir("ip")
 
 	@property
 	def _get_fpga_cfg_default(self) -> FpgaConfig:
@@ -1273,23 +1301,23 @@ class XvivConfig:
 
 	@property
 	def wrapper_dir(self):
-		return os.path.abspath(self.__path_from_build_dir("wrapper"))
+		return os.path.abspath(self._path_from_build_dir("wrapper"))
 
 	@property
 	def core_dir(self):
-		return os.path.abspath(self.__path_from_build_dir("core"))
+		return os.path.abspath(self._path_from_build_dir("core"))
 
 	@property
 	def synth_dir(self):
-		return os.path.abspath(self.__path_from_build_dir("synth"))
+		return os.path.abspath(self._path_from_build_dir("synth"))
 
 	@property
 	def bd_dir(self):
-		return os.path.abspath(self.__path_from_build_dir("bd"))
+		return os.path.abspath(self._path_from_build_dir("bd"))
 
 	@property
 	def scripts_dir(self):
-		return os.path.abspath(self.__path_from_base_dir(os.path.join("scripts", "xviv")))
+		return os.path.abspath(self._path_from_base_dir(os.path.join("scripts", "xviv")))
 
 	@property
 	def log_dir(self):
@@ -1297,12 +1325,12 @@ class XvivConfig:
 
 	@property
 	def formal_dir(self):
-		return os.path.abspath(self.__path_from_build_dir("formal"))
+		return os.path.abspath(self._path_from_build_dir("formal"))
 
-	def __path_from_build_dir(self, path: str):
+	def _path_from_build_dir(self, path: str):
 		return os.path.abspath(os.path.join(self.work_dir, path))
 
-	def __path_from_base_dir(self, path: str):
+	def _path_from_base_dir(self, path: str):
 		return os.path.abspath(os.path.join(self.base_dir, path))
 
 

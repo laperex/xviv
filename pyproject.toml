@@ -43,8 +43,19 @@ xviv_wrapper = "xviv.generator.wrapper:main"
 packages = ["src/xviv"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths  = ["tests"]
 pythonpath = ["src"]
+markers = [
+    "unit: pure unit tests",
+    "integration: multi-component tests with real file I/O",
+    "slow: tests with timing-sensitive concurrency checks",
+]
+
+[tool.coverage.run]
+source = ["xviv"]
+
+[tool.coverage.report]
+show_missing = true
 
 [tool.ruff]
 line-length = 150

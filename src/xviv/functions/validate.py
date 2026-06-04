@@ -400,22 +400,6 @@ def cmd_validate_synth(cfg: XvivConfig, params: ValidateParams) -> None:
 			logger.error("RTL extraction failed: %s", e)
 		return
 
-	if params.io:
-		linter = XDCLinter(
-			xdc_parser.port_constraints,
-			rtl_extractor.ports,
-			xdc_parser.clocks,
-		)
-		linter.run()
-
-		print_io_report(
-			linter,
-			rtl_extractor,
-			xdc_parser,
-			xdc_paths=xdc_files,
-			rtl_paths=rtl_files,
-		)
-
 	synth_cfg = cfg.get_synth(bd_name=params.bd, design_name=params.design, core_name=params.core)
 
 	print()
@@ -473,4 +457,35 @@ def cmd_validate_synth(cfg: XvivConfig, params: ValidateParams) -> None:
 
 	for file in xdc_files:
 		t_srcs.add_row(theme_cfg.green("OK") if os.path.exists(file) else theme_cfg.error("NOT FOUND"), file, "XDC", "")
+
 	t_srcs.print()
+
+	t_options = AsciiTable(
+		title="CONFIGURATION",
+		headers=["STAGE", "OPTION", "VALUE"],
+	)
+
+	for stage_idx, stage in enumerate(["synth", "opt", "place", "phys_opt", "route"]):
+		if stage_idx != 0:
+			t_options.add_divider()
+		for option_idx, option in enumerate(["directive", "mode", "flatten_hierarchy", "fsm_extraction"]):
+			if val := getattr(synth_cfg, f"{stage}_{option}", None):
+				t_options.add_row(stage if option_idx == 0 else "", option, val)
+
+	t_options.print()
+
+	if params.io:
+		linter = XDCLinter(
+			xdc_parser.port_constraints,
+			rtl_extractor.ports,
+			xdc_parser.clocks,
+		)
+		linter.run()
+
+		print_io_report(
+			linter,
+			rtl_extractor,
+			xdc_parser,
+			xdc_paths=xdc_files,
+			rtl_paths=rtl_files,
+		)

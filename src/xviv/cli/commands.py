@@ -366,9 +366,6 @@ class SynthCommand(Command):
 		c = cls.c
 		target_group(c, exclusive=True, required=True, bd=True, design=True, core=True)
 		c.add_argument(
-			"--usr-access-type", metavar="", help="Type of value to embed in bitstream (default: %(default)s)", default="git", required=False
-		)
-		c.add_argument(
 			"--resume",
 			metavar="STAGE",
 			choices=["auto", "synth", "place", "route"],
@@ -386,7 +383,6 @@ class SynthCommand(Command):
 			bd_name=args.bd,
 			core_name=args.core,
 			params=SynthParams(
-				usr_access_type=args.usr_access_type,
 				resume=args.resume,
 				parallel_subcore_synth=args.parallel,
 			),

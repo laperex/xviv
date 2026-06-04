@@ -14,6 +14,10 @@ def relpath_field(**kw) -> typing.Any:
 	return dataclasses.field(metadata={"lock": "relpath"}, **kw)
 
 
+def integer_hex_field(**kw) -> typing.Any:
+	return dataclasses.field(metadata={"lock": "hex"}, **kw)
+
+
 def sources_field(**kw) -> typing.Any:
 	return dataclasses.field(metadata={"lock": "sources"}, **kw)
 
@@ -38,6 +42,8 @@ def lock_serialize(obj: object, base_dir: str) -> dict:
 		match f.metadata.get("lock"):
 			case "relpath":
 				d[f.name] = _relpath(val, base_dir) if val else val
+			case "hex":
+				d[f.name] = hex(val) if val else val
 			case "sources":
 				d[f.name] = [{"file": _relpath(s.file, base_dir), "hash": s.hash, "used_in": sorted(s.used_in)} for s in val]
 			case "relpath_list":
@@ -261,13 +267,13 @@ class SynthConfig(Lockable):
 	phys_opt_directive: str
 	route_directive: str
 
-	usr_access_value: int | None
-
 	# sources
 
 	constraints: list[SourceFile] = sources_field()
 
-	save_file: str = relpath_field()
+	lock_file: str = relpath_field()
+
+	usr_access_value: int | None = integer_hex_field(default=None)
 
 	# checkpoints
 
@@ -309,7 +315,7 @@ class SynthConfig(Lockable):
 	def __post_init__(self) -> None:
 		for s in self.constraints:
 			s.file = os.path.abspath(s.file)
-		self.save_file = os.path.abspath(self.save_file)
+		self.lock_file = os.path.abspath(self.lock_file)
 
 		_optional_paths = (
 			"synth_dcp",
