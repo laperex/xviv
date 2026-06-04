@@ -9,16 +9,17 @@ from xviv.utils.tools import find_vitis_dir_path, find_vivado_dir_path
 
 
 def resolve_config_completer(prefix, parsed_args, **kwargs) -> str:
-	return resolve_config(getattr(parsed_args, "config", ""))
+	return resolve_config(getattr(parsed_args, "config", None))
 
 
-def resolve_config(explicit: str) -> str:
-	if os.path.exists(explicit):
-		return explicit
-
-	for candidate in ["project.toml"]:
-		if os.path.exists(candidate):
-			return candidate
+def resolve_config(explicit: str | None = None) -> str:
+	if explicit:
+		if os.path.exists(explicit):
+			return explicit
+	else:
+		for candidate in ["project.toml"]:
+			if os.path.exists(candidate):
+				return candidate
 
 	raise error.ProjectConfigTomlFileMissingError()
 

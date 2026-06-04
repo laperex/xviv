@@ -47,10 +47,13 @@ class VerilatorRunner(ToolRunner):
 
 		self.sequential_exec = True
 
-	def configure(self, target_dir: str, label: str, log_file: str, trace_fst: bool = False, trace: bool = False, uvm: bool = False) -> typing.Self:
+	def configure(
+		self, target_dir: str, label: str, compile_log_file: str, sim_log_file: str, trace_fst: bool = False, trace: bool = False, uvm: bool = False
+	) -> typing.Self:
 		self._target_dir = target_dir
 		self._label = label
-		self._log_file = log_file
+		self._compile_log_file = compile_log_file
+		self._sim_log_file = sim_log_file
 		self._trace_fst = trace_fst
 		self._trace = trace
 		self._uvm = uvm
@@ -122,7 +125,7 @@ class VerilatorRunner(ToolRunner):
 					label=self._label,
 					cmd=tuple(cmd),
 					cwd=self._target_dir,
-					log_file=self._log_file,
+					log_file=self._compile_log_file,
 					classifier=self.classify,
 					dry_run=self._cfg.dry_run,
 					interactive=False,
@@ -172,7 +175,7 @@ class VerilatorRunner(ToolRunner):
 					label=self._label,
 					cmd=tuple(cmd),
 					cwd=self._target_dir,
-					log_file=self._log_file,
+					log_file=self._sim_log_file,
 					classifier=self.classify,
 					dry_run=self._cfg.dry_run,
 					interactive=False,

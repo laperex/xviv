@@ -1,0 +1,22 @@
+{
+  "container_hier": {
+    "vlnv": "xilinx.com:ip:xlconcat:2.1",
+    "xci_name": "container_hier",
+    "xci_path": null,
+    "inst_hier_path": "design_1_i/container_hier",
+    "components": {
+      "leaf_ip_0": {
+        "vlnv": "user.org:user:leaf_ip:1.0",
+        "xci_name": "leaf_ip_0",
+        "xci_path": "ip/leaf_ip_0/leaf_ip_0.xci",
+        "inst_hier_path": "design_1_i/container_hier/leaf_ip_0"
+      }
+    }
+  },
+  "standalone_ip": {
+    "vlnv": "xilinx.com:ip:axi_gpio:2.0",
+    "xci_name": "standalone_ip",
+    "xci_path": "ip/standalone_ip/standalone_ip.xci",
+    "inst_hier_path": "design_1_i/standalone_ip"
+  }
+}

@@ -1,0 +1,14 @@
+[[fpga]]
+name = "artix"
+fpga_part = "xc7a100tcsg324-1"
+
+[[design]]
+name = "top_design"
+sources = []
+
+[[synth]]
+design = "top_design"
+run_route = false
+run_phys_opt = false
+bitstream = false
+hw_platform = false

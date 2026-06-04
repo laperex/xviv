@@ -1,0 +1,17 @@
+[[fpga]]
+name = "artix"
+fpga_part = "xc7a100tcsg324-1"
+
+[[fpga]]
+name = "zynq"
+fpga_part = "xc7z020clg400-1"
+
+[[design]]
+name = "artix_top"
+sources = []
+fpga = "artix"
+
+[[design]]
+name = "zynq_top"
+sources = []
+fpga = "zynq"

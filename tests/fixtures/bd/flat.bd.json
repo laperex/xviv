@@ -1,0 +1,14 @@
+{
+  "ip_rgb_to_hsv_0": {
+    "vlnv": "user.org:user:ip_rgb_to_hsv:1.0",
+    "xci_name": "ip_rgb_to_hsv_0",
+    "xci_path": "ip/ip_rgb_to_hsv_0/ip_rgb_to_hsv_0.xci",
+    "inst_hier_path": "design_1_i/ip_rgb_to_hsv_0"
+  },
+  "ip_inrange_0": {
+    "vlnv": "user.org:user:ip_inrange:1.0",
+    "xci_name": "ip_inrange_0",
+    "xci_path": "ip/ip_inrange_0/ip_inrange_0.xci",
+    "inst_hier_path": "design_1_i/ip_inrange_0"
+  }
+}

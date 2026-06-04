@@ -1016,10 +1016,10 @@ class ConfigTclCommands(ConfigTclBuilder):
 		# Bitstream / XSA
 		# -------------------------------------------------------------------------
 
-		if synth_cfg.usr_access_value is not None:
-			self._set_property_current_design("BITSTREAM.CONFIG.USR_ACCESS", f"0x{synth_cfg.usr_access_value:08X}")
-
 		if synth_cfg.bitstream:
+			if synth_cfg.usr_access_value is not None:
+				self._set_property_current_design("BITSTREAM.CONFIG.USR_ACCESS", f"0x{synth_cfg.usr_access_value:08X}")
+
 			logger.info(f"write bitstream: {synth_cfg.bitstream}")
 			self._write_bitstream(synth_cfg.bitstream, force=True)
 

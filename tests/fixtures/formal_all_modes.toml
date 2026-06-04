@@ -1,0 +1,21 @@
+[[fpga]]
+name = "artix"
+fpga_part = "xc7a100tcsg324-1"
+
+[[formal]]
+name = "arbiter_bmc"
+top = "arbiter"
+mode = "bmc"
+sources = []
+
+[[formal]]
+name = "arbiter_prove"
+top = "arbiter"
+mode = "prove"
+sources = []
+
+[[formal]]
+name = "arbiter_cover"
+top = "arbiter"
+mode = "cover"
+sources = []

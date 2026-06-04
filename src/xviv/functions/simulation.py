@@ -192,7 +192,8 @@ def _run_verilator(cfg: XvivConfig, sim_name: str, uvm_name: str | None, svlog_f
 	VerilatorRunner(cfg).configure(
 		target_dir=sim_cfg.work_dir,
 		label=__name__,
-		log_file=os.path.join(cfg.log_dir, "verilator_compile.log"),
+		compile_log_file=os.path.join(cfg.log_dir, "verilator_compile.log"),
+		sim_log_fil=os.path.join(cfg.log_dir, "verilator_sim.log"),
 		trace_fst=sim_cfg.trace_fst,
 		trace=sim_cfg.trace,
 		uvm=uvm_name is not None,

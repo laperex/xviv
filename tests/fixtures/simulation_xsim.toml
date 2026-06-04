@@ -1,0 +1,13 @@
+[[fpga]]
+name = "artix"
+fpga_part = "xc7a100tcsg324-1"
+
+[[design]]
+name = "my_design"
+sources = []
+
+[[simulation]]
+name = "tb_default"
+top = "my_design_tb"
+backend = "xsim"
+sources = []
