@@ -229,7 +229,6 @@ def run_job_list(jobs: list[Job], *, max_workers: int = 4, sequential_exec: bool
 			sys.exit(1)
 
 		raise
-		
 
 
 def run_job(job: Job, exit_on_fail: bool = False):

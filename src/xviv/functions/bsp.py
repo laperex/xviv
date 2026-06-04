@@ -45,7 +45,8 @@ def cmd_platform_build(cfg: XvivConfig, *, platform_name: str):
 			dry_run=cfg.dry_run,
 			label="platform_build_make",
 			log_file=os.path.join(cfg.log_dir, "platform_build_make.log"),
-		), exit_on_fail=False
+		),
+		exit_on_fail=False,
 	)
 
 
@@ -107,7 +108,8 @@ def cmd_app_build(cfg: XvivConfig, *, app_name: str, params: AppBuildParams):
 			dry_run=cfg.dry_run,
 			label="app_build_make",
 			log_file=os.path.join(cfg.log_dir, "app_build_make.log"),
-		), exit_on_fail=False
+		),
+		exit_on_fail=False,
 	)
 
 	if not cfg.dry_run:
@@ -126,7 +128,8 @@ def cmd_app_build(cfg: XvivConfig, *, app_name: str, params: AppBuildParams):
 				dry_run=cfg.dry_run,
 				label="app_build_mbtool_size",
 				log_file=os.path.join(cfg.log_dir, "app_build_mbtool_size.log"),
-			), exit_on_fail=False
+			),
+			exit_on_fail=False,
 		)
 
 		logger.info("ELF sections: %s", app_cfg.elf)
@@ -138,7 +141,8 @@ def cmd_app_build(cfg: XvivConfig, *, app_name: str, params: AppBuildParams):
 				dry_run=cfg.dry_run,
 				label="app_build_mbtool_size",
 				log_file=os.path.join(cfg.log_dir, "app_build_mbtool_size.log"),
-			), exit_on_fail=False
+			),
+			exit_on_fail=False,
 		)
 
 

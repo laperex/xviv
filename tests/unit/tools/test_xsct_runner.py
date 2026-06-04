@@ -23,15 +23,18 @@ def _make_cfg(tmp_path):
 class TestXsctRunnerJob:
 	def test_job_with_tcl_returns_path_and_job_tuple(self, tmp_path):
 		cfg = _make_cfg(tmp_path)
-		runner = XsctRunner(cfg)
-		result = runner.job(
-			str(tmp_path),
-			label="xsct_test",
-			log_file=str(tmp_path / "out.log"),
-			tcl="puts hello",
+
+		_result = (
+			XsctRunner(cfg)
+			.job(
+				tcl="puts hello",
+				label="xsct_test",
+				log_file=str(tmp_path / "out.log"),
+			)
+			._pairs[-1]
 		)
-		assert result is not None
-		path, job = result
+		assert _result is not None
+		path, job = _result
 		assert path is not None
 		assert job is not None
 
@@ -39,60 +42,55 @@ class TestXsctRunnerJob:
 		cfg = _make_cfg(tmp_path)
 		runner = XsctRunner(cfg)
 		_, job = runner.job(
-			str(tmp_path),
+			tcl="puts hello",
 			label="j",
 			log_file=str(tmp_path / "out.log"),
-			tcl="puts hello",
-		)
+		)._pairs[-1]
 		assert "xsct" in job.cmd[0].lower() or job.cmd[0] == "xsct"
 
 	def test_job_cmd_contains_tcl_path(self, tmp_path):
 		cfg = _make_cfg(tmp_path)
 		runner = XsctRunner(cfg)
 		path, job = runner.job(
-			str(tmp_path),
+			tcl="puts hello",
 			label="j",
 			log_file=str(tmp_path / "out.log"),
-			tcl="puts hello",
-		)
+		)._pairs[-1]
 		assert str(path) in job.cmd
 
 	def test_job_cwd_is_target_dir(self, tmp_path):
 		cfg = _make_cfg(tmp_path)
 		runner = XsctRunner(cfg)
-		target = str(tmp_path / "target")
+		cfg.work_dir = str(tmp_path / "target")
 		import os
 
-		os.makedirs(target, exist_ok=True)
+		os.makedirs(cfg.work_dir, exist_ok=True)
 		_, job = runner.job(
-			target,
+			tcl="puts hello",
 			label="j",
 			log_file=str(tmp_path / "out.log"),
-			tcl="puts hello",
-		)
-		assert job.cwd == target
+		)._pairs[-1]
+		assert job.cwd == cfg.work_dir
 
 	def test_job_detach_false_by_default(self, tmp_path):
 		cfg = _make_cfg(tmp_path)
 		runner = XsctRunner(cfg)
 		_, job = runner.job(
-			str(tmp_path),
+			tcl="puts hello",
 			label="j",
 			log_file=str(tmp_path / "out.log"),
-			tcl="puts hello",
-		)
+		)._pairs[-1]
 		assert job.detach is False
 
 	def test_job_popen_true_sets_detach(self, tmp_path):
 		cfg = _make_cfg(tmp_path)
 		runner = XsctRunner(cfg)
 		_, job = runner.job(
-			str(tmp_path),
+			tcl="puts hello",
 			label="j",
 			log_file=str(tmp_path / "out.log"),
-			tcl="puts hello",
 			popen=True,
-		)
+		)._pairs[-1]
 		assert job.detach is True
 
 
@@ -101,10 +99,10 @@ class TestXsctRunnerNoneTcl:
 	def test_none_tcl_returns_none(self, tmp_path):
 		cfg = _make_cfg(tmp_path)
 		runner = XsctRunner(cfg)
-		result = runner.job(
-			str(tmp_path),
+		runner.job(
+			tcl=None,
 			label="j",
 			log_file=str(tmp_path / "out.log"),
-			tcl=None,
 		)
-		assert result is None
+
+		assert not runner._pairs

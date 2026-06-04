@@ -9,6 +9,9 @@ from xviv.utils.job import Job
 class XsctRunner(XilinxToolRunner):
 	_DEFAULT_WORKERS: int = 4
 
+	def __init__(self, cfg):
+		super().__init__(cfg)
+
 	def job(
 		self,
 		tcl: str | None,
