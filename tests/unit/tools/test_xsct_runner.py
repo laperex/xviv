@@ -28,7 +28,7 @@ class TestXsctRunnerJob:
 			str(tmp_path),
 			label="xsct_test",
 			log_file=str(tmp_path / "out.log"),
-			config_tcl="puts hello",
+			tcl="puts hello",
 		)
 		assert result is not None
 		path, job = result
@@ -42,7 +42,7 @@ class TestXsctRunnerJob:
 			str(tmp_path),
 			label="j",
 			log_file=str(tmp_path / "out.log"),
-			config_tcl="puts hello",
+			tcl="puts hello",
 		)
 		assert "xsct" in job.cmd[0].lower() or job.cmd[0] == "xsct"
 
@@ -53,7 +53,7 @@ class TestXsctRunnerJob:
 			str(tmp_path),
 			label="j",
 			log_file=str(tmp_path / "out.log"),
-			config_tcl="puts hello",
+			tcl="puts hello",
 		)
 		assert str(path) in job.cmd
 
@@ -68,7 +68,7 @@ class TestXsctRunnerJob:
 			target,
 			label="j",
 			log_file=str(tmp_path / "out.log"),
-			config_tcl="puts hello",
+			tcl="puts hello",
 		)
 		assert job.cwd == target
 
@@ -79,7 +79,7 @@ class TestXsctRunnerJob:
 			str(tmp_path),
 			label="j",
 			log_file=str(tmp_path / "out.log"),
-			config_tcl="puts hello",
+			tcl="puts hello",
 		)
 		assert job.detach is False
 
@@ -90,7 +90,7 @@ class TestXsctRunnerJob:
 			str(tmp_path),
 			label="j",
 			log_file=str(tmp_path / "out.log"),
-			config_tcl="puts hello",
+			tcl="puts hello",
 			popen=True,
 		)
 		assert job.detach is True
@@ -105,6 +105,6 @@ class TestXsctRunnerNoneTcl:
 			str(tmp_path),
 			label="j",
 			log_file=str(tmp_path / "out.log"),
-			config_tcl=None,
+			tcl=None,
 		)
 		assert result is None

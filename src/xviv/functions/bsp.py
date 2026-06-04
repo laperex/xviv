@@ -45,7 +45,7 @@ def cmd_platform_build(cfg: XvivConfig, *, platform_name: str):
 			dry_run=cfg.dry_run,
 			label="platform_build_make",
 			log_file=os.path.join(cfg.log_dir, "platform_build_make.log"),
-		)
+		), exit_on_fail=False
 	)
 
 
@@ -65,6 +65,7 @@ def cmd_app_create(cfg: XvivConfig, *, app_name: str, platform_name: str | None,
 	if not os.path.isdir(platform_cfg.work_dir):
 		logger.warning("BSP not found - creating platform '%s' first", app_cfg.platform)
 		cmd_platform_create(cfg, platform_name=app_cfg.platform, params=PlatformCreateParams())
+		cmd_platform_build(cfg, platform_name=app_cfg.platform)
 
 	cfg.validate_platform(platform_name=app_cfg.platform)
 
@@ -106,7 +107,7 @@ def cmd_app_build(cfg: XvivConfig, *, app_name: str, params: AppBuildParams):
 			dry_run=cfg.dry_run,
 			label="app_build_make",
 			log_file=os.path.join(cfg.log_dir, "app_build_make.log"),
-		)
+		), exit_on_fail=False
 	)
 
 	if not cfg.dry_run:
@@ -125,7 +126,7 @@ def cmd_app_build(cfg: XvivConfig, *, app_name: str, params: AppBuildParams):
 				dry_run=cfg.dry_run,
 				label="app_build_mbtool_size",
 				log_file=os.path.join(cfg.log_dir, "app_build_mbtool_size.log"),
-			)
+			), exit_on_fail=False
 		)
 
 		logger.info("ELF sections: %s", app_cfg.elf)
@@ -137,7 +138,7 @@ def cmd_app_build(cfg: XvivConfig, *, app_name: str, params: AppBuildParams):
 				dry_run=cfg.dry_run,
 				label="app_build_mbtool_size",
 				log_file=os.path.join(cfg.log_dir, "app_build_mbtool_size.log"),
-			)
+			), exit_on_fail=False
 		)
 
 
@@ -198,6 +199,15 @@ def cmd_processor(cfg: XvivConfig, *, params: ProcessorParams):
 		lambda _: ConfigTclCommands(cfg).processor_cntrl(params=params).build(),
 		label_prefix="processor",
 		log_prefix="processor",
+	).run()
+
+
+def cmd_jtagterminal_open(cfg: XvivConfig, params: ProcessorParams):
+	XsctRunner(cfg).make_pairs(
+		[__name__],
+		lambda _: ConfigTclCommands(cfg).open_jtagterminal(params=params).build(),
+		label_prefix="jtagterminal",
+		log_prefix="jtagterminal",
 	).run()
 
 

@@ -225,19 +225,30 @@ class ConfigTclCommands(ConfigTclBuilder):
 
 		return self
 
+	def open_jtagterminal(self, params: ProcessorParams) -> typing.Self:
+		self._connect()
+
+		if params.processor_target_filter is None:
+			raise error.ProcessorTargetFilterUnspecifiedError()
+
+		self._select_target(params.processor_target_filter)
+		self._push("jtagterminal")
+
+		# print(self._ConfigTclBuilder__lines)
+
+		return self
+
 	def processor_cntrl(
 		self,
 		params: ProcessorParams,
-		*,
-		processor_target_filter: str | None = None,
 	) -> typing.Self:
 		self._connect()
 
 		if params.reset:
-			if processor_target_filter is None:
+			if params.processor_target_filter is None:
 				raise error.ProcessorTargetFilterUnspecifiedError()
 
-			self._select_target(processor_target_filter)
+			self._select_target(params.processor_target_filter)
 
 			self._rst(processor=True)
 			self._puts("INFO: processor reset")
@@ -245,7 +256,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 			self._puts("INFO: processor running")
 
 		if params.status:
-			self._processor_status(processor_target_filter=processor_target_filter)
+			self._processor_status(processor_target_filter=params.processor_target_filter)
 
 		self._disconnect()
 

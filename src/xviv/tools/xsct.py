@@ -1,4 +1,5 @@
 import tempfile
+import typing
 from pathlib import Path
 
 from xviv.tools.vivado import XilinxToolRunner
@@ -10,31 +11,37 @@ class XsctRunner(XilinxToolRunner):
 
 	def job(
 		self,
-		target_dir: str,
+		tcl: str | None,
 		*,
 		label: str,
 		log_file: str,
-		config_tcl: str | None,
 		popen: bool = False,
-	) -> tuple[Path, Job] | None:
-		if config_tcl is None:
+	) -> typing.Self:
+		if tcl is None:
 			return None
 
 		tmp = tempfile.NamedTemporaryFile(mode="w", suffix="_sim_config.tcl", delete=False, prefix="xviv_")
-		tmp.write(config_tcl)
+		tmp.write(tcl)
 		tmp.close()
 		tcl_path = Path(tmp.name)
 
 		cmd: list[str] = [self._cfg.get_vitis().xsct_bin, str(tcl_path)]
 
-		return tcl_path, Job(
-			label=label,
-			cmd=tuple(cmd),
-			cwd=target_dir,
-			log_file=log_file,
-			classifier=self.classify,
-			dry_run=self._cfg.dry_run,
-			interactive=False,
-			detach=popen,
-			env=None,
+		self._pairs.append(
+			(
+				tcl_path,
+				Job(
+					label=label,
+					cmd=tuple(cmd),
+					cwd=self._cfg.work_dir,
+					log_file=log_file,
+					classifier=self.classify,
+					dry_run=self._cfg.dry_run,
+					interactive=False,
+					detach=popen,
+					env=None,
+				),
+			)
 		)
+
+		return self

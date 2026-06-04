@@ -65,20 +65,21 @@ _prev_level: int | None = None
 
 
 def _render_output_line(line: OutputLine) -> str:
-	global _prev_level
+	if line.level != logging.NOTSET:
+		global _prev_level
 
-	lvl = line.level if _prev_level is None else _prev_level
+		lvl = line.level if _prev_level is None else _prev_level
 
-	if line.text.strip().endswith(":"):
-		_prev_level = lvl
-	else:
-		_prev_level = None
-
-	if lvl != logging.DEBUG and theme_cfg._supports_color():
-		if lvl in [logging.ERROR, logging.WARNING]:
-			return theme_cfg.level(line.raw, lvl)
+		if line.text.strip().endswith(":"):
+			_prev_level = lvl
 		else:
-			return theme_cfg.level(line.raw[: line.raw.index(line.text)], lvl) + line.text
+			_prev_level = None
+
+		if lvl != logging.DEBUG and theme_cfg._supports_color():
+			if lvl in [logging.ERROR, logging.WARNING]:
+				return theme_cfg.level(line.raw, lvl)
+			else:
+				return theme_cfg.level(line.raw[: line.raw.index(line.text)], lvl) + line.text
 
 	return line.raw
 

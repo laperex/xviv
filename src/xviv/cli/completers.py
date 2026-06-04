@@ -232,6 +232,9 @@ def target_group(
 	edit: bool = False,
 	generate: bool = False,
 	force: bool = False,
+	fpga_filter: bool = False,
+	processor_filter: bool = False,
+	jtagterminal: bool = False,
 	_all: list[str] = [],
 ):
 	grp = parser
@@ -260,6 +263,9 @@ def target_group(
 
 	if dcp:
 		arg(grp, "--dcp", metavar="NAME", help="Checkpoint File", completer=c_dcp_file, required=required)
+
+	if jtagterminal:
+		grp.add_argument("--jtagterminal", action="store_true", help="Open Xsct JtagTerminal")
 
 	if ip:
 		arg(grp, "--ip", metavar="NAME", help="IP name", completer=c_ip, required=required)
@@ -305,6 +311,13 @@ def target_group(
 			help="Generate output products [BD / core]",
 			default=False,
 			required=required,
+		)
+
+	if fpga_filter:
+		grp.add_argument("--fpga", metavar="NAME", help="Filter to select FPGA (default: %(default)s)", default="xc7a*", required=False)
+	if processor_filter:
+		grp.add_argument(
+			"--processor", metavar="NAME", help="Filter to select soft processor (default: %(default)s)", default="Microblaze #0*", required=False
 		)
 
 	return grp

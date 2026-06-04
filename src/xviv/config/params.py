@@ -55,6 +55,7 @@ class OpenParams:
 
 @dataclasses.dataclass
 class ProcessorParams:
+	processor_target_filter: str = "Microblaze #0*"
 	reset: bool = False
 	status: bool = False
 

@@ -31,7 +31,15 @@ from xviv.config.project import XvivConfig
 # 	cmd_program,
 # )
 from xviv.functions.bd import cmd_bd_create, cmd_bd_edit, cmd_bd_generate
-from xviv.functions.bsp import cmd_app_build, cmd_app_create, cmd_platform_build, cmd_platform_create, cmd_processor, cmd_program
+from xviv.functions.bsp import (
+	cmd_app_build,
+	cmd_app_create,
+	cmd_jtagterminal_open,
+	cmd_platform_build,
+	cmd_platform_create,
+	cmd_processor,
+	cmd_program,
+)
 from xviv.functions.core import cmd_core_create, cmd_core_edit, cmd_core_generate, cmd_search_core
 from xviv.functions.formal import cmd_formal
 from xviv.functions.ip import cmd_ip_create, cmd_ip_edit
@@ -207,9 +215,10 @@ class OpenCommand(Command):
 	def register(cls, sub: argparse._SubParsersAction) -> None:
 		super().register(sub)
 		c = cls.c
-		target_group(c, exclusive=True, required=True, wdb=True, dcp=True)
+		target_group(c, exclusive=True, required=True, wdb=True, dcp=True, jtagterminal=True)
 		target_group(c, exclusive=True, required=False, bd=True, design=True, core=True)
 		target_group(c, exclusive=False, required=False, nogui=True)
+		target_group(c, exclusive=False, required=False, fpga_filter=True, processor_filter=True)
 
 	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
 		super().run(cfg, args)
@@ -219,6 +228,8 @@ class OpenCommand(Command):
 			cmd_dcp_open(cfg, dcp_file=args.dcp, params=params)
 		elif args.wdb:
 			cmd_wdb_open(cfg, sim_name=args.wdb, params=params)
+		elif args.jtagterminal:
+			cmd_jtagterminal_open(cfg, params=ProcessorParams(processor_target_filter=args.processor))
 
 
 class ReloadCommand(Command):
@@ -244,12 +255,14 @@ class ProcessorCommand(Command):
 	def register(cls, sub: argparse._SubParsersAction) -> None:
 		super().register(sub)
 		c = cls.c
+		target_group(c, exclusive=False, required=False, processor_filter=True)
 		c.add_argument("--reset", action="store_true", help="Soft-reset the processor")
 		c.add_argument("--status", action="store_true", help="Print processor state and registers")
 
 	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
 		super().run(cfg, args)
-		cmd_processor(cfg, params=ProcessorParams(reset=args.reset, status=args.status))
+
+		cmd_processor(cfg, params=ProcessorParams(reset=args.reset, status=args.status, processor_target_filter=args.processor))
 
 
 class BuildCommand(Command):
@@ -282,10 +295,8 @@ class ProgramCommand(Command):
 		c = cls.c
 		target_group(c, exclusive=True, required=False, platform=True, bitstream=True)
 		target_group(c, exclusive=True, required=False, app=True, elf=True)
-		c.add_argument("--fpga", metavar="NAME", help="Filter to select FPGA (default: %(default)s)", default="xc7a*", required=False)
-		c.add_argument(
-			"--processor", metavar="NAME", help="Filter to select soft processor (default: %(default)s)", default="Microblaze #0*", required=False
-		)
+		target_group(c, exclusive=False, required=False, fpga_filter=True, processor_filter=True)
+
 		c.add_argument(
 			"--reset-duration", metavar="MS", type=int, help="Soft-reset duration in ms (default: %(default)s)", default=500, required=False
 		)

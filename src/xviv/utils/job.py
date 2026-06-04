@@ -22,12 +22,12 @@ class Job:
 	label: str
 	cmd: tuple[str, ...]
 	cwd: str
-	classifier: Callable[[str], OutputLine]
 	dry_run: bool
-	interactive: bool
-	detach: bool
+	interactive: bool = False
+	detach: bool = False
 	env: dict[str, str] | None = None
 	log_file: str = ""
+	classifier: Callable[[str], OutputLine] = lambda _l: OutputLine(text=_l, level=logging.NOTSET, raw=_l)
 
 
 @dataclass
@@ -44,7 +44,7 @@ class JobResult:
 
 	@property
 	def failed(self) -> bool:
-		return not self.succeeded
+		return not self.succeeded and (self.returncode is not None)
 
 
 class LiveSink:
@@ -210,19 +210,27 @@ def _run_parallel(jobs: list[Job], max_workers: int) -> None:
 	logger.debug("All %d job(s) succeeded", total)
 
 
-def run_job_list(jobs: list[Job], *, max_workers: int = 4, sequential_exec: bool = False) -> None:
-	if not jobs:
-		return
+def run_job_list(jobs: list[Job], *, max_workers: int = 4, sequential_exec: bool = False, exit_on_fail: bool = False) -> None:
+	try:
+		if not jobs:
+			return
 
-	if len(jobs) == 1 or sequential_exec:
-		if sequential_exec:
-			for i in jobs:
-				_run_sequential(i)
+		if len(jobs) == 1 or sequential_exec:
+			if sequential_exec:
+				for i in jobs:
+					_run_sequential(i)
+			else:
+				_run_sequential(jobs[0])
 		else:
-			_run_sequential(jobs[0])
-	else:
-		_run_parallel(jobs, max_workers=max_workers)
+			_run_parallel(jobs, max_workers=max_workers)
+	except JobFailedError as e:
+		if exit_on_fail:
+			print(e)
+			sys.exit(1)
+
+		raise
+		
 
 
-def run_job(job: Job):
-	run_job_list(jobs=[job])
+def run_job(job: Job, exit_on_fail: bool = False):
+	run_job_list(jobs=[job], exit_on_fail=exit_on_fail)

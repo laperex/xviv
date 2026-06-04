@@ -17,6 +17,7 @@ from xviv.utils.tools import find_vivado_dir_path
 
 logger = logging.getLogger(__name__)
 
+
 class ToolRunner:
 	# Base runner for tools
 	_PREFIX_MAP: dict[str, int] = {}

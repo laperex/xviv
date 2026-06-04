@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Tests](https://github.com/laperex/xviv/actions/workflows/test.yml/badge.svg)](https://github.com/laperex/xviv/actions/workflows/test.yml)
 
-CLI project controller for Vivado and Vitis. Describe your whole project in a `project.toml`, run everything from the terminal, keep the GUI for the parts that actually need it.
+CLI project controller for Vivado and Vitis.
 
 ```sh
 pip install xviv
@@ -15,13 +15,13 @@ pip install xviv
 
 ---
 
-Vivado can be difficult to use in a team environment. Project files often contain absolute paths, block designs are hard to review cleanly in git, and automation usually depends on generated TCL scripts rather than a clean, reproducible CLI workflow. As a result, teams often end up either committing large amounts of generated project state or maintaining custom rebuild scripts to keep projects portable across machines and Vivado versions.
+Unlike traditional C++ or Python development, RTL/FPGA projects built with Vivado are notoriously hostile to version control and team collaboration.
 
-xviv takes a different approach. Instead of relying on generated project files, the entire build is described in a single config file: FPGA target, IP cores, block designs, RTL sources, synthesis runs, simulations, formal verification targets, and embedded platform configuration. A clean clone is enough to reproduce the project, while the build directory itself remains fully gitignored.
+Vivado's default Project Mode tightly couples the developer to its GUI. It buries absolute file paths inside its project files and indiscriminately mixes source code with massive generated build artifacts. This makes version control a mess and means a project that builds on one machine will likely break on another.
 
-For block designs, xviv exports re-runnable TCL snapshots that can be version-controlled and reviewed like normal source files. It also embeds git metadata directly into the generated bitstream using `USR_ACCESS` — bits [27:0] store the short commit SHA, while bit 28 indicates whether the working tree was dirty at build time. That makes it possible to trace any `.bit` file back to the exact source revision that produced it.
+Vivado's Non-Project Mode solves the version control issue, but lacks a modern developer experience - forcing teams to manually manage complex Tcl scripts just to maintain a workflow.
 
-The goal was never to eliminate the Vivado GUI entirely. xviv automates the parts Vivado handles well through scripting, while still allowing developers to use the GUI when it is actually useful.
+xviv bridges this gap. It provides a configuration-driven CLI that enforces a strict separation between source files and build artifacts. The build directory remains entirely git-ignored, meaning a clean clone is all you need to reproduce the project on any system. It automates the scriptable parts of the Non-Project flow, while seamlessly allowing developers to spin up the Vivado GUI for tasks where it genuinely shines - like editing IP Packaging, configuring cores, or designing Block Diagrams.
 
 ---
 
@@ -34,7 +34,7 @@ pip install xviv
 Requires **Python 3.11+**. Vivado and Vitis must be on your PATH (source `settings64.sh`), or set `XVIV_VIVADO_SOURCE_SCRIPT` and xviv will source it for you:
 
 ```sh
-# .env at project root (recommended, add to .gitignore)
+# .env1 at project root (recommended, add to .gitignore)
 XVIV_VIVADO_SOURCE_SCRIPT=/tools/Xilinx/Vivado/2024.1/settings64.sh
 ```
 
