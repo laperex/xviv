@@ -235,6 +235,7 @@ def target_group(
 	fpga_filter: bool = False,
 	processor_filter: bool = False,
 	jtagterminal: bool = False,
+	recursive: bool = False,
 	_all: list[str] = [],
 ):
 	grp = parser
@@ -304,6 +305,8 @@ def target_group(
 		grp.add_argument("--force", action="store_true", help="", default=False, required=required)
 	if edit:
 		grp.add_argument("--edit", action="store_true", help="Edit in GUI [IP / BD / core]", default=False, required=required)
+	if recursive:
+		grp.add_argument("--recursive", action="store_true", help="Also Create Dependencies", default=False, required=required)
 	if generate:
 		grp.add_argument(
 			"--generate",

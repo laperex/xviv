@@ -43,7 +43,7 @@ def stream_pipe(
 		assert proc.stdout is not None
 		for line in proc.stdout:
 			yield classifier(line.rstrip("\r\n"))
-		if proc.returncode != 0:
+		if proc.returncode != 0 and proc.returncode is not None:
 			raise subprocess.CalledProcessError(proc.returncode, list(cmd))
 
 
@@ -148,7 +148,7 @@ def stream_pty(
 		if stripped:
 			yield classifier(stripped)
 
-	if proc.returncode != 0:
+	if proc.returncode != 0 and proc.returncode:
 		raise subprocess.CalledProcessError(proc.returncode, list(cmd))
 
 

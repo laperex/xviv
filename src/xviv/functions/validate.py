@@ -169,7 +169,13 @@ def _truncate_str(s: str, MAX_NAME=30) -> str:
 
 
 def print_io_report(
-	linter: XDCLinter, rtl_extractor: RTLPortExtractor, xdc_parser: XDCParser, xdc_paths: list[str], rtl_paths: list[str], error_only: bool = False
+	linter: XDCLinter,
+	rtl_extractor: RTLPortExtractor,
+	xdc_parser: XDCParser,
+	xdc_paths: list[str],
+	rtl_paths: list[str],
+	level: bool = False,
+	full: bool = False,
 ) -> None:
 	def get_timing(c: PortConstraint) -> str:
 		if c.is_clock:
@@ -229,8 +235,8 @@ def print_io_report(
 	warnings = linter.warnings
 	stale = linter.stale_patterns
 
-	if not errors and not warnings and not stale:
-		error_only = False
+	# if not errors and not warnings and not stale:
+	# 	level = False
 
 	rows: list[list[str]] = []
 
@@ -264,14 +270,14 @@ def print_io_report(
 			if not status and not name and not direc and not type_:
 				continue
 
-			if error_only and "OK" in status:
+			if (level == "error") and "OK" in status:
 				continue
 
 			rows.append([status, name, direc, type_, pkg_pin_str(c, r.no_xdc_entry), iostd_str(c, r.no_xdc_entry), get_timing(c)])
 
 	if rows:
 		t = AsciiTable(
-			title="I/O COVERAGE" + (" ERRORS" if error_only else "") + (" - OK" if not errors and not warnings and not stale else ""),
+			title="I/O COVERAGE" + (" ERRORS" if (level == "error") else "") + (" - OK" if not errors and not warnings and not stale else ""),
 			headers=["STATUS", "Port", "Dir", "Type", "PKG_PIN", "IOSTANDARD", "Timing"],
 		)
 
@@ -282,7 +288,7 @@ def print_io_report(
 	# # --- Issues ---
 	if errors or warnings or stale:
 		t = AsciiTable(
-			title="I/O ISSUES" + (" ERRORS" if error_only else ""),
+			title="I/O ISSUES" + (" ERRORS" if (level == "error") else ""),
 		)
 
 		for r in errors:
@@ -426,28 +432,6 @@ def cmd_validate_synth(cfg: XvivConfig, params: ValidateParams) -> None:
 		)
 	)
 
-	t_srcs = AsciiTable(
-		title="SOURCE FILES",
-		headers=["STATUS", "FILE", "TYPE", "INFO"],
-	)
-
-	for file in rtl_files:
-		t_srcs.add_row(
-			theme_cfg.green("OK") if os.path.exists(file) else theme_cfg.error("NOT FOUND"),
-			file,
-			"RTL",
-			"",
-		)
-
-	if rtl_files:
-		if xdc_files:
-			t_srcs.add_divider()
-
-	for file in xdc_files:
-		t_srcs.add_row(theme_cfg.green("OK") if os.path.exists(file) else theme_cfg.error("NOT FOUND"), file, "XDC", "")
-
-	t_srcs.print()
-
 	t_options = AsciiTable(
 		title="CONFIGURATION",
 		headers=["STAGE", "OPTION", "VALUE"],
@@ -462,6 +446,53 @@ def cmd_validate_synth(cfg: XvivConfig, params: ValidateParams) -> None:
 
 	t_options.print()
 
+	t_srcs = AsciiTable(
+		title="SOURCE FILES",
+		headers=["STATUS", "FILE", "TYPE", "INFO"],
+	)
+
+	for file in rtl_files:
+		if os.path.exists(file) and params.level == "error":
+			continue
+
+		t_srcs.add_row(
+			theme_cfg.green("OK") if os.path.exists(file) else theme_cfg.error("NOT FOUND"),
+			file,
+			"RTL",
+			"",
+		)
+
+	for subcore_cfg in cfg.get_subcore_list(bd_name=bd_name, design_name=design_name):
+		if core_cfg := cfg._get_core_cfg_optional(subcore_cfg.core):
+			if os.path.exists(core_cfg.xci_file) and params.level == "error":
+				continue
+
+			t_srcs.add_row(
+				theme_cfg.green("OK") if os.path.exists(core_cfg.xci_file) else theme_cfg.error("NOT FOUND"),
+				core_cfg.xci_file,
+				"XCI",
+				core_cfg.name,
+			)
+		else:
+			t_srcs.add_row(
+				theme_cfg.error("ERROR"),
+				"",
+				"XCI",
+				core_cfg.name,
+			)
+
+	if rtl_files:
+		if [i for i in xdc_files if os.path.exists(i) and params.level == "info"]:
+			t_srcs.add_divider()
+
+	for file in xdc_files:
+		if os.path.exists(file) and params.level == "error":
+			continue
+
+		t_srcs.add_row(theme_cfg.green("OK") if os.path.exists(file) else theme_cfg.error("NOT FOUND"), file, "XDC", "")
+
+	t_srcs.print()
+
 	if params.io:
 		linter = XDCLinter(
 			xdc_parser.port_constraints,
@@ -470,4 +501,4 @@ def cmd_validate_synth(cfg: XvivConfig, params: ValidateParams) -> None:
 		)
 		linter.run()
 
-		print_io_report(linter, rtl_extractor, xdc_parser, xdc_paths=xdc_files, rtl_paths=rtl_files, error_only=(params.io == "error"))
+		print_io_report(linter, rtl_extractor, xdc_parser, xdc_paths=xdc_files, rtl_paths=rtl_files, level=params.level, full=params.io == "full")

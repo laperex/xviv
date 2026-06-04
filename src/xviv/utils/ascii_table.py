@@ -1,4 +1,5 @@
 import re
+import typing
 from typing import Any, Callable, Dict, List, Optional
 
 from xviv.utils.theme import theme_cfg
@@ -67,25 +68,28 @@ class AsciiTable:
 
 	# ------------------------------------------------------------------ API
 
-	def add_row(self, *cells: Any) -> "AsciiTable":
-
+	def add_row(self, *cells: Any) -> typing.Self:
 		self._rows.append([str(c) for c in cells])
 		return self
 
-	def add_rows(self, rows: List[List[Any]]) -> "AsciiTable":
+	def add_rows(self, rows: List[List[Any]]) -> typing.Self:
 
 		for row in rows:
 			self.add_row(*row)
 		return self
 
-	def add_divider(self) -> "AsciiTable":
+	def add_divider(self) -> typing.Self:
 
 		self._rows.append(_DIVIDER)
 		return self
 
-	def clear(self) -> "AsciiTable":
+	def pop(self) -> typing.Self:
+		_ = self._rows.pop()
+		return self
 
+	def clear(self) -> typing.Self:
 		self._rows.clear()
+
 		return self
 
 	# ------------------------------------------------------------ internals

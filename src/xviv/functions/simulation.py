@@ -119,6 +119,8 @@ def _run_xsim(
 	if uvm_name:
 		elab_libs.append("uvm")
 
+	os.makedirs(sim_cfg.work_dir, exist_ok=True)
+
 	XvlogRunner(cfg).job(
 		target_dir=sim_cfg.work_dir,
 		fileset=svlog_files,

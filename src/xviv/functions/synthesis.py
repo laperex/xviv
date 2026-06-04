@@ -24,26 +24,36 @@ def cmd_synth(
 	if dirty:
 		logger.warning("The Git working directory has uncommitted changes. It is highly recommended to commit before running synthesis.")
 
-	if params.parallel_subcore_synth:
+	synth_tcl_command = ConfigTclCommands(cfg)
+
+	# if params.parallel_subcore_synth:
+
+	if subcore_list := cfg.get_subcore_list(bd_name=bd_name, design_name=design_name):
 		find_vivado_dir_path(exit_on_fail=True)
 
 		VivadoRunner(cfg).make_pairs(
-			[i.core for i in cfg.get_subcore_list(bd_name=bd_name, design_name=design_name)],
+			[i.core for i in subcore_list],
 			lambda name: ConfigTclCommands(cfg).synth(core=name, params=SynthParams()).build(),
 			label_prefix="ooc_synth",
 			log_prefix="ooc_synth_core",
 			annotate=True,
-		).run()
+		).run(sequential=not params.parallel_subcore_synth)
+
+		params.parallel_subcore_synth = True
+
+	# else:
+	# 		for i in subcore_list:
+	# 			synth_tcl_command = synth_tcl_command.synth(core=i.core, params=SynthParams())
 
 	VivadoRunner(cfg).make_pairs(
 		[i for i in [design_name, bd_name, core_name] if i is not None],
-		lambda _: ConfigTclCommands(cfg).synth(design=design_name, bd=bd_name, core=core_name, params=params).build(),
-		label_prefix="ooc_synth",
-		log_prefix="ooc_synth_core",
+		lambda _: synth_tcl_command.synth(design=design_name, bd=bd_name, core=core_name, params=params).build(),
+		label_prefix="synth",
+		log_prefix="synth",
 	).run()
 
-	synth_cfg = cfg.get_synth(bd_name=bd_name, design_name=design_name, core_name=core_name)
-	cfg.generate_synth_manifest(synth_cfg)
+	# synth_cfg = cfg.get_synth(bd_name=bd_name, design_name=design_name, core_name=core_name)
+	# cfg.generate_synth_manifest(synth_cfg)
 
 
 def cmd_dcp_open(cfg: XvivConfig, *, dcp_file: str | None, params: OpenParams):

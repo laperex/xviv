@@ -814,7 +814,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 			self._open_checkpoint(resume_dcp)
 
 		else:
-			self._require_project(fpga_ref=synth_cfg.fpga)
+			self._require_project(fpga_ref=synth_cfg.fpga, exists_ok=True)
 
 			if bd:
 				bd_cfg = self._cfg.get_bd(synth_cfg.bd)

@@ -144,7 +144,7 @@ def _build_parallel_block(
 		parts.append(theme_cfg.dim(f"  ... {omitted} lines omitted ..."))
 
 	if log_path:
-		parts.append(f"  {theme_cfg.bold(theme_cfg.dim('LOG'))} {theme_cfg.dim('LOG')}")
+		parts.append(f"  {theme_cfg.bold(theme_cfg.dim('LOG'))} {theme_cfg.dim(log_path)}")
 	parts.append(theme_cfg.dim(div))
 
 	return "\n".join(parts)

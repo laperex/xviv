@@ -107,7 +107,7 @@ class CreateCommand(Command):
 		c.add_argument("--source-file", metavar="FILE", help="Source File [BD]", default=True, required=False)
 		c.add_argument("--regenerate", action="store_true", help="Regenerate Cores [IP]", default=False, required=False)
 		target_group(c, exclusive=True, required=False, generate=True, build=True, edit=True)
-		target_group(c, exclusive=False, required=False, nogui=True)
+		target_group(c, exclusive=False, required=False, nogui=True, recursive=True)
 
 	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
 		super().run(cfg, args)
@@ -119,6 +119,7 @@ class CreateCommand(Command):
 				params=IpCreateParams(
 					edit=args.edit,
 					nogui=args.nogui,
+					recursive=args.recursive,
 					regenerate=args.regenerate,
 				),
 			)
@@ -131,6 +132,7 @@ class CreateCommand(Command):
 					generate=args.generate,
 					edit=args.edit,
 					nogui=args.nogui,
+					recursive=args.recursive,
 				),
 			)
 		elif args.core or args.all == "core":
@@ -141,6 +143,7 @@ class CreateCommand(Command):
 					generate=args.generate,
 					edit=args.edit,
 					nogui=args.nogui,
+					recursive=args.recursive,
 				),
 			)
 		elif args.app:
@@ -429,7 +432,8 @@ class ValidateCommand(Command):
 
 		target_group(synth_p, exclusive=True, required=True, bd=True, design=True, core=True)
 
-		synth_p.add_argument("--io", metavar="LEVEL", choices=["info", "error"], help="Run I/O constraint check", default=None, required=False)
+		synth_p.add_argument("--io", metavar="INFO", choices=["short", "full"], help="Run I/O constraint check", default=None, required=False)
+		synth_p.add_argument("--level", metavar="LEVEL", choices=["error", "info"], help="o/p integrity", default="info", required=False)
 
 	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
 		super().run(cfg, args)
@@ -439,6 +443,7 @@ class ValidateCommand(Command):
 			bd=getattr(args, "bd", None),
 			core=getattr(args, "core", None),
 			io=args.io,
+			level=args.level,
 		)
 
 		match args.validate_sub:

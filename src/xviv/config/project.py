@@ -286,9 +286,12 @@ class XvivConfig:
 			self._vivado_cfg.xelab_bin = os.path.join(self._vivado_cfg.path, "bin", self._vivado_cfg.xelab_bin)
 			self._vivado_cfg.vivado_bin = os.path.join(self._vivado_cfg.path, "bin", self._vivado_cfg.vivado_bin)
 
-		self._catalog_cfg = Catalog(vivado_path=path, ip_repos=self.ip_repo_list)
+		self.refresh_catalog()
 
 		return self
+
+	def refresh_catalog(self) -> None:
+		self._catalog_cfg = Catalog(vivado_path=self._vivado_cfg.path, ip_repos=self.ip_repo_list)
 
 	def add_vitis_cfg(
 		self,

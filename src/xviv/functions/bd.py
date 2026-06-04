@@ -40,7 +40,7 @@ def _get_bd_list(cfg: XvivConfig, bd_name: str, recursive: bool = False):
 
 
 def cmd_bd_create(cfg: XvivConfig, *, bd_name: str, params: BdCreateParams):
-	ip_list, bd_list = _get_bd_list(cfg, bd_name=bd_name, recursive=True)
+	ip_list, bd_list = _get_bd_list(cfg, bd_name=bd_name, recursive=params.recursive)
 
 	if len(bd_list) > 1:
 		if params.edit:

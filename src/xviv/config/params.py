@@ -10,6 +10,7 @@ class CreateParams:
 	generate: bool = False
 	edit: bool = False
 	nogui: bool = False
+	recursive: bool = False
 
 
 @dataclasses.dataclass
@@ -96,6 +97,7 @@ class SynthParams:
 
 @dataclasses.dataclass
 class ValidateParams:
+	level: str | None = None
 	io: str | None = None
 	design: str | None = None
 	bd: str | None = None

@@ -78,10 +78,12 @@ class LiveSink:
 			sys.exit(1)
 		except CalledProcessError as e:
 			exc = e
+			print(e)
 			rc = e.returncode
 		except BaseException as e:
 			exc = e
 			rc = -1
+			print(e)
 
 		elapsed = time.monotonic() - t0
 		return JobResult(job=job, returncode=rc, elapsed=elapsed, exc=exc)
@@ -135,13 +137,14 @@ class BufferedSink:
 			rc = -1
 
 		elapsed = time.monotonic() - t0
-		_log.log(
-			logging.ERROR if exc else logging.DEBUG,
-			"%s: rc=%s  elapsed=%.1fs",
-			job.label,
-			rc,
-			elapsed,
-		)
+		# _log.log(
+		# 	logging.ERROR if exc else logging.DEBUG,
+		# 	"%s: rc=%s  elapsed=%.1fs %s",
+		# 	job.label,
+		# 	rc,
+		# 	elapsed,
+		# 	exc
+		# )
 		return JobResult(job=job, returncode=rc, elapsed=elapsed, exc=exc, captured=buffer)
 
 

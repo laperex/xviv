@@ -43,6 +43,14 @@ def _get_core_list(
 			if ip_cfg := cfg._get_ip_cfg_optional_by_vlnv(core_entry.vlnv):
 				if ip_cfg.name not in ip_list and not os.path.exists(ip_cfg.component_xml_file):
 					ip_list.append(ip_cfg.name)
+		else:
+			if _vlnv_matches := [ip_cfg for ip_cfg in cfg._ip_list if core_cfg.vlnv in ip_cfg.vlnv]:
+				if len(_vlnv_matches) == 1:
+					ip_list.append(_vlnv_matches.pop().name)
+				else:
+					raise error.AmbiguousCoreError(id, [i.vlnv for i in _vlnv_matches])
+			else:
+				break
 
 	return ip_list, core_list
 
@@ -53,7 +61,7 @@ def _get_core_list(
 
 
 def cmd_core_create(cfg: XvivConfig, *, core_name: str, params: CoreCreateParams) -> None:
-	ip_list, core_list = _get_core_list(cfg, core_name=core_name, recursive=False, filter_bd_cores=True)
+	ip_list, core_list = _get_core_list(cfg, core_name=core_name, recursive=params.recursive, filter_bd_cores=True)
 
 	if len(core_list) > 1:
 		if params.edit:
@@ -67,6 +75,8 @@ def cmd_core_create(cfg: XvivConfig, *, core_name: str, params: CoreCreateParams
 			label_prefix="ip",
 			log_prefix="ip_create",
 		).run()
+
+		cfg.refresh_catalog()
 
 	try:
 		VivadoRunner(cfg).make_pairs(

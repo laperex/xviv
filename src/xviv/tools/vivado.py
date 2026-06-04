@@ -63,7 +63,10 @@ class ToolRunner:
 		self,
 		*,
 		max_workers: int | None = None,
+		sequential: bool = False,
 	) -> None:
+		self.sequential_exec = sequential
+
 		with self.jobs_ctx(self._pairs) as jobs:
 			self._run_internal(jobs, max_workers=max_workers)
 
