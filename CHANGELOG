@@ -4,6 +4,188 @@ All notable changes to **xviv** are documented here.
 
 ---
 
+## [0.2.8] - 2026-06-08
+
+59 commits since v0.2.7 (2026-05-25 → 2026-06-05). The headline addition is
+`xviv validate` — a Vivado-free XDC constraint lint tool that cross-references
+`.xdc` files against RTL port declarations using `tkinter.Tcl` and `pyslang`.
+Internally, `utils/parallel.py` and `utils/process.py` have been replaced by a
+new `Job` / `Stream` / `Display` execution stack, and the test suite has been
+reorganised from monolithic files into a structured unit + integration layout.
+
+### New features
+
+#### `xviv validate` — XDC constraint linter
+
+- New top-level `validate` command and `functions/validate.py` module.
+- Sub-command `validate synth` validates a synth target's I/O constraints
+  without invoking Vivado:
+  - `--design <name>` or `--bd <name>` selects the target (core not yet
+    supported).
+  - `--io {short|full}` toggles summary vs full per-port table output.
+  - `--level {error|info}` filters reported issues (default: `info`).
+- Prints a run summary (top module, FPGA part, enabled pipeline stages) before
+  the constraint table.
+
+#### `parsers/xdc.py` — native XDC parser
+
+- `XDCParser` uses Python's built-in `tkinter.Tcl` engine to evaluate `.xdc`
+  files directly — no Vivado required.
+- Handles `set_property PACKAGE_PIN`, `IOSTANDARD`, `DRIVE`, `SLEW`,
+  `PULLTYPE`, `DIFF_TERM`; `create_clock`; `set_input_delay`,
+  `set_output_delay`; `set_false_path`; `set_max_delay`; `set_logic_*`.
+- Vivado-compatible glob / bus-bit wildcard expansion: `[*]`, `[?]`, and plain
+  base-name matching against unexpanded bus bits.
+- `PortConstraint` dataclass accumulates all constraints per port bit via
+  `merge()`.
+
+#### `parsers/rtl.py` — RTL port extractor
+
+- `RTLPortExtractor` drives `pyslang` to parse SystemVerilog source files and
+  return a list of `PortInfo` records (name, direction, width, MSB/LSB).
+- `PortInfo.expand_bits()` flattens multi-bit ports to individual bit names for
+  XDC matching.
+- Top module auto-detection when `top_module` is `None`.
+
+#### `generator/sby.py` — SymbiYosys script generator
+
+- `SbyGenerator` / `SbyTask` replace the old ad-hoc `generate_sby()` function
+  in `functions/formal.py`.
+- `SbyEngine` constants for all common SMT solvers (`smtbmc yices`, `smtbmc z3`,
+  `btor`, `abc pdr`, etc.) and a combinational mode.
+- `SbyMode` constants: `bmc`, `prove`, `cover`, `live`.
+- Fluent builder API for constructing multi-task `.sby` scripts.
+
+#### `tools/symbiyosys.py` — SbyRunner
+
+- Dedicated `SbyRunner` wrapping the `sby` binary, replacing the ad-hoc
+  `subprocess` calls in `functions/formal.py`.
+- Output classifier recognises `SBY … PASS/FAIL/UNKNOWN/ERROR/TIMEOUT` lines,
+  per-engine status, cover-point hits, and VCD trace paths.
+- `FormalResult` / `PropertyResult` dataclasses carry structured pass/fail
+  outcome, elapsed time, and trace file paths per target.
+
+#### `utils/job.py` — unified job execution
+
+- New `Job` frozen dataclass encapsulates a command, working directory, dry-run
+  flag, interactive flag, **detach mode**, and an output classifier.
+- `JobResult` carries return code, elapsed time, captured output, and exception.
+- `LiveSink` runs a single `Job` synchronously with full PTY / pipe / detach
+  dispatch.
+- `run_job_list()` drives a list of jobs either sequentially or in parallel via
+  `ThreadPoolExecutor`, replacing `utils/parallel.py`'s `run_parallel()`.
+- Detach mode (`job.detach = True`) forks a process and returns its PID
+  immediately — used for launching Vivado GUI sessions.
+
+#### `utils/stream.py` — process output streaming
+
+- `stream_pipe()` — subprocess stdout/stderr captured line-by-line via
+  `subprocess.PIPE`.
+- `stream_pty()` — interactive subprocess through a pseudo-terminal, preserving
+  ANSI colour and cursor control from Vivado's interactive console.
+- `stream_popen()` — fire-and-forget detached process launch.
+- `OutputLine` dataclass carries `text`, `level`, and `raw` fields.
+- Replaces the ad-hoc PTY loop in the old `utils/process.py`.
+
+#### `utils/display.py` — event-driven terminal display
+
+- Structured display events: `EvDispatch`, `EvLine`, `EvComplete`, `EvSummary`.
+- Parallel job output rendered as grouped, labelled blocks with coloured
+  OK / FAILED status and elapsed time.
+- Replaces the `_print_job()` logic scattered across `utils/parallel.py`.
+
+#### `utils/theme.py` — centralised colour/style
+
+- `Theme` class with `bold`, `dim`, `red`, `green`, `yellow`, `blue`, `cyan`,
+  `magenta` helpers, all gated on `NO_COLOR` / `FORCE_COLOR` env vars and
+  `sys.stdout.isatty()`.
+- Global `theme_cfg` singleton imported across `functions/`, `utils/`, and
+  `tools/`.
+- Replaces the scattered `BOLD`, `DIM`, `GREEN`, `RED`, `RESET` constants that
+  were imported directly from `utils/log.py`.
+
+#### `utils/ascii_table.py` — table renderer
+
+- `AsciiTable` renders aligned, bordered tables to the terminal.
+- Used by `validate` to display per-port constraint coverage.
+
+#### `utils/hash.py` — file fingerprinting
+
+- `sha512_file(path)` for content-based staleness checks on source files.
+- `SourceFile` hash bug fix: hash was not being recomputed after file path
+  normalisation, causing false cache hits.
+
+#### `config/params.py` — typed command parameters
+
+- All per-command parameters factored out of the CLI layer into typed
+  dataclasses: `CreateParams`, `IpCreateParams`, `BdCreateParams`,
+  `CoreCreateParams`, `EditParams`, `GenerateParams`, `SynthParams`,
+  `SimulateParams`, `ValidateParams`, `ProgramParams`, `ProcessorParams`,
+  `AppBuildParams`, `PlatformBuildParams`, `AppCreateParams`,
+  `PlatformCreateParams`, `OpenParams`.
+- `SynthParams` carries `resume` and `parallel_subcore_synth`; `ValidateParams`
+  carries `design`, `bd`, `core`, `io`, and `level`.
+- Functions in `functions/` now receive a typed `params` object instead of
+  individual keyword arguments, reducing call-site coupling.
+
+### Changes
+
+- **`utils/parallel.py` removed** — functionality absorbed into `utils/job.py`
+  (`run_job_list`) and `utils/display.py`.
+- **`utils/process.py` removed** — PTY streaming absorbed into `utils/stream.py`;
+  Vivado output classification moved to `tools/vivado.py` (`VivadoRunner.classify`).
+- **`tools/vivado.py` refactored** — `VivadoRunner` now uses `Job` / `LiveSink`
+  internally; `run_vivado_xvlog` / `run_vivado_xelab` free functions removed in
+  favour of `XvlogRunner`, `XelabRunner`, `XsimRunner` runner classes.
+- **`functions/formal.py` overhauled** — inline `.sby` generation removed;
+  delegates to `SbyGenerator` and `SbyRunner`. Adds parallel multi-target
+  execution via `ThreadPoolExecutor`.
+- **`generator/wrapper.py` simplified** — SV wrapper parser ported to use the
+  new `RTLPortExtractor` from `parsers/rtl.py`; removed ~600 lines of
+  duplicated `pyslang` traversal code.
+- **`cmd_simulate` signature** — now accepts a `SimulateParams` dataclass
+  instead of individual `uvm_name`, `run`, `mode` keyword args.
+- **`cmd_synthesis` signature** — now accepts a `SynthParams` dataclass;
+  `--usr-access-type` removed from the hot path (value derived from git SHA
+  automatically).
+- Dirty-tree warning on synthesis elevated from `INFO` to `WARNING`.
+
+### Fixed
+
+- **`usr_access_value`** — bitstream USR_ACCESS embedded value was silently
+  dropped when `synth_cfg.usr_access_value` was set explicitly in `project.toml`;
+  now correctly overrides the git-SHA path.
+- **XSCT runner** — `XsctRunner` failed when the XSCT binary was found via
+  `XVIV_VIVADO_SOURCE_SCRIPT` rather than `PATH`; fixed path resolution.
+- **`SourceFile` hash** — hash was not recomputed after path normalisation,
+  causing incorrect incremental-synthesis cache hits.
+- **`ValidateCommand` loglevel** — `--level error` filter was not wired into the
+  lint engine's output; now correctly suppresses `INFO`-level rows.
+
+### Tests
+
+- **Monolithic test files removed**: `test_2.py`, `test_comprehensive.py`,
+  `test_functions.py`, `test_tcl_commands.py`, `test_tool_runners.py`.
+- **Replaced with structured layout**:
+  - `tests/unit/config/` — `test_loader`, `test_lock`, `test_model`,
+    `test_project`, `test_project_resolve`, `test_project_synth`.
+  - `tests/unit/generator/` — `test_tcl_builder`, `test_tcl_project`,
+    `test_tcl_synth`.
+  - `tests/unit/parsers/` — `test_bd_json`.
+  - `tests/unit/tools/` — `test_verilator_runner`, `test_vivado_runner`,
+    `test_xsct_runner`.
+  - `tests/unit/utils/` — `test_display`, `test_error`, `test_fs`, `test_git`,
+    `test_hash`, `test_job`, `test_stream`.
+  - `tests/integration/` — `test_cli_dispatch`, `test_error_surfaces`,
+    `test_lock_roundtrip`, `test_toml_fixtures`.
+- `tests/fixtures/` — TOML fixture files: `minimal.toml`, `design_synth.toml`,
+  `custom_ip_core.toml`, `multi_fpga.toml`, `simulation_xsim.toml`,
+  `formal_all_modes.toml`; BD JSON fixtures `flat.bd.json`, `nested.bd.json`.
+- `tests/conftest.py` and `tests/helpers.py` added for shared fixtures and
+  assertion helpers.
+
+---
+
 ## [0.2.7] - 2026-05-24
 
 Largest release to date. The codebase was restructured into a proper

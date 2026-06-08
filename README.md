@@ -272,6 +272,25 @@ xviv processor --reset
 xviv processor --status
 ```
 
+### Validate
+
+Validate XDC constraint files against RTL port declarations without running Vivado. The engine uses Python's native Tcl interpreter to evaluate XDC files and `pyslang` to extract ports directly from SystemVerilog source.
+
+```sh
+# Check XDC I/O pins against RTL ports for a design
+xviv validate synth --design top --io short
+xviv validate synth --design top --io full
+
+# Same for a block design
+xviv validate synth --bd system --io full
+
+# Control which issues are reported
+xviv validate synth --design top --io full --level error   # errors only
+xviv validate synth --design top --io full --level info    # all (default)
+```
+
+`--io short` prints a summary table; `--io full` shows every port with its constraint status (PACKAGE_PIN, IOSTANDARD, timing constraints, and any unmapped or unconstrained pins).
+
 ### Formal
 
 ```sh
@@ -346,12 +365,27 @@ project/
 
 ---
 
+## Validate
+
+`xviv validate` cross-references XDC constraints against RTL port declarations without invoking Vivado. It runs entirely in Python:
+
+- **XDC parsing** — uses Python's built-in `tkinter.Tcl` engine to evaluate XDC files natively. Handles `set_property`, `create_clock`, `set_input_delay`, `set_output_delay`, `set_false_path`, `set_max_delay`, and Vivado-style glob/bus wildcards (`[*]`, `[?]`).
+- **RTL extraction** — uses `pyslang` to extract port declarations (name, direction, width) from SystemVerilog sources.
+- **Reporting** — renders a colour-coded ASCII table showing every port, its assigned PACKAGE_PIN, IOSTANDARD, and timing constraint coverage. Unconstrained or unmatched pins are flagged.
+
+```sh
+xviv validate synth --design top --io full
+```
+
+---
+
 ## Roadmap
 
 Roughly in order of priority.
 
 **Near-term**
 
+- **`validate synth --core`** — XDC/port validation for standalone OOC core targets (currently only `--design` and `--bd` are supported).
 - **DPI support** — C/C++ testbenches that call into the simulator via DPI-C.
 - **Configurable HSI targets** — the FPGA part and processor target passed to `hsi` during BSP generation are currently driven by the `[[platform]]` properties dict; exposing typed config keys would be cleaner.
 - **Subcore support for custom IPs** — declare that a custom IP depends on another IP internally (e.g. a `clk_wiz` sub-core), so the packager carries the dependency correctly. BDs get automatic subcore tracking already; standalone IPs don't.
