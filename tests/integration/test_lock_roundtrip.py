@@ -1,4 +1,4 @@
-"""Integration: load_config → generate_lock → re-parse cycle."""
+"""Integration: load_config -> generate_lock -> re-parse cycle."""
 
 from __future__ import annotations
 

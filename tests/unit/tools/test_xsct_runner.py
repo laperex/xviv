@@ -1,4 +1,4 @@
-"""Tests for tools/xsct.py — XsctRunner.job construction."""
+"""Tests for tools/xsct.py - XsctRunner.job construction."""
 
 from __future__ import annotations
 

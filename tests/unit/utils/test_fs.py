@@ -1,4 +1,4 @@
-"""Tests for xviv.utils.fs — resolve_globs, is_stale, combined_checksum."""
+"""Tests for xviv.utils.fs - resolve_globs, is_stale, combined_checksum."""
 
 import os
 import time

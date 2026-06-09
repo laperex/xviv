@@ -1,4 +1,4 @@
-"""Tests for xviv.generator.tcl.builder — ConfigTclBuilder primitives."""
+"""Tests for xviv.generator.tcl.builder - ConfigTclBuilder primitives."""
 
 from __future__ import annotations
 

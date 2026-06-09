@@ -8,7 +8,7 @@ from typing import Dict, List, Optional, Tuple
 try:
 	import pyslang
 except ImportError as exc:
-	raise ImportError("pyslang is required for RTL parsing — install it with: pip install pyslang") from exc
+	raise ImportError("pyslang is required for RTL parsing - install it with: pip install pyslang") from exc
 
 logger = logging.getLogger(__name__)
 
@@ -120,7 +120,7 @@ class ParamDecl:
 @dataclass
 class IfaceSignal:
 	name: str
-	direction: str  # "input" | "output" | "inout" — from modport's perspective
+	direction: str  # "input" | "output" | "inout" - from modport's perspective
 	type_str: str  # source-form type tokens, e.g. "logic[WIDTH-1:0]"
 
 

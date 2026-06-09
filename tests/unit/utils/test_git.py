@@ -1,4 +1,4 @@
-"""Tests for xviv.utils.git — _git_sha_tag."""
+"""Tests for xviv.utils.git - _git_sha_tag."""
 
 from unittest.mock import patch
 

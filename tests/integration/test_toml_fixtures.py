@@ -1,4 +1,4 @@
-"""Integration: each fixture TOML loads without error — regression guard."""
+"""Integration: each fixture TOML loads without error - regression guard."""
 
 from __future__ import annotations
 

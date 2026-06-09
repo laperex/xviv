@@ -282,12 +282,12 @@ def _log_result(result: FormalResult) -> None:
 
 	if result.traces:
 		for trace in result.traces:
-			logger.warning("  counterexample → %s", trace)
+			logger.warning("  counterexample - %s", trace)
 			logger.warning("  open with:       gtkwave %s", trace)
 
 	if result.properties:
 		for prop in result.properties:
-			sym = "✓" if prop.passed else "✗"
+			sym = "PASS" if prop.passed else "FAIL"
 			step_info = f"  @step {prop.step}" if prop.step is not None else ""
 			logger.debug("    %s  [%s]  %s%s", sym, prop.kind, prop.name, step_info)
 
@@ -381,7 +381,7 @@ def cmd_formal(
 	# ------------------------------------------------------------------
 	# Summary table
 	# ------------------------------------------------------------------
-	divider = "─" * 58
+	divider = "-" * 58
 	logger.info("\nFormal Results  %s", divider)
 	logger.info("  %-32s  %-8s  %s", "Target", "Mode", "Status")
 	logger.info("  %s", divider)

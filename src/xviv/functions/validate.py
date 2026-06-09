@@ -306,7 +306,7 @@ def print_io_report(
 				issues.append("no IOSTANDARD")
 			if r.missing_clk_def:
 				issues.append("no create_clock")
-			t.add_row(theme_cfg.warn("PARTIALLY CONSTRAINED"), r.port_bit, dir_str(r.direction), "  ·  ".join(issues), "RTL")
+			t.add_row(theme_cfg.warn("PARTIALLY CONSTRAINED"), r.port_bit, dir_str(r.direction), " - ".join(issues), "RTL")
 
 		if stale:
 			if errors or warnings:

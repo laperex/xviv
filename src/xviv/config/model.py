@@ -1,6 +1,5 @@
 import dataclasses
 import os
-import shutil
 import typing
 
 from xviv.utils.hash import sha512_file
@@ -459,28 +458,28 @@ class CatalogCoreEntry:
 	unsupported_families: frozenset[str]
 	upgrades_from: tuple[str, ...]
 
-	@property
-	def short_desc(self) -> str:
-		desc_max = shutil.get_terminal_size().columns // 2
-		text = " ".join(self.description.split())
-		if len(text) > desc_max:
-			text = text[: desc_max - 1] + "..."
-		return text
+	# @property
+	# def short_desc(self) -> str:
+	# 	desc_max = shutil.get_terminal_size().columns // 2
+	# 	text = " ".join(self.description.split())
+	# 	if len(text) > desc_max:
+	# 		text = text[: desc_max - 1] + "..."
+	# 	return text
 
-	@property
-	def completion_description(self) -> str:
-		parts = [self.display_name, f"[{self.vendor}/{self.library}]"]
-		flags: list[str] = []
+	# @property
+	# def completion_description(self) -> str:
+	# 	parts = [self.display_name, f"[{self.vendor}/{self.library}]"]
+	# 	flags: list[str] = []
 
-		if self.hidden:
-			flags.append("⚠ internal subcore")
-		if self.board_dependent:
-			flags.append("⚠ board-dependent")
-		if self.ipi_only:
-			flags.append("⚠ IPI-only")
+	# 	if self.hidden:
+	# 		flags.append(theme_cfg.warning("internal subcore"))
+	# 	if self.board_dependent:
+	# 		flags.append(theme_cfg.warning("board-dependent"))
+	# 	if self.ipi_only:
+	# 		flags.append(theme_cfg.warning("IPI-only"))
 
-		parts.append("  ".join(flags) if flags else self.short_desc)
-		return "  ".join(parts)
+	# 	parts.append("  ".join(flags) if flags else self.short_desc)
+	# 	return "  ".join(parts)
 
 
 @dataclasses.dataclass

@@ -1,4 +1,4 @@
-"""Integration: CLI args → cmd_* dispatch; params dataclass contracts."""
+"""Integration: CLI args -> cmd_* dispatch; params dataclass contracts."""
 
 from __future__ import annotations
 

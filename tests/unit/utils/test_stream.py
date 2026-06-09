@@ -1,4 +1,4 @@
-"""Tests for xviv.utils.stream — OutputLine, identity_classifier, stream_pipe, stream_popen."""
+"""Tests for xviv.utils.stream - OutputLine, identity_classifier, stream_pipe, stream_popen."""
 
 from __future__ import annotations
 

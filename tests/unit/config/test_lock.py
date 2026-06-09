@@ -1,4 +1,4 @@
-"""Tests for XvivConfig.generate_lock — validity, paths, idempotency."""
+"""Tests for XvivConfig.generate_lock - validity, paths, idempotency."""
 
 from __future__ import annotations
 
@@ -45,7 +45,7 @@ class TestGenerateLock:
 		cfg.generate_lock()
 		content = (tmp_path / "project.lock").read_text()
 		assert "null" not in content.lower()
-		# None in TOML means no key — not "null" literal
+		# None in TOML means no key - not "null" literal
 		parsed = tomllib.loads(content)
 
 		def _check_no_none(d):

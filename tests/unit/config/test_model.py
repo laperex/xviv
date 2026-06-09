@@ -1,4 +1,4 @@
-"""Tests for xviv.config.model — SourceFile, derived properties, Lockable serialization."""
+"""Tests for xviv.config.model - SourceFile, derived properties, Lockable serialization."""
 
 from __future__ import annotations
 

@@ -16,7 +16,7 @@ from xviv.config.project import XvivConfig
 
 @pytest.fixture
 def bare(tmp_path):
-	"""XvivConfig with no FPGA, no Vivado — minimal valid state."""
+	"""XvivConfig with no FPGA, no Vivado - minimal valid state."""
 	pf = tmp_path / "project.toml"
 	pf.write_text("")
 	cfg = XvivConfig(str(pf))

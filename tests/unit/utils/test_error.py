@@ -1,4 +1,4 @@
-"""Tests for xviv.utils.error — hierarchy and message content."""
+"""Tests for xviv.utils.error - hierarchy and message content."""
 
 import pytest
 

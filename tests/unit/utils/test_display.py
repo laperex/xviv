@@ -1,4 +1,4 @@
-"""Tests for xviv.utils.display — emit() routing, _fmt_duration, _counter."""
+"""Tests for xviv.utils.display - emit() routing, _fmt_duration, _counter."""
 
 from __future__ import annotations
 

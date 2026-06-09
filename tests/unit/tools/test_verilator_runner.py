@@ -1,4 +1,4 @@
-"""Tests for tools/verilator.py — VerilatorRunner.compile_job, sim_job."""
+"""Tests for tools/verilator.py - VerilatorRunner.compile_job, sim_job."""
 
 from __future__ import annotations
 

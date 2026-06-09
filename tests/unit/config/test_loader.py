@@ -1,4 +1,4 @@
-"""Tests for xviv.config.loader — load_config, resolve_config."""
+"""Tests for xviv.config.loader - load_config, resolve_config."""
 
 from __future__ import annotations
 

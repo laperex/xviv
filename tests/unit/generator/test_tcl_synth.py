@@ -1,4 +1,4 @@
-"""Tests for ConfigTclCommands.synth — stage pipeline, skip flags, directives, checkpoints."""
+"""Tests for ConfigTclCommands.synth - stage pipeline, skip flags, directives, checkpoints."""
 
 from __future__ import annotations
 
@@ -270,8 +270,8 @@ class TestReports:
 	def test_no_report_when_disabled(self, tmp_path):
 		cfg = _cfg_with_design(tmp_path, synth_report_timing_summary=False)
 		tcl = _build_synth_tcl(cfg)
-		# Default is False — should not appear post-synth_design
-		# (Route stage is separate — we just check the overall TCL doesn't have
+		# Default is False - should not appear post-synth_design
+		# (Route stage is separate - we just check the overall TCL doesn't have
 		# synth-phase report commands when disabled)
 		assert "report_timing_summary" not in tcl or "route_design" in tcl
 

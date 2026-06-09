@@ -1,4 +1,4 @@
-"""Tests for xviv.config.project.XvivConfig — constructor, add/get methods."""
+"""Tests for xviv.config.project.XvivConfig - constructor, add/get methods."""
 
 from __future__ import annotations
 
@@ -143,7 +143,7 @@ class TestAddFpga:
 	def test_get_fpga_none_on_empty_list_raises(self, tmp_path):
 		cfg = _cfg(tmp_path)
 		with pytest.raises((NoFpgaError, Exception)):
-			cfg.get_fpga(None)  # empty _fpga_list → _get_fpga_cfg_default → NoFpgaError
+			cfg.get_fpga(None)  # empty _fpga_list -> _get_fpga_cfg_default -> NoFpgaError
 
 
 @pytest.mark.unit

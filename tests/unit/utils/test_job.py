@@ -1,4 +1,4 @@
-"""Tests for xviv.utils.job — Job, JobResult, LiveSink, BufferedSink, run_job_list."""
+"""Tests for xviv.utils.job - Job, JobResult, LiveSink, BufferedSink, run_job_list."""
 
 from __future__ import annotations
 
@@ -85,7 +85,7 @@ class TestJobResult:
 		assert result.failed is True
 
 	def test_succeeded_when_returncode_is_none(self):
-		"""dry-run sets returncode=None — that counts as success."""
+		"""dry-run sets returncode=None - that counts as success."""
 		job = make_job()
 		result = JobResult(job=job, returncode=None, elapsed=None, exc=None)
 		assert result.succeeded is True

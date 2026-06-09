@@ -1,4 +1,4 @@
-"""Tests for XvivConfig.add_synth_cfg — the 30+ parameter complex defaults."""
+"""Tests for XvivConfig.add_synth_cfg - the 30+ parameter complex defaults."""
 
 from __future__ import annotations
 

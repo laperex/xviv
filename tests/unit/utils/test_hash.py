@@ -1,4 +1,4 @@
-"""Tests for xviv.utils.hash — sha512_file."""
+"""Tests for xviv.utils.hash - sha512_file."""
 
 import pytest
 
@@ -41,7 +41,7 @@ class TestSha512File:
 		assert result == ""
 
 	def test_empty_file_is_not_empty_string(self, tmp_path):
-		"""Empty file must return SHA-512 of zero bytes — NOT the sentinel ''."""
+		"""Empty file must return SHA-512 of zero bytes - NOT the sentinel ''."""
 		f = tmp_path / "empty.bin"
 		f.write_bytes(b"")
 		result = sha512_file(str(f))

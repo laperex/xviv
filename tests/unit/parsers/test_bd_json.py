@@ -1,4 +1,4 @@
-"""Tests for xviv.parsers.bd_json — get_bd_core_list."""
+"""Tests for xviv.parsers.bd_json - get_bd_core_list."""
 
 from __future__ import annotations
 

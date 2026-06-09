@@ -1,4 +1,4 @@
-"""Integration: malformed TOML → typed error raised at load time."""
+"""Integration: malformed TOML -> typed error raised at load time."""
 
 from __future__ import annotations
 

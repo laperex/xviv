@@ -8,6 +8,8 @@ from xviv.config.project import XvivConfig
 from xviv.generator.tcl.commands import ConfigTclCommands
 from xviv.tools.vivado import VivadoRunner
 from xviv.utils import error
+from xviv.utils.ascii_table import AsciiTable
+from xviv.utils.theme import theme_cfg
 from xviv.utils.tools import find_vivado_dir_path
 
 logger = logging.getLogger(__name__)
@@ -133,36 +135,25 @@ def cmd_search_core(cfg: XvivConfig, *, query: str) -> None:
 	]
 
 	if not matches:
-		print(f"No IPs found matching '{query}'.")
-		print("Tip: try a partial name like 'fifo', 'clk', 'dma', or a vendor like 'xilinx'.")
+		print(theme_cfg.error(f"No IPs found matching '{query}'."))
+		print(theme_cfg.critical("Tip: try a partial name like 'fifo', 'clk', 'dma', or a vendor like 'xilinx'."))
 		return
 
-	w_vlnv = min(max(len(e.vlnv) for e in matches), 52)
-	w_name = min(max(len(e.display_name) for e in matches), 30)
-	w_desc = 60
-
-	header = f"{'VLNV':<{w_vlnv}}  {'Display Name':<{w_name}}  {'Description':<{w_desc}}"
-	sep = f"{'─' * w_vlnv}  {'─' * w_name}  {'─' * w_desc}"
-
-	print(f"\n{header}")
-	print(sep)
+	t_ascii_table = AsciiTable(
+		title="",
+		headers=["VLNV", "NAME", "DESCRIPTION"],
+	)
 
 	for entry in matches:
-		vlnv_col = entry.vlnv[:w_vlnv]
-		name_col = entry.display_name[:w_name]
+		t_ascii_table.add_row(entry.vlnv, entry.display_name, entry.description)
 
-		flags = []
-		if entry.board_dependent:
-			flags.append("[board-dep]")
-		if entry.ipi_only:
-			flags.append("[IPI-only]")
-
-		if flags:
-			desc_col = "  ".join(flags)
-		else:
-			desc_text = " ".join(entry.description.split())
-			desc_col = desc_text[: w_desc - 1] + "…" if len(desc_text) > w_desc else desc_text
-
-		print(f"{vlnv_col:<{w_vlnv}}  {name_col:<{w_name}}  {desc_col}")
+	# 	flags = []
+	# 	if entry.hidden:
+	# 		flags.append(theme_cfg.warning("internal subcore"))
+	# 	if entry.board_dependent:
+	# 		flags.append(theme_cfg.warning("board-dep"))
+	# 	if entry.ipi_only:
+	# 		flags.append(theme_cfg.warning("IPI-only"))
+	t_ascii_table.print()
 
 	print(f'\n{len(matches)} result(s). Add to project.toml:  vlnv = "<VLNV>"  in a [[core]] entry.')

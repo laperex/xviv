@@ -1,6 +1,6 @@
 # xviv — Complete Feature Documentation
 
-> Commit `d3d0c9f3588da205c470b1cb3576b63cfe64b975`
+> Commit `6ca6a3338f9a883ab13ac42f5f7470ad7c51c2a3`
 > CLI project controller for Vivado and Vitis.
 
 ---
@@ -36,6 +36,7 @@
    - [processor](#processor)
    - [search](#search)
    - [formal](#formal-command)
+   - [validate](#validate-command)
 5. [Global CLI Flags](#global-cli-flags)
 6. [Environment Variables](#environment-variables)
 7. [Shell Completion](#shell-completion)
@@ -46,9 +47,10 @@
 12. [Parallel OOC Synthesis](#parallel-ooc-synthesis)
 13. [Simulation Backends](#simulation-backends)
 14. [Formal Verification](#formal-verification)
-15. [Embedded / Vitis Flow](#embedded--vitis-flow)
-16. [SV Wrapper Generation](#sv-wrapper-generation)
-17. [Build Artifacts Reference](#build-artifacts-reference)
+15. [XDC Constraint Linter](#xdc-constraint-linter)
+16. [Embedded / Vitis Flow](#embedded--vitis-flow)
+17. [SV Wrapper Generation](#sv-wrapper-generation)
+18. [Build Artifacts Reference](#build-artifacts-reference)
 
 ---
 
@@ -79,7 +81,7 @@ pip install -e ".[dev]"
 pre-commit install
 ```
 
-`pyslang <= 10.0.0` is a declared dependency — required for the SV wrapper generator (`[[wrapper]]` sections).
+`pyslang <= 10.0.0` is a declared dependency — required for the SV wrapper generator (`[[wrapper]]` sections) and the XDC constraint linter (`xviv validate`).
 
 ---
 
@@ -593,8 +595,8 @@ xviv generate --bd   system --reset
 Run synthesis (and optionally place, route, bitstream) for a design, block design, or core.
 
 ```
-xviv synth --design <NAME>  [--resume STAGE] [--usr-access-type TYPE] [--parallel]
-xviv synth --bd     <NAME>  [--resume STAGE] [--usr-access-type TYPE] [--parallel]
+xviv synth --design <NAME>  [--resume STAGE] [--parallel]
+xviv synth --bd     <NAME>  [--resume STAGE] [--parallel]
 xviv synth --core   <NAME>  [--resume STAGE]
 ```
 
@@ -603,9 +605,9 @@ xviv synth --core   <NAME>  [--resume STAGE]
   - `synth` — Resume from after `synth_design` (load `synth.dcp`).
   - `place` — Resume from after `place_design` (load `place.dcp`).
   - `route` — Resume from after `route_design` (load `route.dcp`).
-- `--usr-access-type TYPE` — Controls what value is embedded in `USR_ACCESS`.
-  - `git` (default) — Embeds the short git SHA (bit 28 set if working tree is dirty).
-- `--parallel` — Synthesize all registered sub-cores (from BD IP list or design) in parallel using `ThreadPoolExecutor` before running the top-level synthesis. Each sub-core runs in its own Vivado batch invocation. Per-job output is shown with colored status and elapsed time.
+- `--parallel` — Synthesize all registered sub-cores (from BD IP list or design) in parallel using `ThreadPoolExecutor` before running the top-level synthesis. Each sub-core runs in its own Vivado batch invocation. Per-job output is shown with coloured status and elapsed time.
+
+The git SHA is embedded into the bitstream `USR_ACCESS` register automatically. Set `usr_access_value` in `[[synth]]` to hard-code a specific value instead. A warning is printed if the working tree has uncommitted changes at build time.
 
 ```sh
 # Full RTL synthesis
@@ -799,6 +801,38 @@ Results are displayed as a colour-coded summary (PASS / FAIL). The command exits
 
 ---
 
+### `validate` (command)
+
+Validate XDC constraint files against RTL port declarations without invoking Vivado.
+
+```
+xviv validate synth --design <NAME>  [--io {short|full}] [--level {error|info}]
+xviv validate synth --bd     <NAME>  [--io {short|full}] [--level {error|info}]
+```
+
+Exactly one of `--design` or `--bd` is required. `--core` targets are not yet supported.
+
+- `--io short` — Print a compact summary table: totals of constrained, unconstrained, and unmatched ports.
+- `--io full` — Print a per-port table showing PACKAGE_PIN, IOSTANDARD, drive/slew, and timing constraint coverage for every port bit.
+- `--level error` — Show only error-level rows (unconstrained or unmatched ports). Default is `info` which shows all ports.
+
+Before the table, the command prints the resolved top module, FPGA part, and which pipeline stages are enabled.
+
+```sh
+# Quick summary — unconstrained port count
+xviv validate synth --design top --io short
+
+# Full per-port table for a block design
+xviv validate synth --bd system --io full
+
+# Errors only (useful in CI)
+xviv validate synth --design top --io full --level error
+```
+
+`validate` requires no running Vivado license. See [XDC Constraint Linter](#xdc-constraint-linter) for implementation details.
+
+---
+
 ## Global CLI Flags
 
 These flags can be passed to any subcommand:
@@ -839,7 +873,7 @@ xviv supports dynamic tab completion via `argcomplete`. Completions are context-
 | Argument | Completion source |
 |----------|-------------------|
 | `--ip`, `--bd`, `--design`, `--core` | Names parsed from `project.toml` |
-| `--target` (simulate) | Simulation names from `project.toml` |
+| `--target` (simulate / validate) | Simulation / design names from `project.toml` |
 | `--uvm` | UVM test names filtered to the selected simulation |
 | `--dcp` | Known checkpoint file paths under `build/synth/` |
 | `--platform`, `--app` | Names from `project.toml` |
@@ -933,12 +967,7 @@ constraints      = ["constraints/top.xdc"]
 usr_access_value = 0xDEADBEEF   # hard-coded value instead of git SHA
 ```
 
-Or from the CLI:
-```sh
-xviv synth --design top --usr-access-type git   # default
-```
-
-In non-git projects, synthesis will fail if `usr_access_value` is not set explicitly and a bitstream is being written.
+If `usr_access_value` is not set, the git SHA is used automatically. A warning is printed at synthesis time if the working tree has uncommitted changes. In non-git projects, synthesis will fail if `usr_access_value` is not set explicitly and a bitstream is being written.
 
 ---
 
@@ -964,20 +993,22 @@ A full synthesis run executes these stages in order (each can be individually di
 
 ## Parallel OOC Synthesis
 
-The `--parallel` flag on `xviv synth` triggers parallel out-of-context synthesis of all sub-cores associated with the target BD or design. Each sub-core runs in its own Vivado batch process via `ThreadPoolExecutor`.
+The `--parallel` flag on `xviv synth` triggers parallel out-of-context synthesis of all sub-cores associated with the target BD or design. Each sub-core runs in its own Vivado batch process dispatched through the `Job` / `run_job_list` execution stack via `ThreadPoolExecutor`.
 
 ```sh
 # Synthesize all BD sub-cores in parallel, then synthesize the BD
 xviv synth --bd system --parallel
 ```
 
-Per-job output is printed with:
-- Colored `OK` / `FAILED` status
+Per-job output is rendered with:
+- Coloured `OK` / `FAILED` status
 - Elapsed time
-- Captured Vivado output
-- Path to the per-job log file (`build/log/job_synth_<core>.log`)
+- Full captured Vivado output (ERROR / WARNING lines highlighted)
+- Path to the per-job log file
 
 Sub-cores are gathered from the internal sub-core registry, which is populated automatically when a `.bd` file exists (xviv parses the BD's IP list on config load). The XCI file for each sub-core must already exist (created by `create --core`) before `--parallel` is used.
+
+Sequential execution (one sub-core at a time) is used when `--parallel` is omitted, going through the same `VivadoRunner.make_pairs().run()` path so output rendering is identical.
 
 ---
 
@@ -1016,16 +1047,81 @@ When `--mode` is anything other than `default`, xviv resolves the relevant netli
 
 ## Formal Verification
 
-xviv's formal flow uses [SymbiYosys](https://symbiyosys.readthedocs.io/) (`sby`) as the frontend with SMT solvers (default: `smtbmc yices z3`).
+xviv's formal flow uses [SymbiYosys](https://symbiyosys.readthedocs.io/) (`sby`) as the frontend with SMT solvers.
 
-A `.sby` script is generated from the `[[formal]]` configuration and placed in `build/formal/`. Running `xviv formal` without `--target` runs **all** declared `[[formal]]` targets.
+A `.sby` script is generated from the `[[formal]]` configuration by `SbyGenerator` (in `generator/sby.py`) and placed in `build/formal/`. The script is then executed by `SbyRunner` (in `tools/symbiyosys.py`), which classifies output lines in real time and collects structured results. Running `xviv formal` without `--target` runs **all** declared `[[formal]]` targets, in parallel when multiple targets are present.
 
 **Modes:**
 - `bmc` — Bounded model checking: checks all reachable states up to `depth` cycles.
 - `prove` — Full inductive proof over the bound.
 - `cover` — Reachability: checks that `cover()` statements are reachable within `depth` cycles.
 
-If verification fails, the VCD counterexample trace path is printed and a `gtkwave` command is provided.
+**Engines** (set via the `engine` key in `[[formal]]`):
+
+| Constant | Engine string |
+|----------|--------------|
+| default | `smtbmc yices z3` |
+| `smtbmc z3` | Z3 SMT solver |
+| `smtbmc boolector` | Boolector |
+| `smtbmc bitwuzla` | Bitwuzla |
+| `btor` | Btor2 hardware model checker |
+| `abc pdr` | ABC PDR engine |
+
+**Structured results:** Each target produces a `FormalResult` with overall PASS/FAIL status, elapsed time, and a list of `PropertyResult` records — one per `assert` or `cover` property — carrying individual pass/fail, trace path, and the step at which a counterexample was found.
+
+If verification fails, the VCD counterexample trace path is printed alongside a ready-to-paste `gtkwave` command. The command exits with code `1` if any target fails.
+
+---
+
+## XDC Constraint Linter
+
+`xviv validate synth` cross-references XDC constraint files against RTL port declarations entirely in Python — no Vivado license or process required.
+
+### XDC parsing (`parsers/xdc.py`)
+
+`XDCParser` uses Python's built-in `tkinter.Tcl` engine to evaluate `.xdc` files natively as Tcl. This means every Tcl construct that Vivado accepts (conditionals, loops, `foreach`, `lindex`) works correctly without any custom parser.
+
+Tracked constraints per port bit:
+
+| Constraint | Tcl command |
+|-----------|------------|
+| Package pin | `set_property PACKAGE_PIN` |
+| I/O standard | `set_property IOSTANDARD` |
+| Drive strength | `set_property DRIVE` |
+| Slew rate | `set_property SLEW` |
+| Pull type | `set_property PULLTYPE` |
+| Differential termination | `set_property DIFF_TERM` |
+| Clock definition | `create_clock` |
+| Input delay | `set_input_delay` |
+| Output delay | `set_output_delay` |
+| False path | `set_false_path` |
+| Max delay | `set_max_delay` |
+| Set logic | `set_logic_*` |
+
+**Wildcard matching** follows Vivado's rules: `[*]` matches any bus index, `[?]` matches a single-digit index, and a plain name (no brackets) matches any bit of a bus with that base name.
+
+### RTL port extraction (`parsers/rtl.py`)
+
+`RTLPortExtractor` drives `pyslang` to parse SystemVerilog source files and extract top-module port declarations. Each `PortInfo` record carries name, direction (`In` / `Out` / `InOut`), type string, and MSB/LSB indices. `expand_bits()` flattens multi-bit ports to individual `name[N]` strings for XDC matching.
+
+When `top_module` is not specified, the extractor auto-detects the top from the parsed module list.
+
+### Output
+
+`--io short` — A single-line summary: total ports, constrained count, unconstrained count, unmatched XDC targets.
+
+`--io full` — An ASCII table (one row per port bit) with columns:
+
+| Column | Description |
+|--------|-------------|
+| Port | Port name and bit index |
+| Dir | Direction (In / Out / InOut) |
+| PIN | PACKAGE_PIN value or `—` |
+| STD | IOSTANDARD value or `—` |
+| Timing | Clock / input-delay / output-delay / false-path / max-delay flags |
+| Status | `OK`, `WARN` (partial), or `ERROR` (unconstrained / unmatched) |
+
+`--level error` suppresses `OK` and `WARN` rows — useful for CI where only failures matter.
 
 ---
 
@@ -1060,7 +1156,7 @@ This flattens to `CONFIG.stdout = mdm_1`, `CONFIG.stdin = mdm_1`.
 
 When a custom IP has AXI interface ports, the Vivado IP Packager expects flattened signals. The `[[wrapper]]` section automates this by generating a SystemVerilog wrapper module that re-exposes interfaces as flat ports. Requires `pyslang`.
 
-The generated wrapper is placed at `build/wrapper/<wrapper_top>.sv` and automatically included as a source when `create --ip` is run.
+The wrapper generator uses `RTLPortExtractor` from `parsers/rtl.py` (the same parser used by `xviv validate`) to extract interface declarations from the IP source files, then generates a flat-port wrapper module at `build/wrapper/<wrapper_top>.sv`. This file is automatically included as a source when `create --ip` is run.
 
 The wrapper generator is also available as a standalone entry point:
 

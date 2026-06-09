@@ -135,7 +135,7 @@ class VivadoRunner(XilinxToolRunner):
 		tmp.write(tcl)
 		tmp.close()
 		tcl_path = Path(tmp.name)
-		logger.debug("VivadoRunner.job %s: tcl → %s", label, tcl_path)
+		logger.debug("VivadoRunner.job %s: tcl - %s", label, tcl_path)
 
 		viv = self._cfg.get_vivado()
 		self._pairs.append(

@@ -1,4 +1,4 @@
-"""Tests for ConfigTclCommands project-level TCL — _require_project, board_repo, ip_repo."""
+"""Tests for ConfigTclCommands project-level TCL - _require_project, board_repo, ip_repo."""
 
 from __future__ import annotations
 

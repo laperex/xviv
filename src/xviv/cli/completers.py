@@ -3,6 +3,7 @@ import pathlib
 import shutil
 
 from xviv.config.loader import load_config, resolve_config_completer
+from xviv.utils.theme import theme_cfg
 
 # ---------------------------------------------------------------------------
 # Internal helpers
@@ -28,18 +29,18 @@ def core_instance_completer(prefix: str, parsed_args, **kwargs) -> dict[str, str
 		parts = [vlnv, entry.display_name]
 		flags = []
 		if entry.hidden:
-			flags.append("⚠ internal")
+			flags.append(theme_cfg.warning("internal"))
 		if entry.board_dependent:
-			flags.append("⚠ board-dep")
+			flags.append(theme_cfg.warning("board-dep"))
 		if entry.ipi_only:
-			flags.append("⚠ IPI-only")
+			flags.append(theme_cfg.warning("IPI-only"))
 		if flags:
 			parts.append("  ".join(flags))
 		desc_text = " ".join(entry.description.split())
 		avail = _term_width() - sum(len(p) + 2 for p in parts)
 		if avail > 10 and desc_text:
 			if len(desc_text) > avail:
-				desc_text = desc_text[: avail - 1] + "…"
+				desc_text = desc_text[: avail - 3] + "..."
 			parts.append(f"- {desc_text}")
 		return "  ".join(parts)
 

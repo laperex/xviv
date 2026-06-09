@@ -1,4 +1,4 @@
-"""Tests for tools/vivado.py — ToolRunner hierarchy, VivadoRunner, XilinxToolRunner.classify."""
+"""Tests for tools/vivado.py - ToolRunner hierarchy, VivadoRunner, XilinxToolRunner.classify."""
 
 from __future__ import annotations
 

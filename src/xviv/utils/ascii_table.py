@@ -1,12 +1,15 @@
 import re
+
+# import shutil
 import typing
 from typing import Any, Callable, Dict, List, Optional
 
+from xviv.utils.term import terminal_full_length_divider
 from xviv.utils.theme import theme_cfg
 
 _ANSI_RE = re.compile(r"\033\[[0-9;]*m")
 _ALIGN_CHARS = {"l": "<", "r": ">", "c": "^"}
-_DIVIDER = object()  # sentinel — marks a horizontal rule inside the body
+_DIVIDER = object()  # sentinel - marks a horizontal rule inside the body
 
 
 # -- minimal internal colour helpers ------------------------------------------
@@ -57,6 +60,7 @@ class AsciiTable:
 		align: Optional[List[str]] = None,
 		color_map: Optional[Dict[str, Callable[[str], str]]] = None,
 		dim_borders: bool = True,
+		fit_terminal: bool = True,
 	) -> None:
 		self._title = title
 		self._headers: Optional[List[str]] = [str(h) for h in headers] if headers else None
@@ -65,6 +69,7 @@ class AsciiTable:
 		self._align: List[str] = list(align) if align else []
 		self._color_map: Dict[str, Callable] = color_map or {}
 		self._dim_borders: bool = dim_borders
+		self._fit_terminal: bool = fit_terminal
 
 	# ------------------------------------------------------------------ API
 
@@ -99,7 +104,7 @@ class AsciiTable:
 
 		plain = _ANSI_RE.sub("", s)
 		if len(plain) <= max_w:
-			return s  # short enough — keep any existing colour
+			return s  # short enough - keep any existing colour
 		return plain[: max_w - 3] + "..."
 
 	def _col_widths(self) -> List[int]:
@@ -116,6 +121,14 @@ class AsciiTable:
 			raw = max(_visual_len(r[i]) if i < len(r) else 0 for r in all_rows)
 			cap = self._max_widths[i] if i < len(self._max_widths) else None
 			widths.append(min(raw, cap) if cap is not None else raw)
+		if self._fit_terminal and widths:
+			term_w = len(terminal_full_length_divider())
+			# Table total width = (n_cols + 1) border chars + sum(w + 2) per column.
+			# Overhead = everything except the last column's content width:
+			#   (n_cols + 1) borders + sum(w + 2 for all-but-last cols) + 2 (last col padding)
+			overhead = (n_cols + 1) + sum(w + 2 for w in widths[:-1]) + 2
+			available = max(1, term_w - overhead)
+			widths[-1] = min(widths[-1], available)
 		return widths
 
 	def _b(self, s: str) -> str:
@@ -137,8 +150,7 @@ class AsciiTable:
 		for i, w in enumerate(widths):
 			cell = cells[i] if i < len(cells) else ""
 			cap = self._max_widths[i] if i < len(self._max_widths) else None
-			if cap is not None:
-				cell = self._trunc(cell, cap)
+			cell = self._trunc(cell, cap if cap is not None else w)
 			if colorize:
 				cell = self._colorize(cell)
 			a = _ALIGN_CHARS.get(self._align[i] if i < len(self._align) else "l", "<")
@@ -149,19 +161,30 @@ class AsciiTable:
 
 	def render(self) -> str:
 		widths = self._col_widths()
+
 		if not widths:
 			return ""
+
 		sep = self._sep(widths)
-		lines: List[str] = [self._title, sep]
+		lines: List[str] = []
+
+		if self._title:
+			lines.append(self._title)
+
+		lines.append(sep)
+
 		if self._headers:
 			lines.append(self._fmt_row(self._headers, widths, colorize=False))
 			lines.append(sep)
+
 		for row in self._rows:
 			if row is _DIVIDER:
 				lines.append(sep)
 			else:
 				lines.append(self._fmt_row(row, widths))
+
 		lines.append(sep)
+
 		return "\n".join(lines)
 
 	def print(self) -> None:

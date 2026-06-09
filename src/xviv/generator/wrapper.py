@@ -74,7 +74,7 @@ class SystemVerilogWrapper:
 	# ------------------------------------------------------------------
 
 	def _initialize_fileset(self, fileset: list[str]) -> None:
-		logger.debug("Initialising and parsing fileset…")
+		logger.debug("Initialising and parsing fileset...")
 		self.module_data: dict[str, ModuleInfo] = resolve_modules(fileset)
 		logger.debug("Modules resolved: %s", list(self.module_data.keys()))
 
@@ -95,7 +95,7 @@ class SystemVerilogWrapper:
 		self,
 	) -> tuple[list[str], list[str], list[str], dict[str, tuple]]:
 
-		logger.debug("Resolving wrapper IO…")
+		logger.debug("Resolving wrapper IO...")
 
 		top_info = self.module_data[self.top]
 
@@ -125,7 +125,7 @@ class SystemVerilogWrapper:
 				flat_params.append(_param_decl_str(pname, pdecl, mapped))
 
 			# Build a substitution function for parameter name replacement
-			# inside interface signal types (e.g. WIDTH → U_M_AXI_WIDTH).
+			# inside interface signal types (e.g. WIDTH -> U_M_AXI_WIDTH).
 			if param_map:
 				_pat = re.compile(r"\b(" + "|".join(re.escape(k) for k in param_map) + r")\b")
 
@@ -176,7 +176,7 @@ class SystemVerilogWrapper:
 	# ------------------------------------------------------------------
 
 	def _create_wrapper(self) -> None:
-		logger.debug("Creating wrapper…")
+		logger.debug("Creating wrapper...")
 		flat_params, flat_ports, flat_assign, instantiations = self._resolve_wrapper_io()
 
 		param_block = ",\n\t".join(flat_params).strip().rstrip(",")
