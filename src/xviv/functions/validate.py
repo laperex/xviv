@@ -108,21 +108,26 @@ class XDCLinter:
 		self.results.clear()
 		self.stale_patterns.clear()
 
-		# Expand every RTL port to its individual bits.
 		all_bits: dict[str, PortInfo] = {}
 		for pi in self.rtl_ports:
 			for bit in pi.expand_bits():
 				all_bits[bit] = pi
 
-		# For each bit, merge all matching XDC constraints.
 		for bit, pi in sorted(all_bits.items(), key=lambda x: (x[1].name, x[0])):
 			merged = PortConstraint()
 			matched_any = False
+			pin_has_indexed_match = False  # PACKAGE_PIN came from an indexed pattern
+			pin_has_unindexed_match = False  # PACKAGE_PIN came from a bare bus name
 
 			for pattern, pc in self.port_constraints.items():
 				if _matches(bit, pattern):
 					merged.merge(pc)
 					matched_any = True
+					if pc.package_pin:
+						if "[" not in pattern:
+							pin_has_unindexed_match = True
+						else:
+							pin_has_indexed_match = True
 
 			r = LintResult(
 				port_bit=bit,
@@ -134,6 +139,15 @@ class XDCLinter:
 				r.no_xdc_entry = True
 			else:
 				r.missing_pkg_pin = merged.package_pin is None
+
+				if (
+					not r.missing_pkg_pin  # seemed OK from merged data ...
+					and not pin_has_indexed_match  # ... but no [N] pattern set it
+					and pin_has_unindexed_match  # only a bare bus-name match
+					and pi.width > 1  # and this is actually a bus
+				):
+					r.missing_pkg_pin = True  # ALL bits: no valid per-bit LOC
+
 				r.missing_iostd = merged.iostandard is None
 				if pi.direction == "In":
 					is_clk_name = bool(re.search(r"clk|clock|sys_clk", bit, re.I))
@@ -142,7 +156,6 @@ class XDCLinter:
 
 			self.results.append(r)
 
-		# Identify stale patterns (XDC entries that matched nothing in RTL).
 		for pattern in self.port_constraints:
 			if not any(_matches(bit, pattern) for bit in all_bits):
 				self.stale_patterns.append(pattern)
