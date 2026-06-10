@@ -26,24 +26,19 @@ def cmd_synth(
 
 	synth_tcl_command = ConfigTclCommands(cfg)
 
-	# if params.parallel_subcore_synth:
-
 	if subcore_list := cfg.get_subcore_list(bd_name=bd_name, design_name=design_name):
-		find_vivado_dir_path(exit_on_fail=True)
+		if params.parallel_subcore_synth:
+			find_vivado_dir_path(exit_on_fail=True)
 
-		VivadoRunner(cfg).make_pairs(
-			[i.core for i in subcore_list],
-			lambda name: ConfigTclCommands(cfg).synth(core=name, params=SynthParams()).build(),
-			label_prefix="ooc_synth",
-			log_prefix="ooc_synth_core",
-			annotate=True,
-		).run(sequential=not params.parallel_subcore_synth)
-
-		params.parallel_subcore_synth = True
-
-	# else:
-	# 		for i in subcore_list:
-	# 			synth_tcl_command = synth_tcl_command.synth(core=i.core, params=SynthParams())
+			VivadoRunner(cfg).make_pairs(
+				[i.core for i in subcore_list],
+				lambda name: ConfigTclCommands(cfg).synth(core=name, params=SynthParams()).build(),
+				label_prefix="ooc_synth",
+				log_prefix="ooc_synth_core",
+				annotate=True,
+			).run(sequential=not params.parallel_subcore_synth)
+		# else:
+		# 	params.parallel_subcore_synth = params.parallel_subcore_synth
 
 	VivadoRunner(cfg).make_pairs(
 		[i for i in [design_name, bd_name, core_name] if i is not None],
