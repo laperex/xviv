@@ -5,13 +5,11 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Tests](https://github.com/laperex/xviv/actions/workflows/test.yml/badge.svg)](https://github.com/laperex/xviv/actions/workflows/test.yml)
 
-CLI project controller for Vivado and Vitis.
+Declarative CLI for Xilinx Vivado and Vitis — reproducible FPGA builds from a single `project.toml`, no GUI required.
 
 ```sh
 pip install xviv
 ```
-
-> **Work in progress.** xviv is being actively developed alongside another project and the API is not stable.
 
 ---
 
@@ -34,7 +32,7 @@ pip install xviv
 Requires **Python 3.11+**. Vivado and Vitis must be on your PATH (source `settings64.sh`), or set `XVIV_VIVADO_SOURCE_SCRIPT` and xviv will source it for you:
 
 ```sh
-# .env1 at project root (recommended, add to .gitignore)
+# .env at project root (recommended, add to .gitignore)
 XVIV_VIVADO_SOURCE_SCRIPT=/tools/Xilinx/Vivado/2024.1/settings64.sh
 ```
 
