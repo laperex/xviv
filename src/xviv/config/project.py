@@ -281,6 +281,8 @@ class XvivConfig:
 
 		if self._vivado_cfg.path:
 			self._vivado_cfg.glbl_file = os.path.join(self._vivado_cfg.path, "data/verilog/src/glbl.v")
+			self._vivado_cfg.vv_index_file = os.path.join(self._vivado_cfg.path, "data/ip/vv_index.xml")
+
 			self._vivado_cfg.xsim_bin = os.path.join(self._vivado_cfg.path, "bin", self._vivado_cfg.xsim_bin)
 			self._vivado_cfg.xvlog_bin = os.path.join(self._vivado_cfg.path, "bin", self._vivado_cfg.xvlog_bin)
 			self._vivado_cfg.xelab_bin = os.path.join(self._vivado_cfg.path, "bin", self._vivado_cfg.xelab_bin)
@@ -291,7 +293,8 @@ class XvivConfig:
 		return self
 
 	def refresh_catalog(self) -> None:
-		self._catalog_cfg = Catalog(vivado_path=self._vivado_cfg.path, ip_repos=self.ip_repo_list)
+		
+		self._catalog_cfg = Catalog(vv_index_file=self._vivado_cfg.path, ip_repos=self.ip_repo_list)
 
 	def add_vitis_cfg(
 		self,

@@ -89,6 +89,7 @@ class VivadoConfig:
 	vivado_bin: str = "vivado"
 
 	glbl_file: str | None = None
+	vv_index_file: str | None = None
 
 
 @dataclasses.dataclass

@@ -14,14 +14,13 @@ logger = logging.getLogger(__name__)
 
 
 class Catalog:
-	def __init__(self, vivado_path: str | None, ip_repos: list[str] | None = None) -> None:
+	def __init__(self, vv_index_file: str | None, ip_repos: list[str] = []) -> None:
 		self._cores: dict[str, CatalogCoreEntry] = {}
-		self._load(vivado_path, ip_repos or [])
 
-	def _load(self, vivado_path: str | None, ip_repos: list[str]) -> None:
-		if vivado_path:
-			xml_path = os.path.join(vivado_path, "data", "ip", "vv_index.xml")
-			self._cores.update(vv_index_xml.parser(xml_path))
+		if not vv_index_file:
+			return None
+
+		self._cores.update(vv_index_xml.parser(vv_index_file))
 
 		for repo in ip_repos:
 			merged = _load_ip_repo(repo)
