@@ -92,6 +92,7 @@ class SimulateParams:
 @dataclasses.dataclass
 class SynthParams:
 	resume: str | None = None
+	rebuild: bool = False
 	parallel_subcore_synth: bool = False
 
 

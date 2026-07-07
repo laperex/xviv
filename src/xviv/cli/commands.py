@@ -388,6 +388,7 @@ class SynthCommand(Command):
 			required=False,
 		)
 		c.add_argument("--parallel", action="store_true", help="Parallel synthesis of sub cores", default=False, required=False)
+		c.add_argument("--rebuild", action="store_true", help="Override disable incremental synth", default=False, required=False)
 
 	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
 		super().run(cfg, args)

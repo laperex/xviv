@@ -883,7 +883,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 		if start_stage > SynthStage.SYNTH:
 			logger.info("skipping synth_design (resuming from checkpoint)")
 		else:
-			if synth_cfg.synth_incremental:
+			if synth_cfg.synth_incremental and params.rebuild:
 				self._incremental("synthesis", dcp_file=synth_cfg.synth_dcp)
 
 			if not synth_cfg.run_synth:
@@ -959,7 +959,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 		if start_stage > SynthStage.PLACE:
 			logger.info("skipping place_design (resuming from checkpoint)")
 		else:
-			if synth_cfg.impl_incremental:
+			if synth_cfg.impl_incremental and params.rebuild:
 				self._incremental("implementation", dcp_file=synth_cfg.route_dcp)
 
 			if not synth_cfg.run_place:
