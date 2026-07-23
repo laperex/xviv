@@ -155,8 +155,6 @@ Every command also generates a `project.lock` file at the project root - a TOML 
 
 ---
 
----
-
 ## Project layout
 
 ```
