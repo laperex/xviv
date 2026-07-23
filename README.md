@@ -13,7 +13,34 @@ pip install xviv
 
 ---
 
-## The problem
+- [Description](#description)
+    - [The problem](#the-problem)
+    - [The philosophy](#the-philosophy)
+    - [Machine agnostic](#machine-agnostic)
+    - [Efficiency](#efficiency)
+    - [Debugging](#debugging)
+    - [Collaborative debugging](#collaborative-debugging)
+- [Install](#install)
+  - [Shell completion](#shell-completion)
+- [Getting started](#getting-started)
+- [project.toml](#projecttoml)
+- [Commands](#commands)
+  - [Working with IPs and BDs](#working-with-ips-and-bds)
+  - [Synthesis](#synthesis)
+  - [Simulation](#simulation)
+  - [Embedded](#embedded)
+  - [Validate](#validate)
+  - [Formal](#formal)
+- [Project layout](#project-layout)
+- [Validate](#validate-1)
+- [Roadmap](#roadmap)
+- [License](#license)
+
+---
+
+## Description
+
+### The problem
 
 Unlike traditional C++ or Python development, RTL/FPGA projects built with Vivado are notoriously hostile to version control and team collaboration.
 
@@ -21,7 +48,7 @@ Vivado's default Project Mode tightly couples the developer to its GUI. It burie
 
 Vivado's Non-Project Mode solves the version control issue, but lacks a modern developer experience — forcing teams to manually manage complex Tcl scripts just to maintain a workflow.
 
-## The philosophy
+### The philosophy
 
 xviv bridges this gap, borrowing heavily from the developer experience Cargo brought to Rust: one manifest, one CLI, reproducible builds, and no clicking through wizards for something that should just be a command.
 
@@ -29,21 +56,21 @@ It provides a configuration-driven CLI that enforces a strict separation between
 
 It automates the scriptable parts of the Non-Project flow, while seamlessly allowing developers to spin up the Vivado GUI for tasks where it genuinely shines — like editing IP Packaging, configuring cores, or designing Block Diagrams.
 
-## Machine agnostic
+### Machine agnostic
 
 Nothing in the tracked config ever points at a specific machine. The local Vivado install path lives in an environment variable, not the config (see `XVIV_VIVADO_SOURCE_SCRIPT` below). Block designs are exported as re-runnable TCL snapshots instead of the `.bd` file itself, so two developers — or two Vivado versions — rebuild the exact same block design without touching the GUI. Checksums decide what's stale and needs rebuilding, so builds actually converge to the same state instead of quietly drifting apart across machines.
 
-## Efficiency
+### Efficiency
 
 The full synthesis pipeline (`synth_design` → `opt_design` → `place_design` → `phys_opt_design` → `route_design` → `write_bitstream`) runs as one command instead of stepping through the GUI manually, with shell completion for IP names, DCP paths, and more. Synthesis can resume from an existing checkpoint instead of rerunning from scratch after a small change, and out-of-context sub-core synthesis for block designs runs in parallel.
 
-## Debugging
+### Debugging
 
 Any checkpoint at any stage can be opened directly (`xviv open --dcp`), and waveform databases can be reopened without rerunning the simulation. A hot-reload mode for `xsim` means an RTL tweak doesn't require killing and restarting the simulation session. Formal verification failures print a ready-to-paste `gtkwave` command for the counterexample trace.
 
 Every synth run also embeds the short git commit SHA into the bitstream's `USR_ACCESS` field (with a bit reserved for a dirty working tree), so any bitstream can be traced back to the exact revision that produced it — useful when a board in the lab is misbehaving and it isn't obvious which build is actually on it.
 
-## Collaborative debugging
+### Collaborative debugging
 
 Because everything is reproducible, debugging stops being a one-person job. Anyone on the team can pull the exact commit and re-run synthesis to get the identical checkpoint a bug showed up in, so multiple people can dig into the same failing place/route stage independently instead of passing a laptop around. If an issue only shows up on one board, another engineer can check out that exact commit — visible directly in the bitstream — and try to reproduce it on their own setup before anyone touches the hardware again. Since block design changes are just TCL text, they can also be reviewed in a pull request like any other code change, catching a bad change before it's ever synthesized.
 
@@ -63,6 +90,25 @@ XVIV_VIVADO_SOURCE_SCRIPT=/tools/Xilinx/Vivado/2024.1/settings64.sh
 ```
 
 `pyslang` (already a declared dependency) is used for SV wrapper generation (`[[wrapper]]` sections).
+
+We'd also recommend enabling shell completion at this point — see [Shell completion](#shell-completion) below.
+
+### Shell completion
+
+```sh
+activate-global-python-argcomplete          # system-wide
+eval "$(register-python-argcomplete xviv)"  # or per-shell (bash)
+
+# Add to ~/.bashrc for persistence
+echo 'eval "$(register-python-argcomplete xviv)"' >> ~/.bashrc
+```
+
+Completion is dynamic:
+- IP, BD, design, simulation, core, platform, app, and formal target names come from `project.toml`
+- VLNV strings for `[[core]]` come from the live Vivado IP catalog with descriptions inline
+- DCP paths complete from known checkpoint locations for each synth run
+- UVM test names filter to the selected simulation target
+- Bitstream and ELF paths complete from known output locations
 
 For development:
 
@@ -113,27 +159,19 @@ Every command also generates a `project.lock` file at the project root — a TOM
 
 All sections except `[project]` are arrays of tables. A real project uses some combination of the following:
 
-**`[[fpga]]`** — part number and optional board definition. The first entry is the default; later sections can override with `fpga = "name"`.
-
-**`[[design]]`** — RTL sources and top module for a synthesisable design. Sources can be bare glob strings or structured entries with `used_in` stage filtering (`"synth"`, `"impl"`, `"ooc"`, `"sim"`).
-
-**`[[ip]]`** — custom IP to package with the Vivado IP Packager. xviv handles the packaging and wires the IP repo into the project. Use `[[wrapper]]` alongside it if the IP has interface ports that need flattening (requires `pyslang`).
-
-**`[[core]]`** — an instance of a catalog IP (Xilinx built-in or custom packaged). Identified by a partial VLNV that resolves against the live catalog; tab completion works here.
-
-**`[[bd]]`** — a block design. xviv creates it, opens the editor, and writes its state as a re-runnable TCL snapshot under `scripts/xviv/bd/`. After that, `create --bd <name>` recreates it non-interactively from the snapshot on any machine.
-
-**`[[synth]]`** — a synthesis run. Identified by one of `design`, `bd`, or `core`. Controls the full pipeline (which stages to run, incremental flows, directive overrides, reports, output artifacts).
-
-**`[[simulation]]`** — a simulation target. Backends: `xsim` (default) or `verilator`. Supports UVM (see `[[uvm]]`), SDF back-annotation, and post-synthesis / post-implementation modes.
-
-**`[[uvm]]`** — a UVM test configuration attached to a `[[simulation]]`. Each entry defines a test name, verbosity, and version. Multiple tests can target the same simulation.
-
-**`[[platform]]` / `[[app]]`** — Vitis embedded flow. `platform` generates a BSP from the XSA produced by synthesis; `app` scaffolds and builds a Vitis application against it. The `properties` key on `[[platform]]` sets BSP properties (e.g. `CONFIG.stdout`) directly from the TOML.
-
-**`[[formal]]`** — SymbiYosys formal verification target. Modes: `bmc`, `prove`, `cover`. Vivado is not required for this flow.
-
-**`[project]`** — optional global settings: `work_dir` (default: `"build"`), `log_file`, `board_repo`, `ip_repo`.
+| Section | Description |
+| --- | --- |
+| `[[fpga]]` | Part number and optional board definition. The first entry is the default; later sections can override with `fpga = "name"`. |
+| `[[design]]` | RTL sources and top module for a synthesisable design. Sources can be bare glob strings or structured entries with `used_in` stage filtering (`"synth"`, `"impl"`, `"ooc"`, `"sim"`). |
+| `[[ip]]` | Custom IP to package with the Vivado IP Packager. xviv handles the packaging and wires the IP repo into the project. Use `[[wrapper]]` alongside it if the IP has interface ports that need flattening (requires `pyslang`). |
+| `[[core]]` | An instance of a catalog IP (Xilinx built-in or custom packaged). Identified by a partial VLNV that resolves against the live catalog; tab completion works here. |
+| `[[bd]]` | A block design. xviv creates it, opens the editor, and writes its state as a re-runnable TCL snapshot under `scripts/xviv/bd/`. After that, `create --bd <name>` recreates it non-interactively from the snapshot on any machine. |
+| `[[synth]]` | A synthesis run. Identified by one of `design`, `bd`, or `core`. Controls the full pipeline (which stages to run, incremental flows, directive overrides, reports, output artifacts). |
+| `[[simulation]]` | A simulation target. Backends: `xsim` (default) or `verilator`. Supports UVM (see `[[uvm]]`), SDF back-annotation, and post-synthesis / post-implementation modes. |
+| `[[uvm]]` | A UVM test configuration attached to a `[[simulation]]`. Each entry defines a test name, verbosity, and version. Multiple tests can target the same simulation. |
+| `[[platform]]` / `[[app]]` | Vitis embedded flow. `platform` generates a BSP from the XSA produced by synthesis; `app` scaffolds and builds a Vitis application against it. The `properties` key on `[[platform]]` sets BSP properties (e.g. `CONFIG.stdout`) directly from the TOML. |
+| `[[formal]]` | SymbiYosys formal verification target. Modes: `bmc`, `prove`, `cover`. Vivado is not required for this flow. |
+| `[project]` | Optional global settings: `work_dir` (default: `"build"`), `log_file`, `board_repo`, `ip_repo`. |
 
 A complete example:
 
@@ -328,25 +366,6 @@ xviv formal --target gamma_props
 On failure, the counterexample trace path is printed with a `gtkwave` command ready to paste.
 
 Every command accepts `--dry-run` to print the generated TCL without executing.
-
----
-
-## Shell completion
-
-```sh
-activate-global-python-argcomplete          # system-wide
-eval "$(register-python-argcomplete xviv)"  # or per-shell (bash)
-
-# Add to ~/.bashrc for persistence
-echo 'eval "$(register-python-argcomplete xviv)"' >> ~/.bashrc
-```
-
-Completion is dynamic:
-- IP, BD, design, simulation, core, platform, app, and formal target names come from `project.toml`
-- VLNV strings for `[[core]]` come from the live Vivado IP catalog with descriptions inline
-- DCP paths complete from known checkpoint locations for each synth run
-- UVM test names filter to the selected simulation target
-- Bitstream and ELF paths complete from known output locations
 
 ---
 
