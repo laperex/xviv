@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Tests](https://github.com/laperex/xviv/actions/workflows/test.yml/badge.svg)](https://github.com/laperex/xviv/actions/workflows/test.yml)
 
-Declarative CLI for Xilinx Vivado and Vitis — reproducible FPGA builds from a single `project.toml`, no GUI required.
+Declarative CLI for Xilinx Vivado and Vitis - reproducible FPGA builds from a single `project.toml`, no GUI required.
 
 ```sh
 pip install xviv
@@ -23,6 +23,7 @@ pip install xviv
 - [Install](#install)
   - [Shell completion](#shell-completion)
 - [Getting started](#getting-started)
+- [Project layout](#project-layout)
 - [project.toml](#projecttoml)
 - [Commands](#commands)
   - [Working with IPs and BDs](#working-with-ips-and-bds)
@@ -31,7 +32,6 @@ pip install xviv
   - [Embedded](#embedded)
   - [Validate](#validate)
   - [Formal](#formal)
-- [Project layout](#project-layout)
 - [Validate](#validate-1)
 - [Roadmap](#roadmap)
 - [License](#license)
@@ -44,21 +44,21 @@ pip install xviv
 
 Unlike traditional C++ or Python development, RTL/FPGA projects built with Vivado are notoriously hostile to version control and team collaboration.
 
-Vivado's default Project Mode tightly couples the developer to its GUI. It buries absolute file paths inside its project files and indiscriminately mixes source code with massive generated build artifacts. This makes version control a mess and means a project that builds on one machine will likely break on another — two engineers, two machines, the same repository, and there's still no guarantee they get the same build.
+Vivado's default Project Mode tightly couples the developer to its GUI. It buries absolute file paths inside its project files and indiscriminately mixes source code with massive generated build artifacts. This makes version control a mess and means a project that builds on one machine will likely break on another - two engineers, two machines, the same repository, and there's still no guarantee they get the same build.
 
-Vivado's Non-Project Mode solves the version control issue, but lacks a modern developer experience — forcing teams to manually manage complex Tcl scripts just to maintain a workflow.
+Vivado's Non-Project Mode solves the version control issue, but lacks a modern developer experience - forcing teams to manually manage complex Tcl scripts just to maintain a workflow.
 
 ### The philosophy
 
 xviv bridges this gap, borrowing heavily from the developer experience Cargo brought to Rust: one manifest, one CLI, reproducible builds, and no clicking through wizards for something that should just be a command.
 
-It provides a configuration-driven CLI that enforces a strict separation between source files and build artifacts. Describe the whole project in a single `project.toml` — FPGA part, IP, block designs, RTL, synth/sim/formal targets — and everything Vivado actually generates (checkpoints, logs, cached IP outputs) goes into a single build directory that stays entirely git-ignored. Nobody has to sort through it or worry about breaking something by deleting it; it's rebuilt fresh every time. A clean clone is all you need to reproduce the project on any system.
+It provides a configuration-driven CLI that enforces a strict separation between source files and build artifacts. Describe the whole project in a single `project.toml` - FPGA part, IP, block designs, RTL, synth/sim/formal targets - and everything Vivado actually generates (checkpoints, logs, cached IP outputs) goes into a single build directory that stays entirely git-ignored. Nobody has to sort through it or worry about breaking something by deleting it; it's rebuilt fresh every time. A clean clone is all you need to reproduce the project on any system.
 
-It automates the scriptable parts of the Non-Project flow, while seamlessly allowing developers to spin up the Vivado GUI for tasks where it genuinely shines — like editing IP Packaging, configuring cores, or designing Block Diagrams.
+It automates the scriptable parts of the Non-Project flow, while seamlessly allowing developers to spin up the Vivado GUI for tasks where it genuinely shines - like editing IP Packaging, configuring cores, or designing Block Diagrams.
 
 ### Machine agnostic
 
-Nothing in the tracked config ever points at a specific machine. The local Vivado install path lives in an environment variable, not the config (see `XVIV_VIVADO_SOURCE_SCRIPT` below). Block designs are exported as re-runnable TCL snapshots instead of the `.bd` file itself, so two developers — or two Vivado versions — rebuild the exact same block design without touching the GUI. Checksums decide what's stale and needs rebuilding, so builds actually converge to the same state instead of quietly drifting apart across machines.
+Nothing in the tracked config ever points at a specific machine. The local Vivado install path lives in an environment variable, not the config (see `XVIV_VIVADO_SOURCE_SCRIPT` below). Block designs are exported as re-runnable TCL snapshots instead of the `.bd` file itself, so two developers - or two Vivado versions - rebuild the exact same block design without touching the GUI. Checksums decide what's stale and needs rebuilding, so builds actually converge to the same state instead of quietly drifting apart across machines.
 
 ### Efficiency
 
@@ -68,11 +68,11 @@ The full synthesis pipeline (`synth_design` → `opt_design` → `place_design` 
 
 Any checkpoint at any stage can be opened directly (`xviv open --dcp`), and waveform databases can be reopened without rerunning the simulation. A hot-reload mode for `xsim` means an RTL tweak doesn't require killing and restarting the simulation session. Formal verification failures print a ready-to-paste `gtkwave` command for the counterexample trace.
 
-Every synth run also embeds the short git commit SHA into the bitstream's `USR_ACCESS` field (with a bit reserved for a dirty working tree), so any bitstream can be traced back to the exact revision that produced it — useful when a board in the lab is misbehaving and it isn't obvious which build is actually on it.
+Every synth run also embeds the short git commit SHA into the bitstream's `USR_ACCESS` field (with a bit reserved for a dirty working tree), so any bitstream can be traced back to the exact revision that produced it - useful when a board in the lab is misbehaving and it isn't obvious which build is actually on it.
 
 ### Collaborative debugging
 
-Because everything is reproducible, debugging stops being a one-person job. Anyone on the team can pull the exact commit and re-run synthesis to get the identical checkpoint a bug showed up in, so multiple people can dig into the same failing place/route stage independently instead of passing a laptop around. If an issue only shows up on one board, another engineer can check out that exact commit — visible directly in the bitstream — and try to reproduce it on their own setup before anyone touches the hardware again. Since block design changes are just TCL text, they can also be reviewed in a pull request like any other code change, catching a bad change before it's ever synthesized.
+Because everything is reproducible, debugging stops being a one-person job. Anyone on the team can pull the exact commit and re-run synthesis to get the identical checkpoint a bug showed up in, so multiple people can dig into the same failing place/route stage independently instead of passing a laptop around. If an issue only shows up on one board, another engineer can check out that exact commit - visible directly in the bitstream - and try to reproduce it on their own setup before anyone touches the hardware again. Since block design changes are just TCL text, they can also be reviewed in a pull request like any other code change, catching a bad change before it's ever synthesized.
 
 ---
 
@@ -91,7 +91,7 @@ XVIV_VIVADO_SOURCE_SCRIPT=/tools/Xilinx/Vivado/2024.1/settings64.sh
 
 `pyslang` (already a declared dependency) is used for SV wrapper generation (`[[wrapper]]` sections).
 
-We'd also recommend enabling shell completion at this point — see [Shell completion](#shell-completion) below.
+We'd also recommend enabling shell completion at this point - see [Shell completion](#shell-completion) below.
 
 ### Shell completion
 
@@ -151,9 +151,49 @@ That runs the full pipeline: `synth_design` → `opt_design` → `place_design` 
 xviv open --dcp build/synth/top/checkpoints/route.dcp
 ```
 
-Every command also generates a `project.lock` file at the project root — a TOML snapshot of the fully-resolved configuration (all globs expanded, all defaults applied). Useful for debugging and as an audit trail.
+Every command also generates a `project.lock` file at the project root - a TOML snapshot of the fully-resolved configuration (all globs expanded, all defaults applied). Useful for debugging and as an audit trail.
 
 ---
+
+---
+
+## Project layout
+
+```
+project/
+├── project.toml               # single source of truth - commit this
+├── project.lock               # auto-generated resolved config snapshot
+├── .env                       # optional: XVIV_VIVADO_SOURCE_SCRIPT=...
+├── srcs/
+│   ├── rtl/
+│   ├── ip/
+│   ├── sim/
+│   └── sw/
+├── constraints/
+├── scripts/
+│   └── xviv/
+│       └── bd/
+│           └── system.tcl     # BD TCL snapshot - version control this
+└── build/                     # gitignore everything here
+    ├── log/
+    │   └── xviv.log
+    ├── synth/<name>/
+    │   ├── checkpoints/       # synth.dcp, place.dcp, route.dcp
+    │   ├── reports/
+    │   ├── netlists/
+    │   ├── <name>.bit
+    │   └── <name>.xsa
+    ├── core/                  # .xci files
+    ├── ip/                    # packaged IP repos
+    ├── bd/
+    ├── sim/<name>/
+    ├── platform/<name>/
+    ├── app/<name>/
+    └── formal/<name>/
+```
+
+`scripts/xviv/` is the only generated directory that belongs in version control. Everything under `build/` is reproducible from `project.toml` and the BD TCL snapshots.
+
 
 ## project.toml
 
@@ -369,52 +409,13 @@ Every command accepts `--dry-run` to print the generated TCL without executing.
 
 ---
 
-## Project layout
-
-```
-project/
-├── project.toml               # single source of truth — commit this
-├── project.lock               # auto-generated resolved config snapshot
-├── .env                       # optional: XVIV_VIVADO_SOURCE_SCRIPT=...
-├── srcs/
-│   ├── rtl/
-│   ├── ip/
-│   ├── sim/
-│   └── sw/
-├── constraints/
-├── scripts/
-│   └── xviv/
-│       └── bd/
-│           └── system.tcl     # BD TCL snapshot — version control this
-└── build/                     # gitignore everything here
-    ├── log/
-    │   └── xviv.log
-    ├── synth/<name>/
-    │   ├── checkpoints/       # synth.dcp, place.dcp, route.dcp
-    │   ├── reports/
-    │   ├── netlists/
-    │   ├── <name>.bit
-    │   └── <name>.xsa
-    ├── core/                  # .xci files
-    ├── ip/                    # packaged IP repos
-    ├── bd/
-    ├── sim/<name>/
-    ├── platform/<name>/
-    ├── app/<name>/
-    └── formal/<name>/
-```
-
-`scripts/xviv/` is the only generated directory that belongs in version control. Everything under `build/` is reproducible from `project.toml` and the BD TCL snapshots.
-
----
-
 ## Validate
 
 `xviv validate` cross-references XDC constraints against RTL port declarations without invoking Vivado. It runs entirely in Python:
 
-- **XDC parsing** — uses Python's built-in `tkinter.Tcl` engine to evaluate XDC files natively. Handles `set_property`, `create_clock`, `set_input_delay`, `set_output_delay`, `set_false_path`, `set_max_delay`, and Vivado-style glob/bus wildcards (`[*]`, `[?]`).
-- **RTL extraction** — uses `pyslang` to extract port declarations (name, direction, width) from SystemVerilog sources.
-- **Reporting** — renders a colour-coded ASCII table showing every port, its assigned PACKAGE_PIN, IOSTANDARD, and timing constraint coverage. Unconstrained or unmatched pins are flagged.
+- **XDC parsing** - uses Python's built-in `tkinter.Tcl` engine to evaluate XDC files natively. Handles `set_property`, `create_clock`, `set_input_delay`, `set_output_delay`, `set_false_path`, `set_max_delay`, and Vivado-style glob/bus wildcards (`[*]`, `[?]`).
+- **RTL extraction** - uses `pyslang` to extract port declarations (name, direction, width) from SystemVerilog sources.
+- **Reporting** - renders a colour-coded ASCII table showing every port, its assigned PACKAGE_PIN, IOSTANDARD, and timing constraint coverage. Unconstrained or unmatched pins are flagged.
 
 ```sh
 xviv validate synth --design top --io full
@@ -424,27 +425,30 @@ xviv validate synth --design top --io full
 
 ## Roadmap
 
-Roughly in order of priority.
+Near-term
 
-**Near-term**
+| Priority | Feature | Description |
+|---|---|---|
+| 1 | `validate synth --core` | XDC/port validation for standalone OOC core targets (currently only `--design` and `--bd` are supported) |
+| 2 | DPI support | C/C++ testbenches that call into the simulator via DPI-C |
+| 3 | Configurable HSI targets | FPGA part and processor target passed to `hsi` during BSP generation are currently driven by the `[[platform]]` properties dict; exposing typed config keys would be cleaner |
+| 4 | Subcore support for custom IPs | Declare that a custom IP depends on another IP internally (e.g. a `clk_wiz` sub-core) so the packager carries the dependency correctly. BDs get automatic subcore tracking already; standalone IPs don't |
 
-- **`validate synth --core`** — XDC/port validation for standalone OOC core targets (currently only `--design` and `--bd` are supported).
-- **DPI support** — C/C++ testbenches that call into the simulator via DPI-C.
-- **Configurable HSI targets** — the FPGA part and processor target passed to `hsi` during BSP generation are currently driven by the `[[platform]]` properties dict; exposing typed config keys would be cleaner.
-- **Subcore support for custom IPs** — declare that a custom IP depends on another IP internally (e.g. a `clk_wiz` sub-core), so the packager carries the dependency correctly. BDs get automatic subcore tracking already; standalone IPs don't.
+Feature additions
 
-**Feature additions**
+| Priority | Feature | Description |
+|---|---|---|
+| 1 | ILA / debug core insertion | Add and configure Integrated Logic Analyzer cores during implementation, with an optional GUI mode for probe assignment |
+| 2 | QSPI flash programming | Extend `program` to write bitstreams to QSPI flash over JTAG, not just direct FPGA configuration |
+| 3 | HLS support | Bring Vitis HLS projects under the same `project.toml` and CLI; synthesized HLS output would export as a first-class IP feeding directly into `[[ip]]` and the BD flow |
+| 4 | Dependency graph | `graph` command to print or visualize the full entity dependency tree (fpga → ip → core → bd → synth → platform → app) |
 
-- **ILA / debug core insertion** — add and configure Integrated Logic Analyzer cores during implementation, with an optional GUI mode for probe assignment.
-- **QSPI flash programming** — extend `program` to write bitstreams to QSPI flash over JTAG, not just direct FPGA configuration.
-- **HLS support** — bring Vitis HLS projects under the same `project.toml` and CLI. Synthesised HLS output would export as a first-class IP feeding directly into `[[ip]]` and the BD flow.
-- **Dependency graph** — `graph` command to print or visualise the full entity dependency tree (fpga → ip → core → bd → synth → platform → app).
+Infrastructure
 
-**Infrastructure**
-
-- **CI/CD** — automatically run synthesis and validation from git push/PR events using xviv's CLI, typically on self-hosted infrastructure due to Vivado resource and licensing constraints.
-- **Remote synthesis server** — transparently dispatch synthesis jobs to a licensed network machine while preserving the same local xviv command workflow.
-
+| Priority | Feature | Description |
+|---|---|---|
+| 1 | CI/CD | Automatically run synthesis and validation from git push/PR events using xviv's CLI, typically on self-hosted infrastructure due to Vivado resource and licensing constraints |
+| 2 | Remote synthesis server | Transparently dispatch synthesis jobs to a licensed network machine while preserving the same local xviv command workflow |
 ---
 
 ## License
