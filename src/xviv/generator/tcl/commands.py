@@ -232,6 +232,7 @@ class ConfigTclCommands(ConfigTclBuilder):
 			raise error.ProcessorTargetFilterUnspecifiedError()
 
 		self._select_target(params.processor_target_filter)
+		self._after(1000)
 		self._push("jtagterminal")
 
 		# print(self._ConfigTclBuilder__lines)

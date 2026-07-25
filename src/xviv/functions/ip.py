@@ -28,7 +28,13 @@ def _ip_create_core_generate_list_from_ip_name(cfg: XvivConfig, ip_name: str, re
 			continue
 
 		for core in cfg._core_list:
-			if core.name in core_list or cfg.get_catalog().lookup(core.vlnv).vlnv != ip_cfg.vlnv or not os.path.exists(core.xci_file):
+			if core.name in core_list or not os.path.exists(core.xci_file):
+				continue
+
+			if entry := cfg.get_catalog().lookup_optional(core.vlnv):
+				if entry.vlnv != ip_cfg.vlnv:
+					continue
+			else:
 				continue
 
 			core_list.append(core.name)
