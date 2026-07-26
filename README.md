@@ -5,11 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Tests](https://github.com/laperex/xviv/actions/workflows/test.yml/badge.svg)](https://github.com/laperex/xviv/actions/workflows/test.yml)
 
-Declarative CLI for Xilinx Vivado and Vitis - reproducible FPGA builds from a single `project.toml`, no GUI required.
-
-```sh
-pip install xviv
-```
+Declarative CLI Workflow for Xilinx Vivado and Vitis - reproducible FPGA builds from a single `project.toml`.
 
 ---
 
