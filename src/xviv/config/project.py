@@ -293,8 +293,7 @@ class XvivConfig:
 		return self
 
 	def refresh_catalog(self) -> None:
-		
-		self._catalog_cfg = Catalog(vv_index_file=self._vivado_cfg.path, ip_repos=self.ip_repo_list)
+		self._catalog_cfg = Catalog(vv_index_file=self._vivado_cfg.vv_index_file, ip_repos=self.ip_repo_list)
 
 	def add_vitis_cfg(
 		self,
