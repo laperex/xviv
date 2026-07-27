@@ -298,7 +298,7 @@ class ProgramCommand(Command):
 		c = cls.c
 		target_group(c, exclusive=True, required=False, platform=True, bitstream=True)
 		target_group(c, exclusive=True, required=False, app=True, elf=True)
-		target_group(c, exclusive=False, required=False, fpga_filter=True, processor_filter=True)
+		target_group(c, exclusive=False, required=False, fpga_filter=True, processor_filter=True, write_to_file=True)
 
 		c.add_argument(
 			"--reset-duration", metavar="MS", type=int, help="Soft-reset duration in ms (default: %(default)s)", default=500, required=False
@@ -314,6 +314,7 @@ class ProgramCommand(Command):
 			processor_target_filter=args.processor,
 			processor_reset_duration=args.reset_duration,
 			fpga_target_filter=args.fpga,
+			write_to_file=args.write_to_file,
 		)
 		try:
 			cmd_program(cfg, params=params)

@@ -219,7 +219,25 @@ class ConfigTclCommands(ConfigTclBuilder):
 			self._select_target(params.processor_target_filter)
 			self._rst(processor=True)
 			self._dow(os.path.abspath(params.elf_file))
+
+			if params.write_to_file:
+				write_file = f"{params.elf_file}.log"
+
+				self._push(f"""
+if {{[catch {{open "{write_file}" w}} fp]}} {{
+    puts "ERROR: Could not open file {write_file} for writing."
+    exit 1
+}}
+""")
+				self._push("readjtaguart -start -handle $fp")
+				self._puts(f'"INFO: JTAG UART OUTPUT FILE: {write_file}"')
+
 			self._con()
+
+			if params.write_to_file:
+				self._push("vwait forever")
+				self._push("readjtaguart -stop")
+				self._close("$fp")
 
 		self._disconnect()
 
@@ -232,8 +250,10 @@ class ConfigTclCommands(ConfigTclBuilder):
 			raise error.ProcessorTargetFilterUnspecifiedError()
 
 		self._select_target(params.processor_target_filter)
-		self._after(1000)
-		self._push("jtagterminal")
+
+		# self._after(3000)
+		# self._push("jtagterminal")
+		# self._push
 
 		# print(self._ConfigTclBuilder__lines)
 

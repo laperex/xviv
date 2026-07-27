@@ -188,6 +188,7 @@ def cmd_program(cfg: XvivConfig, *, params: ProgramParams):
 					processor_target_filter=params.processor_target_filter,
 					processor_reset_duration=params.processor_reset_duration,
 					fpga_target_filter=params.fpga_target_filter,
+					write_to_file=params.write_to_file,
 				)
 			)
 			.build()

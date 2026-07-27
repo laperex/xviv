@@ -237,6 +237,7 @@ def target_group(
 	processor_filter: bool = False,
 	jtagterminal: bool = False,
 	recursive: bool = False,
+	write_to_file: bool = False,
 	_all: list[str] = [],
 ):
 	grp = parser
@@ -268,6 +269,8 @@ def target_group(
 
 	if jtagterminal:
 		grp.add_argument("--jtagterminal", action="store_true", help="Open Xsct JtagTerminal")
+	if write_to_file:
+		grp.add_argument("--write_to_file", action="store_true", help="Write Xsct Jtag UART output to file")
 
 	if ip:
 		arg(grp, "--ip", metavar="NAME", help="IP name", completer=c_ip, required=required)

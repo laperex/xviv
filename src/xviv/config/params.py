@@ -80,6 +80,7 @@ class ProgramParams:
 	processor_target_filter: str = "Microblaze #0*"
 	processor_reset_duration: int = 500
 	fpga_target_filter: str = "xc7a*"
+	write_to_file: bool = False
 
 
 @dataclasses.dataclass
