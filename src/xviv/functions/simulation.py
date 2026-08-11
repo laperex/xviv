@@ -31,6 +31,8 @@ def _build_uvm_plusargs(uvm_cfg: UvmConfig | None) -> list[str]:
 def _build_xsim_testplusargs(cfg: XvivConfig, sim_name: str, uvm_name: str | None) -> list[str]:
 	sim_cfg = cfg.get_sim(sim_name)
 
+	args = []
+
 	if uvm_name:
 		args = _build_uvm_plusargs(cfg.get_uvm(uvm_name, sim_name))
 
@@ -84,7 +86,7 @@ def cmd_simulate(cfg: XvivConfig, *, sim_name: str, params: SimulateParams):
 
 	match sim_cfg.backend:
 		case "xsim":
-			_run_xsim(cfg, sim_name, params.uvm_name, svlog_files, sdfmax_entries, sdfmin_entries, params.run)
+			_run_xsim(cfg, sim_name, params.uvm_name, svlog_files, sdfmax_entries, sdfmin_entries, params.run, incr=False)
 		case "verilator":
 			_run_verilator(cfg, sim_name, params.uvm_name, svlog_files)
 		case _:
@@ -99,6 +101,7 @@ def _run_xsim(
 	sdfmax_entries: list[str],
 	sdfmin_entries: list[str],
 	run: str,
+	incr: bool
 ):
 	sim_cfg = cfg.get_sim(sim_name)
 
@@ -126,6 +129,7 @@ def _run_xsim(
 		fileset=svlog_files,
 		label=__name__,
 		log_file=os.path.join(cfg.log_dir, "xvlog.log"),
+		incr=incr,
 		lib=filter(None, ["uvm" if uvm_name else None]),
 		xsim_lib=xsim_lib,
 		defines=sim_cfg.defines,

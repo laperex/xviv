@@ -186,12 +186,16 @@ class XvlogRunner(XilinxToolRunner):
 		*,
 		label: str,
 		log_file: str,
+		incr: bool,
 		lib: list[str] | None = None,
 		defines: list[str] | None = None,
 		include_dirs: list[str] | None = None,
 	) -> typing.Self:
 		viv = self._cfg.get_vivado()
-		cmd: list[str] = [viv.xvlog_bin, "--sv", "--incr", "--work", xsim_lib]
+		cmd: list[str] = [viv.xvlog_bin, "--sv", "--work", xsim_lib]
+
+		if incr:
+			cmd += ["--incr"]
 
 		for d in defines or []:
 			cmd += ["-d", d]
