@@ -7,6 +7,7 @@ from xviv.config.params import (
 	AppBuildParams,
 	AppCreateParams,
 	BdCreateParams,
+	CleanParams,
 	CoreCreateParams,
 	EditParams,
 	GenerateParams,
@@ -40,6 +41,7 @@ from xviv.functions.bsp import (
 	cmd_processor,
 	cmd_program,
 )
+from xviv.functions.clean import cmd_clean
 from xviv.functions.core import cmd_core_create, cmd_core_edit, cmd_core_generate, cmd_search_core
 from xviv.functions.formal import cmd_formal
 from xviv.functions.ip import cmd_ip_create, cmd_ip_edit
@@ -455,3 +457,60 @@ class ValidateCommand(Command):
 			case _:
 				self.c.print_help()
 				self.c.exit(2, "\nSpecify a sub-command, e.g.:  xviv validate synth --design NAME\n")
+
+
+class CleanCommand(Command):
+	name = "clean"
+	help = "Clean build directories and tool artifacts"
+
+	@classmethod
+	def register(cls, sub: argparse._SubParsersAction) -> None:
+		super().register(sub)
+		c = cls.c
+
+		target_group(c, exclusive=True, required=False, bd=True, design=True, core=True, ip=True, app=True, platform=True)
+		target_group(c, exclusive=False, required=False, force=True)
+
+		sub_clean = c.add_subparsers(dest="clean_cmd", metavar="[all|logs|cache|synth|impl|sim|formal]")
+
+		sub_clean.add_parser("all", help="Wipe the entire work directory completely")
+		sub_clean.add_parser("logs", help="Clean tool logs (*.log, *.jou, *.pb)")
+		sub_clean.add_parser("cache", help="Clean Vivado cache directories (.Xil)")
+
+		p_synth = sub_clean.add_parser("synth", help="Clean synthesis artifacts")
+		target_group(p_synth, exclusive=True, required=True, bd=True, design=True, core=True)
+
+		p_impl = sub_clean.add_parser("impl", help="Clean implementation artifacts")
+		target_group(p_impl, exclusive=True, required=True, bd=True, design=True, core=True)
+
+		p_sim = sub_clean.add_parser("sim", help="Clean simulation waveforms and databases")
+		target_group(p_sim, exclusive=False, required=True, sim_target=True)
+
+		p_form = sub_clean.add_parser("formal", help="Clean formal verification traces")
+		target_group(p_form, exclusive=False, required=True, formal_target=True)
+
+	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
+		# 1. Handle stage-specific and system targets (Subcommands)
+
+		cmd = getattr(args, "clean_cmd", None)
+
+		cmd_clean(
+			cfg,
+			design_name=args.design,
+			bd_name=args.bd,
+			core_name=args.core,
+			ip_name=args.ip,
+			app_name=args.app,
+			platform_name=args.platform,
+			params=CleanParams(
+				all=(cmd == "all"),
+				logs=(cmd == "logs"),
+				cache=(cmd == "cache"),
+				synth=(cmd == "synth"),
+				impl=(cmd == "impl"),
+				sim_target=args.target if cmd == "sim" else None,
+				formal_target=args.target if cmd == "formal" else None,
+			),
+		)
+		
+		# self.c.exit(2, "\nNo valid target specified. Use 'xviv clean --help' for syntax.\n")
