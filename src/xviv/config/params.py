@@ -104,3 +104,14 @@ class ValidateParams:
 	design: str | None = None
 	bd: str | None = None
 	core: str | None = None
+
+
+@dataclasses.dataclass
+class CleanParams:
+	all: bool = False
+	logs: bool = False
+	cache: bool = False
+	synth: bool = False
+	impl: bool = False
+	sim_target: str | None = None
+	formal_target: str | None = None

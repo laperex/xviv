@@ -2,11 +2,12 @@ import argparse
 import typing
 from abc import ABC, abstractmethod
 
-from xviv.cli.completers import arg, c_app, c_bd, c_core, c_design, c_formal_target, c_ip, c_platform, c_sim_target, target_group
+from xviv.cli.completers import target_group
 from xviv.config.params import (
 	AppBuildParams,
 	AppCreateParams,
 	BdCreateParams,
+	CleanParams,
 	CoreCreateParams,
 	EditParams,
 	GenerateParams,
@@ -40,6 +41,7 @@ from xviv.functions.bsp import (
 	cmd_processor,
 	cmd_program,
 )
+from xviv.functions.clean import cmd_clean
 from xviv.functions.core import cmd_core_create, cmd_core_edit, cmd_core_generate, cmd_search_core
 from xviv.functions.formal import cmd_formal
 from xviv.functions.ip import cmd_ip_create, cmd_ip_edit
@@ -456,48 +458,59 @@ class ValidateCommand(Command):
 				self.c.print_help()
 				self.c.exit(2, "\nSpecify a sub-command, e.g.:  xviv validate synth --design NAME\n")
 
+
 class CleanCommand(Command):
-    name = "clean"
-    help = "Clean build directories and tool artifacts"
+	name = "clean"
+	help = "Clean build directories and tool artifacts"
 
-    @classmethod
-    def register(cls, sub: argparse._SubParsersAction) -> None:
-        c = sub.add_parser(cls.name, help=cls.help)
+	@classmethod
+	def register(cls, sub: argparse._SubParsersAction) -> None:
+		super().register(sub)
+		c = cls.c
 
-        c.add_argument("-n", "--dry-run", action="store_true", help="Print what would be deleted without deleting")
-        c.add_argument("-f", "--force", action="store_true", help="Bypass prompts (handled automatically via safe rm)")
+		target_group(c, exclusive=True, required=False, bd=True, design=True, core=True, ip=True, app=True, platform=True)
+		target_group(c, exclusive=False, required=False, force=True)
 
-        grp = c.add_mutually_exclusive_group(required=False)
-        arg(grp, "--bd", metavar="NAME|all", help="Clean Block Design artifacts", completer=c_bd)
-        arg(grp, "--core", metavar="NAME|all", help="Clean Core artifacts", completer=c_core)
-        arg(grp, "--ip", metavar="NAME|all", help="Clean IP artifacts", completer=c_ip)
-        arg(grp, "--app", metavar="NAME|all", help="Clean App artifacts", completer=c_app)
-        arg(grp, "--platform", metavar="NAME|all", help="Clean Platform artifacts", completer=c_platform)
+		sub_clean = c.add_subparsers(dest="clean_cmd", metavar="[all|logs|cache|synth|impl|sim|formal]")
 
-        sub_clean = c.add_subparsers(dest="clean_cmd", metavar="[all|logs|cache|synth|impl|sim|formal]")
-        
-        sub_clean.add_parser("all", help="Wipe the entire work directory completely")
-        sub_clean.add_parser("logs", help="Clean tool logs (*.log, *.jou, *.pb)")
-        sub_clean.add_parser("cache", help="Clean Vivado cache directories (.Xil)")
-        
-        p_synth = sub_clean.add_parser("synth", help="Clean synthesis artifacts")
-        grp_s = p_synth.add_mutually_exclusive_group(required=True)
-        arg(grp_s, "--design", metavar="NAME", completer=c_design)
-        arg(grp_s, "--bd", metavar="NAME", completer=c_bd)
-        arg(grp_s, "--core", metavar="NAME", completer=c_core)
-        
-        p_impl = sub_clean.add_parser("impl", help="Clean implementation artifacts")
-        grp_i = p_impl.add_mutually_exclusive_group(required=True)
-        arg(grp_i, "--design", metavar="NAME", completer=c_design)
+		sub_clean.add_parser("all", help="Wipe the entire work directory completely")
+		sub_clean.add_parser("logs", help="Clean tool logs (*.log, *.jou, *.pb)")
+		sub_clean.add_parser("cache", help="Clean Vivado cache directories (.Xil)")
 
-        p_sim = sub_clean.add_parser("sim", help="Clean simulation waveforms and databases")
-        arg(p_sim, "--sim", metavar="NAME", required=True, completer=c_sim_target)
-        
-        p_form = sub_clean.add_parser("formal", help="Clean formal verification traces")
-        arg(p_form, "--target", metavar="NAME", required=True, completer=c_formal_target)
+		p_synth = sub_clean.add_parser("synth", help="Clean synthesis artifacts")
+		target_group(p_synth, exclusive=True, required=True, bd=True, design=True, core=True)
 
-        cls.c = c
+		p_impl = sub_clean.add_parser("impl", help="Clean implementation artifacts")
+		target_group(p_impl, exclusive=True, required=True, bd=True, design=True, core=True)
 
-    def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
-        from xviv.functions.clean import execute_clean
-        execute_clean(cfg, args)
+		p_sim = sub_clean.add_parser("sim", help="Clean simulation waveforms and databases")
+		target_group(p_sim, exclusive=False, required=True, sim_target=True)
+
+		p_form = sub_clean.add_parser("formal", help="Clean formal verification traces")
+		target_group(p_form, exclusive=False, required=True, formal_target=True)
+
+	def run(self, cfg: XvivConfig, args: argparse.Namespace) -> None:
+		# 1. Handle stage-specific and system targets (Subcommands)
+
+		cmd = getattr(args, "clean_cmd", None)
+
+		cmd_clean(
+			cfg,
+			design_name=args.design,
+			bd_name=args.bd,
+			core_name=args.core,
+			ip_name=args.ip,
+			app_name=args.app,
+			platform_name=args.platform,
+			params=CleanParams(
+				all=(cmd == "all"),
+				logs=(cmd == "logs"),
+				cache=(cmd == "cache"),
+				synth=(cmd == "synth"),
+				impl=(cmd == "impl"),
+				sim_target=args.target if cmd == "sim" else None,
+				formal_target=args.target if cmd == "formal" else None,
+			),
+		)
+		
+		# self.c.exit(2, "\nNo valid target specified. Use 'xviv clean --help' for syntax.\n")

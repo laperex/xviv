@@ -1,88 +1,88 @@
-import argparse
+# import argparse
 import glob
 import logging
 import os
 import shutil
 
+from xviv.config.params import CleanParams
 from xviv.config.project import XvivConfig
+from xviv.utils.fs import resolve_globs
 
 logger = logging.getLogger(__name__)
 
+
 def _safe_rm(path: str, dry_run: bool) -> None:
-    if not os.path.exists(path):
-        return
-        
-    if dry_run:
-        logger.info(f"[DRY RUN] Would delete: {path}")
-        return
-        
-    try:
-        if os.path.isdir(path):
-            shutil.rmtree(path)
-        else:
-            os.remove(path)
-        logger.info(f"Deleted: {path}")
-    except OSError as e:
-        logger.error(f"Failed to remove {path}: {e}")
+	if not os.path.exists(path):
+		return
 
-def execute_clean(cfg: XvivConfig, args: argparse.Namespace) -> None:
-    dry_run = getattr(args, "dry_run", False)
-    
-    # 1. Handle stage-specific and system targets (Subcommands)
-    cmd = getattr(args, "clean_cmd", None)
-    
-    if cmd == "all":
-        _safe_rm(cfg.work_dir, dry_run)
-        return
-        
-    elif cmd == "logs":
-        for ext in ["*.jou", "*.log", "*.str", "*.pb", "*.wdb", "*.wcfg"]:
-            for f in glob.glob(os.path.join(cfg.base_dir, ext)):
-                _safe_rm(f, dry_run)
-        return
-        
-    elif cmd == "cache":
-        _safe_rm(os.path.join(cfg.base_dir, ".Xil"), dry_run)
-        # Optional: Add Vivado IP cache dir here if mapped in project config
-        return
-        
-    elif cmd in ("synth", "impl"):
-        id_name = getattr(args, "design", None) or getattr(args, "bd", None) or getattr(args, "core", None)
-        if id_name:
-            # Impl artifacts share the synth directory hierarchy in xviv
-            target_dir = os.path.join(cfg.synth_dir, id_name)
-            _safe_rm(target_dir, dry_run)
-        return
-        
-    elif cmd == "sim":
-        if args.sim:
-            target_dir = os.path.join(cfg.work_dir, "sim", args.sim)
-            _safe_rm(target_dir, dry_run)
-        return
-        
-    elif cmd == "formal":
-        if args.target:
-            # Matches the directory structure created by _sby_work_dir
-            target_dir = os.path.join(cfg.formal_dir, args.target)
-            _safe_rm(target_dir, dry_run)
-        return
+	if dry_run:
+		logger.info(f"[DRY RUN] Would delete: {path}")
+		return
 
-    # 2. Handle entity-based targets (Flags on base command)
-    entity_maps = {
-        "bd": (getattr(args, "bd", None), cfg.bd_dir),
-        "core": (getattr(args, "core", None), cfg.core_dir),
-        # ip, app, and platform directories map directly under the work_dir 
-        "ip": (getattr(args, "ip", None), os.path.join(cfg.work_dir, "ip")),
-        "app": (getattr(args, "app", None), os.path.join(cfg.work_dir, "app")),
-        "platform": (getattr(args, "platform", None), os.path.join(cfg.work_dir, "platform")),
-    }
+	try:
+		if os.path.isdir(path):
+			shutil.rmtree(path)
+		else:
+			os.remove(path)
+		logger.info(f"Deleted: {path}")
+	except OSError as e:
+		logger.error(f"Failed to remove {path}: {e}")
 
-    for ent_name, (val, base_path) in entity_maps.items():
-        if val:
-            if val == "all":
-                _safe_rm(base_path, dry_run)
-            else:
-                _safe_rm(os.path.join(base_path, val), dry_run)
-            return
-            
-    logger.warning("No valid target specified. Use 'xviv clean --help' for syntax.")
+
+def cmd_clean(
+	cfg: XvivConfig,
+	*,
+	design_name: str | None = None,
+	bd_name: str | None = None,
+	core_name: str | None = None,
+	ip_name: str | None = None,
+	app_name: str | None = None,
+	platform_name: str | None = None,
+	params: CleanParams,
+) -> None:
+	if params.all:
+		_safe_rm(cfg.work_dir, cfg.dry_run)
+
+	elif params.logs:
+		for ext in ["*.jou", "*.log", "*.str", "*.pb", "*.wdb", "*.wcfg"]:
+			for f in resolve_globs([os.path.join(cfg.base_dir, ext)], cfg.base_dir):
+				_safe_rm(f, cfg.dry_run)
+
+	elif params.cache:
+		_safe_rm(os.path.join(cfg.base_dir, ".Xil"), cfg.dry_run)
+		# Optional: Add Vivado IP cache dir here if mapped in project config
+
+	elif params.synth or params.impl:
+		if param_ids := [i for i in [design_name, core_name, bd_name] if i]:
+			# Impl artifacts share the synth directory hierarchy in xviv
+			target_dir = os.path.join(cfg.synth_dir, param_ids[0])
+			_safe_rm(target_dir, cfg.dry_run)
+
+	elif params.sim_target:
+		target_dir = os.path.join(cfg.work_dir, "sim", params.sim_target)
+		_safe_rm(target_dir, cfg.dry_run)
+
+	elif params.formal_target:
+		target_dir = os.path.join(cfg.formal_dir, params.formal_target)
+		_safe_rm(target_dir, cfg.dry_run)
+
+	else:
+		# 2. Handle entity-based targets (Flags on base command)
+		entity_maps = {
+			"bd": (bd_name, cfg.bd_dir),
+			"core": (core_name, cfg.core_dir),
+			# ip, app, and platform directories map directly under the work_dir
+			"ip": (ip_name, os.path.join(cfg.work_dir, "ip")),
+			"app": (app_name, os.path.join(cfg.work_dir, "app")),
+			"platform": (platform_name, os.path.join(cfg.work_dir, "platform")),
+		}
+
+		for name, (val, base_path) in entity_maps.items():
+			if val:
+				if val == "all":
+					_safe_rm(base_path, cfg.dry_run)
+				else:
+					if name == "ip":
+						val = cfg.get_ip(val).vid
+
+					_safe_rm(os.path.join(base_path, val), cfg.dry_run)
