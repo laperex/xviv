@@ -1,6 +1,7 @@
 import logging
 import os
 import re
+import sys
 
 from xviv.config.params import AppBuildParams, AppCreateParams, PlatformCreateParams, ProcessorParams, ProgramParams
 from xviv.config.project import XvivConfig
@@ -96,7 +97,7 @@ def cmd_app_build(cfg: XvivConfig, *, app_name: str, params: AppBuildParams):
 
 	run_job(
 		Job(
-			cmd=[
+			cmd=[  sys.executable, "-m", "compiledb",
 				"make",
 				f"-j{os.cpu_count() or 4}",
 				f"INCLUDEPATH=-I{bsp_include} -I{platform_cfg.work_dir}",
