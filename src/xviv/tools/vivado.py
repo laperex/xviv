@@ -484,7 +484,7 @@ class XsimRunner(XilinxToolRunner):
 		tmp.close()
 		tcl_path = Path(tmp.name)
 
-		cmd: list[str] = [self._cfg.get_vivado().xsim_bin]
+		cmd: list[str] = [self._cfg.get_vivado().xsim_bin, "-quiet"]
 		if top:
 			cmd += [top]
 		if wdb_file:
