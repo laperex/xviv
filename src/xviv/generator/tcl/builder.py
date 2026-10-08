@@ -923,6 +923,23 @@ class ConfigTclBuilder:
 
 		self._push(f'write_sdf {" ".join(params)} "{file}"')
 
+	def _write_debug_probes(
+		self,
+		file: str,
+		*,
+		force: bool = False,
+	):
+		params = filter(
+			None,
+			[
+				"-force" if force else None,
+			],
+		)
+
+		self._file_mkdir_dirname_file(file)
+
+		self._push(f'write_debug_probes {" ".join(params)} "{file}"')
+
 	def _write_bitstream(
 		self,
 		file: str,

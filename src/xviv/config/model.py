@@ -284,6 +284,7 @@ class SynthConfig(Lockable):
 	# output artifacts
 
 	bitstream: str | None = relpath_field(default=None)
+	debug_probes: str | None = relpath_field(default=False)
 	hw_platform: str | None = relpath_field(default=None)
 
 	# reports
@@ -323,6 +324,7 @@ class SynthConfig(Lockable):
 			"route_dcp",
 			"bitstream",
 			"hw_platform",
+			"debug_probes",
 			"synth_report_timing_summary",
 			"synth_report_utilization",
 			"synth_report_incremental_reuse",

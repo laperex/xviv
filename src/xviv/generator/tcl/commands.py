@@ -756,6 +756,9 @@ if {{[catch {{open "{write_file}" w}} fp]}} {{
 		if synth_cfg.hw_platform and not synth_cfg.run_route:
 			raise error.SynthXsaRequiresRouteError()
 
+		if synth_cfg.debug_probes and not synth_cfg.run_route:
+			raise error.SynthDebugProbesRequiresRouteError()
+
 		# -------------------------------------------------------------------------
 		# Resume stage resolution
 		# -------------------------------------------------------------------------
@@ -1043,6 +1046,10 @@ if {{[catch {{open "{write_file}" w}} fp]}} {{
 			)
 		if synth_cfg.impl_timing_sdf:
 			self._write_sdf(synth_cfg.impl_timing_sdf, mode="timesim", force=True)
+
+		if synth_cfg.debug_probes:
+			logger.info(f"write debug probes: {synth_cfg.debug_probes}")
+			self._write_debug_probes(synth_cfg.debug_probes, force=True)
 
 		# -------------------------------------------------------------------------
 		# Bitstream / XSA
