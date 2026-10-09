@@ -827,6 +827,11 @@ class SynthXsaRequiresRouteError(SynthConfigConflictError):
 		return "hw_platform_xsa_file is set but run_route=False - route must complete before XSA export"
 
 
+class SynthDebugProbesRequiresRouteError(SynthConfigConflictError):
+	def __str__(self) -> str:
+		return "write_debug_probes is set but run_route=False - route must complete before debug probes export"
+
+
 class SynthResumeDcpMissingError(XvivError):
 	def __init__(self, stage: str, path: str | None) -> None:
 		self.stage = stage

@@ -580,6 +580,7 @@ class XvivConfig:
 		route_dcp: bool | str | None = True,
 		bitstream: bool | str | None = None,
 		hw_platform: bool | str | None = None,
+		write_debug_probes: bool | str | None = False,
 		synth_report_timing_summary: bool | str | None = False,
 		synth_report_utilization: bool | str | None = False,
 		route_report_drc: bool | str | None = False,
@@ -703,6 +704,7 @@ class XvivConfig:
 				route_dcp=_resolve_val(route_dcp, os.path.join(synth_checkpoints_subdir, "route.dcp")),
 				bitstream=_resolve_val(bitstream, os.path.join(synth_subdir, f"{id_name}.bit")),
 				hw_platform=_resolve_val(hw_platform, os.path.join(synth_subdir, f"{id_name}.xsa")),
+				debug_probes=_resolve_val(write_debug_probes, os.path.join(synth_subdir, f"{id_name}.ltx")),
 				synth_report_timing_summary=_resolve_val(
 					synth_report_timing_summary,
 					os.path.join(synth_reports_subdir, "synth_report_timing_summary_file.rpt"),
