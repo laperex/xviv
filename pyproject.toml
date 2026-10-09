@@ -8,7 +8,7 @@ dynamic = ["version"]
 description = "Declarative CLI for Xilinx Vivado and Vitis — reproducible FPGA builds from project.toml"
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = ["pyslang <= 10.0.0", "argcomplete", "toml", "tomlkit", "argparse", "click"]
+dependencies = ["pyslang <= 10.0.0", "argcomplete", "toml", "tomlkit", "argparse", "click", "compiledb"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
