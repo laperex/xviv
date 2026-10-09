@@ -28,7 +28,7 @@ class XsctRunner(XilinxToolRunner):
 		tmp.close()
 		tcl_path = Path(tmp.name)
 
-		cmd: list[str] = [self._cfg.get_vitis().xsct_bin, str(tcl_path)]
+		cmd: list[str] = [self._cfg.get_vitis().xsct_bin, "-quiet", str(tcl_path)]
 
 		self._pairs.append(
 			(

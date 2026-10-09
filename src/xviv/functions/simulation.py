@@ -118,7 +118,7 @@ def _run_xsim(
 
 	xsim_lib = "xv_work"
 
-	elab_libs = ["secureip", "unimacro_ver", "unisims_ver"]
+	elab_libs = ["secureip", "unimacro_ver", "unisims_ver", "xpm"]
 	if uvm_name:
 		elab_libs.append("uvm")
 
